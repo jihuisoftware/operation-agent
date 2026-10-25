@@ -82,13 +82,6 @@ source ./activate
 hermes --version
 ```
 
-En PowerShell:
-
-```powershell
-. .\activate.ps1
-hermes --version
-```
-
 ### Entorno independiente de pruebas
 
 Usa el Python preparado por PM para crear un entorno nuevo:
@@ -173,7 +166,6 @@ hermes-agent/
 │
 ├── scripts/                  # Scripts del instalador y puente
 │   ├── install.sh                # Instalador Linux/macOS
-│   ├── install.ps1               # Instalador Windows PowerShell
 │   └── whatsapp-bridge/          # Puente WhatsApp Node.js (Baileys)
 │
 ├── skills/                   # Habilidades incluidas (copiadas a ~/.hermes/skills/ en la instalación)

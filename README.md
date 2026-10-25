@@ -50,21 +50,9 @@ Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenR
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 ```
 
-### Windows (native, PowerShell)
+### 运行平台
 
-> **Heads up:** Native Windows runs Hermes without WSL — CLI, gateway, TUI, and tools all work natively. If you'd rather use WSL2, the Linux/macOS one-liner above works there too. Found a bug? Please [file issues](https://github.com/NousResearch/hermes-agent/issues).
-
-Run this in PowerShell:
-
-```powershell
-iex (irm https://hermes-agent.nousresearch.com/install.ps1)
-```
-
-The source installer delegates Python 3.14, Node.js, npm, ripgrep, FFmpeg,
-and Python dependencies to PM. If Git is absent, it stages the verified Git
-for Windows archive in Hermes' tool store. It does not replace your system Git.
-See [installation methods](https://hermes-agent.nousresearch.com/docs/getting-started/installation)
-for the separate MSIX/App Installer package and its update ownership.
+当前运营版支持 macOS 和 Ubuntu，使用上方的 Bash 安装方式；Windows PowerShell 脚本已移除。
 
 > **Android / Termux:** A signed APT repository is available for aarch64 devices, with a `stable` channel (tagged releases) and a prerelease `canary` channel. The package includes Python, Node.js, and the TUI. Use the [Termux guide](https://hermes-agent.nousresearch.com/docs/getting-started/termux), not the desktop/server installer script.
 >
@@ -257,7 +245,6 @@ Built by [Nous Research](https://nousresearch.com).
 cd /Users/dm/code/agent/operation-agent
 source ./activate
 hermes gateway run -v
-
 
 cd /Users/dm/code/agent/operation-agent
 nvm use 22

@@ -29,8 +29,3 @@ def test_command_is_the_posix_source_line():
     assert activation_command() == "source ./activate"
 
 
-@pytest.mark.platforms("windows")
-def test_command_is_powershell_on_a_native_windows_shell(monkeypatch):
-    monkeypatch.delenv("MSYSTEM", raising=False)
-    monkeypatch.delenv("SHELL", raising=False)
-    assert activation_command() == ". .\\activate.ps1"

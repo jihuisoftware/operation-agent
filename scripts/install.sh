@@ -441,7 +441,7 @@ check_platform() {
     case "$(uname -s 2>/dev/null)" in
         Linux*) : ;;
         Darwin*) : ;;
-        *) fail "unsupported platform: $(uname -s). On Windows use install.ps1." unsupported_platform ;;
+        *) fail "unsupported platform: $(uname -s). This build supports macOS and Linux." unsupported_platform ;;
     esac
 }
 

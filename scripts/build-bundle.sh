@@ -7,7 +7,7 @@
 # The commit does not need to be pushed. The build is not notarized, and the
 # release signing variables in your shell are ignored. macOS can still sign
 # nested binaries with a Developer ID that it finds in your keychain.
-# Windows has its own script: scripts/build-bundle.ps1.
+# This build targets macOS and Linux.
 set -euo pipefail
 
 variant=bundled

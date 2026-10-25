@@ -57,15 +57,14 @@ def _relock_project(root: Path) -> int:
         print(f"✗ uv.lock refresh failed: {exc}")
         return 1
     print("✓ uv.lock updated from pyproject.toml")
-    windows = sys.platform == "win32"
-    activate = r". .\activate.ps1" if windows else "source ./activate"
+    activate = "source ./activate"
     print(f"Next: re-source activation to sync the environments: {activate}")
     opt_in = _new_opt_in_extras(root, before)
     if opt_in:
         # Activation syncs [all] plus extras already recorded, and --test-extras
         # REPLACES the default rather than adding to it, so [all] stays listed.
         names = ",".join(["all", *opt_in])
-        flag = f"-TestExtras '{names}'" if windows else f"--test-extras {names}"
+        flag = f"--test-extras {names}"
         print(f"New extras outside [all] ({', '.join(opt_in)}) need: {activate} {flag}")
     print("Then commit pyproject.toml and uv.lock together.")
     return 0
@@ -261,8 +260,6 @@ def _install_names(names: list[str], target: str | None = None, *, verify: bool 
                 print(f"✗ {e}", flush=True)
                 failed += 1
     return failed
-
-
 
 
 def _install_flag_error(args, *, extras: list[str], cross_target, tools_only: bool,
@@ -823,7 +820,6 @@ def cmd_repair(args) -> int:
 def cmd_bundle(args) -> int:
     from scripts.bundles.native import stage_native
     return stage_native(args)
-
 
 
 def main(argv=None) -> int:

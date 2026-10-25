@@ -84,18 +84,8 @@ runs:
       shell: bash
       run: bash "$GITHUB_ACTION_PATH/../../../tests/install/e2e-assets/record-start.sh" '${{ inputs.output }}'
 
-    - name: Start recording (windows)
-      if: inputs.mode == 'start' && runner.os == 'Windows'
-      shell: powershell
-      run: powershell -NoProfile -ExecutionPolicy Bypass -File "$env:GITHUB_ACTION_PATH\..\..\..\tests\install\e2e-assets\record-start.ps1" -OutFile "${{ inputs.output }}"
-
-    # ---- stop ---------------------------------------------------------------
     - name: Stop recording (posix)
       if: inputs.mode == 'stop' && runner.os != 'Windows'
       shell: bash
       run: bash "$GITHUB_ACTION_PATH/../../../tests/install/e2e-assets/record-stop.sh" '${{ inputs.output }}'
 
-    - name: Stop recording (windows)
-      if: inputs.mode == 'stop' && runner.os == 'Windows'
-      shell: powershell
-      run: powershell -NoProfile -ExecutionPolicy Bypass -File "$env:GITHUB_ACTION_PATH\..\..\..\tests\install\e2e-assets\record-stop.ps1" -OutFile "${{ inputs.output }}"

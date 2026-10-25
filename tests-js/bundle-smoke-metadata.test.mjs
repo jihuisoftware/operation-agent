@@ -134,8 +134,3 @@ test('workspace admission rejects reuse and symlink escapes before creating anyt
   } finally { fs.rmSync(temp, { recursive: true, force: true }) }
 })
 
-test.runIf(process.platform === 'win32')('PowerShell admits only the pinned package and native slice', () => {
-  const script = path.resolve(import.meta.dirname, '../tests/install/e2e-assets/windows-bundle-metadata.test.ps1')
-  expect(execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script],
-    { encoding: 'utf8' })).toContain('PASS: MSIX identity/executable and MSIXBUNDLE native-slice admission')
-})

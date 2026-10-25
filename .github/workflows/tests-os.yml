@@ -61,7 +61,8 @@ on:
         default: true
       strict_acceptance:
         description: >-
-          Acceptance runs only: known_failure owners whose gaps FAIL this run instead of xfailing ('upd-txn', a comma list, or '1' for every gap). Sets HERMES_E2E_STRICT_ACCEPTANCE for the E2E suites (tests/e2e/core/_pending_fixes.py).
+          Acceptance runs only: known_failure owners whose gaps FAIL this run instead of xfailing ('upd-txn', a comma list, or '1' for every gap).
+          Sets HERMES_E2E_STRICT_ACCEPTANCE for the E2E suites (tests/e2e/core/_pending_fixes.py).
         type: string
         required: false
         default: ''
@@ -92,19 +93,6 @@ jobs:
             runner: blacksmith-12vcpu-macos-latest
             marker: macos
             slice: 2/2
-          - name: Windows-only tests
-            runner: blacksmith-32vcpu-windows-2025
-            marker: windows
-          - name: Windows-only tests (arm64, 1/2)
-            runner: windows-latest-32-arm-core
-            marker: windows
-            timeout: 60
-            slice: 1/2
-          - name: Windows-only tests (arm64, 2/2)
-            runner: windows-latest-32-arm-core
-            marker: windows
-            timeout: 60
-            slice: 2/2
     steps:
       - name: Checkout code
         uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
@@ -112,10 +100,6 @@ jobs:
           ref: ${{ inputs.commit }}
 
       # No arm64 wheels for some of the extras below: PM builds them from sdist.
-      - name: Set up native ARM64 build dependencies
-        if: runner.os == 'Windows' && runner.arch == 'ARM64'
-        uses: ./.github/actions/setup-windows-build-deps
-
       - name: Set up locked Python and test dependencies
         uses: ./.github/actions/setup-pm
         with:
@@ -214,88 +198,3 @@ jobs:
         # (a half-extracted download, a worktree its later cleanup never removed).
         uses: ./.github/actions/check-clean-worktree
 
-  install-update-e2e:
-    # The real scripts/install.ps1 -> `hermes update` HEAD -> NEXT journey on a real Windows
-    # host (tests/e2e/core/windows_update): fresh install, gateway across the update,
-    # interpreter selection, non-ASCII profile paths and tool ACLs, partial-clone fetch and
-    # venv holders. Its own workflow so wine2e-install/** pushes can run it alone.
-    name: Windows install + update E2E
-    if: inputs.e2e_upgrade
-    uses: ./.github/workflows/windows-install-update-e2e.yml
-    with:
-      commit: ${{ inputs.commit }}
-      strict_acceptance: ${{ inputs.strict_acceptance }}
-
-  e2e-windows:
-    # Real Hermes processes on a real Windows host (tests/e2e/core/windows): hermes.exe,
-    # `hermes serve`, `hermes gateway run/stop`, the tui_gateway stdio process, cron script
-    # jobs, the terminal tool's Git Bash / PowerShell / cmd children and a ConPTY console,
-    # all against the loopback fake provider (tests/fakes/fake_llm_provider.py). Separate
-    # from os-tests above: those are unit-level Windows tests, these spawn process
-    # trees per test. Every file there is also marked `integration`, so os-tests'
-    # `-m "platforms and not integration"` never runs them a second time.
-    #
-    # One pytest process per FILE, in parallel (same model as the Linux `e2e` job): the
-    # files spawn their own trees and must not share interpreter state. No retries: a
-    # Windows race that passes on retry is still a race. Tracked Windows bugs are strict
-    # xfails (per-file KNOWN tables), so a fix turns this job red until the entry goes.
-    name: Windows E2E (real processes)
-    if: inputs.e2e
-    # 32-core like os-tests' Windows row: seven files run in parallel and each spawns
-    # process trees; on the 4-vCPU image the suite step took 153-171 s (job 4.7-5.6 min),
-    # here 124 s (job 3.1 min), with headroom against scheduling-starved timeouts.
-    runs-on: blacksmith-32vcpu-windows-2025
-    timeout-minutes: 25
-    steps:
-      - name: Checkout code
-        uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
-        with:
-          ref: ${{ inputs.commit }}
-
-      - name: Set up locked Python and test dependencies
-        uses: ./.github/actions/setup-pm
-        with:
-          packages: git,ripgrep
-          extras: '["all", "telegram", "anthropic", "mistral", "fal", "modal", "daytona", "parallel-web"]'
-          test-environment: 'true'
-          prune-python-cache: true
-
-      - name: Run Windows E2E suite
-        shell: bash
-        run: |
-          scripts/run_tests.sh tests/e2e/core/windows/ -- \
-            -m "platforms and integration" -v --tb=short -rA
-        env:
-          HERMES_E2E_STRICT_ACCEPTANCE: ${{ inputs.strict_acceptance }}
-          HERMES_TEST_WORKERS: '6'
-          HERMES_TEST_FILE_TIMEOUT: '900'
-          HERMES_TEST_FILE_RETRIES: '0'
-          OPENROUTER_API_KEY: ''
-          OPENAI_API_KEY: ''
-          NOUS_API_KEY: ''
-
-      - name: No leftover Python / Hermes processes
-        # Backstop for the per-test ownership checks: a file killed by its 900 s timeout,
-        # or a detached grandchild some test's cleanup missed, leaves an interpreter behind
-        # (Windows never re-parents, so nothing reaps it). The runner itself runs no
-        # python.exe / hermes.exe once the suite is done.
-        if: always()
-        shell: pwsh
-        run: |
-          $names = 'python.exe', 'pythonw.exe', 'hermes.exe'
-          $deadline = (Get-Date).AddSeconds(20)
-          do {
-            $left = @(Get-CimInstance Win32_Process | Where-Object { $names -contains $_.Name.ToLower() })
-            if ($left.Count -eq 0) { 'no leftover python/hermes processes'; exit 0 }
-            Start-Sleep -Milliseconds 500
-          } while ((Get-Date) -lt $deadline)
-          foreach ($p in $left) {
-            "::error::leftover pid=$($p.ProcessId) ppid=$($p.ParentProcessId): $($p.CommandLine)"
-          }
-          exit 1
-      - name: Check the checkout is clean
-        # Last step of every job (tests/ci/test_clean_worktree_check.py): a test or CI step that
-        # leaves an untracked or modified file in the checkout is reported here. Runs only when
-        # every earlier step passed: a step that failed midway can leave its own temp files
-        # (a half-extracted download, a worktree its later cleanup never removed).
-        uses: ./.github/actions/check-clean-worktree

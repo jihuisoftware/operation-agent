@@ -37,7 +37,7 @@ def _bump(lock):
 
 @pytest.fixture
 def checkout(tmp_path, monkeypatch):
-    for rel in ("scripts/gen-bootstrap-pins.py", "scripts/install.sh", "scripts/install.ps1"):
+    for rel in ("scripts/gen-bootstrap-pins.py", "scripts/install.sh"):
         (tmp_path / rel).parent.mkdir(exist_ok=True)
         shutil.copy2(REPO / rel, tmp_path / rel)
     shutil.copytree(REPO / "pm", tmp_path / "pm", ignore=shutil.ignore_patterns("__pycache__"))

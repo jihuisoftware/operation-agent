@@ -60,7 +60,7 @@ unreachable otherwise).
 
 ## Development Environment
 
-`source ./activate` (fish: `activate.fish`, PowerShell: `activate.ps1`) provisions and activates the
+`source ./activate` (fish: `activate.fish`) provisions and activates the
 PM environment; pick an isolated `HERMES_HOME`/`HERMES_RUNTIME_DIR` first
 (`website/docs/reference/package-management.md#developer-workflow`). Tests need the separate test
 environment in `CONTRIBUTING.md`. **`python scripts/check`** runs every blocking lint check CI

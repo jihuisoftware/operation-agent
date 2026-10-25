@@ -288,24 +288,9 @@ success. Desktop composition
 instead prepares the full dependency set before its single dependency snapshot
 save. The packaged `uv-cache/` is a copy, not the writable build cache.
 
-### Windows ARM64 build prerequisites
+### Supported build hosts
 
-`scripts/windows-build-deps.ps1` owns Visual Studio ARM64, Clang, Rust, and
-static OpenSSL preparation. PM calls it through `pm/native_build.py` before any
-dependency build from a checkout, so every source install path gets it. Native
-build adapters use the same `scripts/build/windows-deps.ps1` entrypoint through
-`pm.native_build`, before
-isolating HOME or compiling Node/Python dependencies. CI uses the same script
-through `setup-windows-build-deps`, with an OpenSSL cache outside the product.
-The product compilers and assembler do not install these prerequisites.
-
-The PowerShell entrypoint accepts `-StateRoot` for persistent build-tool state
-and `-EnvironmentFile` for its prepared environment. The Python adapter passes
-that environment only to build children. Rust's original toolchain homes stay
-explicit, so temporary HOME isolation cannot hide an initialized toolchain.
-General CI setup exports that compiler environment to later steps. Desktop
-preparation keeps it child-scoped and records native cache identity there.
-Warm OpenSSL reuse validates both static libraries and its development header.
+This operations build supports macOS and Linux. Windows PowerShell build providers have been removed.
 
 ## Runnable agent assembly
 

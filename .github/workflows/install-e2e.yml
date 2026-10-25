@@ -41,7 +41,9 @@ on:
   workflow_dispatch:
     inputs:
       route:
-        description: 'Which legs to run: all = every OS; both/update/installer = the linux legs; windows-desktop / macos-desktop = that OS; bundled / windows-bundled / macos-bundled = the signed-bundle legs. Anything else selects legs by name (a leg or job name, or a fragment of one).'
+        description: 'Which legs to run: all = every OS; both/update/installer = the linux legs; windows-desktop / macos-desktop = that OS; bundled
+          / windows-bundled / macos-bundled = the signed-bundle legs. Anything else selects legs by name (a leg or job name, or a fragment of
+          one).'
         required: false
         type: string
         default: all
@@ -83,7 +85,9 @@ on:
         type: boolean
         default: false
       route:
-        description: 'Which legs to run: all = every OS; both/update/installer = the linux legs; windows-desktop / macos-desktop = that OS; bundled / windows-bundled / macos-bundled = the signed-bundle legs. Anything else selects legs by name (a leg or job name, or a fragment of one).'
+        description: 'Which legs to run: all = every OS; both/update/installer = the linux legs; windows-desktop / macos-desktop = that OS; bundled
+          / windows-bundled / macos-bundled = the signed-bundle legs. Anything else selects legs by name (a leg or job name, or a fragment of
+          one).'
         required: false
         type: string
         default: all
@@ -108,7 +112,8 @@ on:
         type: string
         default: ''
       exclude-ref:
-        description: 'Exact release tag to EXCLUDE from the sampled OLD baselines (e.g. the candidate itself — testing an update from it would be a no-change test).'
+        description: 'Exact release tag to EXCLUDE from the sampled OLD baselines (e.g. the candidate itself — testing an update from it would
+          be a no-change test).'
         required: false
         type: string
         default: ''
@@ -252,23 +257,6 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
           node tests/install/e2e-assets/bundle-plan.mjs
 
-  windows-bundled:
-    name: ${{ matrix.name }}
-    if: inputs.windows-bundle-manifest != '' && contains(fromJSON('["all", "bundled", "windows-bundled"]'), inputs.route)
-    needs: bundle-inputs
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.bundle-inputs.outputs.windows) }}
-    uses: ./.github/workflows/install-e2e-windows-run.yml
-    with:
-      commit: ${{ inputs.commit }}
-      install-method: packaged-app
-      update-method: open-app-update
-      install-ref: ${{ matrix.install_ref }}
-      leg-id: ${{ matrix.leg_id }}
-      bundle-manifest-url: ${{ inputs.windows-bundle-manifest }}
-      bundle-arch: ${{ needs.bundle-inputs.outputs.windows-arch }}
-
   macos-bundled:
     name: ${{ matrix.name }}
     if: inputs.macos-bundle-manifest != '' && contains(fromJSON('["all", "bundled", "macos-bundled"]'), inputs.route)
@@ -298,23 +286,6 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.generate-matrix.outputs.linux) }}
     uses: ./.github/workflows/install-e2e-run.yml
-    with:
-      commit: ${{ inputs.commit }}
-      install-method: ${{ matrix.install_method }}
-      update-method: ${{ matrix.update_method }}
-      install-ref: ${{ matrix.install_ref }}
-      update-ref: ${{ matrix.update_ref }}
-      tag-has-desktop: ${{ matrix.tag_has_desktop }}
-      leg-id: ${{ matrix.leg_id }}
-
-  windows:
-    name: ${{ matrix.name }}
-    if: needs.generate-matrix.outputs.windows-legs != '0'
-    needs: generate-matrix
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.generate-matrix.outputs.windows) }}
-    uses: ./.github/workflows/install-e2e-windows-run.yml
     with:
       commit: ${{ inputs.commit }}
       install-method: ${{ matrix.install_method }}
@@ -379,22 +350,23 @@ jobs:
   source-gate:
     name: Source matrix gate
     if: always() && inputs.release == true
-    needs: [generate-matrix, linux, windows, macos]
+    needs:
+      - generate-matrix
+      - linux
+      - macos
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Evaluate source legs
         env:
           LINUX: ${{ needs.linux.result }}
-          WINDOWS: ${{ needs.windows.result }}
           MACOS: ${{ needs.macos.result }}
           LINUX_MATRIX: ${{ needs.generate-matrix.outputs.linux }}
-          WINDOWS_MATRIX: ${{ needs.generate-matrix.outputs.windows }}
           MACOS_MATRIX: ${{ needs.generate-matrix.outputs.macos }}
         run: |
           set -euo pipefail
           fail=0
-          for os_name in LINUX WINDOWS MACOS; do
+          for os_name in LINUX MACOS; do
             result="${!os_name}"
             matrix_var="${os_name}_MATRIX"
             matrix="${!matrix_var}"
@@ -421,7 +393,13 @@ jobs:
   report:
     name: Result chart
     if: always()
-    needs: [leg-player, pick-releases, linux, windows, macos, bundle-inputs, windows-bundled, macos-bundled]
+    needs:
+      - leg-player
+      - pick-releases
+      - linux
+      - macos
+      - bundle-inputs
+      - macos-bundled
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -457,7 +435,7 @@ jobs:
             exit 0
           fi
           {
-            echo "OS jobs: linux ${{ needs.linux.result }}, windows ${{ needs.windows.result }}, macos ${{ needs.macos.result }}"
+            echo "OS jobs: linux ${{ needs.linux.result }}, windows ${{ 'skipped' }}, macos ${{ needs.macos.result }}"
             echo
             # The tag annotations let the chart say WHY a cell skipped
             # (pre-desktop vs declared TODO) instead of a flat "skip".

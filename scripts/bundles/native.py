@@ -53,7 +53,6 @@ def _arch_guard(store_dir: Path) -> list[str]:
     return problems
 
 
-
 from pm.uv_cache_prune import lock_package_names, prune_uv_cache_to_lock
 
 __all__ = ["lock_package_names", "prune_uv_cache_to_lock", "stage_uv_cache"]
@@ -107,10 +106,6 @@ def stage_native(args) -> int:
     # Resolve before HOME isolation so the build warms the cache CI saves.
     cache = Path(getattr(args, "cache", None) or os.environ.get("UV_CACHE_DIR") or uv_cache_dir()).resolve()
     base_env = dict(os.environ)
-    if current_target() == "win32-arm64":
-        from pm.native_build import prepare_windows_environment
-
-        base_env = prepare_windows_environment(source=root, state=out.parent / ".build-deps", env=base_env)
     # Rustup resolves its installed toolchain under HOME unless these are explicit.
     # Preserve the build host's compiler and Cargo cache before isolating app state.
     for key, directory in (("CARGO_HOME", ".cargo"), ("RUSTUP_HOME", ".rustup")):
@@ -340,8 +335,6 @@ def _stage_native(args) -> int:
     except (InstallError, FeatureProbeError) as exc:
         print(f"✗ {exc}")
         return 1
-
-
 
 
 def main() -> int:

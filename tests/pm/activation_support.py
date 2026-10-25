@@ -22,9 +22,7 @@ from pm.store import current_target
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACTIVATE = REPO_ROOT / "activate"
 ACTIVATE_FISH = REPO_ROOT / "activate.fish"
-ACTIVATE_PS1 = REPO_ROOT / "activate.ps1"
 SETUP_HERMES_SH = REPO_ROOT / "setup-hermes.sh"
-SETUP_HERMES_PS1 = REPO_ROOT / "setup-hermes.ps1"
 CANARY = "HERMES_PM_ACTIVATE_CANARY"
 
 
@@ -162,7 +160,7 @@ def isolated_checkout(tmp_path: Path) -> Path:
     shutil.copytree(REPO_ROOT / "pm", root / "pm", ignore=shutil.ignore_patterns("__pycache__"))
     (root / "hermes_cli").mkdir()
     (root / "scripts").mkdir()
-    for relative in ("activate", "activate.fish", "activate.ps1", "scripts/_activation.sh",
+    for relative in ("activate", "activate.fish", "scripts/_activation.sh",
                      "hermes_constants.py", "hermes_cli/__init__.py",
                      "pm/environments.py", "hermes_cli/runtime_state.py"):
         shutil.copy2(REPO_ROOT / relative, root / relative)
@@ -171,9 +169,6 @@ def isolated_checkout(tmp_path: Path) -> Path:
     (root / "setup-hermes.sh").write_text(
         'test "$#" = 2 && test "$1" = --runtime-only && case "$2" in --test-environment*) ;; *) exit 2 ;; esac\n',
         encoding="utf-8",
-    )
-    (root / "setup-hermes.ps1").write_text(
-        "param([switch]$RuntimeOnly)\nif (-not $RuntimeOnly) { exit 2 }\n", encoding="utf-8",
     )
     return root
 
@@ -190,24 +185,6 @@ def bash_env(store: Path) -> dict:
     # is the only thing activate adds beyond the ambient environment.
     env.pop(CANARY, None)
     return env
-
-
-def powershell() -> str | None:
-    for name in ("pwsh", "powershell"):
-        found = shutil.which(name)
-        if found and "windowsapps" not in str(found).lower():
-            return found
-    # Prefer the conventional System32 host over an MSIX-packaged one
-    # (same WinError-5-outside-package-context class as bash()); also the
-    # fallback when the hermetic runner's PATH misses both names.
-    if sys.platform == "win32":
-        cand = (
-            Path(os.environ.get("SystemRoot", r"C:\Windows"))
-            / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
-        )
-        if cand.exists():
-            return str(cand)
-    return None
 
 
 def sync_checkout(tmp_path: Path):
@@ -261,15 +238,5 @@ def sync_checkout(tmp_path: Path):
         'test "$#" = 2 && test "$1" = --runtime-only && test "$2" = --test-environment || exit 2\n'
         f'cd {shlex.quote(str(root))} || exit 3\n'
         f'exec {shlex.quote(str(python))} sync.py runtime-only --trust-recorded --test-environment\n', encoding="utf-8",
-    )
-    (root / "setup-hermes.ps1").write_text(
-        "param([switch]$RuntimeOnly)\n"
-        "if (-not $RuntimeOnly) { exit 2 }\n"
-        "$ErrorActionPreference = 'Stop'\n"
-        "$record = @{pid=$PID; executable=(Get-Process -Id $PID).Path; "
-        "argv=[Environment]::GetCommandLineArgs()}\n"
-        "$record | ConvertTo-Json -Compress | Add-Content -LiteralPath \"$PSScriptRoot\\ps-calls.jsonl\"\n"
-        "Set-Location -LiteralPath $PSScriptRoot\n"
-        f"& '{python}' sync.py runtime-only --trust-recorded --test-environment\nexit $LASTEXITCODE\n", encoding="utf-8",
     )
     return root, env

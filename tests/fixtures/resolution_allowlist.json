@@ -419,11 +419,6 @@
     "kind": "bare_which"
   },
   {
-    "path": "pm/native_build.py",
-    "symbol": "prepare_windows_environment",
-    "kind": "bare_which"
-  },
-  {
     "path": "pm/security_packages.py",
     "symbol": "IronProxy.verify_provenance",
     "kind": "bare_which"

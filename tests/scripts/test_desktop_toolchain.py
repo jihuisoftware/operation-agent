@@ -117,7 +117,7 @@ def test_windows_uv_cache_is_a_short_junction_into_the_transported_cache(tmp_pat
 
 
 @pytest.mark.parametrize("exit_code", [0, 7])
-@pytest.mark.platforms("linux", "macos", "windows")
+@pytest.mark.platforms("linux", "macos")
 def test_run_preparation_bootstraps_before_worker_in_isolated_child(tmp_path, monkeypatch, exit_code):
     from scripts.bundles import desktop_toolchain
 
@@ -204,12 +204,11 @@ def test_packaging_preserves_keychain_home_without_retargeting_build_state(tmp_p
 def test_prepare_tools_uses_pm_native_pins_and_separate_cache(tmp_path, monkeypatch):
     import pm
     from scripts.bundles import desktop_toolchain
-    from pm import native_build
 
     source, work, cache = (tmp_path / name for name in ("source", "work", "cache"))
     env = desktop_toolchain.bootstrap_environment(source, work, cache, os.environ)
     monkeypatch.setenv("HERMES_RUNTIME_DIR", env["HERMES_RUNTIME_DIR"])
-    acquired, native_calls = [], []
+    acquired = []
     bins = {name: cache / "tools" / name / "bin" / name for name in ("python", "node")}
     for binary in bins.values():
         binary.parent.mkdir(parents=True)
@@ -219,14 +218,9 @@ def test_prepare_tools_uses_pm_native_pins_and_separate_cache(tmp_path, monkeypa
         assert explicit
         acquired.append(name)
 
-    def native(**kwargs):
-        native_calls.append(kwargs)
-        return {**kwargs["env"], "OPENSSL_DIR": str(cache / "native/openssl")}
-
     monkeypatch.setattr(pm, "ensure", ensure)
     monkeypatch.setattr(pm, "installed_package", lambda name: SimpleNamespace(binary=bins[name]))
     monkeypatch.setattr(pm, "env_for", lambda *names, base_env: {**base_env, "PATH": "pm-tools"})
-    monkeypatch.setattr(native_build, "prepare_windows_environment", native)
     monkeypatch.setattr(desktop_toolchain, "native_cache_path", lambda cache, env: cache / "python/runtime/native-identity",
                         raising=False)
     before = dict(os.environ)
@@ -241,12 +235,6 @@ def test_prepare_tools_uses_pm_native_pins_and_separate_cache(tmp_path, monkeypa
     if os.name == "nt":  # builds run under the short job-local junction (MAX_PATH)
         assert uv_cache == work.resolve() / "uv"
     assert dict(os.environ) == before
-    if pm.current_target() == "win32-arm64":
-        assert len(native_calls) == 1
-        assert native_calls[0]["state"].is_relative_to(cache / "native")
-        assert prepared["OPENSSL_DIR"] == str(cache / "native/openssl")
-    else:
-        assert native_calls == []
 
 
 @pytest.mark.platforms("linux", "macos", "windows")

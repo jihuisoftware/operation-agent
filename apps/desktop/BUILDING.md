@@ -76,12 +76,7 @@ To build the commit you have checked out, without a tag and without pushing:
 scripts/build-bundle.sh            # macOS DMG/ZIP, Linux AppImage
 ```
 
-```powershell
-scripts\build-bundle.ps1           # Windows sideload MSIX
-scripts\build-bundle.ps1 -Store    # Windows Store MSIX
-```
-
-The checkout must be clean, because the build packages `HEAD`. Both scripts pass
+The checkout must be clean, because the build packages `HEAD`. The script passes
 `--clean` to the driver. The driver removes the previous outputs only after it holds
 the checkout lock, so a second run cannot delete a build that is still going. Output
 goes to `apps/desktop/release/`.
@@ -372,7 +367,7 @@ signing/notarization acceptance; a successful download is not native execution p
 ## Development, assets, and verification
 
 Prepare and activate the [PM developer environment](../../website/docs/reference/package-management.md#developer-workflow)
-first. Use Bash `source ./activate` or PowerShell `. .\activate.ps1`, and keep a
+first. Use `source ./activate`, and keep a
 separate development home. Activation supplies the toolchain, not `node_modules`.
 
 From the repository root:

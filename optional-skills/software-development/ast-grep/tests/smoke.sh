@@ -191,7 +191,7 @@ hangul = re.compile(r"[\uac00-\ud7a3]")
 targets = [root / "SKILL.md", root / "README.md"]
 for d in ("references", "scripts", "tests", ".github"):
     targets.extend((root / d).rglob("*"))
-targets.extend([root / "install.sh", root / "install.ps1"])
+targets.append(root / "install.sh")
 hits = 0
 for p in targets:
     if not p.is_file():

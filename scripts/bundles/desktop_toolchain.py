@@ -107,10 +107,6 @@ def prepare_tools(source: Path, work: Path, cache: Path,
     if store_root() != cache / "tools":
         raise ValueError("desktop tools require the isolated preparation worker")
     prepared = dict(env)
-    if pm.current_target() == "win32-arm64":
-        from pm.native_build import prepare_windows_environment
-
-        prepared = prepare_windows_environment(source=source, state=cache / "native/prerequisites", env=prepared)
     if pm.current_target().startswith("darwin"):
         # python-build-standalone's sysconfig names its absent build-host tools.
         prepared.setdefault("AR", "/usr/bin/ar")

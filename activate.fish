@@ -69,16 +69,9 @@ function hermes --description 'hermes of the activated checkout'
         echo "hermes: $PWD is outside $__hermes_worktree; refusing (the installed command is hidden while this checkout is active)" >&2
         return 1
     end
-    set -l python python
-    if set -q PYTHON
-        set python $PYTHON
-    else if test -x $__hermes_worktree/.venv/bin/python
-        set python $__hermes_worktree/.venv/bin/python
-    else if test -x $__hermes_worktree/venv/bin/python
-        set python $__hermes_worktree/venv/bin/python
-    end
     pushd $__hermes_worktree >/dev/null
-    $python hermes $argv
+    # PM's PATH and dependency selection must use the same Python ABI.
+    command python hermes $argv
     set -l code $status
     popd >/dev/null
     return $code

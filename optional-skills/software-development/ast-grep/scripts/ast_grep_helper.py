@@ -20,7 +20,7 @@ USAGE
     ast_grep_helper.py new {project,rule,test,util} [NAME] [--lang LANG]
     ast_grep_helper.py langs                # list 25 supported languages
     ast_grep_helper.py doctor               # check binary availability + version
-    ast_grep_helper.py install              # delegate to ../install.sh / install.ps1
+    ast_grep_helper.py install              # delegate to ../install.sh
     ast_grep_helper.py validate PATTERN [--lang LANG]   # offline pattern hint check only
     ast_grep_helper.py --version
     ast_grep_helper.py --help
@@ -269,7 +269,6 @@ def require_binary() -> Path:
     err("")
     err("Install via one of:")
     err(f"  bash {skill_root()}/install.sh           # POSIX (auto-detects best method)")
-    err(f"  pwsh {skill_root()}/install.ps1          # Windows")
     err("")
     err("Or manually:")
     err("  brew install ast-grep                      # macOS / linuxbrew")
@@ -582,7 +581,7 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     binary = resolve_binary()
     if not binary:
         print("ast-grep binary: NOT FOUND")
-        print("  -> run: bash install.sh   (POSIX)  or   pwsh install.ps1   (Windows)")
+        print("  -> run: bash install.sh   (macOS / Linux)")
         return 1
     print(f"ast-grep binary: {binary}")
     proc = run_sg(binary, ["--version"], timeout=5)
@@ -596,13 +595,9 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
 
 
 def cmd_install(_args: argparse.Namespace) -> int:
-    """Delegate to install.sh / install.ps1 in the skill root."""
-    if os.name == "nt":
-        installer = skill_root() / "install.ps1"
-        cmd = ["pwsh", "-File", str(installer)]
-    else:
-        installer = skill_root() / "install.sh"
-        cmd = ["bash", str(installer)]
+    """Delegate to install.sh in the skill root."""
+    installer = skill_root() / "install.sh"
+    cmd = ["bash", str(installer)]
     if not installer.is_file():
         err(f"installer not found: {installer}")
         return 1

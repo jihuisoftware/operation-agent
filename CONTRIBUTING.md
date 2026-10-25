@@ -143,13 +143,6 @@ source ./activate.fish
 hermes --version
 ```
 
-PowerShell:
-
-```powershell
-. .\activate.ps1
-hermes --version
-```
-
 Run `hermes` for this checkout. Activation defines it as a function for this
 worktree, so it hides a global `hermes` command or MSIX alias and refuses
 outside the worktree. PM activation
@@ -312,7 +305,6 @@ hermes-agent/
 │
 ├── scripts/                  # Installer and bridge scripts
 │   ├── install.sh                # Linux/macOS installer
-│   ├── install.ps1               # Windows PowerShell installer
 │   └── whatsapp-bridge/          # Node.js WhatsApp bridge (Baileys)
 │
 ├── skills/                   # Bundled skills (copied to ~/.hermes/skills/ on install)
@@ -854,10 +846,7 @@ that touches the OS, assume *any* platform can hit your code path.
     has a shebang line. Always invoke Python explicitly:
     `[sys.executable, "myscript.py"]`.
 
-12. **Shell commands in installers.** If you change `scripts/install.sh`,
-    make the equivalent change in `scripts/install.ps1`. The two scripts
-    are the canonical example of "works on Linux does not mean works on
-    Windows" and have drifted multiple times — keep them in lockstep.
+12. **Shell installers.** Keep the macOS and Linux paths in `scripts/install.sh` working.
 
 13. **Known paths that are OneDrive-redirected on Windows:** Desktop,
     Documents, Pictures, Videos. The "real" path when OneDrive Backup is

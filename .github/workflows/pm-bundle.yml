@@ -38,9 +38,6 @@ on:
       - 'scripts/bundles/**'
       - 'scripts/ci/desktop_build_cache.py'
       - '.github/actions/desktop-build-cache/**'
-      - 'scripts/windows-build-deps.ps1'
-      - 'scripts/build/windows-deps.ps1'
-      - '.github/actions/setup-windows-build-deps/**'
       - 'uv.lock'
       - 'pyproject.toml'
       - '.github/workflows/pm-bundle.yml'
@@ -76,10 +73,6 @@ jobs:
             runner: macos-15
           - label: darwin-x64
             runner: macos-15-intel
-          - label: win32-x64
-            runner: blacksmith-32vcpu-windows-2025
-          - label: win32-arm64
-            runner: windows-latest-32-arm-core
     steps:
       - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
         with:
@@ -121,7 +114,8 @@ jobs:
 
       # PRs can restore candidates but never gain a cache-writing lane here.
       - name: Save native dependency candidates before assembly
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (inputs.ref == '' || inputs.ref == github.sha) }}
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+          && (inputs.ref == '' || inputs.ref == github.sha) }}
         uses: ./.github/actions/desktop-build-cache
         with:
           phase: save
