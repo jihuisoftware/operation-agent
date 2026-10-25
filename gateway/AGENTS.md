@@ -22,15 +22,11 @@ Slash commands: handlers are looked up by name through `_command_handler_table`;
 listed in `_IDLE_COMMANDS` or `_PLAIN_COMMANDS` (works mid-run) in `run_busy.py`. No
 `if canonical == ...` chains. Registry + adding a command: `hermes_cli/AGENTS.md`.
 
-## The gateway has TWO message guards — both must bypass approval/control commands
+## Control commands bypass both message guards
 
-While an agent is running, an inbound message passes two sequential guards: (1) the **base
-adapter** (`platforms/base.py`) queues it in `_pending_messages` when `session_key in
-self._active_sessions`; (2) the **runner** (`run.py`/`run_busy.py`) intercepts `/stop`, `/new`,
-`/queue`, `/status`, `/approve`, `/deny` before they reach `running_agent.interrupt()`. Any new
-command that must reach the runner while the agent is blocked (approval prompts) MUST bypass BOTH
-guards and be dispatched inline — never via `_process_message_background()`, which races session
-lifecycle.
+Commands such as `/stop` and `/approve` bypass both the adapter's active-session queue and
+the runner's busy guard (`run_busy.py`). Dispatch them inline, never through
+`_process_message_background()`, which races session lifecycle.
 
 ## Streaming delivery contract (stream-is-the-message adapters)
 

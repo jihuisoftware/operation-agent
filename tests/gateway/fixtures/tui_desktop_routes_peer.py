@@ -45,7 +45,8 @@ async def probe(mode):
     reader = AuthorityConnection(authority, object(), {'user_id': 'owner', 'provider': 'fixture',
                                                        'capabilities': ['session:read']}, operator=True)
     try:
-        async with connect(api.api_origin.replace('http:', 'ws:') + '/api/ws?ticket=' + ticket) as ws:
+        async with connect(api.api_origin.replace('http:', 'ws:') + '/api/ws?ticket=' + ticket,
+                           proxy=None) as ws:
             # The session's own folder, distinct from the gateway process's cwd.
             work = home / 'session-work'
             work.mkdir(exist_ok=True)

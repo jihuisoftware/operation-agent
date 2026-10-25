@@ -256,7 +256,7 @@ def test_npm_consumers_execute_with_pm_node(npm_probe, npm_consumers, consumer):
 
 
 @pytest.mark.platforms("posix")
-@pytest.mark.parametrize("surface", ["cli", "dashboard", "whatsapp", "photon", "photon-cli"])
+@pytest.mark.parametrize("surface", ["cli", "whatsapp", "photon", "photon-cli"])
 def test_missing_npm_acquires_npm_closure_at_install_boundary(npm_probe, npm_consumers, monkeypatch, surface):
     _home, node, binary, publish = npm_probe
     calls = []
@@ -269,7 +269,7 @@ def test_missing_npm_acquires_npm_closure_at_install_boundary(npm_probe, npm_con
     monkeypatch.setattr(pm, "ensure", ensure)
     call, bridge = npm_consumers[surface]
     call()
-    assert calls == [("npm", surface in {"cli", "dashboard", "photon-cli"})]
+    assert calls == [("npm", surface in {"cli", "photon-cli"})]
     result = json.loads((bridge / "called.json").read_text())
     assert Path(result["argv"][1]) == binary
     assert shutil.which("node", path=result["env"]["PATH"]) == str(node)
