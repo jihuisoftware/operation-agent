@@ -2,7 +2,7 @@ import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { en } from '@/i18n/en'
-import { fr } from '@/i18n/fr'
+import { zh } from '@/i18n/zh'
 import { setRuntimeI18nLocale } from '@/i18n/runtime'
 import { toChatMessages } from '@/lib/chat-messages'
 import { resolveDesktopCommand } from '@/lib/desktop-slash-commands'
@@ -548,7 +548,7 @@ describe('desktop command notices follow the app language', () => {
   afterEach(() => setRuntimeI18nLocale('en'))
 
   it('renders /timestamps, /rollback usage and /history in the active locale', async () => {
-    setRuntimeI18nLocale('fr')
+    setRuntimeI18nLocale('zh')
     const { $displayTimestamps } = await import('@/store/display-timestamps')
     $displayTimestamps.set(false)
     const handle = await mount(gateway(method => (method === 'session.resume' ? { messages: [] } : undefined)))
@@ -558,7 +558,7 @@ describe('desktop command notices follow the app language', () => {
     await handle.submitText('/history')
 
     const text = renderedText(handle)
-    const fr_ = fr.promptNotices.desktopCommands
+    const fr_ = zh.promptNotices.desktopCommands
     expect(fr_.timestampsOff).not.toBe(copy.timestampsOff)
     expect(text).toContain(fr_.timestampsOff)
     expect(text).toContain(fr_.rollbackUsage)

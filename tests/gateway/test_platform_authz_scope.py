@@ -140,43 +140,12 @@ def test_helper_falls_back_to_environ_without_scope(module_path, helper_name, va
 # ─────────────────────────────────────────────────────────────────────
 
 
-def test_weixin_open_gate_ignores_default_env_under_scope(profile_scope, multiplex_on, monkeypatch):
-    """Default profile sets GATEWAY_ALLOW_ALL_USERS=true; secondary scope does
-    NOT carry it — the gate must stay closed."""
-    monkeypatch.setenv("GATEWAY_ALLOW_ALL_USERS", "true")
-
-    from plugins.platforms.weixin.adapter import WeixinAdapter
-
-    adapter = WeixinAdapter.__new__(WeixinAdapter)
-    assert adapter._open_dm_opted_in() is False
 
 
-def test_weixin_open_gate_honors_scope_opt_in():
-    from plugins.platforms.weixin.adapter import WeixinAdapter
-
-    with _scope({"WEIXIN_ALLOW_ALL_USERS": "yes"}):
-        adapter = WeixinAdapter.__new__(WeixinAdapter)
-        assert adapter._open_dm_opted_in() is True
 
 
-def test_yuanbao_access_policy_gate_ignores_default_env(profile_scope, multiplex_on, monkeypatch):
-    monkeypatch.setenv("GATEWAY_ALLOW_ALL_USERS", "true")
-
-    from plugins.platforms.yuanbao.adapter import AccessPolicy
-
-    policy = AccessPolicy(
-        dm_policy="open", dm_allow_from=[], group_policy="pairing", group_allow_from=[]
-    )
-    assert policy._open_dm_opted_in() is False
 
 
-def test_wecom_open_gate_ignores_default_env_under_scope(profile_scope, multiplex_on, monkeypatch):
-    monkeypatch.setenv("GATEWAY_ALLOW_ALL_USERS", "true")
-
-    from plugins.platforms.wecom.adapter import WeComAdapter
-
-    adapter = WeComAdapter.__new__(WeComAdapter)
-    assert adapter._open_dm_opted_in() is False
 
 
 def test_startup_guard_uses_scoped_gateway_flag(multiplex_on):

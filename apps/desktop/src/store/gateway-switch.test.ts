@@ -24,7 +24,6 @@ import {
   setSessionsLoading
 } from '@/store/session'
 import { $stalledSessionIds } from '@/store/session-states'
-import { $starmapGraph, watchStarmapGraph } from '@/store/starmap'
 import { $retainedTodosBySession, restoreSessionTodosFromSnapshot } from '@/store/todos'
 import {
   $transcriptTailBySessionId,
@@ -165,41 +164,6 @@ describe('wipeSessionListsForGatewaySwitch', () => {
     expect(invalidateProfileListFetches).toHaveBeenCalled()
   })
 
-  it("drops the outgoing backend's star map so the next open (or an open view) scans the new one", () => {
-    $starmapGraph.set({ edges: [], nodes: [{ id: 'old-backend-skill' }] } as unknown as StarmapGraph)
-
-    wipeSessionListsForGatewaySwitch()
-
-    expect($starmapGraph.get()).toBeNull()
-  })
-})
-
-describe('star map across a connection switch', () => {
-  afterEach(() => {
-    $gatewaySwitching.set(false)
-    setApiRequestConnection(null)
-  })
-
-  // A -> B with the same profile name: no profile change follows to reload it, so the switch
-  // itself must, and only once requests route to B.
-  it('reloads an open star map from the new connection only after the switch ends', async () => {
-    setApiRequestConnection('conn-a')
-    const unwatch = watchStarmapGraph()
-
-    try {
-      await vi.waitFor(() => expect(starmapFetchScopes).toEqual(['conn-a']))
-
-      const token = beginGatewaySwitch()
-      expect(starmapFetchScopes).toEqual(['conn-a'])
-
-      setApiRequestConnection('conn-b')
-      endGatewaySwitch(token)
-
-      expect(starmapFetchScopes).toEqual(['conn-a', 'conn-b'])
-    } finally {
-      unwatch()
-    }
-  })
 })
 
 describe('beginGatewaySwitch / endGatewaySwitch — the shared switch commit point (#93937)', () => {

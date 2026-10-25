@@ -134,7 +134,7 @@ class GatewayRuntimeInitMixin:
 
     def _init_runtime_caches(self) -> None:
         """Agent cache, profile identity, Teams runtime, failed-platform tracking, slash-confirm counter."""
-        from gateway.run import (Any, Dict, Optional, OrderedDict, Platform, threading)
+        from gateway.run import (Any, Dict, OrderedDict, Platform, threading)
         # AIAgent per session preserves prompt caching (fresh agent per message ~10x cost on Anthropic).
         # Value: (AIAgent, config_signature); LRU cap in _enforce_agent_cache_cap, TTL in expiry watcher.
         self._agent_cache: OrderedDict[str, tuple] = OrderedDict()
@@ -149,8 +149,6 @@ class GatewayRuntimeInitMixin:
             "default" if getattr(self.config, "multiplex_profiles", False) else launch
         )
         # Teams meeting pipeline runtime (bound later when msgraph_webhook adapter exists).
-        self._teams_pipeline_runtime = None
-        self._teams_pipeline_runtime_error: Optional[str] = None
         # Failed-to-connect platforms for background reconnection: Platform -> {config, attempts, next_retry}
         self._failed_platforms: Dict[Platform, Dict[str, Any]] = {}
         # Strong refs to detached fatal-error handler tasks so the loop can't GC them mid-run.

@@ -12,7 +12,6 @@ callable that resolves it from a constructed adapter, so a regression is reporte
 from __future__ import annotations
 
 import importlib
-from pathlib import Path
 
 import pytest
 
@@ -120,37 +119,5 @@ def test_served_secondary_resolves_its_own_setting(monkeypatch, module, var, def
     assert served == standalone, f"{var}: served={served!r} standalone={standalone!r}"
 
 
-def test_signal_startup_gate_reads_the_profile_env(monkeypatch):
-    """A secondary whose SIGNAL_HTTP_URL/SIGNAL_ACCOUNT live only in its own .env must pass the startup
-    gate served exactly as it does standalone; a secondary WITHOUT them must not borrow the default's."""
-    from plugins.platforms.signal import adapter as sig
-    for k in ("SIGNAL_HTTP_URL", "SIGNAL_ACCOUNT"):
-        monkeypatch.delenv(k, raising=False)
-    ss.set_multiplex_active(True)
-    token = ss.set_secret_scope({"SIGNAL_HTTP_URL": "http://secondary.invalid:8080", "SIGNAL_ACCOUNT": "+15550000001"})
-    try:
-        assert sig.validate_signal_config(PlatformConfig(enabled=True)) is True
-    finally:
-        ss.reset_secret_scope(token)
-    monkeypatch.setenv("SIGNAL_HTTP_URL", "http://default.invalid:8080")
-    monkeypatch.setenv("SIGNAL_ACCOUNT", "+15550000000")
-    token = ss.set_secret_scope({})
-    try:
-        assert sig.validate_signal_config(PlatformConfig(enabled=True)) is False
-    finally:
-        ss.reset_secret_scope(token)
 
 
-def test_sms_webhook_listener_is_profile_scoped(monkeypatch):
-    from plugins.platforms.sms import adapter as sms
-    for k, v in {"TWILIO_ACCOUNT_SID": "AC0", "TWILIO_AUTH_TOKEN": "tok", "TWILIO_PHONE_NUMBER": "+1",
-                 "SMS_WEBHOOK_PORT": "18039", "SMS_WEBHOOK_HOST": "default-host", "SMS_WEBHOOK_URL": "http://d/"}.items():
-        monkeypatch.setenv(k, v)
-    ss.set_multiplex_active(True)
-    token = ss.set_secret_scope({"TWILIO_ACCOUNT_SID": "AC1", "TWILIO_AUTH_TOKEN": "tok2", "TWILIO_PHONE_NUMBER": "+2",
-                                 "SMS_WEBHOOK_PORT": "18139", "SMS_WEBHOOK_HOST": "secondary-host", "SMS_WEBHOOK_URL": "http://s/"})
-    try:
-        adapter = sms.SmsAdapter(PlatformConfig(enabled=True))
-    finally:
-        ss.reset_secret_scope(token)
-    assert (adapter._webhook_port, adapter._webhook_host, adapter._webhook_url) == (18139, "secondary-host", "http://s/")

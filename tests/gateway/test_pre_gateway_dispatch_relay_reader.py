@@ -4,10 +4,7 @@ delivers, or wait for another inbound message. A cancelled admission releases th
 preparation copied unless the admission write already began (that write may still commit)."""
 import asyncio
 import json
-import threading
 from contextlib import asynccontextmanager
-from http.server import ThreadingHTTPServer
-from pathlib import Path
 
 import pytest
 
@@ -85,17 +82,6 @@ async def _relay(tmp_path, monkeypatch, media=None):
             authority.db.close()
 
 
-@asynccontextmanager
-async def _media_server():
-    from tests.gateway.test_native_media_redelivery import _Media
-
-    media = ThreadingHTTPServer(("127.0.0.1", 0), _Media)
-    threading.Thread(target=media.serve_forever, daemon=True).start()
-    try:
-        yield media, f"http://127.0.0.1:{media.server_port}/photo.png"
-    finally:
-        media.shutdown()
-        media.server_close()
 
 
 def _acked(outgoing):
@@ -159,66 +145,5 @@ async def test_a_hook_waiting_for_another_chat_does_not_block_it_and_one_chat_st
     assert [row["request_id"] for row in rows if row["request_id"].startswith("a")] == ["a1", "a2"]
 
 
-@pytest.mark.asyncio
-async def test_an_admission_cancelled_while_the_hook_waits_releases_its_prepared_media(tmp_path, monkeypatch):
-    """A relay disconnect or shutdown cancels the admission while the hook waits: no admission owns
-    the copy preparing it made, so it is released, and the cancellation still propagates."""
-    from gateway.session_ingress_media import _media_root
-    from tests.waiting import async_wait_until
-
-    entered = asyncio.Event()
-
-    async def hook(**_kwargs):
-        entered.set()
-        await asyncio.Event().wait()  # never answers
-
-    _hook(hook)
-    async with _media_server() as (media, url), _relay(tmp_path, monkeypatch, media) as (
-            _adapter, ws, outgoing, authority, admissions):
-        event = _inbound("r1", message_type="photo", media_urls=[url], media=[{"url": url, "mime": "image/png"}])
-        await ws.send(json.dumps({"type": "inbound", "event": event, "bufferId": "buf-1"}) + "\n")
-        await asyncio.wait_for(entered.wait(), 20)
-        copied = sorted(_media_root().rglob("*.png"))
-        [admission] = admissions
-        admission.cancel()
-        await asyncio.wait([admission])
-        await async_wait_until(lambda: not list(_media_root().rglob("*.png")), timeout=10,
-                               what="the prepared copy released")
-        rows = authority.db._read_all("SELECT 1 FROM session_admissions")
-    assert copied and admission.cancelled()
-    assert (rows, _acked(outgoing)) == ([], [])
 
 
-@pytest.mark.asyncio
-async def test_an_admission_cancelled_after_its_write_began_keeps_the_media_the_write_commits(
-        tmp_path, monkeypatch):
-    """Cancelled once the shielded admission write is running, the write still commits: the bytes it
-    commits stay on disk."""
-    from gateway.session_authority import SessionAuthority
-    from tests.waiting import async_wait_until
-
-    writing, proceed = threading.Event(), threading.Event()
-    write = SessionAuthority._admit_native_write
-
-    def held_write(self, **kwargs):
-        writing.set()
-        proceed.wait(20)
-        return write(self, **kwargs)
-
-    monkeypatch.setattr(SessionAuthority, "_admit_native_write", held_write)
-    _hook(lambda **_kwargs: None)
-    async with _media_server() as (media, url), _relay(tmp_path, monkeypatch, media) as (
-            _adapter, ws, outgoing, authority, admissions):
-        event = _inbound("r1", message_type="photo", media_urls=[url], media=[{"url": url, "mime": "image/png"}])
-        await ws.send(json.dumps({"type": "inbound", "event": event, "bufferId": "buf-1"}) + "\n")
-        assert await asyncio.to_thread(writing.wait, 20), "the admission write never began"
-        [admission] = admissions
-        admission.cancel()
-        await asyncio.wait([admission])
-        proceed.set()
-        rows = await async_wait_until(
-            lambda: authority.db._read_all("SELECT payload_json FROM session_admissions"), timeout=20,
-            what="the shielded write committed")
-    [reference] = json.loads(rows[0]["payload_json"])["native_text_v1"]["media"]
-    assert admission.cancelled() and _acked(outgoing) == []
-    assert Path(reference["path"]).is_file(), "a cancellation deleted media its admission committed"

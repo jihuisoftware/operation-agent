@@ -80,9 +80,8 @@ describe('I18nProvider', () => {
   })
 
   it.each([
-    ['fr', 'fr'],
-    ['de-DE', 'de'],
-    ['es', 'es']
+    ['zh', 'zh'],
+    ['zh-CN', 'zh']
   ] as const)('loads display.language=%s and renders the %s catalog', async (configured, locale) => {
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({ display: { language: configured } }),
@@ -233,24 +232,6 @@ describe('I18nProvider', () => {
     })
   })
 
-  it('applies RTL direction for Arabic and restores LTR on switch back', async () => {
-    render(
-      <I18nProvider configClient={null} initialLocale="ar">
-        <LanguageProbe target="en" />
-      </I18nProvider>
-    )
-
-    expect(screen.getByTestId('locale').textContent).toBe('ar')
-    expect(document.documentElement.dir).toBe('rtl')
-    expect(document.documentElement.lang).toBe('ar')
-
-    fireEvent.click(screen.getByRole('button', { name: 'switch' }))
-
-    await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('en'))
-    expect(document.documentElement.dir).toBe('ltr')
-    expect(document.documentElement.lang).toBe('en')
-  })
-
   it('rolls back the visible locale when saving fails', async () => {
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({ display: { language: 'en' } }),
@@ -384,24 +365,24 @@ describe('I18nProvider', () => {
 
     render(
       <I18nProvider configClient={configClient}>
-        <LanguageProbe target="ja" />
+        <LanguageProbe target="zh" />
       </I18nProvider>
     )
 
     await act(async () => {})
     expect(screen.getByTestId('locale').textContent).toBe('en')
 
-    // User picks Japanese while the startup retry is still pending.
+    // User picks Chinese while the startup retry is still pending.
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'switch' }))
     })
-    expect(screen.getByTestId('locale').textContent).toBe('ja')
+    expect(screen.getByTestId('locale').textContent).toBe('zh')
 
     // The retry resolves with the stale on-disk value; the explicit pick wins.
     await act(async () => {
       vi.advanceTimersByTime(3_000)
     })
-    expect(screen.getByTestId('locale').textContent).toBe('ja')
+    expect(screen.getByTestId('locale').textContent).toBe('zh')
 
     vi.useRealTimers()
   })

@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 import pytest
 
-from tests.tools._child_env_fixtures import child_env
 
 _TIER1 = ("TELEGRAM_BOT_TOKEN", "GATEWAY_RELAY_SECRET")
 _PROVIDER = "OPENAI_API_KEY"
@@ -84,23 +83,8 @@ def test_third_party_children_never_see_hermes_credentials(child_env, monkeypatc
 
         with patch.object(install, "find_node_executable", return_value=str(probe)):
             install._install_npm("probe-language-server", "probe")
-    elif site == "buzz_cli":
-        from plugins.platforms.buzz.adapter import _exec_buzz
-
-        asyncio.run(_exec_buzz(str(probe), [], relay_url="wss://relay.invalid", private_key="buzz-own"))
-    else:
-        from gateway.config import PlatformConfig
-        from plugins.platforms.raft.adapter import RaftAdapter
-
-        monkeypatch.setenv("RAFT_PROFILE", "probe")
-        config = PlatformConfig(enabled=True, extra={"bridge_token": "bridge-own", "runtime_session": "default", "port": 0})
-        adapter = RaftAdapter(config)
-        with patch("plugins.platforms.raft.adapter.shutil.which", return_value=str(probe)):
-            adapter._spawn_bridge(4321)
-        adapter._bridge_process.wait(timeout=30)
 
     seen = json.loads(out.read_text(encoding="utf-8-sig"))
     assert {k: seen[k] for k in (*_TIER1, _PROVIDER)} == dict.fromkeys((*_TIER1, _PROVIDER))
     assert seen[own]  # the child's own configuration still arrives
-    user_home = site in ("raft_bridge", "buzz_cli")
-    assert seen["HOME"] == str(child_env if user_home else child_env / "hermes" / "home")
+    assert seen["HOME"] == str(child_env / "hermes" / "home")

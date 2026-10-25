@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { setApiRequestConnection } from '@/api/client'
 import type { HermesApiRequest } from '@/global'
@@ -7,8 +7,16 @@ import type { HermesConfigRecord } from '@/hermes'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $connection } from '@/store/session'
 
+import { registerAppLocale } from './registry'
+
 import { useI18n } from './context'
 import { ProfileI18nProvider as I18nProvider } from './profile-provider'
+
+let disposePack: () => void
+
+beforeEach(() => {
+  disposePack = registerAppLocale('pl', { endonym: 'Polski', translations: { common: { save: 'Zapisz' } } })
+})
 
 function Probe() {
   const { locale, setLocale, saveError, isSavingLocale, isLoadingConfig, t } = useI18n()
@@ -20,7 +28,7 @@ function Probe() {
       <span data-testid="save-label">{t.common.save}</span>
       <span data-testid="error">{saveError?.message}</span>
       <span data-testid="saving">{String(isSavingLocale)}</span>
-      <button onClick={() => void setLocale('ja').catch(() => undefined)}>Japanese</button>
+      <button onClick={() => void setLocale('pl').catch(() => undefined)}>Polish</button>
     </>
   )
 }
@@ -33,6 +41,7 @@ function route(profile: string, connectionId: string | null = null) {
 
 afterEach(() => {
   cleanup()
+  disposePack()
   route('default')
   Reflect.deleteProperty(window, 'hermesDesktop')
   vi.restoreAllMocks()
@@ -87,12 +96,12 @@ it('reads and persists the owning profile through A → B → A and restart', as
   await waitFor(() => expect(api).toHaveBeenCalled())
   act(() => route('coder'))
   await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('zh'))
-  fireEvent.click(screen.getByText('Japanese'))
-  await waitFor(() => expect(configs.coder.display).toEqual({ language: 'ja', skin: 'mono' }))
+  fireEvent.click(screen.getByText('Polish'))
+  await waitFor(() => expect(configs.coder.display).toEqual({ language: 'pl', skin: 'mono' }))
   act(() => route('default'))
   await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('en'))
   act(() => route('coder'))
-  await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('ja'))
+  await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('pl'))
   expect(configs.default.display).toEqual({ language: 'en' })
   view.unmount()
   render(
@@ -100,7 +109,7 @@ it('reads and persists the owning profile through A → B → A and restart', as
       <Probe />
     </I18nProvider>
   )
-  await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('ja'))
+  await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('pl'))
 })
 
 it('isolates stale reads and failed saves when the same profile moves between connections', async () => {
@@ -141,9 +150,9 @@ it('isolates stale reads and failed saves when the same profile moves between co
   )
   act(() => route('default', 'remote'))
   await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('zh'))
-  await act(async () => finishBoot({ display: { language: 'ar' } }))
+  await act(async () => finishBoot({ display: { language: 'en' } }))
   expect(screen.getByTestId('locale').textContent).toBe('zh')
-  fireEvent.click(screen.getByText('Japanese'))
+  fireEvent.click(screen.getByText('Polish'))
   await waitFor(() => expect(reads).toBe(3))
   act(() => route('default', 'local'))
   await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('en'))
@@ -161,7 +170,7 @@ it('isolates stale reads and failed saves when the same profile moves between co
     $connection.set({ baseUrl: 'https://first.example' } as never)
   })
   await waitFor(() => expect(reads).toBe(5))
-  api.mockImplementation(() => Promise.resolve({ display: { language: 'ar' } }))
+  api.mockImplementation(() => Promise.resolve({ display: { language: 'zh' } }))
   act(() => $connection.set({ baseUrl: 'https://second.example' } as never))
-  await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('ar'))
+  await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('zh'))
 })

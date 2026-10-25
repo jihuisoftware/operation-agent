@@ -38,12 +38,12 @@ describe('desktop i18n runtime translator', () => {
   })
 
   it('falls back to English when the active locale cannot resolve a key', () => {
-    const boot = TRANSLATIONS.ja.boot as { ready?: string }
+    const boot = TRANSLATIONS.zh.boot as { ready?: string }
     const originalReady = boot.ready
 
     try {
       boot.ready = undefined
-      setRuntimeI18nLocale('ja')
+      setRuntimeI18nLocale('zh')
 
       expect(translateNow('boot.ready')).toBe(TRANSLATIONS.en.boot.ready)
     } finally {

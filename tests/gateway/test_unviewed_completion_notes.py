@@ -8,7 +8,7 @@ contract's, not a retry budget's.
 """
 import pytest
 
-from tests.gateway.test_completion_admission import pending
+from tests.gateway.completion_helpers import pending
 from tests.gateway.test_session_end_delegations import _PROCESS, _admissions, _deliver, _local, _notes
 from tools import async_delegation as delegation
 

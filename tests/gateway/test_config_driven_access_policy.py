@@ -263,20 +263,6 @@ def test_pairing_dm_policy_strict_intake_auth_denies_unknown(
     assert getattr(adapter, dm_helper)("unknown-user") is False
 
 
-@pytest.mark.parametrize("blank_sender", ["", "   ", None])
-def test_yuanbao_pairing_dm_intake_denies_blank_principal(monkeypatch, blank_sender):
-    """Yuanbao pairing intake must not forward senderless C2C callbacks."""
-    _clear_auth_env(monkeypatch)
-    from plugins.platforms.yuanbao.adapter import AccessPolicy
-
-    policy = AccessPolicy(
-        dm_policy="pairing",
-        dm_allow_from=[],
-        group_policy="pairing",
-        group_allow_from=[],
-    )
-    assert policy.is_dm_intake_allowed(blank_sender) is False
-    assert policy.is_dm_intake_allowed("user-1") is True
 
 
 def test_wecom_open_group_with_per_group_sender_allowlist_is_authorized(monkeypatch):

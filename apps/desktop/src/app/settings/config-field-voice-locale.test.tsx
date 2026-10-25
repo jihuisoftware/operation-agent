@@ -9,7 +9,7 @@ import { fieldCopyForSchemaKey } from './field-copy'
 afterEach(cleanup)
 
 it('renders the translated Echo Transcripts copy without changing its toggle value', () => {
-  for (const locale of ['zh', 'zh-hant'] as const) {
+  for (const locale of ['zh'] as const) {
     const onChange = vi.fn()
     const t = TRANSLATIONS[locale]
 

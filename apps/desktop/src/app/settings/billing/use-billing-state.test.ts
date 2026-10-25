@@ -192,7 +192,7 @@ describe('deriveBillingView (usage-window plans)', () => {
 })
 
 describe('deriveBillingView', () => {
-  it.each(['zh', 'zh-hant'] as const)(
+  it.each(['zh'] as const)(
     'localizes every billing fixture in %s without changing status, amounts or control policy',
     locale => {
       const b = TRANSLATIONS[locale].settings.billing
@@ -227,7 +227,7 @@ describe('deriveBillingView', () => {
     }
   )
 
-  it.each(['zh', 'zh-hant'] as const)(
+  it.each(['zh'] as const)(
     'localizes known refusal titles in %s while preserving identifiers, interpolations and remedies',
     locale => {
       const copy = TRANSLATIONS[locale].settings.billing.errors

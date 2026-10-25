@@ -1,12 +1,11 @@
-# apps/desktop/src/ — backend contract, slash palette, Bot Mode
+# apps/desktop/src/ — backend contract and slash palette
 
 Applies on top of `apps/desktop/AGENTS.md` (the judgment guide) and the root `AGENTS.md`.
 Root TypeScript style rules apply.
 
 This operations build shares its scope with `hermes_cli/data/operations-profile.json` through
-`lib/operations-profile.ts`. Bot Mode, Kanban and Radio stay dormant even when previously enabled;
-filter bundled plugins before importing modules with startup side effects. Their retained contracts
-below govern future reuse, not current product entry points.
+`lib/operations-profile.ts`. Bot Mode, Kanban, Radio and the retired agents/starmap/webhooks/session-import pages are removed.
+Keep the product filters to prevent saved configuration or external plugins from reviving retired entry points.
 
 ## Desktop local execution belongs to the canonical gateway
 
@@ -64,42 +63,6 @@ as CLI, dropping launch options, or falling back to an independent local serve o
 user-activated extensions. If you tighten `desktop-slash-commands.ts`, keep
 `isDesktopSlashExtensionCommand` flowing into both paths. Test: from `apps/desktop`,
 `npx vitest run src/lib/desktop-slash-commands.test.ts` (workspace deps install at the repo root).
-
-## Bot Mode (`src/plugins/hermes-bots/`) — one bot = ONE canonical forever-chat, identified by NAME
-
-Each bot is a Hermes **profile** with a persistent identity. This invariant regressed repeatedly,
-cost users conversation history each time, and is not open for re-litigation in a routine PR.
-
-The chat's only identity is **(profile, session titled exactly "Bot Chat")**; the state DB's
-UNIQUE(title) index makes that pair a registry of at most one row. Clicking a bot row:
-1. **Resolve the registry, every time:** `session.list {title, include_hidden: true}` (indexed,
-   window-free; hidden rows resolve because canonical chats are always hidden; compression lineages
-   resolve to the live tip). Row exists → open it. That is the whole happy path.
-2. **No row → create it**, titled `Bot Chat`, born hidden, kicked off with the bot's intro. Creation
-   adopts-before-minting: it re-runs the lookup first so a concurrent/pre-existing row is opened,
-   never forked (`set_session_title` silently drops conflicting titles — returns 0 rows — which is how
-   the 2026-08 infinite fork loop started).
-
-**There is NO session-id pin.** The old design stored a pointer in `ui_meta['hermes-bots'].chat`;
-five hardening waves (#88690, #90732, #90751, the #91791 revert, #92042) each guarded a new way it
-dangled or was stolen (rows[0] steals, `last_session` adoptions, transient clears, a pin re-anchored
-onto a cron session). A name cannot dangle; legacy `chat` keys in ui_meta are ignored and dropped.
-**Recency must never win** (#91791 → #92042): canonical Bot Chats are unconditionally hidden from the
-Sessions sidebar, so the bot row is the ONLY door — "newest visible session wins" walls the whole
-relationship off behind a row that previews one session and opens another. Side-chats ("New chat
-with this agent") are not plumbing-titled, stay visible in the sidebar, and are never the row's target.
-
-Reviewer corollaries: no per-bot session browser (removed in #90732; don't add it back). Reject any
-stored session-id pointer as canonical identity — including "as a fallback tier" or "for
-verification". Reject anything consulting recency/visibility/"where the user left off" for the row's
-target; such reports are about side-chats and the fix belongs in the Sessions sidebar hide-sweep.
-The gateway reports the registry row as `canonical_session` on `profiles.list` (resolved server-side
-by title); roster preview, activity signals, and the `/new`→`/compact` guard all read it, so preview
-identity and click identity are the same row by construction. Contract tests:
-in `src/plugins/hermes-bots/`: `canonical-chat-registry.test.ts` (tripwire: the open path never
-reads/writes a stored pointer), `canonical-chat-creation.test.ts`, `canonical-chat-adopt-on-conflict.test.ts`,
-`bot-row-opens-canonical-chat.test.ts`, `hide-bot-chats.test.ts`; plus repo-root
-`tests/tui_gateway/test_profiles_list_canonical_session.py`.
 
 ## Free tier surfaces (`src/store/free-tier*.ts`, Billing, statusbar chip, onboarding ready screen)
 

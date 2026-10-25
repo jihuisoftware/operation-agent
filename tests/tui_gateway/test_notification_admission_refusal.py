@@ -14,7 +14,7 @@ from tui_gateway.session_lifecycle import _session_turn_admission
 
 @pytest.mark.parametrize('kind', ['async_delegation', 'completion'])
 def test_refused_notification_retains_result_without_spending_attempts(tmp_path, kind):
-    from tests.gateway.test_completion_admission import pending
+    from tests.gateway.completion_helpers import pending
     from tools import async_delegation as delegation
     from tools.process_registry import process_registry
 

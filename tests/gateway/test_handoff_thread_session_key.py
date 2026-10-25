@@ -25,7 +25,6 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 from gateway.config import GatewayConfig, HomeChannel, Platform, PlatformConfig
 from gateway.run import GatewayRunner
@@ -151,15 +150,6 @@ def test_slack_channel_handoff_key_matches_the_thread_reply_key():
     assert dest.source.chat_id == "C0CHANNEL01"
 
 
-def test_slack_handoff_without_stored_scope_uses_the_sole_workspace_on_a_cold_channel_map():
-    """An env/legacy home has no scope_id and the adapter's channel→team map is empty right after
-    boot; a single authenticated workspace still identifies the team the reply key will carry."""
-    from plugins.platforms.slack.adapter import SlackAdapter
-
-    adapter = SlackAdapter.__new__(SlackAdapter)
-    adapter._channel_team, adapter._channel_teams, adapter._team_clients = {}, {}, {"T0C2HL96FH6": object()}
-    _dest, handoff = _handoff_destination(Platform.SLACK, "D0C1HFBMQAX", "1789474088.089709", None, adapter)
-    assert handoff == _organic_slack_reply_key("D0C1HFBMQAX", "1789474088.089709", "T0C2HL96FH6", "dm")
 
 
 def test_telegram_forum_handoff_key_matches_the_topic_reply_key():
@@ -172,22 +162,6 @@ def test_telegram_forum_handoff_key_matches_the_topic_reply_key():
     assert handoff == "agent:main:telegram:group:-1001234567:77"
 
 
-def _matrix_adapter(room_id: str, *, is_dm: bool, monkeypatch):
-    """A real MatrixAdapter with a fake client: the room's DM flag comes from the m.direct cache."""
-    from plugins.platforms.matrix.adapter import MatrixAdapter
-
-    monkeypatch.setenv("MATRIX_REQUIRE_MENTION", "false")
-    monkeypatch.delenv("MATRIX_AUTO_THREAD", raising=False)
-    adapter = MatrixAdapter(PlatformConfig(enabled=True, token="syt_test", extra={
-        "homeserver": "https://matrix.example.org", "user_id": "@hermes:example.org"}))
-    adapter._text_batch_delay_seconds = 0
-    adapter._startup_ts = 0
-    adapter._dm_rooms[room_id] = is_dm
-    adapter._client = SimpleNamespace(send_message_event=AsyncMock(return_value="$seed"), crypto=None)
-    adapter._get_display_name = AsyncMock(return_value="alice")
-    adapter._background_read_receipt = lambda *_a: None
-    adapter.handle_message = AsyncMock()
-    return adapter
 
 
 def _organic_matrix_reply_key(adapter, room_id: str, thread_id: str) -> str:
@@ -202,13 +176,3 @@ def _organic_matrix_reply_key(adapter, room_id: str, thread_id: str) -> str:
     return build_session_key(adapter.handle_message.await_args.args[0].source, thread_sessions_per_user=False)
 
 
-@pytest.mark.parametrize("is_dm", [False, True], ids=["room", "dm"])
-def test_matrix_handoff_key_matches_the_thread_reply_key(is_dm, monkeypatch):
-    """A Matrix handoff (and cron ``attach_to_session``) seeds a thread rooted on the seed event; the
-    adapter keys replies in it on the ROOM's type (``group``/``dm``), never a ``thread`` slot, so the
-    destination must bind that key or the first reply opens an empty session (#112918)."""
-    room_id = "!ops:example.org"
-    adapter = _matrix_adapter(room_id, is_dm=is_dm, monkeypatch=monkeypatch)
-    _dest, handoff = _handoff_destination(Platform.MATRIX, room_id, "$seed", None, adapter)
-    assert handoff == _organic_matrix_reply_key(adapter, room_id, "$seed")
-    assert handoff.split(":")[3] == ("dm" if is_dm else "group")

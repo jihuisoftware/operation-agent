@@ -300,42 +300,6 @@ async def test_viewed_local_completion_still_starts_its_turn(tmp_path, monkeypat
         authority.db.close()
 
 
-@pytest.mark.asyncio
-async def test_messaging_completion_still_starts_its_turn(tmp_path, monkeypatch):
-    """A messaging chat has no viewers at all: its completion keeps admitting a turn, as on main."""
-    from gateway.config import GatewayConfig, Platform, PlatformConfig
-    from gateway.platforms.event import MessageEvent
-    from gateway.run import GatewayRunner
-    from gateway.session_authority import SessionAuthority, initialize_session_authority
-    from gateway.session_ingress_context import native_callback
-    from hermes_constants import get_hermes_home
-    from hermes_state_runtime import list_session_admissions
-    from plugins.platforms.discord.adapter import DiscordAdapter
-    from tests.gateway.test_completion_admission import pending
-
-    monkeypatch.setattr(SessionAuthority, '_schedule', lambda self, ref: None)
-    monkeypatch.setenv('DISCORD_ALLOWED_USERS', '42')
-    runner = GatewayRunner(GatewayConfig())
-    adapter = DiscordAdapter(PlatformConfig(enabled=True, token='fixture-token', typing_indicator=False))
-    runner.adapters = {Platform.DISCORD: adapter}
-    authority = await initialize_session_authority(runner, profile_id='default', instance_id='lc7-messaging')
-    runner._wire_adapter_handlers(adapter)
-    source = adapter.build_source(chat_id='42', chat_type='dm', user_id='42')
-    human = MessageEvent(text='human', source=source, message_id='human')
-    with native_callback(runner, human, get_hermes_home()):
-        await authority.admit_native(human)
-    key = runner.session_store._generate_session_key(source)
-    sid = runner.session_store.peek_session_id(key)
-    assert await runner._deliver_async_delegation_group([dict(pending(key, 'deleg_chat'), parent_session_id=sid)])
-    rows = list_session_admissions(authority.db, session_id=sid, pending_only=False)
-    assert [r['principal_id'].startswith('automation:') for r in rows] == [False, True], rows
-    seen = _record_turns(runner)
-    from gateway.session_contract import SessionRef
-    await authority._drain(SessionRef(authority.profile_id, sid))
-    assert seen[0] == 'human' and len(seen) == 2 and 'deleg_chat' in seen[1], 'the completion ran as a turn'
-    rows = list_session_admissions(authority.db, session_id=sid, pending_only=False)
-    assert [r['outcome'] for r in rows] == ['completed', 'completed']
-    assert not [m for m in authority.db.get_messages(sid) if 'deleg_chat' in str(m.get('content'))]
 
 
 @pytest.mark.asyncio

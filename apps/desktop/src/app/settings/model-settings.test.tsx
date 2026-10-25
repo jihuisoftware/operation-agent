@@ -585,7 +585,7 @@ describe('ModelSettings', () => {
     expect(screen.getByText('nous')).toBeTruthy()
   })
 
-  it.each(['zh', 'zh-hant'] as const)(
+  it.each(['zh'] as const)(
     'localizes stale auxiliary warnings in %s without resetting assignments',
     async locale => {
       getAuxiliaryModels.mockResolvedValueOnce({
@@ -806,7 +806,7 @@ describe('ModelSettings MoA preset editor', () => {
     saveMoaModels.mockImplementation((body: unknown) => Promise.resolve(body))
   })
 
-  it.each(['zh', 'zh-hant', 'ja'] as const)(
+  it.each(['zh'] as const)(
     'localizes MoA preset and reference controls in %s without changing their saved identities',
     async locale => {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

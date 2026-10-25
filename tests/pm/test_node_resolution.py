@@ -218,29 +218,12 @@ def npm_probe(node_store, monkeypatch):
 @pytest.fixture
 def npm_consumers(npm_probe, tmp_path, monkeypatch):
     from agent.lsp.install import _install_npm
-    from gateway.config import PlatformConfig
-    from hermes_cli.main_platform_setup import _whatsapp_install_bridge
-    from plugins.platforms.photon import adapter as photon, cli
-    from plugins.platforms.whatsapp.adapter import WhatsAppAdapter
-
     home, _node, _binary, _publish = npm_probe
-    bridge = tmp_path / "bridge"
-    bridge.mkdir()
-    (bridge / "package.json").write_text('{"name":"test-bridge"}', encoding="utf-8")
-    adapter = WhatsAppAdapter(PlatformConfig(extra={"bridge_script": str(bridge / "bridge.js")}))
-    monkeypatch.setattr(photon, "_sidecar_dir", lambda: bridge)
-    monkeypatch.setattr(cli, "_sidecar_dir", lambda: bridge)
-    return {
-        "lsp": (lambda: _install_npm("test-pkg", "test-server"), home / "lsp"),
-        "whatsapp": (lambda: adapter._ensure_bridge_deps(bridge), bridge),
-        "photon": (photon._reinstall_sidecar_deps, bridge),
-        "photon-cli": (cli._install_sidecar, bridge),
-        "cli": (lambda: _whatsapp_install_bridge(bridge), bridge),
-    }
+    return {"lsp": (lambda: _install_npm("test-pkg", "test-server"), home / "lsp")}
 
 
 @pytest.mark.platforms("posix")
-@pytest.mark.parametrize("consumer", ["lsp", "whatsapp", "photon", "photon-cli", "cli"])
+@pytest.mark.parametrize("consumer", ["lsp"])
 def test_npm_consumers_execute_with_pm_node(npm_probe, npm_consumers, consumer):
     _home, node, binary, publish = npm_probe
     publish()
@@ -255,24 +238,6 @@ def test_npm_consumers_execute_with_pm_node(npm_probe, npm_consumers, consumer):
         ]
 
 
-@pytest.mark.platforms("posix")
-@pytest.mark.parametrize("surface", ["cli", "whatsapp", "photon", "photon-cli"])
-def test_missing_npm_acquires_npm_closure_at_install_boundary(npm_probe, npm_consumers, monkeypatch, surface):
-    _home, node, binary, publish = npm_probe
-    calls = []
-
-    def ensure(name, **kwargs):
-        calls.append((name, kwargs.get("explicit", False)))
-        assert name == "npm"
-        return publish()
-
-    monkeypatch.setattr(pm, "ensure", ensure)
-    call, bridge = npm_consumers[surface]
-    call()
-    assert calls == [("npm", surface in {"cli", "photon-cli"})]
-    result = json.loads((bridge / "called.json").read_text())
-    assert Path(result["argv"][1]) == binary
-    assert shutil.which("node", path=result["env"]["PATH"]) == str(node)
 
 
 @pytest.mark.platforms("posix")
@@ -295,29 +260,6 @@ def test_runtime_npm_refusal_never_falls_back_to_literal_npm(npm_probe, npm_cons
     assert pm.installed_package("npm") is None
 
 
-@pytest.mark.parametrize("allowed", [False, True])
-def test_adapter_availability_never_provisions_missing_node(tmp_path, monkeypatch, allowed):
-    from plugins.platforms.photon import adapter as photon
-    from plugins.platforms.whatsapp import adapter as whatsapp
-
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setenv("HERMES_RUNTIME_DIR", str(tmp_path / "missing-tools"))
-    monkeypatch.setenv("PATH", "")
-    monkeypatch.delenv("PHOTON_NODE_BIN", raising=False)
-    monkeypatch.setattr(photon, "_sidecar_dir", lambda: tmp_path)
-    monkeypatch.setattr(photon, "HTTPX_AVAILABLE", True)
-    monkeypatch.setattr(pm, "lazy_installs_allowed", lambda: allowed)
-    installs = []
-
-    def forbidden_ensure(*args, **kwargs):
-        installs.append(args)
-        raise AssertionError("availability must not install")
-
-    monkeypatch.setattr(pm, "ensure", forbidden_ensure)
-    assert whatsapp.check_whatsapp_requirements() is allowed
-    assert photon.check_requirements() is allowed
-    assert installs == []
-    assert not (tmp_path / "missing-tools").exists()
 
 
 

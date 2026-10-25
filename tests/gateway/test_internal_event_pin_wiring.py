@@ -453,58 +453,6 @@ async def test_synthetic_goal_turn_keeps_pins_and_effective_prompt(monkeypatch, 
     assert eph[0] == eph[1] == eph[2], "synthetic turn toggled the effective ephemeral prompt"
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("origin_message_id", [None, "m-origin"], ids=("no-msgid", "msgid"))
-async def test_goal_continuation_keeps_channel_pin_through_session_authority(tmp_path, monkeypatch, origin_message_id):
-    """The default runtime admits adapter turns through the native session envelope; a goal
-    continuation must arrive at the handler still asking to reuse the pins (#126109). The
-    continuation is enqueued mid-turn like the post-turn hook does and drains from the adapter
-    FIFO; a source carrying ``message_id`` (Discord) must keep its adapter ref through the
-    producer's copy or native admission refuses it as ``not_found``."""
-    import gateway.run as gr
-    from gateway.platforms.base import SendResult
-    from gateway.session_authority import initialize_session_authority
-    from plugins.platforms.whatsapp.adapter import WhatsAppAdapter
-    from tests.waiting import async_wait_until
-
-    chat = "15551234567@s.whatsapp.net"
-    monkeypatch.setenv("WHATSAPP_ALLOWED_USERS", "15551234567")
-    monkeypatch.setattr(gr, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "fake"})
-    runner = gr.GatewayRunner(GatewayConfig(sessions_dir=tmp_path / "sessions"))
-    adapter = WhatsAppAdapter(PlatformConfig(enabled=True, extra={
-        "text_batch_delay_seconds": 0, "session_path": str(tmp_path / "wa")}))
-    adapter.gateway_runner, runner.adapters = runner, {Platform.WHATSAPP: adapter}
-    authority = await initialize_session_authority(runner, profile_id="default", instance_id="pins")
-    runner._wire_adapter_handlers(adapter)
-    calls: list[dict] = []
-    _capture(runner, calls)
-    monkeypatch.setattr(adapter, "send", AsyncMock(return_value=SendResult(success=True, message_id="s")))
-    source = adapter.build_source(chat_id=chat, user_id=chat, chat_type="dm", message_id=origin_message_id)
-    run_agent = runner._run_agent
-
-    async def run_and_continue(**kw):
-        if not calls:  # the goal judge said continue: enqueue while this turn still runs
-            runner._enqueue_fifo(runner._session_key_for_source(source), runner._synthetic_prompt_event(
-                source, "[Continuing toward your standing goal]\nGoal: x"), adapter)
-        return await run_agent(**kw)
-
-    runner._run_agent = run_and_continue
-    turns = (
-        (2, MessageEvent(text="hi", source=source, message_id="h1", channel_prompt="Channel hint.")),
-        (3, MessageEvent(text="hi again", source=source, message_id="h2", channel_prompt="Channel hint.")),
-    )
-    try:
-        for want, event in turns:
-            await adapter.handle_message(event)
-            await async_wait_until(
-                lambda: len(calls) >= want and not adapter._background_tasks and not adapter._session_tasks,
-                timeout=60, what=f"turn {want}")
-    finally:
-        authority.db.close()
-
-    assert [kw["channel_prompt"] for kw in calls] == ["Channel hint."] * 3
-    pin = runner._peek_session_state(runner._session_key_for_source(source)).conversation.channel_pin
-    assert pin[0] == "Channel hint."
 
 
 @pytest.mark.asyncio

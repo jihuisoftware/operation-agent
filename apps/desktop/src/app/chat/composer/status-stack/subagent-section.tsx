@@ -1,6 +1,5 @@
 import { useState } from 'react'
 
-import { SubagentRow } from '@/app/agents'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
 import { StatusRow } from '@/components/chat/status-row'
 import { StatusSection } from '@/components/chat/status-section'
@@ -10,6 +9,8 @@ import { useViewedInterval } from '@/hooks/use-viewed-interval'
 import { useI18n } from '@/i18n'
 import { useSessionSlice } from '@/lib/use-session-slice'
 import { $subagentsBySession, type SubagentProgress } from '@/store/subagents'
+
+import { SubagentRow } from './subagent-row'
 
 import { SubagentControls } from './subagent-controls'
 import { SubagentTranscript } from './subagent-transcript'

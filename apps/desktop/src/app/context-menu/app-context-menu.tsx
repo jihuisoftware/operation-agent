@@ -4,7 +4,6 @@ import { useEffect, useMemo } from 'react'
 
 import { COMPOSER_AREAS } from '@/app/chat/composer/contrib'
 import { terminalMenuHandleFor } from '@/app/right-sidebar/terminal/terminal-context-menu'
-import { openStarMapNodeMenuFor } from '@/app/starmap/context-menu-handle'
 import { DROPDOWN_KIT } from '@/components/ui/actions-menu'
 import { Codicon } from '@/components/ui/codicon'
 import { HERMES_CONTEXT_MENU_TRIGGER_ATTR } from '@/components/ui/context-menu'
@@ -590,15 +589,6 @@ export function AppContextMenu() {
       // Only the pane-body wrapper is a fallback menu. Explicit row, tab and
       // status-bar menus still own their whole gesture, even inside a pane.
       if (trigger && !trigger.hasAttribute('data-zone-body')) {
-        return
-      }
-
-      // The Star Map owns node hits, but empty canvas space still reaches the
-      // shell fallback below. A canvas-wide opt-out would lose that fallback.
-      if (openStarMapNodeMenuFor(element, event.clientX, event.clientY)) {
-        event.preventDefault()
-        event.stopPropagation()
-
         return
       }
 

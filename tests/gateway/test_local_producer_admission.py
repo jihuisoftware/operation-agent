@@ -209,61 +209,8 @@ async def test_waiting_ticks_fold_into_one_turn_and_none_outlives_its_process(ga
         'proc_1/1\n', '...(1300 earlier characters omitted)\n' + 'a' * 1000 + 'b' * 1000]
 
 
-@pytest_asyncio.fixture
-async def messaging(tmp_path, monkeypatch):
-    """A Discord DM under the session authority with one committed human message; inputs stay queued."""
-    from gateway.config import Platform, PlatformConfig
-    from gateway.platforms.event import MessageEvent
-    from gateway.session_authority import SessionAuthority, initialize_session_authority
-    from gateway.session_ingress_context import native_callback, register_transport_home
-    from hermes_state import SessionDB
-    from plugins.platforms.discord.adapter import DiscordAdapter
-    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
-    monkeypatch.setenv('DISCORD_ALLOWED_USERS', '42')
-    monkeypatch.setattr(SessionAuthority, '_schedule', lambda self, ref: None)
-    runner = GatewayRunner(GatewayConfig(sessions_dir=tmp_path / 'sessions'))
-    db = SessionDB(tmp_path / 'state.db')
-    runner.session_store._db = runner._session_db = db
-    authority = await initialize_session_authority(runner, profile_id='default', instance_id='ticks', db=db)
-    adapter = DiscordAdapter(PlatformConfig(enabled=True, token='***', typing_indicator=False))
-    runner.adapters = {Platform.DISCORD: adapter}
-    runner._wire_adapter_handlers(adapter)
-    register_transport_home(runner, None, tmp_path)
-    chat = dict(chat_id='42', chat_type='dm', user_id='42', user_name='human')
-    human = MessageEvent(text='human', source=adapter.build_source(**chat, message_id='m1'), message_id='m1')
-    with native_callback(runner, human, tmp_path):
-        await authority.admit_native(human)
-    route = runner.session_store._generate_session_key(adapter.build_source(**chat))
-    owner = authority.logical_owner(runner.session_store.peek_session_id(route))
-    try:
-        yield SimpleNamespace(runner=runner, authority=authority, route=route, owner=owner, event=lambda kind, **fields: {
-            'type': kind, 'session_id': 'proc_job', 'started_at': 1.0, 'session_key': route, 'parent_session_id': owner,
-            'platform': 'discord', 'command': 'make test', **chat, **fields})
-    finally:
-        db.close()
 
 
-@pytest.mark.asyncio
-async def test_a_messaging_chat_gets_its_ticks_folded_and_none_after_the_completion(messaging):
-    async def drain(event):
-        waiting = queue.Queue()
-        waiting.put(event)
-        await messaging.runner._drain_watch_notifications(waiting)
-        return waiting.qsize()
-
-    for seq in (1, 2):
-        assert await drain(messaging.event('heartbeat', **_tick_fields('proc_job', seq))) == 0, 'refused and requeued'
-    exited = messaging.event('completion', exit_code=0, output='done')
-    assert await messaging.runner._inject_watch_notification('[proc_job finished]', exited) is True
-    assert await drain(messaging.event('heartbeat', **_tick_fields('proc_job', 3))) == 0
-
-    rows = list_session_admissions(messaging.authority.db, session_id=messaging.owner, pending_only=False)
-    automation = {row['request_id']: row for row in rows if row['principal_id'] == 'automation:' + messaging.route}
-    assert {key: row['outcome'] for key, row in automation.items()} == {
-        '["heartbeat","proc_job","proc_job-tick-1"]': 'cancelled',
-        '["heartbeat","proc_job","proc_job-tick-2"]': 'cancelled', '["completion","proc_job",1.0]': None}
-    folded = automation['["heartbeat","proc_job","proc_job-tick-2"]']['payload']['text']
-    assert _tick_output(folded) == 'proc_job/1\nproc_job/2\n'
 
 
 async def _drain_one(runner, event):
@@ -273,128 +220,18 @@ async def _drain_one(runner, event):
     return waiting.qsize()
 
 
-def _automation_rows(messaging):
-    rows = list_session_admissions(messaging.authority.db, session_id=messaging.owner, pending_only=False)
-    return {row['request_id']: row for row in rows if row['principal_id'] == 'automation:' + messaging.route}
 
 
-@pytest.mark.asyncio
-async def test_a_refused_replacement_leaves_the_earlier_tick_queued_and_the_fold_survives_a_restart(messaging):
-    """Cancelling the waiting tick and admitting its replacement are one ledger write, and what the
-    replacement folds in is read from the stored tick, not from the runner's memory."""
-    tick = lambda seq: messaging.event('heartbeat', **_tick_fields('proc_job', seq))
-    assert await _drain_one(messaging.runner, tick(1)) == 0
-    messaging.authority.retiring = True  # the replacement is refused
-    assert await _drain_one(messaging.runner, tick(2)) == 1, 'a refused tick is requeued'
-    assert {key: row['status'] for key, row in _automation_rows(messaging).items()} == {
-        '["heartbeat","proc_job","proc_job-tick-1"]': 'queued'}, 'the accepted tick was cancelled'
-
-    messaging.authority.retiring = False
-    messaging.runner.__dict__.pop('_admitted_heartbeat_ticks', None)  # what a restart forgets
-    assert await _drain_one(messaging.runner, tick(2)) == 0
-    rows = _automation_rows(messaging)
-    assert {key: row['outcome'] for key, row in rows.items()} == {
-        '["heartbeat","proc_job","proc_job-tick-1"]': 'cancelled', '["heartbeat","proc_job","proc_job-tick-2"]': None}
-    assert _tick_output(rows['["heartbeat","proc_job","proc_job-tick-2"]']['payload']['text']) == 'proc_job/1\nproc_job/2\n'
-    # A retry of the admitted replacement (its acknowledgement lost) is dropped, never folded again.
-    assert await _drain_one(messaging.runner, tick(2)) == 0
-    assert len(_automation_rows(messaging)) == 2
 
 
-@pytest.mark.asyncio
-async def test_a_tick_drained_during_a_restart_drain_leaves_the_committed_tick_queued(messaging):
-    """A restart's drain refuses the replacement (``runtime_draining``): the committed tick the
-    next owner runs stays queued, never cancelled for a replacement held only in memory."""
-    tick = lambda seq: messaging.event('heartbeat', **_tick_fields('proc_job', seq))
-    assert await _drain_one(messaging.runner, tick(1)) == 0
-    messaging.runner._draining = True
-    try:
-        assert await _drain_one(messaging.runner, tick(2)) == 1, 'a refused tick is requeued'
-    finally:
-        messaging.runner._draining = False
-    assert {key: (row['status'], row['outcome']) for key, row in _automation_rows(messaging).items()} == {
-        '["heartbeat","proc_job","proc_job-tick-1"]': ('queued', None)}
 
 
-@pytest.mark.asyncio
-async def test_a_tick_whose_replaced_tick_starts_first_is_admitted_with_only_its_own_output(messaging, monkeypatch):
-    authority = messaging.authority
-    tick = lambda seq: messaging.event('heartbeat', **_tick_fields('proc_job', seq))
-    assert await _drain_one(messaging.runner, tick(1)) == 0
-    admit = authority.admit_automation
-
-    async def claimed_first(adapter, event, identity, replaces=None):
-        if replaces is not None:  # the drain claims the waiting tick between the check and the write
-            # (The fixture's human message still heads the FIFO, so the claim is stamped directly.)
-            with authority.db._lock:
-                authority.db._conn.execute("UPDATE session_admissions SET status='started',owner_epoch=?,generation=1 "
-                                           "WHERE admission_id=?", (authority.epoch, replaces))
-                authority.db._conn.commit()
-        return await admit(adapter, event, identity, replaces)
-    monkeypatch.setattr(authority, 'admit_automation', claimed_first)
-
-    assert await _drain_one(messaging.runner, tick(2)) == 0
-    rows = _automation_rows(messaging)
-    assert {key: row['status'] for key, row in rows.items()} == {
-        '["heartbeat","proc_job","proc_job-tick-1"]': 'started', '["heartbeat","proc_job","proc_job-tick-2"]': 'queued'}
-    assert _tick_output(rows['["heartbeat","proc_job","proc_job-tick-2"]']['payload']['text']) == 'proc_job/2\n'
 
 
-@pytest.mark.asyncio
-async def test_a_tick_admitted_while_its_completion_lands_never_queues_behind_it(messaging, monkeypatch):
-    """The tick's check-and-admit and the completion's admit-and-withdraw are one critical section: a
-    completion that lands while a checked tick is still on its way in withdraws it once it is in."""
-    authority, gate, entered = messaging.authority, asyncio.Event(), asyncio.Event()
-    admit = authority.admit_automation
-
-    async def held(adapter, event, identity, **kwargs):
-        if identity.startswith('["heartbeat"'):
-            entered.set()
-            await gate.wait()
-        return await admit(adapter, event, identity, **kwargs)
-    monkeypatch.setattr(authority, 'admit_automation', held)
-
-    tick = asyncio.ensure_future(_drain_one(messaging.runner, messaging.event('heartbeat', **_tick_fields('proc_job', 1))))
-    await asyncio.wait_for(entered.wait(), 10)
-    exited = messaging.event('completion', exit_code=0, output='done')
-    completion = asyncio.ensure_future(messaging.runner._inject_watch_notification('[proc_job finished]', exited))
-    # Unserialized, the completion admits and withdraws (nothing yet) while the tick is held.
-    await asyncio.wait({completion}, timeout=1)
-    gate.set()
-    assert (await tick, await completion) == (0, True)
-    assert {key: row['outcome'] for key, row in _automation_rows(messaging).items()} == {
-        '["heartbeat","proc_job","proc_job-tick-1"]': 'cancelled', '["completion","proc_job",1.0]': None}
 
 
-@pytest.mark.asyncio
-async def test_job_output_that_looks_like_a_cut_marker_keeps_the_earlier_output(messaging):
-    """The omitted count rides the tick as its own field; text the job printed is never read as one."""
-    literal = '...(10 earlier characters omitted)\nprinted by the job\n'
-    for seq, output in ((1, 'proc_job/1\n'), (2, literal)):
-        assert await _drain_one(messaging.runner, messaging.event(
-            'heartbeat', **_tick_fields('proc_job', seq, output))) == 0
-    folded = _automation_rows(messaging)['["heartbeat","proc_job","proc_job-tick-2"]']['payload']['text']
-    assert _tick_output(folded) == 'proc_job/1\n' + literal
 
 
-@pytest.mark.asyncio
-async def test_a_late_tick_of_a_settled_batch_member_is_dropped(messaging):
-    """A completion batch names only its primary in ``request_id``; the siblings live in the payload.
-    Once the batch turn has finished, a late tick of a sibling process is still stale."""
-    from gateway.session_automation import producer_identity
-    batch = [messaging.event('completion', session_id=process, exit_code=0, output='done')
-             for process in ('proc_a', 'proc_b')]
-    primary = dict(batch[0], _automation_identities=[producer_identity(messaging.runner, e) for e in batch])
-    assert await messaging.runner._inject_watch_notification('[2 finished]', primary) is True
-    with messaging.authority.db._lock:
-        messaging.authority.db._conn.execute(
-            "UPDATE session_admissions SET status='terminal',outcome='completed' WHERE request_id=?",
-            ('["completion","proc_a",1.0]',))
-        messaging.authority.db._conn.commit()
-
-    assert await _drain_one(messaging.runner, messaging.event(
-        'heartbeat', session_id='proc_b', **_tick_fields('proc_b', 1))) == 0
-    assert list(_automation_rows(messaging)) == ['["completion","proc_a",1.0]'], 'the late tick was admitted'
 
 
 @pytest.mark.asyncio
