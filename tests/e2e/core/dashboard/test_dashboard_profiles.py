@@ -2,8 +2,8 @@
 round-trips the user's file.
 
 Users hit the first as "I switched the dashboard to profile B and saw A's sessions / saved B's key
-into A's .env" (one dashboard process serves every profile; the SPA's switcher appends
-``?profile=<name>`` to each call, ``web/src/lib/api.ts``). Each profile owns random canaries (model
+into A's .env" (one backend process serves every profile; clients append
+``?profile=<name>`` to each call). Each profile owns random canaries (model
 id, provider key, a config marker, session ids); the invariant after every step of an A -> B -> A ->
 default -> B walk, and under concurrent interleaved requests, is that a response for profile X
 carries only X's canaries and a write addressed to X changes only X's files.

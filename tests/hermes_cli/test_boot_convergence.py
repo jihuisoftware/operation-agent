@@ -59,7 +59,7 @@ def test_each_start_checks_pm_once_before_dispatch(surface, tmp_path, monkeypatc
     else:
         from hermes_cli import main
 
-        monkeypatch.setattr(main, "cmd_dashboard", lambda args: dispatched.append(len(checked)))
+        monkeypatch.setattr(main, "cmd_serve", lambda args: dispatched.append(len(checked)))
         monkeypatch.setattr(main, "cmd_version", lambda args: dispatched.append(len(checked)))
         monkeypatch.setattr(sys, "argv", ["hermes", "serve" if surface == "serve" else "--version"])
         run = main.main

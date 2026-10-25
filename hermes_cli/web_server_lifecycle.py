@@ -217,41 +217,6 @@ def _write_dashboard_ready_file(actual_port: int) -> None:
         _log.warning("Failed to write dashboard ready file %r: %s", target, exc)
 
 
-def _maybe_open_browser(host: str, actual_port: int, open_browser: bool, initial_profile: str) -> None:
-    """Open the dashboard URL in the user's browser if appropriate.
-
-    Skips headless Linux (no DISPLAY/WAYLAND_DISPLAY) so a TUI browser can't
-    SIGHUP the server; maps ``0.0.0.0``/``::`` binds to ``127.0.0.1``.
-    """
-    if not open_browser:
-        return
-
-    import webbrowser
-
-    _has_display = sys.platform != "linux" or bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
-    if not _has_display:
-        _log.debug(
-            "Skipping browser-open: no DISPLAY or WAYLAND_DISPLAY detected "
-            "(headless Linux). Pass --no-open to suppress this detection."
-        )
-        return
-
-    from hermes_cli.url_utils import format_url_host
-
-    _display_host = host if host not in ("0.0.0.0", "::") else "127.0.0.1"
-    _open_url = f"http://{format_url_host(_display_host)}:{actual_port}"
-    if initial_profile:
-        from urllib.parse import quote
-        _open_url += f"/?profile={quote(initial_profile)}"
-
-    def _open():
-        try:
-            time.sleep(1.0)
-            webbrowser.open(_open_url)
-        except Exception:
-            pass
-
-    threading.Thread(target=_open, daemon=True).start()
 
 
 def _is_serve_orphaned(
@@ -454,7 +419,7 @@ def _report_port_in_use(host: str, port: int) -> None:
     _write_machine_sentinel_line(_PORT_IN_USE_SENTINEL.format(port=port))
     print(
         f"  Port {port} on {host} is already in use — likely another "
-        "'hermes serve' / 'hermes dashboard' backend or the Hermes gateway. "
+        "'hermes serve' backend or the Hermes gateway. "
         "Stop the other process, or pass --port <other> "
         "(--port 0 picks a free ephemeral port).",
         flush=True,

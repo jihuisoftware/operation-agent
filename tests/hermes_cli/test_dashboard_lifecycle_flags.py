@@ -1,4 +1,4 @@
-"""Tests for ``hermes dashboard --stop`` / ``--status`` flags.
+"""Tests for ``hermes serve --stop`` / ``--status`` flags.
 
 These flags share the detection + kill path with the post-``hermes update``
 cleanup, so the heavy coverage of SIGTERM / SIGKILL / Windows taskkill lives
@@ -15,7 +15,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from hermes_cli.main import cmd_dashboard
+from hermes_cli.main import cmd_serve
 
 def _ns(**kw):
     """Build an argparse.Namespace with dashboard defaults plus overrides."""
@@ -30,10 +30,10 @@ class TestDashboardStatus:
     def test_status_no_processes(self, capsys):
         with patch("hermes_cli.dashboard_procs._scan_dashboard_processes", return_value=[]), \
              pytest.raises(SystemExit) as exc:
-            cmd_dashboard(_ns(status=True))
+            cmd_serve(_ns(status=True))
         assert exc.value.code == 0
         out = capsys.readouterr().out
-        assert "No hermes dashboard or serve processes running" in out
+        assert "No Hermes backend processes running" in out
 
     def test_status_with_processes(self, capsys):
         # Includes a serve-mode backend: --status must LIST it, not hide it —
@@ -48,7 +48,7 @@ class TestDashboardStatus:
              patch("gateway.status._pid_exists", return_value=True), \
              patch("hermes_cli.main_dashboard._dashboard_listening", return_value=True), \
              pytest.raises(SystemExit) as exc:
-            cmd_dashboard(_ns(status=True))
+            cmd_serve(_ns(status=True))
         # Status is informational — always exits 0.
         assert exc.value.code == 0
         out = capsys.readouterr().out
@@ -77,7 +77,7 @@ class TestDashboardStatus:
 
             assert _find_stale_dashboard_pids() == [pid]
             with pytest.raises(SystemExit) as exc:
-                cmd_dashboard(_ns(status=True))
+                cmd_serve(_ns(status=True))
         assert exc.value.code == 0
         assert f"PID {pid} [serve]" in capsys.readouterr().out
 
@@ -94,7 +94,7 @@ class TestDashboardStatus:
         with patch("hermes_cli.dashboard_procs._scan_dashboard_processes", return_value=[]), \
              patch("builtins.__import__", side_effect=fake_import), \
              pytest.raises(SystemExit) as exc:
-            cmd_dashboard(_ns(status=True))
+            cmd_serve(_ns(status=True))
         assert exc.value.code == 0
 
 class TestDashboardStop:
@@ -110,7 +110,7 @@ class TestDashboardStop:
                    return_value={"matched": [12345, 12346], "killed": [12345, 12346],
                                  "failed": [], "unrecovered": [12345, 12346]}) as mock_kill, \
              pytest.raises(SystemExit) as exc:
-            cmd_dashboard(_ns(stop=True))
+            cmd_serve(_ns(stop=True))
         mock_kill.assert_called_once()
         # --stop should pass a reason so the output doesn't say "running
         # backend no longer matches the updated frontend" (that wording is
@@ -129,14 +129,14 @@ class TestDashboardStop:
              patch("hermes_cli.dashboard_procs._kill_stale_dashboard_processes",
                    return_value={"matched": [12345], "killed": [12345], "failed": [], "unrecovered": []}) as kill, \
              pytest.raises(SystemExit):
-            cmd_dashboard(_ns(stop=True))
+            cmd_serve(_ns(stop=True))
         assert scan.call_args.kwargs["scope_home"] == str(own_home)
         assert kill.call_args.kwargs["scope_home"] == str(own_home)
 
         with patch("hermes_cli.main._find_stale_dashboard_pids", return_value=[]), \
              patch("hermes_cli.dashboard_procs._kill_stale_dashboard_processes") as kill, \
              pytest.raises(SystemExit) as exc:
-            cmd_dashboard(_ns(stop=True))
+            cmd_serve(_ns(stop=True))
         kill.assert_not_called()
         assert exc.value.code == 0
         assert "for this profile" in capsys.readouterr().out
@@ -149,7 +149,7 @@ class TestDashboardStop:
                    return_value={"matched": [12345], "killed": [],
                                  "failed": [(12345, "Operation not permitted")], "unrecovered": []}), \
              pytest.raises(SystemExit) as exc:
-            cmd_dashboard(_ns(stop=True))
+            cmd_serve(_ns(stop=True))
         assert exc.value.code == 1
 
     def test_stop_does_not_try_to_import_fastapi(self):
@@ -164,14 +164,14 @@ class TestDashboardStop:
                    return_value=[]), \
              patch("builtins.__import__", side_effect=fake_import), \
              pytest.raises(SystemExit) as exc:
-            cmd_dashboard(_ns(stop=True))
+            cmd_serve(_ns(stop=True))
         assert exc.value.code == 0
 
 class TestLifecycleFlagsTakePrecedence:
     """If both --stop and --status are set, --status wins (it's listed
-    first in cmd_dashboard).  Neither is allowed to fall through to the
+    first in cmd_serve).  Neither is allowed to fall through to the
     server-start path, which is the critical safety property — a user
-    who typed ``hermes dashboard --stop`` must not end up ALSO starting
+    who typed ``hermes serve --stop`` must not end up ALSO starting
     a new server."""
 
     def test_stop_does_not_fall_through_to_server_start(self):
@@ -189,5 +189,5 @@ class TestLifecycleFlagsTakePrecedence:
                    return_value=[]), \
              patch.dict(sys.modules, {"hermes_cli.web_server": fake_ws}), \
              pytest.raises(SystemExit):
-            cmd_dashboard(_ns(stop=True))
+            cmd_serve(_ns(stop=True))
         assert called["start"] is False

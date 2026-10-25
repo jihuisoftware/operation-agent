@@ -19,25 +19,20 @@ async def test_gateway_listener_never_publishes_the_session_token(tmp_path, monk
     from gateway.run_api import start_gateway_api, stop_gateway_api
     from hermes_cli import web_server
 
-    dist = tmp_path / "web_dist"
-    (dist / "assets").mkdir(parents=True)
-    (dist / "index.html").write_text("<html><head></head><body>spa</body></html>", encoding="utf-8")
-    monkeypatch.setattr(web_server, "WEB_DIST", dist)
-    monkeypatch.delenv("HERMES_SERVE_HEADLESS", raising=False)
-    # The process app mounted its SPA at import against the packaged dist; mount the same
-    # routes over a built dist so GET / renders the bootstrap script the token rides in.
-    spa = FastAPI()
-    web_server.mount_spa(spa)
-    assert web_server._SESSION_TOKEN in TestClient(spa).get("/").text  # standalone dashboard: unchanged
+    from hermes_cli.web_server_backend import mount_backend_root
+
+    backend = FastAPI()
+    mount_backend_root(backend)
+    assert web_server._SESSION_TOKEN in TestClient(backend).get("/").text
     runner = types.SimpleNamespace(session_runtime_descriptor=None, session_authority=None)
 
     handle = await start_gateway_api(runner)
     try:
         async with httpx.AsyncClient(base_url=handle.api_origin, trust_env=False) as client:
             assert (await client.get("/api/status")).status_code != 500
-        page = TestClient(spa).get("/")
-        assert page.status_code == 200 and "spa" in page.text
+        page = TestClient(backend).get("/")
+        assert page.status_code == 200
         assert web_server._SESSION_TOKEN not in page.text
     finally:
         await stop_gateway_api(handle)
-    assert web_server._SESSION_TOKEN in TestClient(spa).get("/").text
+    assert web_server._SESSION_TOKEN in TestClient(backend).get("/").text

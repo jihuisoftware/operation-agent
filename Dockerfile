@@ -293,34 +293,20 @@ RUN python3 -m pm.build_env --source /opt/hermes --python /usr/local/bin/python3
     --extra all --extra messaging --extra otlp --extra anthropic --extra bedrock \
     --extra azure-identity --extra matrix --extra google-chat
 
-# Icons render on the runtime environment: Pillow and resvg-py are core
-# dependencies. A stage of its own so the frontend stage keeps building its
-# Node dependencies in parallel with the Python ones.
-FROM python_deps AS icons
-COPY scripts/generate_icons.py scripts/
-COPY assets/ assets/
-RUN /opt/hermes/.venv/bin/python -I scripts/generate_icons.py --source /opt/hermes --out /tmp/hermes-icons
-
 # Frontend dependencies never enter the runtime layers.
 FROM runtime_base AS frontend_build
 COPY package.json package-lock.json ./
-COPY web/package.json web/
 COPY ui-tui/package.json ui-tui/
 COPY ui-tui/packages/hermes-ink/ ui-tui/packages/hermes-ink/
 COPY apps/shared/ apps/shared/
 COPY scripts/build/node-deps.mjs scripts/build/electron-runtime.mjs scripts/build/
 ENV npm_config_install_links=false
-RUN node scripts/build/node-deps.mjs --source /opt/hermes --workspace ui-tui --workspace web
+RUN node scripts/build/node-deps.mjs --source /opt/hermes --workspace ui-tui
 
 COPY pyproject.toml uv.lock ./
-COPY web/ web/
 COPY ui-tui/ ui-tui/
 COPY scripts/build/*.mjs scripts/build/
-COPY scripts/generate-icons.mjs scripts/generate_icons.py scripts/
-COPY assets/ assets/
-COPY --from=icons /tmp/hermes-icons /tmp/hermes-icons
-RUN node scripts/build/tui.mjs --source /opt/hermes --out /opt/products/tui && \
-    node scripts/build/web.mjs --source /opt/hermes --icons /tmp/hermes-icons --out /opt/products/web
+RUN node scripts/build/tui.mjs --source /opt/hermes --out /opt/products/tui
 
 FROM python_deps AS runtime
 # Standalone TypeScript linting is a runtime feature; Vite/esbuild are not.
@@ -346,7 +332,6 @@ RUN cd plugins/platforms/photon/sidecar && \
 
 # Shared product outputs are independent of application dependency assembly.
 COPY --from=frontend_build /opt/products/tui /opt/hermes/ui-tui
-COPY --from=frontend_build /opt/products/web /opt/hermes/hermes_cli/web_dist
 # ---------- Bot Screen X socket directory ----------
 # Xvnc would create this itself (/tmp is 1777); pre-creating it keeps ownership
 # deterministic when HERMES_UID is remapped between boots.
@@ -442,7 +427,6 @@ COPY --chmod=0755 docker/cont-init.d/015-supervise-perms /etc/cont-init.d/015-su
 COPY --chmod=0755 docker/cont-init.d/02-reconcile-profiles /etc/cont-init.d/02-reconcile-profiles
 
 # ---------- Runtime ----------
-ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 # Point the TUI launcher at the prebuilt bundle baked at build time (Layer 8:
 # `ui-tui && npm run build`). This makes _make_tui_argv take the prebuilt-bundle
 # fast path (`node --expose-gc /opt/hermes/ui-tui/dist/entry.js`) and skip the
@@ -450,8 +434,8 @@ ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 # nix/packaged-release path the launcher was designed for.
 #
 # Why this is required (not just an optimization): the root package-lock.json
-# describes the WHOLE monorepo workspace set (root + web + ui-tui + apps/*),
-# but the image only installs root/web/ui-tui (apps/* — the desktop app — is
+# describes the WHOLE monorepo workspace set (root + ui-tui + apps/*),
+# but the image only installs root/ui-tui/shared (apps/* — the desktop app — is
 # never `npm install`ed here). So the actualized node_modules permanently
 # disagrees with the canonical lock, _tui_need_npm_install() returns True on
 # every launch, and the runtime `npm install` it triggers (a) can never

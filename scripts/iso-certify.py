@@ -8,7 +8,7 @@ responsive (p99 < 1s) with zero event-loop stalls.
 
 What it does
 ------------
-1. Spawns a SCRATCH dashboard (``hermes dashboard``) bound to loopback on a
+1. Spawns a SCRATCH backend (``hermes serve``) bound to loopback on a
    free port, with an ISOLATED ``HERMES_HOME`` (temp dir, minimal seeded state).
    It NEVER touches the live :9119 dashboard / ai.hermes.dashboard / live
    state.db. Loopback bind ⇒ no auth gate (web_server.should_require_auth).
@@ -174,8 +174,8 @@ class ScratchDashboard:
         env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
         env["HERMES_ISO_CERTIFY_SYNTH_TURN"] = "1"
         cmd = [
-            python, "-m", "hermes_cli.main", "dashboard",
-            "--no-open", "--host", "127.0.0.1", "--port", str(self.port),
+            python, "-m", "hermes_cli.main", "serve",
+            "--host", "127.0.0.1", "--port", str(self.port),
         ]
         self.proc = subprocess.Popen(
             cmd, cwd=str(REPO_ROOT), env=env,

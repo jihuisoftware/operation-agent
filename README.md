@@ -3,6 +3,13 @@
 </p>
 
 # Hermes Agent ☤
+
+> **This branch uses Hermes Desktop as its primary interface.** The browser dashboard
+> frontend and `hermes dashboard` entry point have been removed. Desktop, TUI, and
+> their shared gateway/API backend remain. Start with the [Desktop development guide](apps/desktop/README.md)
+> and the [pet-community operations MVP](docs/pet-community-ops-mvp.md). The installation
+> links below refer to upstream Hermes, not a release of this branch.
+
 <p align="center">
   <a href="https://hermes-agent.nousresearch.com/">Hermes Agent</a> | <a href="https://hermes-agent.nousresearch.com/">Hermes Desktop</a>
 </p>

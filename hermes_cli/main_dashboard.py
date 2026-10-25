@@ -1,10 +1,11 @@
-"""Dashboard/serve support: managed-service restart (systemd/respawn), status/listening probes, SSH session token file, named-profile routing, web-dist resolution, update stdio hangup protection.
+"""Dashboard/serve support: managed-service restart (systemd/respawn), status/listening probes, SSH session token file, named-profile routing, update stdio hangup protection.
 
 Split out of ``hermes_cli/main.py``. Names that still live in main (``PROJECT_ROOT``, ...)
 are imported lazily inside the functions that use them (avoids an import cycle).
 """
 
 import contextlib
+import logging
 import os
 import re
 import shlex
@@ -17,7 +18,7 @@ from typing import NoReturn
 from hermes_cli.cli_output import line_input
 from hermes_cli.process_identity import is_desktop_owned_backend as _is_desktop_owned_backend
 
-_PRE_BUILD_HINT = "  Pre-build first:  npm install --workspace web && npm run build -w web"
+logger = logging.getLogger(__name__)
 
 
 def _find_stale_dashboard_pids(*, exclude_pids: set[int] | None = None,
@@ -401,6 +402,23 @@ def _dashboard_cmdline_for_pid(pid: int) -> list[str] | None:
 _RESPAWN_LIVENESS_GRACE_SECONDS = 1.0
 
 
+def _migrate_retired_dashboard_argv(argv: list[str]) -> list[str]:
+    """Migrate an already-owned backend's actual subcommand, never a flag value."""
+    from hermes_cli.update_cmd import _hermes_holder_subcommand
+
+    if _hermes_holder_subcommand(subprocess.list2cmdline(argv)) != "dashboard":
+        return list(argv)
+    for index, token in enumerate(argv):
+        if token != "dashboard":
+            continue
+        if _hermes_holder_subcommand(subprocess.list2cmdline(argv[:index + 1])) == "dashboard":
+            return [
+                *argv[:index], "serve",
+                *(arg for arg in argv[index + 1:] if arg not in {"--tui", "--skip-build", "--no-open"}),
+            ]
+    return list(argv)
+
+
 def _respawnable_command_for_current_install(argv: list[str]) -> list[str]:
     """Rebuild a captured ``[<interpreter>, <hermes launcher>, ...]`` argv on this install's launcher.
 
@@ -410,6 +428,7 @@ def _respawnable_command_for_current_install(argv: list[str]) -> list[str]:
     captured argv verbatim asks the old interpreter to parse a shell script (#124778). This
     checkout's own ``hermes`` entry script stays Python, so it and every other shape replay unchanged.
     """
+    argv = _migrate_retired_dashboard_argv(argv)
     root = Path(__file__).resolve().parents[1]
     if (len(argv) > 2 and os.path.basename(argv[0]).startswith("python")
             and os.path.basename(argv[1]) == "hermes" and Path(argv[1]) != root / "hermes"):
@@ -435,10 +454,6 @@ def _respawn_dashboard_processes(commands: list[list[str]]) -> list[list[str]]:
 
     for original in commands:
         command = _respawnable_command_for_current_install(original)
-        # Keep restarted dashboards headless; reopening a browser after a
-        # background update is noisy and fails in SSH/headless sessions.
-        if "dashboard" in command and "--no-open" not in command:
-            command = [*command, "--no-open"]
         try:
             with open(log_path, "ab") as log_f:
                 proc = subprocess.Popen(
@@ -602,10 +617,10 @@ def _report_dashboard_status() -> int:
         live.append((pid, command, mode))
 
     if not live:
-        print("No hermes dashboard or serve processes running.")
+        print("No Hermes backend processes running.")
         return 0
 
-    print(f"{len(live)} hermes dashboard/serve process(es) running:")
+    print(f"{len(live)} Hermes backend process(es) running:")
     for pid, command, mode in live:
         print(f"    PID {pid} [{mode}]: {command}")
     return len(live)
@@ -653,33 +668,20 @@ def _maybe_setup_dashboard_auth_interactively(args) -> None:
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return
 
-    print(f"\n⚠ Dashboard authentication is required for this configuration ({host}).")
+    print(f"\n⚠ Backend authentication is required for this configuration ({host}).")
     print(
         "  Non-loopback binds and configured external dashboard.public_url "
         "values require authentication (--insecure does not bypass this)."
     )
     print()
-    print("  How do you want to authenticate the dashboard?")
+    print("  How do you want to authenticate the backend?")
     print("    [1] Username & password (quickest; for a trusted LAN / VPN)")
-    print("    [2] OAuth via Nous Portal (run `hermes dashboard register`)\n    [3] Cancel\n")
+    print("    [2] Cancel\n")
 
     try:
         choice = input("  Choice [1]: ").strip() or "1"
     except (EOFError, KeyboardInterrupt):
         _cancel("\n  Cancelled.")
-
-    if choice == "2":
-        print()
-        print(
-            "  Run this on the host where the dashboard lives, then start "
-            "the dashboard again:\n"
-            "    hermes dashboard register\n"
-            "  It provisions a Nous Portal OAuth client and writes "
-            "HERMES_DASHBOARD_OAUTH_CLIENT_ID into ~/.hermes/.env for you.\n"
-            "  Docs: https://hermes-agent.nousresearch.com/docs/"
-            "user-guide/features/web-dashboard#authentication-gated-mode"
-        )
-        sys.exit(0)
 
     if choice != "1":
         _cancel()
@@ -825,17 +827,6 @@ def _read_ssh_session_token_file(path: str) -> str:
             os.close(root_fd)
 
 
-def _is_electron_packaged_web_dist(path: str) -> bool:
-    """True when *path* is an Electron-packaged renderer dist (``app.asar[.unpacked]/dist``).
-
-    A standalone ``hermes dashboard`` inheriting that ``HERMES_WEB_DIST`` would
-    serve the desktop frontend in the browser ("Desktop IPC bridge is unavailable").
-    """
-    if not path:
-        return False
-    return "app.asar" in path.replace("\\", "/")
-
-
 def _host_backend_attachment():
     """Live host serve/dashboard record to attach to, or ``None``.
 
@@ -891,7 +882,7 @@ def _endpoint_conflict(args, record, typed: set) -> str:
     return ""
 
 
-def _attach_to_host_backend(args, headless_backend: bool) -> None:
+def _attach_to_host_backend(args) -> None:
     """Multiplex-only: a second `hermes serve`/`dashboard` attaches to the host backend.
 
     Exactly ONE backend runs per host and multiplexes every profile, so a second invocation —
@@ -909,7 +900,6 @@ def _attach_to_host_backend(args, headless_backend: bool) -> None:
       owner, never a silent redirect. It exits 78 (EX_CONFIG), the deliberate-refusal code
       ``RestartPreventExitStatus=78`` parks on: exit 1 under ``Restart=always`` was an infinite
       restart loop with nothing listening on the ingress port (#119824);
-    * a `hermes dashboard` user is never handed a headless backend's URL (no SPA behind it).
 
     Returns normally — leaving the caller to BIND — when no owner answers.
     """
@@ -936,12 +926,6 @@ def _attach_to_host_backend(args, headless_backend: bool) -> None:
         print("  Stop that backend, or drop the flag to use the running one.")
         sys.exit(GATEWAY_FATAL_CONFIG_EXIT_CODE)
 
-    if not headless_backend and not identity.get("servesSpa"):
-        print(f"Refusing to start: this host is already served by {hr.describe(record)}, "
-              "which is a headless `hermes serve` backend with no dashboard UI.")
-        print("  Stop it and run `hermes dashboard`, or use --isolated for a dedicated server.")
-        sys.exit(GATEWAY_FATAL_CONFIG_EXIT_CODE)
-
     try:
         from hermes_cli.profiles import get_active_profile_name
         profile = get_active_profile_name()
@@ -952,19 +936,14 @@ def _attach_to_host_backend(args, headless_backend: bool) -> None:
 
     url = f"http://{format_url_host(hr.dial_host(record))}:{record.port}/?profile={wanted}"
 
-    kind = "backend" if headless_backend else "dashboard"
-    print(f"Hermes {kind} already running on this host: PID {record.pid}, port {record.port}.")
+    print(f"Hermes backend already running on this host: PID {record.pid}, port {record.port}.")
     print(f"  Managing profile '{wanted}': {url}")
-    if not headless_backend and not args.no_open:
-        with contextlib.suppress(Exception):
-            import webbrowser
-            webbrowser.open(url)
     sys.exit(0)
 
 
 def _route_named_profile_dashboard(
-    args, _headless_backend: bool, _ssh_owner_nonce: str, _token_file: str) -> None:
-    """Route a named-profile launch to the single MACHINE dashboard (per-request ``?profile=`` scoping
+    args, _ssh_owner_nonce: str, _token_file: str) -> None:
+    """Route a named-profile launch to the single machine backend (per-request ``?profile=`` scoping
     makes one server per profile pure fragmentation).
 
     No-record fallback to :func:`_attach_to_host_backend`, which already attached (and exited)
@@ -988,15 +967,13 @@ def _route_named_profile_dashboard(
         return
 
     print(
-        f"Routing to the machine dashboard (profile '{_launch_profile}' "
+        f"Routing to the machine backend (profile '{_launch_profile}' "
         f"preselected). Use --isolated for a dedicated per-profile server."
     )
     reexec_argv = [
         sys.executable, "-m", "hermes_cli.main",
         "-p", "default",
-        # Preserve the lean serve path so a named-profile `serve` doesn't
-        # silently rebuild the UI as `dashboard`.
-        "serve" if _headless_backend else "dashboard",
+        "serve",
         "--port", str(args.port),
         "--host", args.host,
         "--open-profile", _launch_profile]
@@ -1031,65 +1008,80 @@ def _route_named_profile_dashboard(
         os.execvpe(sys.executable, reexec_argv, env)
 
 
-def _resolve_dashboard_web_dist(args, _headless_backend: bool) -> None:
-    """Build or validate the web UI dist before the server imports.
+def _prepare_serve_runtime() -> bool:
+    """Deps check, skills seed, terminal env bridge, plugins, MCP discovery.
 
-    ``serve`` sets HERMES_SERVE_HEADLESS so mount_spa() stays off. Otherwise build
-    unless HERMES_WEB_DIST / --skip-build promise a dist — then verify index.html
-    (else the server serves 404s). --skip-build on the default location gets ONE
-    recovery build; a caller-managed HERMES_WEB_DIST can't be populated.
+    Returns ``start_mcp_discovery_after_bind`` for start_server.
     """
-    from hermes_cli.main import PROJECT_ROOT
-    from hermes_cli.main_web_build import _build_web_ui
-    skip_build = getattr(args, "skip_build", False)
-    if _headless_backend:
-        os.environ["HERMES_SERVE_HEADLESS"] = "1"  # set before web_server import
-    elif "HERMES_WEB_DIST" not in os.environ and not skip_build:
-        if not _build_web_ui(PROJECT_ROOT / "web", fatal=True):
-            sys.exit(1)
-    elif skip_build:
-        _dist_root = (
-            # --build-mode skip trusts the caller to have pre-built the web UI. Verify the dist actually
-            # exists; otherwise the server will start and serve 404s with no obvious cause (issue #23817).
-            Path(os.environ["HERMES_WEB_DIST"])
-            if "HERMES_WEB_DIST" in os.environ
-            else PROJECT_ROOT / "hermes_cli" / "web_dist"
+    from hermes_cli import main as cli
+
+    # Attach gui.log early so backend startup failures are captured in
+    # the same logs directory as every other Hermes surface.
+    try:
+        from hermes_logging import setup_logging as _setup_logging_gui
+        _setup_logging_gui(mode="gui")
+    except Exception:
+        logger.debug("Could not attach backend startup logging", exc_info=True)
+
+    cli._require_serve_web_deps()
+
+    # Seed bundled skills on first backend launch so the desktop GUI's
+    # skills picker / agent skill discovery sees the bundled library.
+    cli._sync_bundled_skills_quietly()
+
+    # Bridge terminal.* config into TERMINAL_* env for THIS process, like the
+    # CLI (cli.py env_mappings) and gateway (_terminal_env_map) do. The
+    # serve backend runs agents in-process (tui_gateway.ws →
+    # server._make_agent) and ticks cron itself when desktop-spawned; without
+    # this those consumers saw an unset TERMINAL_ENV and ran every command on
+    # the host even under `terminal.backend: docker` (#63141, #54449).
+    try:
+        # PTY chat spawns already bridge their child env copy; this covers the in-process consumers. See
+        # #61115, #65696.
+        from hermes_cli.config import apply_terminal_config_to_env
+
+        apply_terminal_config_to_env()
+    except Exception:
+        logger.debug("terminal config → env bridge failed for serve",
+                     exc_info=True)
+
+    os.environ["HERMES_SERVE_HEADLESS"] = "1"
+    # Load plugins so any DashboardAuthProvider plugin registers BEFORE
+    # start_server's fail-closed gate check. Argparse setup skips discovery
+    # for built-in subcommands (~500ms), but the backend's server-side
+    # runtime depends on plugin-registered providers (image_gen, web,
+    # dashboard_auth, …).
+    try:
+        from hermes_cli.plugins import discover_plugins
+        discover_plugins()
+    except Exception as exc:
+        # Must not block startup; the gate's fail-closed branch surfaces a
+        # missing provider if it matters.
+        logger.warning("Plugin discovery failed: %s", exc, exc_info=True)
+
+    # Desktop chat uses the in-process /api/ws gateway (tui_gateway.server
+    # ._make_agent), which only snapshots the tool registry and never starts
+    # MCP discovery — so configured MCP servers would never connect. Spawn
+    # discovery in the background here so a slow/dead server can't block
+    # startup. Desktop-spawned headless backends start it AFTER the socket
+    # binds instead (start_server's ready path): the thread's first act is the
+    # ~350ms `mcp` SDK import, which holds the GIL against the web_server
+    # import and delays the READY sentinel; _make_agent's bounded
+    # wait_for_mcp_discovery covers a server still connecting at first turn.
+    # A standalone (non-Desktop) backend may sit idle and unvisited for days
+    # (#58733): it arms discovery instead and the first /api/ws client fires it.
+    desktop = _is_desktop_owned_backend()
+    if desktop:
+        return True
+    try:
+        from hermes_cli.mcp_startup import (
+            defer_background_mcp_discovery,
         )
-        if not (_dist_root / "index.html").exists():
-            # Only the default dist location is recoverable (desktop launches with
-            # --build-mode skip after a wipe of web_dist); a custom HERMES_WEB_DIST
-            # is a caller-managed directory the build cannot populate.
-            # The caller promised a pre-built dist but there isn't one. Instead of hard-failing (issue
-            # #59288 — desktop launches with --build-mode skip after a wipe of web_dist), warn and attempt
-            # ONE recovery build through the normal build path.
-            _recoverable = "HERMES_WEB_DIST" not in os.environ
-            if _recoverable:
-                print(f"⚠ --skip-build was passed but no web dist found at: {_dist_root}")
-                print("  Attempting one recovery build of the web UI...")
-                _build_web_ui(PROJECT_ROOT / "web", fatal=True)
-            if not (_dist_root / "index.html").exists():
-                print(f"✗ --skip-build was passed but no web dist found at: {_dist_root}")
-                if _recoverable:
-                    print("  The recovery build did not produce a usable dist.")
-                print(_PRE_BUILD_HINT)
-                print("  Or drop --skip-build to build automatically.")
-                sys.exit(1)
-            print("  ✓ Recovery build produced a web dist")
-        print(f"→ Skipping web UI build (--skip-build); using dist at {_dist_root}")
-    else:
-        # HERMES_WEB_DIST without --skip-build: the env var points at a
-        # caller-managed dist, so validate it like the --skip-build branch.
-        # HERMES_WEB_DIST is set without --skip-build: the build is skipped (the env var points at a
-        # caller-managed dist), so validate it the same way the --skip-build branch does — otherwise the
-        # server starts and serves 404s with no obvious cause (same failure mode as #23817, via the env-var
-        # path).
-        _dist_root = Path(os.environ["HERMES_WEB_DIST"]).expanduser()
-        if not (_dist_root / "index.html").exists():
-            print(f"✗ HERMES_WEB_DIST is set but no web dist found at: {_dist_root}")
-            print(_PRE_BUILD_HINT)
-            print("  Or unset HERMES_WEB_DIST to build and use the default web UI dist.")
-            sys.exit(1)
-        # web_server reads HERMES_WEB_DIST raw at import (no expanduser), so a
-        # validated "~/dist" would otherwise pass here and still 404 there.
-        os.environ["HERMES_WEB_DIST"] = str(_dist_root)
-        print(f"→ Using web dist from HERMES_WEB_DIST: {_dist_root}")
+
+        defer_background_mcp_discovery(logger=logger, thread_name="serve-mcp-discovery", delay=None)
+    except Exception:
+        logger.debug(
+            "Background MCP tool discovery failed at backend startup",
+            exc_info=True,
+        )
+    return False

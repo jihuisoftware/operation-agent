@@ -1,6 +1,7 @@
 """Tests for hermes_cli.web_server and related config utilities."""
 
 import asyncio
+from hermes_cli.web_server_backend import mount_backend_root
 import os
 import json
 import re
@@ -4146,61 +4147,6 @@ class TestDiscoverUserThemes:
         assert [r["name"] for r in results] == ["mine"]
 
 
-class TestThemeBootstrapCSS:
-    """Tests for _render_active_theme_bootstrap_css() and its injection
-    into index.html via _serve_index() — the critical-CSS shim that kills
-    the default-teal first-paint flash for user YAML themes."""
-
-    @staticmethod
-    def _write_theme(hermes_home, name="ocean"):
-        themes_dir = hermes_home / "dashboard-themes"
-        themes_dir.mkdir(exist_ok=True)
-        (themes_dir / f"{name}.yaml").write_text(
-            f"name: {name}\n"
-            "label: Ocean\n"
-            "palette:\n"
-            "  background:\n"
-            "    hex: \"#0a1628\"\n"
-            "  midground:\n"
-            "    hex: \"#dbe4f0\"\n"
-            "typography:\n"
-            "  fontSans: \"Inter, sans-serif\"\n"
-            "  baseSize: \"17px\"\n",
-            encoding="utf-8",
-        )
-
-
-    @staticmethod
-    def _mount_spa_client(tmp_path, monkeypatch):
-        from fastapi import FastAPI
-        from starlette.testclient import TestClient
-        import hermes_cli.web_server as ws
-
-        dist = tmp_path / "web_dist"
-        (dist / "assets").mkdir(parents=True)
-        (dist / "index.html").write_text(
-            "<html><head><title>t</title></head><body>SPA</body></html>",
-            encoding="utf-8",
-        )
-        monkeypatch.setattr(ws, "WEB_DIST", dist)
-        spa_app = FastAPI()
-        _web_server_dashboard.mount_spa(spa_app)
-        return TestClient(spa_app)
-
-    def test_serve_index_injects_bootstrap_for_user_theme(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-        self._write_theme(tmp_path)
-        monkeypatch.setattr(
-            _cfg_mod, "load_config", lambda: {"dashboard": {"theme": "ocean"}}
-        )
-        client = self._mount_spa_client(tmp_path, monkeypatch)
-        resp = client.get("/chat")
-        assert resp.status_code == 200
-        assert '<style id="hermes-theme-bootstrap">' in resp.text
-        assert "--background-base:#0a1628;" in resp.text
-        # Injected inside <head>, before the closing tag.
-        head = resp.text.split("</head>")[0]
-        assert "hermes-theme-bootstrap" in head
 
 
 class TestNormaliseThemeExtensions:
@@ -5266,71 +5212,6 @@ class TestDesktopCronTicker:
             assert called.wait(3.0), "expected cron tick under a Desktop-owned backend"
 
 
-class TestServeIndexMissingIndex:
-    """_serve_index must not raise per-request when index.html vanishes
-    (partial build, wiped dist) after mount_spa saw an existing dist dir.
-    It should return the same JSON 404 payload mount_spa emits for a
-    fully-missing dist."""
-
-    @staticmethod
-    def _client_with_dist(tmp_path, monkeypatch, *, write_index: bool):
-        from fastapi import FastAPI
-        from starlette.testclient import TestClient
-        import hermes_cli.web_server as ws
-
-        dist = tmp_path / "web_dist"
-        (dist / "assets").mkdir(parents=True)
-        if write_index:
-            (dist / "index.html").write_text(
-                "<html><head></head><body>SPA</body></html>", encoding="utf-8"
-            )
-        monkeypatch.setattr(ws, "WEB_DIST", dist)
-        monkeypatch.delenv("HERMES_SERVE_HEADLESS", raising=False)
-        spa_app = FastAPI()
-        _web_server_dashboard.mount_spa(spa_app)
-        return TestClient(spa_app), dist
-
-    def test_missing_index_inside_existing_dist_returns_json_404(
-        self, tmp_path, monkeypatch
-    ):
-        client, _dist = self._client_with_dist(
-            tmp_path, monkeypatch, write_index=False
-        )
-        for route in ("/", "/chat"):
-            resp = client.get(route)
-            assert resp.status_code == 404
-            assert resp.json()["error"]
-
-    def test_index_deleted_after_mount_returns_json_404(self, tmp_path, monkeypatch):
-        client, dist = self._client_with_dist(tmp_path, monkeypatch, write_index=True)
-        assert client.get("/chat").status_code == 200  # healthy first
-        (dist / "index.html").unlink()
-        resp = client.get("/chat")
-        assert resp.status_code == 404
-        assert resp.json()["error"]
-        # And recovers once the index reappears (e.g. a rebuild finished).
-        (dist / "index.html").write_text(
-            "<html><head></head><body>SPA-rebuilt</body></html>", encoding="utf-8"
-        )
-        resp = client.get("/chat")
-        assert resp.status_code == 200
-        assert "SPA-rebuilt" in resp.text
-
-    def test_index_uses_ssh_token_applied_after_spa_mount(
-        self, tmp_path, monkeypatch
-    ):
-        import hermes_cli.web_server as ws
-
-        monkeypatch.setattr(ws, "_SESSION_TOKEN", "before-mount")
-        client, _dist = self._client_with_dist(
-            tmp_path, monkeypatch, write_index=True
-        )
-
-        ws._apply_ssh_session_token("after-mount")
-        resp = client.get("/chat")
-
-        assert resp.status_code == 200
-        assert 'window.__HERMES_SESSION_TOKEN__="after-mount"' in resp.text
 
 
 class TestHeadlessServeTokenPage:
@@ -5354,7 +5235,7 @@ class TestHeadlessServeTokenPage:
         monkeypatch.setenv("HERMES_SERVE_HEADLESS", "1")
         spa_app = FastAPI()
         spa_app.state.auth_required = gated
-        _web_server_dashboard.mount_spa(spa_app)
+        mount_backend_root(spa_app)
         return TestClient(spa_app), ws
 
     def test_root_serves_token_page_when_not_gated(self, monkeypatch):
@@ -5396,10 +5277,10 @@ class TestHeadlessServeTokenPage:
         assert match, resp.text
         assert json.loads(match.group(1)) == "after-mount"
 
-    def test_root_stays_404_json_when_auth_gated(self, monkeypatch):
+    def test_root_withholds_token_when_auth_gated(self, monkeypatch):
         client, ws = self._headless_client(monkeypatch, gated=True)
         resp = client.get("/")
-        assert resp.status_code == 404
+        assert resp.status_code == 200
         assert ws._SESSION_TOKEN not in resp.text
 
     def test_non_root_paths_stay_404_json(self, monkeypatch):
@@ -5410,79 +5291,6 @@ class TestHeadlessServeTokenPage:
             assert ws._SESSION_TOKEN not in resp.text
 
 
-class TestHashedAssetCacheHeaders:
-    """Hashed /assets/* responses must be immutable-cacheable; index.html
-    must stay no-store so it always references the current hashes
-    (salvaged from PR #28543)."""
-
-    _IMMUTABLE = "public, max-age=31536000, immutable"
-
-    @staticmethod
-    def _client(tmp_path, monkeypatch):
-        from fastapi import FastAPI
-        from starlette.testclient import TestClient
-        import hermes_cli.web_server as ws
-
-        dist = tmp_path / "web_dist"
-        (dist / "assets").mkdir(parents=True)
-        (dist / "index.html").write_text(
-            "<html><head></head><body>SPA</body></html>", encoding="utf-8"
-        )
-        (dist / "assets" / "index-abc123.js").write_text(
-            "console.log('bundle');", encoding="utf-8"
-        )
-        (dist / "assets" / "index-abc123.css").write_text(
-            "body{background:url(/ds-assets/bg.png);"
-            "font-family:url(/fonts-terminal/x.woff2)}",
-            encoding="utf-8",
-        )
-        monkeypatch.setattr(ws, "WEB_DIST", dist)
-        monkeypatch.delenv("HERMES_SERVE_HEADLESS", raising=False)
-        spa_app = FastAPI()
-        _web_server_dashboard.mount_spa(spa_app)
-        return TestClient(spa_app)
-
-    def test_hashed_js_asset_is_immutable(self, tmp_path, monkeypatch):
-        client = self._client(tmp_path, monkeypatch)
-        resp = client.get("/assets/index-abc123.js")
-        assert resp.status_code == 200
-        assert resp.headers["cache-control"] == self._IMMUTABLE
-
-    def test_serve_css_is_immutable_and_keeps_prefix_rewrites(
-        self, tmp_path, monkeypatch
-    ):
-        client = self._client(tmp_path, monkeypatch)
-        resp = client.get("/assets/index-abc123.css")
-        assert resp.status_code == 200
-        assert resp.headers["cache-control"] == self._IMMUTABLE
-
-        # The proxy-prefix rewrite path (main's ds-assets/fonts-terminal
-        # handling) must survive the header change.
-        prefixed = client.get(
-            "/assets/index-abc123.css",
-            headers={"X-Forwarded-Prefix": "/hermes"},
-        )
-        assert prefixed.status_code == 200
-        assert prefixed.headers["cache-control"] == self._IMMUTABLE
-        assert "url(/hermes/ds-assets/bg.png)" in prefixed.text
-        assert "url(/hermes/fonts-terminal/x.woff2)" in prefixed.text
-
-    def test_index_html_stays_no_store(self, tmp_path, monkeypatch):
-        client = self._client(tmp_path, monkeypatch)
-        for route in ("/", "/chat"):
-            resp = client.get(route)
-            assert resp.status_code == 200
-            cache_control = resp.headers["cache-control"]
-            assert "no-store" in cache_control
-            assert "immutable" not in cache_control
-
-    def test_missing_asset_is_not_marked_immutable(self, tmp_path, monkeypatch):
-        """A 404 must never be cached for a year — a later rebuild can
-        legitimately create the file."""
-        client = self._client(tmp_path, monkeypatch)
-        resp = client.get("/assets/nope-000000.js")
-        assert resp.status_code == 404
-        assert "immutable" not in resp.headers.get("cache-control", "")
 
 
 class TestDashboardComponentHealth:
@@ -5634,29 +5442,6 @@ class TestSessionPatchUnread:
         assert bool(next(s for s in rows if s["id"] == "s1")["hidden"]) is False
 
 
-def test_mount_spa_dynamic_web_dist_recheck(tmp_path, monkeypatch):
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-    from hermes_cli import web_server
-
-    app = FastAPI()
-    dist = tmp_path / "web_dist"
-    monkeypatch.setattr(web_server, "WEB_DIST", dist)
-
-    _web_server_dashboard.mount_spa(app)
-    client = TestClient(app)
-
-    # 1. missing build -> 404
-    res1 = client.get("/")
-    assert res1.status_code == 404
-    assert res1.json()["error"]
-
-    # 2. build created dynamically -> 200
-    dist.mkdir(parents=True, exist_ok=True)
-    (dist / "index.html").write_text("<html><body>Test</body></html>")
-    res2 = client.get("/")
-    assert res2.status_code == 200
-    assert "Test" in res2.text
 
 
 class TestSubmittedCustomEndpointSurvivesAssignment:

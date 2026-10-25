@@ -20,16 +20,15 @@ repo clone, no `npm run build`, no patching app source. Drop the file in
 `$HERMES_HOME/desktop-plugins/<id>/plugin.js` and the app loads it within seconds
 and hot-reloads every save.
 
-:::warning This is not the web-dashboard plugin SDK
-"Plugin" means several unrelated things across Hermes. This page is the **native
-desktop app** (`hermes desktop`) SDK — the `@hermes/plugin-sdk` module and
-`$HERMES_HOME/desktop-plugins/`. The **web dashboard** (`hermes dashboard`) has
-its own, unrelated plugin system on `window.__HERMES_PLUGIN_SDK__` with a
-`manifest.json` — documented at
-[Extending the Dashboard](../user-guide/features/extending-the-dashboard.md). Python
-CLI/gateway plugins are documented at [Build a Hermes Plugin](./plugins/index.md).
-The three do not share code, APIs, or delivery. Only the backend `plugin_api.py`
-namespace (`/api/plugins/<id>`) is shared between the desktop and dashboard SDKs.
+:::note Desktop is the supported UI extension surface on this branch
+This page documents the **native desktop app** (`hermes desktop`) SDK —
+`@hermes/plugin-sdk` and `$HERMES_HOME/desktop-plugins/`. The browser dashboard
+frontend has been removed; its former `window.__HERMES_PLUGIN_SDK__` bundles
+are not Desktop plugins. See
+[Dashboard extension migration](../user-guide/features/extending-the-dashboard.md).
+Python CLI/gateway plugins use [Build a Hermes Plugin](./plugins/index.md).
+The shared backend `plugin_api.py` namespace (`/api/plugins/<id>`) remains
+available under its existing access contracts.
 :::
 
 ## Mental model

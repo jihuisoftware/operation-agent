@@ -90,7 +90,7 @@ import os
 import subprocess
 import sys
 
-_FRONTEND = ("ui-tui/", "web/", "apps/")  # TS typecheck-matrix packages
+_FRONTEND = ("ui-tui/", "apps/")  # TS typecheck-matrix packages
 # Shipped page outside those packages, exercised by the desktop Electron suite.
 _FRONTEND_FILES = {"scripts/desktop-update/ui.html"}
 _ROOT_NPM = {"package.json", "package-lock.json"}  # shifts every package's tree
@@ -334,7 +334,6 @@ _UPDATE_DEPENDENCIES = (
     "hermes_cli/memory_provider_migration.py",
     "hermes_cli/left_core_migration.py",  # source_build migrates plugins that left core
     "hermes_cli/config_version_stamp.py",  # post_update converts legacy AGENT_BROWSER_* before stamping
-    "hermes_cli/web_build_limits.py",  # source_build caps the dashboard Node build
     "hermes_cli/desktop_console.py",
     "hermes_cli/bundled_app.py",
     "hermes_cli/gui_uninstall.py",
@@ -372,7 +371,7 @@ _UPDATE_DEPENDENCIES = (
     "tools/environments/local_env_policy.py",
     "pm/progress.py",
     # The compilers source_build / the Desktop build run (freshness, node-deps,
-    # tui, web, desktop and their shared frontend-common).
+    # tui, desktop and their shared frontend-common).
     "scripts/build/",
 )
 # General-purpose modules an entry point imports but that half the product

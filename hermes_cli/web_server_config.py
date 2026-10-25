@@ -618,7 +618,7 @@ def _dashboard_skew_restart_hint() -> str:
         )
     return (
         "restart this Hermes process to load the new code "
-        "(hermes dashboard --port <port>, or the equivalent service restart for this install)"
+        "(hermes serve --port <port>, or the equivalent service restart for this install)"
     )
 
 

@@ -86,7 +86,7 @@ def test_second_serve_attaches_to_the_live_host_backend(host_dir, owner, capsys)
     _publish(hr.process_create_time(), port=owner.port)
 
     with pytest.raises(SystemExit) as exc:
-        _attach_to_host_backend(_args(), headless_backend=True)
+        _attach_to_host_backend(_args())
 
     assert exc.value.code == 0
     assert f"port {owner.port}" in capsys.readouterr().out
@@ -103,7 +103,7 @@ def test_inherited_desktop_flag_without_spawn_credential_still_attaches(host_dir
     _publish(hr.process_create_time(), port=owner.port)
 
     with pytest.raises(SystemExit) as exc:
-        _attach_to_host_backend(_args(), headless_backend=True)
+        _attach_to_host_backend(_args())
 
     assert exc.value.code == 0
 
@@ -114,7 +114,7 @@ def test_desktop_owned_backend_keeps_its_separate_lifecycle(host_dir, owner, mon
     monkeypatch.setenv("HERMES_DASHBOARD_SESSION_TOKEN", "desktop-spawn-token")
     _publish(hr.process_create_time(), port=owner.port)
 
-    assert _attach_to_host_backend(_args(), headless_backend=True) is None
+    assert _attach_to_host_backend(_args()) is None
 
 
 def test_stale_record_is_ignored_and_the_launch_proceeds(host_dir):
@@ -122,14 +122,14 @@ def test_stale_record_is_ignored_and_the_launch_proceeds(host_dir):
     backend: the launch must fall through and bind, never attach."""
     _publish(1.0)
 
-    assert _attach_to_host_backend(_args(), headless_backend=True) is None
+    assert _attach_to_host_backend(_args()) is None
 
 
 def test_isolated_never_attaches(host_dir, owner):
     """`--isolated` is load-bearing for Desktop's SSH backend ownership proof."""
     _publish(hr.process_create_time(), port=owner.port)
 
-    assert _attach_to_host_backend(_args(isolated=True), headless_backend=True) is None
+    assert _attach_to_host_backend(_args(isolated=True)) is None
 
 
 def test_a_record_whose_owner_does_not_answer_falls_through_to_the_bind(host_dir):
@@ -137,7 +137,7 @@ def test_a_record_whose_owner_does_not_answer_falls_through_to_the_bind(host_dir
     socket is already closed. Exiting 0 here reported success with NOTHING listening."""
     _publish(hr.process_create_time(), port=_dead_port())
 
-    assert _attach_to_host_backend(_args(), headless_backend=True) is None
+    assert _attach_to_host_backend(_args()) is None
 
 
 def test_unprovable_liveness_still_has_to_answer(host_dir, monkeypatch):
@@ -146,7 +146,7 @@ def test_unprovable_liveness_still_has_to_answer(host_dir, monkeypatch):
     monkeypatch.setattr("hermes_cli.process_identity._pid_alive_matches", lambda *_a, **_k: None)
     _publish(None, pid=2**22 - 1, port=_dead_port())
 
-    assert _attach_to_host_backend(_args(), headless_backend=True) is None
+    assert _attach_to_host_backend(_args()) is None
 
 
 @pytest.mark.parametrize(
@@ -163,7 +163,7 @@ def test_an_explicit_endpoint_the_owner_cannot_serve_is_refused(host_dir, owner,
     _publish(hr.process_create_time(), port=owner.port)
 
     with pytest.raises(SystemExit) as exc:
-        _attach_to_host_backend(_args(**over), headless_backend=True)
+        _attach_to_host_backend(_args(**over))
 
     # 78 (EX_CONFIG) is the deliberate refusal a supervisor parks on; exit 1 under
     # Restart=always was an infinite loop with nothing listening (#119824).
@@ -171,14 +171,12 @@ def test_an_explicit_endpoint_the_owner_cannot_serve_is_refused(host_dir, owner,
     assert f"PID {os.getpid()}" in capsys.readouterr().out
 
 
-def test_dashboard_is_never_routed_to_a_headless_backend(host_dir, owner, capsys):
-    """`hermes serve` and `hermes dashboard` publish the same host role; only one mounts the SPA,
-    so attaching a dashboard user to a headless backend opens a URL with no UI behind it."""
+def test_serve_attaches_to_a_headless_backend(host_dir, owner, capsys):
     owner.serves_spa["value"] = False
     _publish(hr.process_create_time(), port=owner.port)
 
     with pytest.raises(SystemExit) as exc:
-        _attach_to_host_backend(_args(), headless_backend=False)
+        _attach_to_host_backend(_args())
 
-    assert exc.value.code == GATEWAY_FATAL_CONFIG_EXIT_CODE
-    assert "no dashboard UI" in capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "Hermes backend already running" in capsys.readouterr().out

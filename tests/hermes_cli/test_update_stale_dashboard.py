@@ -498,8 +498,8 @@ class TestManualBackendRespawn:
         assert "when you're ready" not in capsys.readouterr().out
 
 
-    def test_respawn_adds_no_open_to_dashboard_commands(self, tmp_path, monkeypatch):
-        """Respawned `dashboard` argv gains --no-open; `serve` argv untouched."""
+    def test_respawn_migrates_dashboard_and_preserves_serve_arguments(self, tmp_path, monkeypatch):
+        """Only the actual dashboard subcommand and retired flags are migrated."""
         live = self._live()
         monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
         spawned: list[list[str]] = []
@@ -514,13 +514,18 @@ class TestManualBackendRespawn:
         with patch.object(live.subprocess, "Popen", _FakePopen), \
              patch.object(live.time, "sleep"):
             failed = live._respawn_dashboard_processes([
-                ["hermes", "dashboard", "--port", "8300"],
-                ["hermes", "serve", "--host", "0.0.0.0"],
+                ["hermes", "--model", "dashboard", "-p", "pets", "dashboard",
+                 "--port", "8300", "--host", "0.0.0.0", "--isolated",
+                 "--open-profile", "pets", "--skip-build", "--tui", "--no-open"],
+                ["hermes", "--model", "dashboard", "serve", "--host", "0.0.0.0"],
             ])
 
         assert failed == []
-        assert spawned[0] == ["hermes", "dashboard", "--port", "8300", "--no-open"]
-        assert spawned[1] == ["hermes", "serve", "--host", "0.0.0.0"]
+        assert spawned[0] == [
+            "hermes", "--model", "dashboard", "-p", "pets", "serve", "--port", "8300",
+            "--host", "0.0.0.0", "--isolated", "--open-profile", "pets",
+        ]
+        assert spawned[1] == ["hermes", "--model", "dashboard", "serve", "--host", "0.0.0.0"]
 
     def test_respawn_failure_returned(self, tmp_path, monkeypatch, capsys):
         live = self._live()
@@ -558,7 +563,10 @@ class TestManualBackendRespawn:
              patch.object(live.time, "sleep"), \
              patch.object(_launchers, "resolve_store_python", return_value=None):
             failed = live._respawn_dashboard_processes([captured])
-            expected = runtime_command(Path(live.__file__).resolve().parents[1], captured[2:])
+            expected = runtime_command(
+                Path(live.__file__).resolve().parents[1],
+                ["serve", "--host", "127.0.0.1", "--port", "34553"],
+            )
 
         assert failed == []
         assert spawned == [expected]

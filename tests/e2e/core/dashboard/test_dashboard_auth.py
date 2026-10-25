@@ -15,7 +15,7 @@ Every credential channel is probed per route: the ``X-Hermes-Session-Token`` hea
 download links (no header can ride on a URL the OS shell opens), so the REAL token in ``?token=``
 must be refused everywhere else.
 
-Controls keep each negative honest: the scraped token (read out of ``index.html`` like the SPA does)
+Controls keep each negative honest: the token read from the root bootstrap response
 opens every GET route and the chat WebSockets, and a cross-origin page holding the token is still
 refused (CSWSH / DNS rebinding).
 """
@@ -49,7 +49,7 @@ _BROWSER_REDIRECT_PREFIXES = ("/api/mcp/oauth/callback/",)
 _PARAM = re.compile(r"\{([^}:]+)(?::[^}]+)?\}")
 _CHAT_WS = ("/api/ws", "/api/events", "/api/console")  # accept a token-bearing loopback client
 # The contract for the ``?token=`` channel, owned by this test (not read from production): only a
-# download URL opened outside the SPA may carry the token in its query string.
+# download URL opened outside the client may carry the token in its query string.
 _QUERY_TOKEN_ROUTES = frozenset({"/api/files/download"})
 
 
@@ -139,7 +139,7 @@ def test_public_exemptions_hold_their_own_contract(dash: H.Dashboard, inventory:
 
 
 def test_scraped_token_opens_every_get_route(dash: H.Dashboard, inventory: dict) -> None:
-    """Control: the 401s above are auth, not a dead router — the SPA's token passes every GET gate."""
+    """Control: the 401s above are auth, not a dead router — the bootstrap token passes every GET gate."""
     refused = []
     for method, path in _gated_http(inventory):
         # /api/auth/* returns the verified cookie-session identity; the loopback token carries none.

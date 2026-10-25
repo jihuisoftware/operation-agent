@@ -2,9 +2,8 @@
 
 The GitHub source ZIP carries only source; the BUILT desktop app
 (release/win-unpacked/Hermes.exe), its renderer bundle (dist/), its own
-node_modules and the dashboard assets (hermes_cli/web_dist/) exist only in
-the live tree. Swapping `apps` / `hermes_cli` without grafting them deletes
-them — and the dirty-tree guard must admit their ``!!`` status lines, or the
+node_modules exist only in the live tree. Swapping `apps` without grafting
+them deletes them — and the dirty-tree guard must admit their ``!!`` status lines, or the
 fallback refuses every install that has them.
 """
 
@@ -28,11 +27,13 @@ def test_zip_swap_keeps_every_nested_build_output_and_the_guard_admits_them(tmp_
         "apps/desktop/release/win-unpacked/Hermes.exe": b"MZbuilt",
         "apps/desktop/node_modules/electron/index.js": b"electron",
         "apps/desktop/dist/index.html": b"live renderer",
-        "hermes_cli/web_dist/index.html": b"<dashboard>",
     }
     for rel, data in outputs.items():
         (root / rel).parent.mkdir(parents=True)
         (root / rel).write_bytes(data)
+    retired_web_dist = root / "hermes_cli" / "web_dist"
+    retired_web_dist.mkdir(parents=True)
+    (retired_web_dist / "index.html").write_bytes(b"<retired dashboard>")
     (root / "hermes_cli" / "__pycache__").mkdir()
     (root / "hermes_cli" / "x.py").write_text("old", encoding="utf-8")
 
@@ -46,6 +47,7 @@ def test_zip_swap_keeps_every_nested_build_output_and_the_guard_admits_them(tmp_
     _commit_staged_replacements(_stage_entries(str(extracted), ["apps", "hermes_cli"], str(root)))
 
     assert (root / "hermes_cli" / "x.py").read_text(encoding="utf-8") == "new"
+    assert not retired_web_dist.exists()
     for rel, data in outputs.items():
         if rel.startswith("apps/desktop/dist/"):
             continue

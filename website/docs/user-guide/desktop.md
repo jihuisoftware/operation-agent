@@ -556,7 +556,8 @@ you can add your own. A plugin is a single ESM file dropped in
 hot-reloads every save. Manage installed plugins live in **Capabilities → Plugins**.
 
 See [Desktop Plugin SDK](../developer-guide/desktop-plugin-sdk.md) for the full
-reference. (This is separate from the [web dashboard plugin system](./features/extending-the-dashboard.md).)
+reference. For extensions written for the retired browser dashboard, see
+[Dashboard extension migration](./features/extending-the-dashboard.md).
 
 A desktop plugin is **not sandboxed**: it runs inside the app with the app's own
 authority (gateway RPC, the native bridge, other plugins' storage). Only load
@@ -847,7 +848,7 @@ time. Grants are stable from then on. If a permission gets stuck, reset it with
 ## See also
 
 - [CLI Guide](./cli.md) — the terminal interface
-- [TUI](./tui.md) — the modern terminal UI used by `hermes --tui` and the dashboard chat tab
-- [Web Dashboard](./features/web-dashboard.md) — browser admin panel with an embedded chat tab
+- [TUI](./tui.md) — the modern terminal UI used by `hermes --tui`
+- [Web Dashboard migration](./features/web-dashboard.md) — moving from the removed browser UI to Desktop
 - [Configuration](./configuration.md) — config that the desktop app reads and writes
 - [Windows (Native)](./windows-native.md) — native Windows install path

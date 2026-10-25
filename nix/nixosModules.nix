@@ -610,7 +610,7 @@
             };
           })
 
-          # ── The backend: hermes serve or hermes dashboard ─────────────────
+          # ── The backend: hermes serve ─────────────────
           # This is a different process from the gateway. Both use one
           # HERMES_HOME.
           (lib.mkIf (!cfg.container.enable && cfg.backend.mode != "none") {

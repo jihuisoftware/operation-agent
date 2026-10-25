@@ -283,10 +283,6 @@ CASES = {
         ["ui-tui/eslint.config.mjs"],
         _lanes(frontend=True),
     ),
-    "web eslint config → frontend": (
-        ["web/eslint.config.js"],
-        _lanes(frontend=True),
-    ),
     "shared package eslint config → frontend": (
         ["apps/shared/eslint.config.mjs"],
         _lanes(frontend=True),

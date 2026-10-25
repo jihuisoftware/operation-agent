@@ -237,7 +237,7 @@ def _owed_restart_reason(restart, stopped, *, gateway_owed: bool, stale_serves: 
     if down_serves:
         parts.append(
             f"{SERVE_ONLY_REASON_PREFIX}process(es) {', '.join(map(str, sorted(down_serves)))} were stopped during the"
-            " update and not brought back; relaunch `hermes serve` / `hermes dashboard`")
+            " update and not brought back; relaunch `hermes serve`")
     if stale_serves - down_serves:
         parts.append(
             f"{SERVE_ONLY_REASON_PREFIX}process(es) {', '.join(map(str, sorted(stale_serves - down_serves)))} still run"

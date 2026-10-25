@@ -504,23 +504,12 @@ let
         description = "The systemd RestartSec= value. Darwin does not use this option.";
       };
 
-      # ── The backend: `hermes serve` or `hermes dashboard` ──────────────
-      # `hermes serve` and `hermes dashboard` are the same entry point,
-      # hermes_cli.main:cmd_dashboard, with one flag of difference. serve runs
-      # without a user interface. dashboard also serves the web application.
-      # Both give the /api/ws and /api/pty sockets that Hermes Desktop
-      # connects to. They are one process, and you can run only one of them.
-      # Thus this option is an enum and not two booleans.
-      #
-      # The backend does not run the messaging gateway. web_server.py only
-      # controls an external gateway, with `hermes gateway restart`. It does
-      # not contain a gateway.
+      # Hermes Desktop connects to the shared headless API/WebSocket backend.
       backend = {
         mode = mkOption {
           type = types.enum [
             "none"
             "serve"
-            "dashboard"
           ];
           default = "none";
           description = ''
@@ -530,10 +519,6 @@ let
             - "serve"     — the backend without a user interface. It gives
                             the /api/ws and /api/pty sockets that Hermes
                             Desktop connects to.
-            - "dashboard" — all that "serve" gives, and the browser admin
-                            panel on the same port
-
-            "dashboard" contains all of "serve".
           '';
         };
 
@@ -544,7 +529,7 @@ let
             The address that the backend binds to.
 
             An address other than loopback starts the authentication gate of
-            the dashboard. You must then configure credentials, or a client
+            the backend. You must then configure credentials, or a client
             cannot connect. The server also refuses each request with a Host
             header that is different from the address that the server bound
             to. This is a defence against DNS rebinding. Bind to the name or
@@ -1064,12 +1049,7 @@ let
     else
       [ "${backendLauncher { inherit pkgs cfg; }}" ];
 
-  backendDescription =
-    cfg:
-    if cfg.backend.mode == "dashboard" then
-      "Hermes Agent web dashboard and desktop backend"
-    else
-      "Hermes Agent backend for Hermes Desktop";
+  backendDescription = _cfg: "Hermes Agent backend for Hermes Desktop";
 
   # The environment that each Hermes process needs, from either module.
   #

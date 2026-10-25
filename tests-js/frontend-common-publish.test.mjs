@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 // Windows antivirus holds a freshly written tree (the HUD helper exe in
-// native-deps, web_dist after a long build) and publication's renames fail
+// native-deps, desktop dist after a long build) and publication's renames fail
 // EPERM until the scan ends (#126914). Fault only the renames a test names;
 // every other rename reaches the real filesystem.
 const faults = vi.hoisted(() => [])

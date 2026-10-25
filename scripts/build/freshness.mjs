@@ -6,7 +6,7 @@ import { parseArgs } from 'node:util'
 import { isMain } from './frontend-common.mjs'
 
 const receiptName = 'hermes-build.json'
-const workspaces = { tui: 'ui-tui', web: 'web', desktop: 'apps/desktop' }
+const workspaces = { tui: 'ui-tui', desktop: 'apps/desktop' }
 const generated = new Set(['node_modules', 'dist', 'build', 'release', '.cache', '.git', 'coverage', 'test-results', 'playwright-report'])
 
 // OS file-manager metadata is never a build input, and it can land in ANY hashed
@@ -156,7 +156,7 @@ function preparedPaths(inputs) {
 // the clock it read at bundleElectronMain: re-reading the stamp here would record
 // a restamp that landed in between as the baked value, and productCurrent would
 // then certify a product whose packaged clock disagrees with electron-main.mjs.
-// Undefined (tui/web, which have no stamp) is dropped from the receipt, which is
+// Undefined (tui, which has no stamp) is dropped from the receipt, which is
 // exactly the "predates this" shape productCurrent already tolerates.
 export function recordProduct({ source, product, out, inputs, stampClock }) {
   if (JSON.stringify(buildInputs(source, product, preparedPaths(inputs))) !== JSON.stringify(inputs)) {

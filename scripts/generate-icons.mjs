@@ -7,7 +7,6 @@
  *   - website:  website/scripts/prebuild.mjs (docusaurus prebuild)
  *   - desktop:  apps/desktop/package.json prebuild + predev
  *   - installer: apps/bootstrap-installer/package.json prebuild
- *   - web:       web/package.json prebuild
  *
  * The renderer runs on the Hermes runtime interpreter (HERMES_PYTHON, else
  * `python` on PATH): Pillow and resvg-py are core dependencies, so every

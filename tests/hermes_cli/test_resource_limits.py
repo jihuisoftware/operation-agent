@@ -209,7 +209,7 @@ def test_serve_startup_applies_limit_before_web_server(monkeypatch):
     import hermes_cli.plugins
     import hermes_cli.web_server
 
-    # cmd_dashboard(headless_backend=True) exports HERMES_SERVE_HEADLESS=1 into
+    # cmd_serve(headless_backend=True) exports HERMES_SERVE_HEADLESS=1 into
     # this process's environment (main.py serve path). Touch the key through
     # monkeypatch FIRST so teardown restores the pre-test state — otherwise the
     # leaked flag flips later web-server tests (mount_spa) into the headless
@@ -252,7 +252,7 @@ def test_serve_startup_applies_limit_before_web_server(monkeypatch):
         skip_build=False,
     )
 
-    cli_main.cmd_dashboard(args)
+    cli_main.cmd_serve(args)
 
     assert calls == ["limit", "server"]
     assert served["ssh_lock_path"] == token_dir / "backend.lock.json"
@@ -317,7 +317,7 @@ def test_named_profile_reroute_defers_limit_to_final_process(monkeypatch, tmp_pa
     )
 
     with pytest.raises(_ExecCalled):
-        cli_main.cmd_dashboard(args)
+        cli_main.cmd_serve(args)
 
     assert calls == []
     assert exec_call["argv"][1:5] == ["-m", "hermes_cli.main", "-p", "default"]
@@ -356,6 +356,6 @@ def test_dashboard_lifecycle_flags_skip_limit_adjustment(monkeypatch, lifecycle_
     )
 
     with pytest.raises(SystemExit):
-        cli_main.cmd_dashboard(args)
+        cli_main.cmd_serve(args)
 
     assert calls == []

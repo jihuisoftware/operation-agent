@@ -307,7 +307,7 @@ def _refresh_dashboard_after_update(*, already_restarted_units: set[str] | None 
         print()
         print(f"⚠ Could not refresh running dashboard/serve process(es): {exc}")
         print("  If one is still running, restart it so it serves the updated code:")
-        print("    hermes dashboard --port <port>   (or: systemctl --user restart hermes-dashboard)")
+        print("    hermes serve --port <port>   (or restart the owning backend service)")
         return set()
     unrecovered = {int(pid) for pid in stop_result.get("unrecovered") or ()}
     if not unrecovered:
@@ -316,7 +316,7 @@ def _refresh_dashboard_after_update(*, already_restarted_units: set[str] | None 
     print()
     print("⚠ A web dashboard/serve process was stopped during update and could not be auto-restarted.")
     print("  Re-launch it when you want the web UI back:")
-    print("    hermes dashboard --port <port>")
+    print("    hermes serve --port <port>")
     return unrecovered
 
 

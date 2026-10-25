@@ -33,7 +33,7 @@ Sources of truth — two axes, composed per target:
 Desktop build identity comes from HERMES_PAYLOAD_TAG / HERMES_BUILD_COMMIT:
 Canary uses yellow/dark-yellow backgrounds. Commit builds use red/dark-red
 and a seven-character SHA badge. The girl and tile geometry do not change.
-Only apps/desktop outputs use this identity. Website, bootstrap, dashboard,
+Only apps/desktop outputs use this identity. Website, bootstrap,
 and the shared master SVGs retain the default brand.
 
 The girl's position and uniform scale are registered to the reference artwork.
@@ -87,7 +87,6 @@ Outputs (99 files):
   website/static/img/apple-touch-icon.png         180x180
   website/static/img/favicon.ico                  16,32,48
   website/static/img/favicon.svg                  copy of the light master
-  web/public/favicon.ico                          16,32,48
 """
 
 from __future__ import annotations
@@ -288,7 +287,6 @@ TARGETS: list[tuple[str, str, object]] = [
     ("website/static/img/apple-touch-icon.png", "png", 180),
     ("website/static/img/favicon.ico", "ico", [16, 32, 48]),
     ("website/static/img/favicon.svg", "svg_copy", None),
-    ("web/public/favicon.ico", "ico", [16, 32, 48]),
 ]
 
 # ─── girl art extraction ────────────────────────────────────────────────────

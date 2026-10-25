@@ -1,4 +1,4 @@
-"""Hermes Agent — Web UI server: FastAPI app assembly, auth/host middleware, ``start_server``.
+"""Hermes Agent — shared Desktop backend: FastAPI app assembly, auth/host middleware, ``start_server``.
 
 Route handlers live in ``web_routers/``; their helpers live in the sibling
 ``web_server_<concern>`` modules and are re-imported here so ``web_server.<name>``
@@ -42,7 +42,7 @@ try:
     from fastapi.responses import JSONResponse
 except ImportError:
     # First try lazy-installing the dashboard extras. Only the user actually
-    # running `hermes dashboard` needs fastapi+uvicorn; lazy install keeps
+    # running the Desktop backend needs fastapi+uvicorn; lazy install keeps
     # them out of every other install path. After install, re-import.
     try:
         from pm import ensure_import
@@ -54,11 +54,10 @@ except ImportError:
         from fastapi.responses import JSONResponse
     except Exception:
         raise SystemExit(
-            "Web UI requires fastapi and uvicorn.\n"
+            "The Desktop backend requires fastapi and uvicorn.\n"
             "Run hermes pm repair, then restart Hermes."
         )
 
-WEB_DIST = Path(os.environ["HERMES_WEB_DIST"]) if "HERMES_WEB_DIST" in os.environ else Path(__file__).parent / "web_dist"
 _log = logging.getLogger(__name__)
 
 
@@ -66,7 +65,6 @@ from hermes_cli.web_server_lifecycle import (
     PORT_IN_USE_EXIT_CODE,
     _dashboard_forwarded_allow_ips,
     _eager_reconcile_own_session_db,
-    _maybe_open_browser,
     _port_bind_conflict,
     _read_bound_port,
     _report_port_in_use,
@@ -89,20 +87,12 @@ def _gateway_owns_cron(name: str, home) -> bool:
 
 
 def _start_desktop_cron_ticker(stop_event: threading.Event, interval: int = 60) -> None:
-    """Tick the cron scheduler from inside the desktop dashboard backend.
+    """Tick local profile stores for standalone Desktop-compatible serve backends.
 
-    The desktop spawns a ``hermes dashboard`` backend, not a gateway, so without
-    this a cron created in the app would never fire (no live adapters; delivery
-    falls back to the per-platform send path). The primary backend outlives the
-    per-profile pool (reaped after ~10 idle minutes), so it ticks EVERY local
-    profile's store like a multiplex gateway; external providers keep the
-    single-store behavior (registries are not profile-scoped). Cross-process
-    safe: the built-in tick takes the per-store ``cron/.tick.lock``.
-
-    Every local profile's store is ticked, not just this backend's own (#69377's desktop sibling): the
-    desktop pools per-profile backends and reaps them after ~10 idle minutes, so a secondary profile's
-    ticker dies with its backend and that profile's jobs silently stop firing until the user next opens it
-    ("tasks on the sleeping profile could be idle" — community report, Aug 2026).
+    Canonical Desktop sessions use the gateway's scheduler. Standalone or older
+    backends still need a ticker when no gateway owns a profile; ownership gates
+    below defer to a live gateway, and per-store tick locks prevent concurrent ticks.
+    External scheduler providers retain their single-store behavior.
     """
     from cron.scheduler_provider import InProcessCronScheduler, resolve_cron_scheduler
     from hermes_constants import get_hermes_home, profile_name_for_home
@@ -607,7 +597,7 @@ from hermes_cli.web_server_gateway import _ACTION_LOG_FILES, _terminate_desktop_
 from hermes_cli.web_server_sessions import _auto_archive_ticker_loop
 from hermes_cli.web_server_chat import PTY_REGISTRY
 from hermes_cli.web_server_dashboard import (
-    _discover_dashboard_plugins, _mount_plugin_api_routes, mount_spa,
+    _discover_dashboard_plugins, _mount_plugin_api_routes,
 )
 
 
@@ -825,7 +815,9 @@ _mount_plugin_api_routes()
 from hermes_cli.dashboard_auth.routes import router as _dashboard_auth_router
 
 app.include_router(_dashboard_auth_router)
-mount_spa(app)
+from hermes_cli.web_server_backend import mount_backend_root
+
+mount_backend_root(app)
 
 
 def _no_auth_provider_message(host: str) -> str:
@@ -876,8 +868,7 @@ def _no_auth_provider_message(host: str) -> str:
         "    (hash with: python -c \"from "
         "plugins.dashboard_auth.basic import hash_password; "
         "print(hash_password('your-password'))\")\n"
-        "  • OAuth: run `hermes dashboard register` (Nous Portal) or "
-        "install a DashboardAuthProvider plugin.\n"
+        "  • OAuth: configure an installed DashboardAuthProvider plugin.\n"
         "There is no unauthenticated public-dashboard option. For "
         "local-only use, bind 127.0.0.1 and leave dashboard.public_url "
         "unset; a configured external public URL requires auth even "
@@ -1145,7 +1136,7 @@ def _on_server_started(
     """Post-bind arming on the serving loop right after ``server.startup()``.
 
     Reap prior corpses, parent-death watchdog, process identity, READY
-    announcement, browser open, deferred MCP discovery, loop-noise filter,
+    announcement, deferred MCP discovery, loop-noise filter,
     loop heartbeat.
     """
     # Clear corpses from a previous unclean Desktop exit (crash/SIGKILL/update
@@ -1198,7 +1189,7 @@ def _on_server_started(
 
     actual_port = _read_bound_port(server, fallback=port)
     app.state.bound_port = actual_port
-    # Published by /api/host/identity: an attaching `hermes dashboard` must never be routed to a
+    # Published by /api/host/identity: an attaching backend client must never be routed to a
     # headless backend (a URL with no UI behind it).
     app.state.serves_spa = not headless
 
@@ -1236,15 +1227,7 @@ def _on_server_started(
         _write_machine_sentinel_line(f"HERMES_DASHBOARD_READY port={actual_port}")
     else:
         _write_machine_sentinel_line(f"HERMES_DASHBOARD_READY port={actual_port}")
-    if headless:
-        # Auth-gated JSON-RPC/WS only — announce the bind, not a URL. flush:
-        # a piped stdout otherwise surfaces this minutes after the sentinel.
-        print(f"  Hermes backend listening on {host}:{actual_port}", flush=True)
-    else:
-        from hermes_cli.url_utils import format_url_host
-
-        print(f"  Hermes Web UI → http://{format_url_host(host)}:{actual_port}")
-    _maybe_open_browser(host, actual_port, open_browser, initial_profile)
+    print(f"  Hermes backend listening on {host}:{actual_port}", flush=True)
 
     if start_mcp_discovery_after_bind:
         # Desktop `serve`: the ~350ms `mcp` SDK import holds the GIL while the
@@ -1350,7 +1333,7 @@ def _run_serve(serve, config, host: str, port: int) -> None:
 def start_server(
     host: str = "127.0.0.1",
     port: int = 9119,
-    open_browser: bool = True,
+    open_browser: bool = False,
     allow_public: bool = False,
     initial_profile: str = "",
     headless: bool = False,

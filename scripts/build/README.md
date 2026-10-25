@@ -14,7 +14,7 @@ build or a target-native runtime.
 | Layer | Owns | Examples |
 |---|---|---|
 | Dependency provider | Tools, locked dependencies, native libraries and build environments | `node-deps.mjs`, PM Python operations, Nix `importNpmLock`/uv2nix, Termux wheelhouse |
-| Product builder | Compilation or application assembly from prepared inputs | `tui.mjs`, `web.mjs`, `desktop.mjs`, `agent.py`, `../generate_icons.py` |
+| Product builder | Compilation or application assembly from prepared inputs | `tui.mjs`, `desktop.mjs`, `agent.py`, `../generate_icons.py` |
 | Distribution adapter | Product selection, target preparation, package layout, signing and publication | `../bundles/`, `../../Dockerfile`, `../../nix/`, `../termux/` |
 
 `node-deps.mjs` and `pm.build_environment` prepare dependencies. Unlike the product
@@ -40,7 +40,7 @@ claims it and publishes its job-local path selection only after success.
 
 Preparation covers the exact workspace union, icon Python environment, runtime
 and independent PM dependencies, Electron-native bindings, Electron archive and
-selected packaging utilities. Light omits the runtime and TUI/web union.
+selected packaging utilities. Light omits the runtime and TUI workspace.
 Compilation and packaging consume those inputs, refusing missing/stale inputs
 rather than acquiring replacements. The result is tied to this source revision,
 target and absolute paths; it must not be restored as an authoritative CI cache.
@@ -61,7 +61,7 @@ build-owned paths.
 
 ```sh
 node scripts/build/node-deps.mjs --source /work/source \
-  --workspace ui-tui --workspace web
+  --workspace ui-tui --workspace apps/desktop
 ```
 
 `--source` and at least one `--workspace` are required. A workspace can be its
@@ -100,8 +100,6 @@ can mutate it, and before unrelated build/signing failures can discard it.
 
 ```sh
 node scripts/build/tui.mjs --source /work/source --out /work/products/tui
-node scripts/build/web.mjs --source /work/source \
-  --icons /work/products/icons --out /work/products/web
 node scripts/build/desktop.mjs --source /work/source \
   --icons /work/products/icons --stamp /work/install-stamp.json \
   --native-deps /work/native-deps --out /work/products/desktop
@@ -110,12 +108,11 @@ node scripts/build/desktop.mjs --source /work/source \
 | Builder | Required CLI arguments | Additional CLI arguments | Product contents |
 |---|---|---|---|
 | `tui.mjs` | `--source`, `--out` | None | `dist/entry.js`, gateway/clipboard Python helpers in `dist/scripts/`, and `package.json` with `type: module` |
-| `web.mjs` | `--source`, `--out`, `--icons` | None | `index.html`, Vite assets, and public assets |
 | `desktop.mjs` | `--source`, `--out`, `--icons`, `--stamp`, `--native-deps` | `--typecheck`, `--platform` | Renderer assets, `electron-main.mjs`, `electron-preload.js`, and native `node_modules` |
 
 Each output is the product directory itself. The desktop output is a `dist`
-directory, not an application package. The exported functions are `buildTui`,
-`buildWeb`, and `buildDesktop`. They return output paths and publish the build-input
+directory, not an application package. The exported functions are `buildTui`
+and `buildDesktop`. They return output paths and publish the build-input
 receipt described below.
 
 Each compiler publishes `hermes-build.json` inside its output (inside `dist/`
@@ -146,7 +143,6 @@ with the native provider and desktop compiler.
 Source launchers query this owner without provisioning tools:
 
 ```sh
-node scripts/build/freshness.mjs --source /work/source --product web --out /work/products/web
 node scripts/build/freshness.mjs --source /work/source --product tui --out /work/products/tui/dist
 ```
 
@@ -165,7 +161,7 @@ alone does not prove that the latest build succeeded.
 
 Existing arbitrary output directories require the builder's `.hermes-product`
 marker. Files, symlinks, and source directories are rejected. The exact npm
-destinations (`ui-tui/dist`, `hermes_cli/web_dist`, `apps/desktop/dist`, and
+destinations (`ui-tui/dist`, `apps/desktop/dist`, and
 `apps/desktop/build/native-deps`) remain rebuildable without a prior marker.
 Other in-tree products live beneath `.build/` or `apps/desktop/build/products/`.
 `frontend-common.mjs` classifies these destinations independently of which source
@@ -176,7 +172,6 @@ even when they live beneath a generated destination.
 ### Icons and native inputs
 
 `--icons` names the generator's output root, not a directory of loose icons.
-The web builder reads `web/public/` beneath it and requires `favicon.ico`.
 The desktop builder reads `apps/desktop/public/` beneath it and requires
 `apple-touch-icon.png`.
 
@@ -211,10 +206,10 @@ its compiled binding. macOS also requires `get-windows/main`. The provider owns
 the architecture and Electron ABI match. `--platform` defaults to the running
 Node platform and controls native-file checks. It does not cross-compile a
 binding. `--typecheck` enables the desktop renderer TypeScript check and defaults
-to false. The web builder always runs its TypeScript project check.
+to false.
 
 The supplied install stamp controls the desktop main/preload build identity.
-The compiler does not create an install stamp, build the dashboard, package
+The compiler does not create an install stamp, package
 Electron, or sign native files.
 
 ### Source-development entrypoints
@@ -223,14 +218,12 @@ Existing npm commands use these recipes:
 
 ```sh
 npm run build --workspace ui-tui
-npm run build --workspace web
 npm run build --workspace apps/desktop
 ```
 
 | Command | Output | Preparation outside the product compiler |
 |---|---|---|
 | TUI build | `ui-tui/dist/entry.js` | Existing installed workspace dependencies |
-| Web build | `hermes_cli/web_dist/` | npm `prebuild` prepares icons |
 | Desktop build | `apps/desktop/dist/` | Icons, root-install assertion, install stamp, and native-dependency staging |
 
 Compositions prepare icons once and pass `npm run build -- --icons /prepared/root`
@@ -239,7 +232,7 @@ and passes the same root to the compiler. A standalone `npm run build` still
 prepares its own icons. Source desktop launch runs the already-prepared Electron
 binary directly; `--skip-build` does not provision Node, npm, or Electron.
 
-TUI and web scripts support a no-argument development mode. Explicit product
+The TUI script supports a no-argument development mode. Explicit product
 mode requires the arguments in the earlier table. The desktop product script
 has no no-argument mode. The Node product parsers expose no `--help` flag.
 
@@ -344,7 +337,7 @@ All supplied filesystem input paths must be absolute and exist. `repo` and
 | `tools` | No | Prepared runtime tool directory. The manifest defaults to `tools` if omitted |
 | `command_dir` | For `references` | Directory of prepared commands declared by the project |
 | `resources` | No | Resource-name to directory mapping |
-| `frontends` | No | `tui` and/or `web` product paths |
+| `frontends` | No | Optional `tui` product path |
 | `ref` | No | Source identity copied to the completion manifest |
 | `stamp` | No | Prepared install stamp copied to `OUT/repo/install-stamp.json` |
 | `features` | No | Prepared feature inventory copied to `OUT/enabled-features.json` |
@@ -353,7 +346,7 @@ All supplied filesystem input paths must be absolute and exist. `repo` and
 Recognized resource names are `skills`, `optional-skills`, `plugins`, `locales`,
 and `optional-mcps`. Distribution adapters supply the required resources.
 The generic assembler does not infer a missing resource mapping. TUI inputs
-require `dist/entry.js` and `package.json`. Web inputs require `index.html`.
+require `dist/entry.js` and `package.json`.
 
 The PM marker supplies `python` and `sitePackages` paths relative to its runtime
 directory, or absolute store references. These paths must resolve to real
@@ -384,9 +377,8 @@ runs the target interpreter and therefore needs a runnable native environment.
 A target label alone does not prove ABI compatibility.
 
 For copied frontends, the assembler places TUI files at
-`OUT/repo/hermes_cli/tui_dist/` and web files at
-`OUT/repo/hermes_cli/web_dist/`. Reference placement links TUI at `OUT/ui-tui`
-and web at `OUT/repo/web_dist` and records their environment bindings.
+`OUT/repo/hermes_cli/tui_dist/`. Reference placement links TUI at `OUT/ui-tui`
+and records its environment binding.
 
 After structural assembly, `manifest.json` records `schema`, `target`, `repo`,
 `venv`, `store`, `launchers`, and `runtime`, plus `ref` when supplied. Its
@@ -408,7 +400,6 @@ These locations define the interfaces described here:
 |---|---|
 | Frontend arguments and publication | `frontend-common.mjs:31–79` |
 | TUI product and development output | `tui.mjs:25–103` |
-| Web inputs and TypeScript check | `web.mjs:8–71` |
 | Desktop inputs and native checks | `desktop.mjs:11–69` |
 | Locked workspace union | `node-deps.mjs:31–68` |
 | Python provider | `../../pm/operations.py`, `../../pm/environment.py` |

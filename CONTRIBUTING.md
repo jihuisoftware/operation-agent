@@ -201,8 +201,10 @@ than copying production credentials into the checkout.
 
 ### JavaScript workspaces and website
 
-From the repository root, run `npm ci` for the desktop, TUI, dashboard, and
-shared JS workspaces. The website is separate:
+This branch uses Desktop as its primary interface. The browser dashboard SPA
+and its `web/` workspace have been removed. From the repository root, run
+`npm ci` for the desktop, TUI, shared, and supporting JS workspaces. The website
+is separate:
 
 ```bash
 npm ci --prefix website
@@ -211,6 +213,12 @@ npm run build:fast --prefix website
 
 Use a Node/npm version accepted by the corresponding `package.json` engines.
 Native desktop dependencies can also require the platform build toolchain.
+
+Keep `apps/shared`, `tui_gateway`, and the shared HTTP/API server when changing
+the frontend. Desktop uses these backend capabilities; `hermes_cli/web_server*`
+and `hermes_cli/web_routers/` are not disposable browser assets. See
+[shared HTTP API rules](hermes_cli/web_routers/AGENTS.md) and the
+[Desktop development guide](apps/desktop/README.md).
 
 Logos and icons are generated from `assets/nous-girl-*.svg` and
 `assets/backgrounds/`. `node scripts/generate-icons.mjs` renders them with the
@@ -273,8 +281,8 @@ hermes-agent/
 │   ├── doctor.py                 # Diagnostics
 │   ├── skills_hub.py             # Skills Hub CLI + /skills slash command
 │   ├── skin_engine.py            # Skin/theme engine — data-driven CLI visual customization
-│   ├── web_server.py             # Dashboard server (facade + web_server_*.py siblings)
-│   └── web_routers/              # Dashboard FastAPI routers (one file per surface)
+│   ├── web_server.py             # Shared HTTP/API server (facade + web_server_*.py siblings)
+│   └── web_routers/              # Shared FastAPI routers used by Desktop
 │
 ├── tools/                    # Tool implementations (self-registering)
 │   ├── registry.py               # Central tool registry (schemas, handlers, dispatch)

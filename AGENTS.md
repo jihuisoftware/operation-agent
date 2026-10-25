@@ -87,7 +87,7 @@ hermes-agent/
 ├── plugins/              # memory/, context_engine/, model-providers/, kanban/, image_gen/, ...
 ├── skills/               # Built-in skills (by category)   optional-skills/: shipped, not active
 ├── ui-tui/, tui_gateway/ # Ink terminal UI + its Python JSON-RPC backend (also serves Desktop)
-├── apps/desktop/         # Electron desktop app (+ apps/shared)   web/: dashboard SPA
+├── apps/desktop/         # Primary Electron UI (+ apps/shared); no web SPA
 ├── cron/                 # jobs.py + scheduler.py (+ scheduler_*.py)
 ├── pm/, hermes_platform/ # dependency/environment manager; machine facts + executable lookup
 ├── scripts/              # check, run_tests.sh, code_health/, ci/
@@ -157,7 +157,7 @@ Every former god file is a **facade** (public entry points + the names other pac
 | `plugins/`, `hermes_cli/plugins*.py` | `plugins/AGENTS.md` | plugin kinds, native compat contract, in-tree policy |
 | `plugin-catalog/` | `plugin-catalog/README.md` | catalog admission rules (mirrored in the developer guide; keep identical) |
 | `tui_gateway/`, `ui-tui/` | `tui_gateway/AGENTS.md` | process model, JSON-RPC transport, slash flow |
-| `web/`, `hermes_cli/web_routers/` | `web/AGENTS.md` | dashboard embeds the real TUI |
+| `hermes_cli/web_routers/` | `hermes_cli/web_routers/AGENTS.md` | shared Desktop HTTP APIs |
 | `apps/desktop/` | `apps/desktop/AGENTS.md`, `apps/desktop/src/AGENTS.md` | `serve` backend, slash palette, Bot Mode |
 | `skills/`, `optional-skills/`, `agent/curator*.py` | `skills/AGENTS.md` | frontmatter, authoring standards, curator |
 | `cron/`, kanban | `cron/AGENTS.md` | scheduler invariants, job fields, kanban dispatcher |

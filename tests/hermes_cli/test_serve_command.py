@@ -1,47 +1,39 @@
-"""Contract for the headless ``hermes serve`` backend command.
-
-``serve`` is what the desktop app and remote backends launch — the same gateway
-as ``dashboard`` (shared handler) but always headless, and decoupled in name so
-the desktop never invokes ``dashboard``. These tests pin that contract:
-
-- ``serve`` routes to the same handler as ``dashboard``;
-- ``serve`` is headless by default, ``dashboard`` is not;
-- both expose the identical server-runtime flag surface.
-"""
+"""Desktop exposes a headless backend without a browser-dashboard command."""
 
 from __future__ import annotations
 
 import argparse
 
-from hermes_cli.subcommands.dashboard import build_dashboard_parser
+import pytest
+
+from hermes_cli.subcommands.serve import register_serve_parser
 
 
-def _dash(args):  # sentinel handler — identity-compared, never invoked
-    return args
-
-
-def _register(args):
+def _serve(args):
     return args
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    build_dashboard_parser(
-        parser.add_subparsers(dest="command"),
-        cmd_dashboard=_dash,
-        cmd_dashboard_register=_register,
-    )
+    register_serve_parser(parser.add_subparsers(dest="command"), cmd_serve=_serve)
     return parser
 
+def test_serve_preserves_desktop_runtime_arguments_and_is_headless():
+    args = _parser().parse_args([
+        "serve", "--host", "127.0.0.1", "--port", "0", "--isolated",
+        "--ssh-session-token-file", "token.txt", "--ssh-owner-nonce", "0123456789abcdef",
+    ])
+
+    assert args.func is _serve
+    assert args.headless_backend and args.no_open and args.isolated
+    assert args.port == 0
+    assert args.ssh_session_token_file == "token.txt"
+    assert args.ssh_owner_nonce == "0123456789abcdef"
 
 
+@pytest.mark.parametrize("argv", [["dashboard"], ["dashboard", "register"]])
+def test_browser_dashboard_is_not_a_product_entrypoint(argv):
+    with pytest.raises(SystemExit) as exc:
+        _parser().parse_args(argv)
 
-
-
-
-
-def test_serve_is_a_headless_backend_but_dashboard_is_not():
-    # `headless_backend` is the flag cmd_dashboard reads to skip the web UI
-    # build; only `serve` carries it.
-    assert getattr(_parser().parse_args(["serve"]), "headless_backend", False) is True
-    assert getattr(_parser().parse_args(["dashboard"]), "headless_backend", False) is False
+    assert exc.value.code == 2

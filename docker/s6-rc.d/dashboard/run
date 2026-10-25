@@ -1,6 +1,6 @@
 #!/command/with-contenv sh
 # shellcheck shell=sh
-# Dashboard service. Always declared so s6 has a supervised slot; if
+# Desktop backend service (legacy s6 slot name). Always declared so s6 has a supervised slot; if
 # HERMES_DASHBOARD isn't truthy the run script exits cleanly and the
 # companion finish script returns 125 (s6's "permanent failure, do
 # not restart" marker), so s6-svstat reports the slot as down. See
@@ -28,7 +28,7 @@ cd /opt/data
 dash_host="${HERMES_DASHBOARD_HOST:-0.0.0.0}"
 dash_port="${HERMES_DASHBOARD_PORT:-9119}"
 
-# The dashboard's auth gate engages automatically on non-loopback binds and
+# The backend's auth gate engages automatically on non-loopback binds and
 # REQUIRES a DashboardAuthProvider to be registered, else start_server fails
 # closed. Two zero-infra ways to satisfy it in a container:
 #   • Password: set HERMES_DASHBOARD_BASIC_AUTH_USERNAME + _PASSWORD (bundled
@@ -42,13 +42,13 @@ dash_port="${HERMES_DASHBOARD_PORT:-9119}"
 case "${HERMES_DASHBOARD_INSECURE:-}" in
     1|true|TRUE|True|yes|YES|Yes)
         echo "[dashboard] HERMES_DASHBOARD_INSECURE no longer disables the auth gate." >&2
-        echo "[dashboard] A non-loopback dashboard requires an auth provider:" >&2
+        echo "[dashboard] A non-loopback backend requires an auth provider:" >&2
         echo "[dashboard]   set HERMES_DASHBOARD_BASIC_AUTH_USERNAME + _PASSWORD (password)" >&2
         echo "[dashboard]   or HERMES_DASHBOARD_OAUTH_CLIENT_ID (OAuth)." >&2
         ;;
 esac
 
 # Skip the drop when already non-root.
-[ "$(id -u)" = 0 ] || exec hermes dashboard --host "$dash_host" --port "$dash_port" --no-open
-exec s6-setuidgid hermes hermes dashboard \
-    --host "$dash_host" --port "$dash_port" --no-open
+[ "$(id -u)" = 0 ] || exec hermes serve --host "$dash_host" --port "$dash_port"
+exec s6-setuidgid hermes hermes serve \
+    --host "$dash_host" --port "$dash_port"

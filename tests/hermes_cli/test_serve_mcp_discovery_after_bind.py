@@ -1,5 +1,5 @@
 """Desktop `serve` starts background MCP discovery only after the socket binds; a standalone
-`hermes dashboard` arms it at boot and the first /api/ws client (or agent build) fires it (#58733).
+`hermes serve` arms it at boot and the first /api/ws client (or agent build) fires it (#58733).
 
 The MCP SDK import (~350ms) used to run on a thread started BEFORE
 web_server was imported, holding the GIL against the main thread's own
@@ -13,7 +13,7 @@ import sys
 import threading
 import types
 
-from hermes_cli import mcp_startup
+from hermes_cli import main_dashboard, mcp_startup
 from hermes_cli import web_server
 from hermes_cli import web_server_lifecycle
 from tests.hermes_cli.test_dashboard_auth_gate import _stub_uvicorn_run
@@ -31,7 +31,7 @@ def test_desktop_serve_arms_mcp_discovery_only_after_ready_sentinel(monkeypatch)
     monkeypatch.setattr(
         mcp_startup,
         "start_background_mcp_discovery",
-        lambda *, logger, thread_name: order.append("discovery:" + thread_name),
+        lambda *, logger, thread_name: order.append("discovery"),
     )
     monkeypatch.setattr(web_server, "_write_machine_sentinel_line", lambda line: order.append("sentinel"))
     monkeypatch.setattr(web_server_lifecycle, "_write_machine_sentinel_line", lambda line: order.append("sentinel"))
@@ -49,11 +49,11 @@ def test_desktop_serve_arms_mcp_discovery_only_after_ready_sentinel(monkeypatch)
     timer.cancel()
     # An agent build inside the delay window pulls discovery forward itself.
     mcp_startup.wait_for_mcp_discovery(timeout=0)
-    assert order == ["sentinel", "sentinel", "discovery:dashboard-mcp-discovery"]
+    assert order == ["sentinel", "sentinel", "discovery"]
     assert mcp_startup._mcp_discovery_deferred is None
 
     # Without the flag (any headless serve) start_server does not start
-    # discovery itself — cmd_dashboard's pre-import path still owns it. The
+    # discovery itself — cmd_serve's pre-import path still owns it. The
     # dual-token announcement is headless-wide, not discovery-specific.
     order.clear()
     _reset_discovery_state(monkeypatch)
@@ -79,10 +79,9 @@ def test_deferred_discovery_fires_once_and_is_idempotent(monkeypatch):
     assert first is not None and mcp_startup._mcp_discovery_deferred is None
 
 
-def _stub_dashboard_runtime(monkeypatch):
+def _stub_serve_runtime(monkeypatch):
     import hermes_cli.main as main_mod
 
-    monkeypatch.setattr(main_mod, "_resolve_dashboard_web_dist", lambda *a, **k: None)
     monkeypatch.setattr(main_mod, "_sync_bundled_skills_quietly", lambda: None)
     monkeypatch.setitem(sys.modules, "fastapi", types.SimpleNamespace())
     monkeypatch.setitem(sys.modules, "uvicorn", types.SimpleNamespace())
@@ -91,22 +90,22 @@ def _stub_dashboard_runtime(monkeypatch):
     return main_mod
 
 
-def test_standalone_dashboard_boot_arms_discovery_without_starting_it(monkeypatch):
-    """#58733: an idle, unvisited `hermes dashboard` must not spawn the configured MCP servers."""
+def test_standalone_serve_boot_arms_discovery_without_starting_it(monkeypatch):
+    """#58733: an idle, unvisited `hermes serve` must not spawn the configured MCP servers."""
     _reset_discovery_state(monkeypatch)
     monkeypatch.delenv("HERMES_DESKTOP", raising=False)
-    main_mod = _stub_dashboard_runtime(monkeypatch)
+    _stub_serve_runtime(monkeypatch)
     calls: list[str] = []
     monkeypatch.setattr(
         mcp_startup, "start_background_mcp_discovery", lambda *, logger, thread_name: calls.append(thread_name)
     )
 
-    after_bind = main_mod._dashboard_prepare_runtime(types.SimpleNamespace(skip_build=True), False)
+    after_bind = main_dashboard._prepare_serve_runtime()
 
     assert after_bind is False and calls == []
     # armed, not started: firing on demand runs it exactly once
     mcp_startup.start_deferred_mcp_discovery_now()
-    assert calls == ["dashboard-mcp-discovery"]
+    assert calls == ["serve-mcp-discovery"]
 
 
 def test_first_gateway_ws_client_starts_the_armed_discovery_once(monkeypatch):
@@ -120,7 +119,7 @@ def test_first_gateway_ws_client_starts_the_armed_discovery_once(monkeypatch):
         mcp_startup, "start_background_mcp_discovery", lambda *, logger, thread_name: calls.append(thread_name)
     )
     mcp_startup.defer_background_mcp_discovery(
-        logger=logging.getLogger("test"), thread_name="dashboard-mcp-discovery", delay=None
+        logger=logging.getLogger("test"), thread_name="serve-mcp-discovery", delay=None
     )
     assert calls == []
 
@@ -137,5 +136,5 @@ def test_first_gateway_ws_client_starts_the_armed_discovery_once(monkeypatch):
     asyncio.run(chat_ws.gateway_ws(ws))
     asyncio.run(chat_ws.gateway_ws(ws))
 
-    assert calls == ["dashboard-mcp-discovery"]
+    assert calls == ["serve-mcp-discovery"]
     assert mcp_startup._mcp_discovery_deferred is None

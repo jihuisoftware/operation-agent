@@ -1,7 +1,7 @@
 """Shared bits for the dashboard lane's open-issue cells (#120527, #120937).
 
 * ``PtyDashboard``: the lane's ``Dashboard`` harness, but spawned with a pseudo-terminal slave as
-  stdin — the shape of ``hermes serve`` / ``hermes dashboard`` launched from an interactive
+  stdin — the shape of ``hermes serve`` launched from an interactive
   terminal. The master end is held open and never written to (nobody watches that console).
   Teardown SIGKILLs the whole process group: a server wedged in a worker thread never finishes
   a graceful shutdown (the default executor is joined on exit).
@@ -54,7 +54,7 @@ class Issue120937(KnownIssue):
 
 
 class PtyDashboard(Dashboard):
-    """``hermes dashboard`` whose stdin is a pty slave (interactive-terminal launch); ``tty=False``
+    """``hermes serve`` whose stdin is a pty slave (interactive-terminal launch); ``tty=False``
     gives the same process with stdin=/dev/null (service / desktop-spawned launch) as a control."""
 
     def __init__(self, sb: Sandbox, log_path: Path, extra_env: dict[str, str] | None = None,
@@ -66,11 +66,10 @@ class PtyDashboard(Dashboard):
             self.pty_master, slave = os.openpty()
         else:
             self.pty_master, slave = -1, os.open(os.devnull, os.O_RDONLY)
-        env = sb.env({"HERMES_WEB_DIST": str(sb.root / "web_dist"), "TERM": "xterm-256color",
-                      **(extra_env or {})})
+        env = sb.env({"TERM": "xterm-256color", **(extra_env or {})})
         try:
             self.proc = subprocess.Popen(
-                [sys.executable, "-m", "hermes_cli.main", "dashboard", "--no-open", "--skip-build",
+                [sys.executable, "-m", "hermes_cli.main", "serve",
                  "--host", "127.0.0.1", "--port", "0"],
                 cwd=str(sb.home), env=env, stdin=slave, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True, bufsize=1, start_new_session=True,
@@ -90,13 +89,13 @@ class PtyDashboard(Dashboard):
         threading.Thread(target=pump, daemon=True, name="dash-pty-stdout").start()
         try:
             self.port = poll(lambda: port_box[0] if port_box else (self.proc.poll() is not None and -1), 120,
-                             "hermes dashboard (tty stdin) to report its port")
-            assert self.port > 0, f"hermes dashboard exited rc={self.proc.returncode}:\n{self.log_tail()}"
+                             "hermes serve (tty stdin) to report its port")
+            assert self.port > 0, f"hermes serve exited rc={self.proc.returncode}:\n{self.log_tail()}"
             self.base = f"http://127.0.0.1:{self.port}"
             self.http = httpx.Client(base_url=self.base, timeout=30.0, trust_env=False)
-            index = self.http.get("/")
-            m = _TOKEN_RE.search(index.text)
-            assert index.status_code == 200 and m, f"index.html carried no session token: {index.status_code}"
+            bootstrap = self.http.get("/")
+            m = _TOKEN_RE.search(bootstrap.text)
+            assert bootstrap.status_code == 200 and m, f"root bootstrap carried no session token: {bootstrap.status_code}"
             self.token = m.group(1)
         except BaseException:
             self.close()

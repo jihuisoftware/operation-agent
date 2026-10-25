@@ -222,15 +222,14 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           dist = desktop / 'hermes-desktop/dist'
           launcher = desktop / 'icons/hicolor/1024x1024/apps/hermes.png'
           for path in [launcher, dist / 'apple-touch-icon.png',
-                       dist / 'nous-girl.png', dist / 'nous-girl-dark.png',
-                       Path('${self'.packages.web}/favicon.ico')]:
+                       dist / 'nous-girl.png', dist / 'nous-girl-dark.png']:
               with Image.open(path) as image:
                   image.load()
                   assert image.width > 0 and image.height > 0, path
           with Image.open(launcher) as image, Image.open(dist / 'apple-touch-icon.png') as window_icon:
               assert image.size == window_icon.size
               assert image.convert('RGBA').tobytes() == window_icon.convert('RGBA').tobytes()
-          print('PASS: desktop and web ship decodable generated icons; launcher matches window icon')
+          print('PASS: desktop ships decodable generated icons; launcher matches window icon')
           PY
           mkdir -p $out
         '';
@@ -728,7 +727,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           let
             cfg = (evalNixosModule {
               enable = true;
-              backend.mode = "dashboard";
+              backend.mode = "serve";
               settings.model.default = "test/model";
               environmentFiles = [ "/run/secrets/hermes-env" ];
               hermesHomeFiles."SOUL.md" = "test soul";
@@ -748,8 +747,8 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 !lib.hasInfix "bin/hermes gateway" (execOf "hermes-agent")
               ) "gateway unit does not run `hermes gateway`: ${execOf "hermes-agent"}"
               ++ lib.optional (
-                !lib.hasInfix "bin/hermes dashboard" (execOf "hermes-backend")
-              ) "backend unit does not run `hermes dashboard`: ${execOf "hermes-backend"}"
+                !lib.hasInfix "bin/hermes serve" (execOf "hermes-backend")
+              ) "backend unit does not run `hermes serve`: ${execOf "hermes-backend"}"
               ++ lib.optional (
                 units.hermes-agent.environment.HERMES_HOME != units.hermes-backend.environment.HERMES_HOME
               ) "gateway and backend must share one HERMES_HOME"
@@ -809,7 +808,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
             interfaceWait = execOf {
               backend = {
-                mode = "dashboard";
+                mode = "serve";
                 waitFor = "interface";
                 interfaceName = "tailscale0";
                 waitTimeout = 30;
@@ -852,7 +851,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 "the interface launcher must poll backend.interfaceName"
               ++ lib.optional (!lib.hasInfix "_timeout=30" interfaceScript)
                 "the launcher must use backend.waitTimeout"
-              ++ lib.optional (!lib.hasInfix "bin/hermes dashboard" interfaceScript)
+              ++ lib.optional (!lib.hasInfix "bin/hermes serve" interfaceScript)
                 "the launcher must keep backend.mode"
 
               # The assertions reject what cannot work.
@@ -1057,7 +1056,6 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
             check "gateway"   ${probe (common.gatewayArgv (cfgFor "none"))}
             check "serve"     ${probe (common.backendArgv { inherit pkgs; cfg = cfgFor "serve"; })}
-            check "dashboard" ${probe (common.backendArgv { inherit pkgs; cfg = cfgFor "dashboard"; })}
 
             mkdir -p $out
             echo "ok" > $out/result

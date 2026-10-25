@@ -4,6 +4,12 @@
 
 # Hermes Agent ☤
 
+> **本分支以 Hermes Desktop 为主要入口。** 浏览器 Dashboard 前端及 `hermes dashboard`
+> 入口已移除，Desktop、TUI 和共享 Gateway/API 后端继续保留。开发请参阅
+> [Desktop 开发指南](apps/desktop/README.md)和[宠物社区运营 MVP 方案](docs/pet-community-ops-mvp.md)。
+> 下方安装链接指向上游 Hermes，并非本分支的发布包。
+
+
 <p align="center">
   <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://discord.gg/NousResearch"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>

@@ -2,8 +2,8 @@
 
 An IPv6 literal followed by ``:port`` is only a valid URL authority inside
 brackets (``http://[::1]:9119``); unbracketed ``http://::1:9119`` is not a URL a
-browser or ``urllib`` can parse. Covers the dashboard attach URL, the
-browser auto-open URL, the startup banner, and the shared host formatter
+browser or ``urllib`` can parse. Covers the backend attach URL, the
+headless startup path, and the shared host formatter
 (#67367).
 """
 import contextlib
@@ -12,7 +12,7 @@ import types
 import pytest
 import uvicorn
 
-from hermes_cli import main_dashboard, web_server, web_server_lifecycle
+from hermes_cli import main_dashboard, web_server
 
 
 def _stub_uvicorn(monkeypatch):
@@ -97,43 +97,25 @@ class TestFormatUrlHost:
         assert format_url_host("[fe80::1%eth0]") == "[fe80::1%25eth0]"
 
 
-class TestBrowserOpenUrl:
+class TestBackendStartup:
 
-    def test_maybe_open_browser_brackets_ipv6_loopback(self, monkeypatch):
-        """The browser auto-open URL needs brackets around an IPv6 authority."""
+    def test_start_server_preserves_ipv6_bind_without_opening_a_browser(self, monkeypatch):
         import webbrowser
 
+        config = _stub_uvicorn(monkeypatch)
         opened = []
-
-        class _ImmediateThread:
-            def __init__(self, *, target, daemon):
-                self._target = target
-
-            def start(self):
-                self._target()
-
-        monkeypatch.setattr(web_server_lifecycle.threading, "Thread", _ImmediateThread)
-        monkeypatch.setattr(web_server_lifecycle.time, "sleep", lambda _s: None)
         monkeypatch.setattr(webbrowser, "open", lambda url: opened.append(url))
-        monkeypatch.setenv("DISPLAY", ":0")
 
-        web_server_lifecycle._maybe_open_browser("::1", 9119, True, "worker_x")
+        web_server.start_server(host="::1", port=9119, open_browser=True)
 
-        assert opened == ["http://[::1]:9119/?profile=worker_x"]
-
-    def test_start_server_banner_prints_bracketed_ipv6_url(self, monkeypatch, capsys):
-        """The no-browser startup banner must show a valid IPv6 URL."""
-        _stub_uvicorn(monkeypatch)
-
-        web_server.start_server(host="::1", port=9119, open_browser=False)
-
-        assert "Hermes Web UI → http://[::1]:9119" in capsys.readouterr().err
+        assert config["host"] == "::1"
+        assert opened == []
 
 
 class TestAttachUrl:
 
-    def test_attach_brackets_ipv6_host_in_browser_url(self, monkeypatch):
-        """Named-profile attach to a running IPv6 dashboard must open a valid URL."""
+    def test_attach_reports_ipv6_host_without_opening_a_browser(self, monkeypatch, capsys):
+        """Desktop backend attachment reports a valid URL without browser navigation."""
         import webbrowser
         from gateway import host_rendezvous as hr
 
@@ -152,7 +134,8 @@ class TestAttachUrl:
             host="::1", port=9119, no_open=False, isolated=False, open_profile=""
         )
         with pytest.raises(SystemExit) as exc:
-            main_dashboard._attach_to_host_backend(args, headless_backend=False)
+            main_dashboard._attach_to_host_backend(args)
 
         assert exc.value.code == 0
-        assert opened == ["http://[::1]:9119/?profile=worker_x"]
+        assert opened == []
+        assert "http://[::1]:9119/?profile=worker_x" in capsys.readouterr().out

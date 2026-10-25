@@ -84,11 +84,11 @@ def test_installed_npm_does_not_authorize_missing_workspace_dependencies(source_
     env = source_build_env()
     monkeypatch.setenv("HERMES_DISABLE_LAZY_INSTALLS", "1")
     with pytest.raises(subprocess.CalledProcessError):
-        prepare_source_dependencies(root, ("ui-tui", "web"), env=env)
+        prepare_source_dependencies(root, ("ui-tui",), env=env)
     assert _events(root) == []
-    prepare_source_dependencies(root, ("ui-tui", "web"), env=env, explicit=True)
+    prepare_source_dependencies(root, ("ui-tui",), env=env, explicit=True)
     events = _events(root)
-    prepare_source_dependencies(root, ("ui-tui", "web"), env=env)
+    prepare_source_dependencies(root, ("ui-tui",), env=env)
     assert _events(root) == events
 
 
@@ -119,7 +119,7 @@ def source_checkout(tmp_path, monkeypatch):
     use_host_node_as_pm_node(monkeypatch)
     root = tmp_path / "source with spaces"
     root.mkdir()
-    workspaces = ["ui-tui", "web", "apps/desktop", "unrelated"]
+    workspaces = ["ui-tui", "apps/desktop", "unrelated"]
     manifest = {"name": "build-fixture", "private": True, "version": "1.0.0",
                 "workspaces": workspaces, "scripts": {"postinstall": "node log.mjs deps"}}
     (root / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -163,7 +163,6 @@ def source_products(source_checkout):
         "export function build(step, output) {\n"
         "  appendFileSync(join(root, 'events.jsonl'), JSON.stringify({step}) + '\\n');\n"
         "  if (existsSync(join(root, 'fail-' + step))) throw new Error('fixture ' + step + ' failure');\n"
-        "  if (step === 'web' && !existsSync(join(root, 'web/public/favicon.ico'))) throw new Error('icons missing');\n"
         "  const path = join(root, output); mkdirSync(dirname(path), { recursive: true });\n"
         "  writeFileSync(path, step);\n"
         "  if (step !== 'icons') {\n"
@@ -178,7 +177,6 @@ def source_products(source_checkout):
     for script, step, output in [
         ("generate-icons.mjs", "icons", "never-rendered-at-install"),
         ("build/tui.mjs", "tui", "ui-tui/dist/entry.js"),
-        ("build/web.mjs", "web", "hermes_cli/web_dist/index.html"),
     ]:
         relative = "../../" if script.startswith("build/") else "../"
         (root / "scripts" / script).write_text(
@@ -198,8 +196,6 @@ def source_products(source_checkout):
         encoding="utf-8",
     )
     # Default-brand icons are committed; updates consume them without rendering.
-    (root / "web/public").mkdir(parents=True, exist_ok=True)
-    (root / "web/public/favicon.ico").write_bytes(b"committed icon")
     return root, acquired
 
 
@@ -215,7 +211,7 @@ def test_preparation_reuses_only_the_exact_completed_workspace_union(source_chec
     root, acquired = source_checkout
     before = (root / "package-lock.json").read_bytes()
     env = source_build_env()
-    prepare_source_dependencies(root, ("ui-tui", "web"), env=env)
+    prepare_source_dependencies(root, ("ui-tui",), env=env)
     first = _events(root)
     assert [event["step"] for event in first] == ["deps"]
     assert first[0]["python"] == env["HERMES_PYTHON"]
@@ -223,13 +219,12 @@ def test_preparation_reuses_only_the_exact_completed_workspace_union(source_chec
     assert "esbuild" not in first[0]
     assert first[0]["npmrc"] == str(Path(os.environ["HERMES_HOME"]) / "npmrc")
     assert (root / "node_modules/ui-tui").exists()
-    assert (root / "node_modules/web").exists()
     assert not (root / "node_modules/apps-desktop").exists()
     assert not (root / "node_modules/unrelated").exists()
 
-    prepare_source_dependencies(root, ("ui-tui", "web"), env=env)
+    prepare_source_dependencies(root, ("ui-tui",), env=env)
     assert _events(root) == first
-    prepare_source_dependencies(root, ("ui-tui", "web", "apps/desktop"), env=env)
+    prepare_source_dependencies(root, ("ui-tui", "apps/desktop"), env=env)
     assert len(_events(root)) == 2
     assert (root / "node_modules/apps-desktop").exists()
     assert not (root / "node_modules/unrelated").exists()
@@ -239,7 +234,7 @@ def test_preparation_reuses_only_the_exact_completed_workspace_union(source_chec
     # A lock failure must not fall back to npm install and rewrite the lock.
     (root / "package-lock.json").write_text("not json", encoding="utf-8")
     with pytest.raises(subprocess.CalledProcessError):
-        prepare_source_dependencies(root, ("ui-tui", "web"), env=env)
+        prepare_source_dependencies(root, ("ui-tui",), env=env)
     assert (root / "package-lock.json").read_text() == "not json"
     assert len(_events(root)) == 2
     assert acquired == ["npm"]
@@ -256,7 +251,6 @@ def test_preparation_reuses_only_the_exact_completed_workspace_union(source_chec
 @pytest.mark.parametrize("desktop", [False, True])
 def test_update_builds_selected_products_after_one_union_preparation(source_products, desktop):
     from hermes_cli.source_build import build_update_products
-    from hermes_cli.main_web_build import _web_ui_build_needed
 
     root, acquired = source_products
     app = root / "apps/desktop/release/linux-unpacked/hermes"
@@ -264,11 +258,9 @@ def test_update_builds_selected_products_after_one_union_preparation(source_prod
     app.write_text("previous app")
     build_update_products(root, desktop=desktop)
     steps = [event["step"] for event in _events(root)]
-    assert steps == ["deps", "tui", "web"] + (["desktop"] if desktop else [])
+    assert steps == ["deps", "tui"] + (["desktop"] if desktop else [])
     assert acquired == ["npm"]
     assert (root / "ui-tui/dist/entry.js").read_text() == "tui"
-    assert (root / "hermes_cli/web_dist/index.html").read_text() == "web"
-    assert not _web_ui_build_needed(root / "web")
     assert (root / "node_modules/apps-desktop").exists() == desktop
     assert not (root / "node_modules/unrelated").exists()
     assert app.read_text() == ("desktop" if desktop else "previous app")
@@ -290,14 +282,14 @@ def test_update_recompiles_only_products_whose_inputs_changed(source_products):
     assert products() == ["desktop"]
 
     (root / "events.jsonl").unlink()
-    (root / "web/src").mkdir(parents=True, exist_ok=True)
-    (root / "web/src/changed.ts").write_text("export {}\n", encoding="utf-8")
+    (root / "ui-tui/src").mkdir(parents=True, exist_ok=True)
+    (root / "ui-tui/src/changed.ts").write_text("export {}\n", encoding="utf-8")
     build_update_products(root, desktop=False)
-    assert products() == ["web"]
+    assert products() == ["tui"]
 
 
 @pytest.mark.platforms("linux")
-@pytest.mark.parametrize("step", ["tui", "web", "desktop"])
+@pytest.mark.parametrize("step", ["tui", "desktop"])
 def test_update_failure_raises_without_retries_or_replacing_live_app(source_products, step):
     from hermes_cli.source_build import ProductBuildError, build_update_products
 
@@ -312,7 +304,7 @@ def test_update_failure_raises_without_retries_or_replacing_live_app(source_prod
     assert len(failure.value.failures) == 1
     assert isinstance(failure.value.failures[0][1], subprocess.CalledProcessError)
     # ... but it no longer skips the independent products after it (was order[:index + 1]).
-    assert [event["step"] for event in _events(root)] == ["deps", "tui", "web", "desktop"]
+    assert [event["step"] for event in _events(root)] == ["deps", "tui", "desktop"]
     assert acquired == ["npm"]
     assert not list((root / "apps/desktop").glob(".staging-*"))
     if step == "desktop":
@@ -351,7 +343,7 @@ def test_unbuilt_desktop_is_named_on_one_whole_line(source_products, monkeypatch
 
 
 @pytest.mark.platforms("linux")
-def test_desktop_dependency_failure_still_builds_the_tui_and_web_ui(source_products, capsys):
+def test_desktop_dependency_failure_still_builds_the_tui(source_products, capsys):
     # A host whose compiler rejects a Desktop-only native addon (node-pty on g++ 9) used to lose
     # every frontend with it: the union npm ci failed and nothing was built.
     from hermes_cli.source_build import ProductBuildError, build_update_products
@@ -362,7 +354,7 @@ def test_desktop_dependency_failure_still_builds_the_tui_and_web_ui(source_produ
     with pytest.raises(ProductBuildError) as failure:
         build_update_products(root, desktop=True)
     assert [name for name, _ in failure.value.failures] == ["desktop dependencies"]
-    assert [event["step"] for event in _events(root)] == ["deps", "tui", "web"]
+    assert [event["step"] for event in _events(root)] == ["deps", "tui"]
     assert not (root / "node_modules/apps-desktop").exists()
     out = capsys.readouterr().out
     assert "Desktop app build owed: desktop dependencies failed" in out
@@ -380,7 +372,6 @@ def test_module_cli_builds_the_requested_products(source_products, desktop, monk
     monkeypatch.delitem(sys.modules, "hermes_cli.source_build", raising=False)
     runpy.run_module("hermes_cli.source_build", run_name="__main__")
     assert acquired == ["npm"]
-    assert (root / "hermes_cli/web_dist/index.html").is_file()
     assert (root / "apps/desktop/release/linux-unpacked/hermes").exists() == desktop
 
 

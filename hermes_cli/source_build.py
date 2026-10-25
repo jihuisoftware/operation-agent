@@ -91,7 +91,7 @@ def prepare_launch_dependencies(project_root: Path, *, env: dict) -> None:
 
     desktop_dir = project_root / "apps/desktop"
     desktop = _desktop_dist_exists(desktop_dir) or _desktop_packaged_executable(desktop_dir) is not None
-    workspaces = ("ui-tui", "web") + (("apps/desktop",) if desktop else ())
+    workspaces = ("ui-tui",) + (("apps/desktop",) if desktop else ())
     prepare_source_dependencies(project_root, workspaces, env=env)
 
 
@@ -99,24 +99,13 @@ def build_source_tui(project_root: Path, *, env: dict) -> None:
     run_source_script(project_root, "scripts/build/tui.mjs", env=env, label="Building the TUI")
 
 
-def build_source_web(project_root: Path, *, env: dict, icons: Path | None = None) -> None:
-    # Bounded build (#63338): the Vite/Rolldown dashboard build saturates small
-    # hosts; cap the V8 heap and the native bundler's rayon thread pool.
-    from hermes_cli.web_build_limits import apply_web_build_limits
-
-    apply_web_build_limits(env)
-    # Default-brand icons are committed; installs never render them.
-    icons = icons or project_root
-    run_source_script(project_root, "scripts/build/web.mjs", "--source", str(project_root),
-                      "--icons", str(icons), "--out", str(project_root / "hermes_cli/web_dist"), env=env,
-                      label="Building the web UI")
 
 
 def source_frontends(project_root: Path) -> tuple[str, ...]:
     """The frontend workspaces this checkout carries. A source slice without them
     (python-only installs, the installer's acceptance fixture) has no products
     to build; it still publishes commands and runs the maintenance tail."""
-    return tuple(name for name in ("ui-tui", "web") if (project_root / name / "package.json").is_file())
+    return tuple(name for name in ("ui-tui",) if (project_root / name / "package.json").is_file())
 
 
 class ProductBuildError(RuntimeError):
@@ -140,7 +129,7 @@ def _headless_linux() -> bool:
 def build_update_products(project_root: Path, *, desktop: bool) -> None:
     """Prepare the selected union once, attempting every independent product.
 
-    A failed product never skips the next one (a broken web build must not leave the TUI or the
+    A failed product never skips the next one (a broken TUI build must not leave the
     desktop app stale); the failures are raised together at the end as ``ProductBuildError``.
     """
     # Both current updates and historical takeover reach this in a fresh target
@@ -179,7 +168,7 @@ def build_update_products(project_root: Path, *, desktop: bool) -> None:
         desktop_skipped = False
         if not prepared and desktop and env:
             # Only apps/desktop brings native addons (node-pty, electron) into the union: a host
-            # whose compiler cannot build them must still get the TUI and web UI it runs.
+            # whose compiler cannot build them must still get the TUI it runs.
             print("  → Retrying Node dependencies without the desktop app")
             failed = failures.pop()
             prepared = desktop_skipped = attempt("Node dependencies", lambda: node_dependencies(frontends))
@@ -190,7 +179,7 @@ def build_update_products(project_root: Path, *, desktop: bool) -> None:
             print("  ⓘ If this host never runs the desktop app, `hermes uninstall --gui` removes it "
                   "and future updates stop building it.")
         if prepared:
-            # An update that changed no TUI/web input reuses the receipted output, as the
+            # An update that changed no TUI input reuses the receipted output, as the
             # launch path already does; recompiling it produces the same bytes. Desktop
             # additionally needs the packaged app to name HEAD (its baked stamp carries the
             # commit), so it is reused only when HEAD did not move: "Already up to date",
@@ -201,12 +190,6 @@ def build_update_products(project_root: Path, *, desktop: bool) -> None:
                 else:
                     publish_stage("Building the TUI")
                     attempt("TUI build", lambda: build_source_tui(project_root, env=env))
-            if "web" in frontends:
-                if source_product_current(project_root, "web", project_root / "hermes_cli/web_dist"):
-                    print("  ✓ Web UI is up to date")
-                else:
-                    publish_stage("Building the web UI")
-                    attempt("web UI build", lambda: build_source_web(project_root, env=env))
             if desktop and not desktop_skipped:
                 desktop_built = attempt("desktop app build", lambda: _build_desktop_product(project_root, env, publish_stage))
                 desktop_reason = failures[-1][0] if not desktop_built else ""

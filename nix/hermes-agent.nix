@@ -124,10 +124,6 @@ let
     inherit hermesNpmLib;
   };
 
-  hermesWeb = callPackage ./web.nix {
-    inherit hermesNpmLib generatedIcons;
-  };
-
   bundledSkills = lib.cleanSourceWith {
     src = ../skills;
     filter = path: _type: !(lib.hasInfix "/index-cache/" path) && !(lib.hasInfix "/__pycache__/" path);
@@ -224,7 +220,6 @@ let
       };
       frontends = {
         tui = "${hermesTui}/lib/hermes-tui";
-        web = toString hermesWeb;
       };
       ref = if dirty then null else rev;
       stamp = toString installStampFile;
@@ -386,7 +381,6 @@ stdenv.mkDerivation (finalAttrs: {
     {
       inherit
         hermesTui
-        hermesWeb
         hermesNpmLib
         hermesVenv
         agentBuilderSrc

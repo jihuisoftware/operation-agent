@@ -39,7 +39,7 @@ class TestUnifiedDashboardRouting:
         execs = []
 
         if sys.platform == "win32":
-            # Windows cannot truly replace the process, so cmd_dashboard
+            # Windows cannot truly replace the process, so cmd_serve
             # re-execs via subprocess.Popen + sys.exit(code) instead of
             # os.execvpe (which doesn't exist on Windows).
             spawns = []
@@ -54,7 +54,7 @@ class TestUnifiedDashboardRouting:
                 lambda argv, env=None, **kw: spawns.append((argv, env)) or _Done(),
             )
             with pytest.raises(SystemExit):
-                main_mod.cmd_dashboard(_args())
+                main_mod.cmd_serve(_args())
             assert len(spawns) == 1
             argv, env = spawns[0]
         else:
@@ -67,7 +67,7 @@ class TestUnifiedDashboardRouting:
             monkeypatch.setattr(main_mod.os, "execvpe", fake_exec)
 
             with pytest.raises(SystemExit):
-                main_mod.cmd_dashboard(_args())
+                main_mod.cmd_serve(_args())
 
             assert len(execs) == 1
             exe, argv, env = execs[0]
@@ -104,7 +104,7 @@ class TestUnifiedDashboardRouting:
         monkeypatch.setitem(sys.modules, "fastapi", None)
 
         with pytest.raises((SystemExit, AttributeError, ImportError, TypeError)):
-            main_mod.cmd_dashboard(_args())
+            main_mod.cmd_serve(_args())
         assert listening_calls == []
         assert execs == []
 

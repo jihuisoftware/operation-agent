@@ -123,7 +123,7 @@ class TestServeGuard:
         )
 
         with pytest.raises(SystemExit) as exc_info:
-            main_mod.cmd_dashboard(args)
+            main_mod.cmd_serve(args)
 
         assert exc_info.value.code == 2
         assert "Hermes stopped because your settings file" in capsys.readouterr().err

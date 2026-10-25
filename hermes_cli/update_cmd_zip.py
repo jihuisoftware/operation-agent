@@ -37,14 +37,12 @@ _ZIP_PRESERVED_TOP_LEVEL = {"venv", ".venv", "node_modules", ".git", ".env"}
 
 # Gitignored build outputs the source ZIP never ships, nested under top-level entries the swap replaces
 # (so `_ZIP_PRESERVED_TOP_LEVEL` cannot shield them): the packaged Desktop app, its renderer bundle and
-# its own node_modules (electron itself), and the dashboard assets. The dirty-tree guard admits them and
+# its own node_modules (electron itself). The dirty-tree guard admits them and
 # `_stage_entries` grafts the live copies into the staged tree so the swap keeps them (#90495).
 _ZIP_PRESERVED_NESTED = {
     "apps": ("desktop/release", "desktop/dist", "desktop/node_modules", "desktop/build"),
-    "hermes_cli": ("web_dist",),
     "scripts": ("whatsapp-bridge/node_modules",),
     "ui-tui": ("dist", "node_modules", "packages/hermes-ink/dist"),
-    "web": ("node_modules",),
 }
 
 _STASH_HINT = "  Stash or commit your changes, then rerun `hermes update`."
@@ -296,7 +294,8 @@ def _is_zip_preserved_entry_status_line(line: str, shipped: Optional[Collection[
     preserved top-level entry; or the line is gitignored (``!!``) and under a root entry the ZIP does not
     ship (``.bytecode-fingerprint``, ``.hermes-bootstrap-complete``, ``hermes_agent.egg-info/`` — the swap
     replaces ``shipped`` entries only); or a ``!!`` build output nested under a shipped dir that the swap
-    keeps (`_ZIP_PRESERVED_NESTED`) or regenerates (``__pycache__``, ``node_modules``). Every real install
+    keeps (`_ZIP_PRESERVED_NESTED`), regenerates (``__pycache__``, ``node_modules``), or has retired
+    (``hermes_cli/web_dist``). Every real install
     has all of these, and blocking on them made the ZIP fallback refuse every install. Tracked edits,
     renames and other untracked/ignored user files still block.
 
@@ -314,7 +313,10 @@ def _is_zip_preserved_entry_status_line(line: str, shipped: Optional[Collection[
     top, _, nested = path.partition("/")
     if shipped is not None and top not in shipped:
         return True
-    return path.rsplit("/", 1)[-1] in ("__pycache__", "node_modules") or any(
+    # Retired dashboard build output is disposable, so an old install can update
+    # without copying the removed frontend back into the replacement tree.
+    retired_web_dist = top == "hermes_cli" and (nested == "web_dist" or nested.startswith("web_dist/"))
+    return retired_web_dist or path.rsplit("/", 1)[-1] in ("__pycache__", "node_modules") or any(
         nested == keep or nested.startswith(f"{keep}/") for keep in _ZIP_PRESERVED_NESTED.get(top, ()))
 
 
@@ -445,7 +447,7 @@ def _stage_entries(extracted: str, entries: list[str], project_root: str,
                 os.path.join(extracted, item), dst,
                 None if on_created is None else (lambda path, i=index: on_created(i, path))), dst))
             # The source ZIP carries only source; the built outputs (#70337/#87331 release/, then
-            # dist/, apps/desktop/node_modules and web_dist — #90495) exist only in the LIVE tree. Graft
+            # dist/ and apps/desktop/node_modules — #90495) exist only in the LIVE tree. Graft
             # them into the staged copy BEFORE the swap so the commit preserves them atomically.
             _graft_nested_artifacts(item, dst, staged[-1][0])
     except Exception:

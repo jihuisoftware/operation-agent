@@ -79,7 +79,7 @@ with tempfile.TemporaryDirectory(prefix="hermes-desktop-backend-") as temporary:
                     output += desktop_log.read_text()
                 assert "WRONG_BACKEND_SELECTED" not in output, output
                 assert child.poll() is None, output
-                # Desktop attaches to `hermes gateway ensure` (the daemon serves the dashboard), so
+                # Desktop attaches to `hermes gateway ensure` (the daemon serves the shared API), so
                 # readiness is Desktop's own attach line, not a spawned `hermes serve` sentinel.
                 if "[backend] Hermes gateway is ready" in output:
                     assert f"[backend] using existing Hermes CLI at {expected}" in output, output
