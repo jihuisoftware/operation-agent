@@ -186,10 +186,10 @@ export function createMinimizeToTray(options: Options) {
         tray.setToolTip('Hermes')
         tray.setContextMenu(
           Menu.buildFromTemplate([
-            { label: 'Show Hermes', click: restore },
+            { label: '显示 Hermes', click: restore },
             { type: 'separator' },
             // Do not bypass the ordinary active-work confirmation or teardown.
-            { label: 'Quit Hermes', click: () => app.quit() }
+            { label: '退出 Hermes', click: () => app.quit() }
           ])
         )
 

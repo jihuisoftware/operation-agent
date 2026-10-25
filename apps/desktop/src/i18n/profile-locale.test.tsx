@@ -11,11 +11,13 @@ import { useI18n } from './context'
 import { ProfileI18nProvider as I18nProvider } from './profile-provider'
 
 function Probe() {
-  const { locale, setLocale, saveError, isSavingLocale } = useI18n()
+  const { locale, setLocale, saveError, isSavingLocale, isLoadingConfig, t } = useI18n()
 
   return (
     <>
       <span data-testid="locale">{locale}</span>
+      <span data-testid="loading">{String(isLoadingConfig)}</span>
+      <span data-testid="save-label">{t.common.save}</span>
       <span data-testid="error">{saveError?.message}</span>
       <span data-testid="saving">{String(isSavingLocale)}</span>
       <button onClick={() => void setLocale('ja').catch(() => undefined)}>Japanese</button>
@@ -34,6 +36,24 @@ afterEach(() => {
   route('default')
   Reflect.deleteProperty(window, 'hermesDesktop')
   vi.restoreAllMocks()
+})
+
+it.each([false, true])('starts the operations desktop in Chinese on an English host (offline=%s)', async offline => {
+  const api = offline ? vi.fn().mockRejectedValue(new Error('backend unavailable')) : vi.fn().mockResolvedValue({})
+
+  const getMachineProfile = vi.fn().mockResolvedValue({ locale: 'en-US' })
+  window.hermesDesktop = { api, getMachineProfile } as never
+
+  render(
+    <I18nProvider>
+      <Probe />
+    </I18nProvider>
+  )
+  expect(screen.getByTestId('locale').textContent).toBe('zh')
+  await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'))
+  expect(screen.getByTestId('save-label').textContent).toBe('保存')
+  expect(window.document.documentElement.lang).toBe('zh')
+  expect(api.mock.calls.every(([request]) => request.method !== 'PUT')).toBe(true)
 })
 
 // Regression for #113980: exercise the real provider, API origin binding and

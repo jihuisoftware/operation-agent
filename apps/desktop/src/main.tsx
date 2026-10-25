@@ -30,12 +30,15 @@ import { RootErrorBoundary } from './components/error-boundary'
 import { HapticsProvider } from './components/haptics-provider'
 import { RootTooltipProvider } from './components/ui/tooltip'
 import { ProfileI18nProvider as I18nProvider } from './i18n/profile-provider'
+import { setRuntimeI18nLocale } from './i18n/runtime'
 import { installClipboardShim } from './lib/clipboard'
+import { OPERATIONS_PROFILE } from './lib/operations-profile'
 import { queryClient } from './lib/query-client'
 import { installRendererAnimationPauseState } from './lib/renderer-loop-pause'
 import { installSelectionCopyColorGuard } from './lib/selection-copy-colors'
 import { ThemeProvider } from './themes/context'
 
+setRuntimeI18nLocale(OPERATIONS_PROFILE.desktop.defaultLocale)
 installClipboardShim()
 // Chromium serializes selection copies (Cmd+C, right-click Copy) with the
 // theme's computed colors inlined; without this guard a dark-theme selection
@@ -91,9 +94,9 @@ if (winParam === 'overlay') {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <RootErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <I18nProvider>
+      <I18nProvider>
+        <RootErrorBoundary>
+          <QueryClientProvider client={queryClient}>
             <ThemeProvider>
               <HapticsProvider>
                 {/* ONE tooltip provider for the whole app. Every `Tip` used to
@@ -117,9 +120,9 @@ if (winParam === 'overlay') {
                 </RootTooltipProvider>
               </HapticsProvider>
             </ThemeProvider>
-          </I18nProvider>
-        </QueryClientProvider>
-      </RootErrorBoundary>
+          </QueryClientProvider>
+        </RootErrorBoundary>
+      </I18nProvider>
     </StrictMode>
   )
 }

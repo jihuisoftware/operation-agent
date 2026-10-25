@@ -1,11 +1,18 @@
 // health: allow FILE_LINES -- locale data: translated copy for the usage-window plan UI (allowance gauges, Large/Free tags, the limit card), one key per string
+import { mergeTranslations } from '@hermes/shared/i18n'
+
 import { defineFieldCopy } from '@/app/settings/field-copy'
 
 import { defineLocale, type TranslationOverrides } from './define-locale'
 import { introZh } from './intro-zh'
+import { zhAssistant } from './zh_assistant'
+import { zhBoot } from './zh_boot'
+import { zhCapabilities } from './zh_capabilities'
 import { zhCatalog, zhSkillDeepLink } from './zh_catalog'
+import { zhChrome } from './zh_chrome'
 import { zhClarify } from './zh_clarify'
 import { zhConnectorCard } from './zh_connector_card'
+import { zhConnectors } from './zh_connectors'
 import { zhErrorCodes } from './zh_error_codes'
 import { zhErrorLayers } from './zh_error_layers'
 import { zhFirstRun } from './zh_first_run'
@@ -22,7 +29,7 @@ import { zhSharedMetrics } from './zh_shared_metrics'
 import { zhThemePicker } from './zh_theme_picker'
 import { zhUpdateChannel } from './zh_update_channel'
 
-export const zhOverrides = {
+const zhBase = {
   catalog: zhCatalog,
   externalOpenFailed: {
     title: '无法打开此链接',
@@ -297,7 +304,7 @@ export const zhOverrides = {
       '您也可以在终端运行 `hermes debug share --nous`，或运行 `hermes debug share --local` 在不上传的情况下查看报告。',
     handoffLead: '在以下位置继续讨论:',
     links: {
-      github: 'GitHub Issues',
+      github: 'GitHub 问题反馈',
       portal: 'Nous Portal 支持',
       discord: 'Discord'
     }
@@ -2563,7 +2570,7 @@ export const zhOverrides = {
       MATTERMOST_URL: { label: '服务器 URL', placeholder: 'https://mattermost.example.com' },
       MATTERMOST_TOKEN: { label: 'Bot 令牌' },
       MATTERMOST_ALLOWED_USERS: { label: '允许的用户 ID', help: '推荐。Mattermost 用户 ID（每格一个）。' },
-      MATRIX_HOMESERVER: { label: 'Homeserver URL', placeholder: 'https://matrix.org' },
+      MATRIX_HOMESERVER: { label: '主服务器地址', placeholder: 'https://matrix.org' },
       MATRIX_ACCESS_TOKEN: { label: '访问令牌' },
       MATRIX_USER_ID: { label: 'Bot 用户 ID', placeholder: '@hermes:example.org' },
       MATRIX_ALLOWED_USERS: { label: '允许的 Matrix 用户 ID', help: '推荐。@user:server 格式的用户 ID（每格一个）。' },
@@ -2641,7 +2648,7 @@ export const zhOverrides = {
     deliverOnly: '仅投递',
     createdTitle: '订阅已创建',
     createdSecretHint: '请立即复制密钥 —— 它只显示一次。',
-    webhookUrl: 'Webhook URL',
+    webhookUrl: 'Webhook 地址',
     secretOnce: '密钥（仅显示一次）',
     done: '完成',
     fieldName: '名称',
@@ -3968,7 +3975,7 @@ export const zhOverrides = {
       toggleTerminal: '终端',
       toggleTokensPerSecond: '每秒 token 数',
       toggleVersion: '版本与更新',
-      toggleFreeTier: 'Free tier',
+      toggleFreeTier: '免费额度',
       toggleWorkspace: '工作区',
       cacheHitRateTitle: '本会话的提示缓存命中率 — 缓存 token 更便宜，越高越省',
       tokensPerSecondTitle: '每秒输出 token 数，取最近 10 次模型调用的平均值',
@@ -4754,5 +4761,10 @@ export const zhOverrides = {
     }
   }
 } satisfies TranslationOverrides
+
+export const zhOverrides = [zhAssistant, zhBoot, zhCapabilities, zhChrome, zhConnectors].reduce<TranslationOverrides>(
+  (copy, additions) => mergeTranslations(copy, additions),
+  zhBase
+)
 
 export const zh = defineLocale(zhOverrides)

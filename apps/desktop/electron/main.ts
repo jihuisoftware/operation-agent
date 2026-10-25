@@ -5605,7 +5605,7 @@ async function saveImageFromUrl(rawUrl) {
   }
 
   const result = await dialog.showSaveDialog(mainWindow, {
-    title: 'Save Image',
+    title: '保存图片',
     defaultPath: downloadsDir ? path.join(downloadsDir, fallbackName) : fallbackName,
     filters: [
       { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] },
@@ -6382,7 +6382,7 @@ function buildApplicationMenu() {
   const template: MenuItemConstructorOptions[] = []
 
   const checkForUpdatesItem = {
-    label: 'Check for Updates…',
+    label: '检查更新…',
     click: () => sendOpenUpdatesRequested()
   }
 
@@ -6390,31 +6390,31 @@ function buildApplicationMenu() {
     template.push({
       label: APP_NAME,
       submenu: [
-        { label: `About ${APP_NAME}`, click: () => showAboutPanelFresh() },
+        { label: `关于 ${APP_NAME}`, click: () => showAboutPanelFresh() },
         checkForUpdatesItem,
         { type: 'separator' },
-        { role: 'services' },
+        { role: 'services', label: '服务' },
         { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
+        { role: 'hide', label: '隐藏 Hermes' },
+        { role: 'hideOthers', label: '隐藏其他应用' },
+        { role: 'unhide', label: '显示全部' },
         { type: 'separator' },
-        { role: 'quit' }
+        { role: 'quit', label: '退出 Hermes' }
       ]
     })
   }
 
   template.push({
-    label: 'File',
+    label: '文件',
     submenu: [
       // No accelerator: ⌘⇧N is a rebindable renderer keybind (session.newWindow);
       // a menu accelerator would fight the rebind panel and (on macOS) be
       // swallowed before the renderer sees it. Here purely for discoverability.
-      { click: () => createInstanceWindow(), label: 'New Window' },
+      { click: () => createInstanceWindow(), label: '新建窗口' },
       // Same no-accelerator rationale: ⌘O is the rebindable renderer keybind
       // (workspace.openFolder). Clicking runs the same open-folder-as-project
       // flow through the renderer.
-      { click: () => sendOpenFolderRequested(), label: 'Open Folder…' },
+      { click: () => sendOpenFolderRequested(), label: '打开文件夹…' },
       { type: 'separator' },
       IS_MAC
         ? {
@@ -6425,41 +6425,41 @@ function buildApplicationMenu() {
             // renderer's close-active-tab. Clicking the item still closes the tab
             // (or window) via the same request.
             click: () => sendClosePreviewRequested(),
-            label: 'Close'
+            label: '关闭'
           }
-        : { role: 'quit' }
+        : { role: 'quit', label: '退出 Hermes' }
     ]
   })
   template.push({
-    label: 'Edit',
+    label: '编辑',
     submenu: [
-      { role: 'undo' },
-      { role: 'redo' },
+      { role: 'undo', label: '撤销' },
+      { role: 'redo', label: '重做' },
       { type: 'separator' },
-      { role: 'cut' },
-      { role: 'copy' },
-      { role: 'paste' },
+      { role: 'cut', label: '剪切' },
+      { role: 'copy', label: '复制' },
+      { role: 'paste', label: '粘贴' },
       // ⌘⇧V is only wired up by this item existing: an accelerator with no menu
       // entry is never translated into an editor command, so the chord was a
       // no-op in every input in the app. The composer inserts plain text on
       // every paste anyway, so this is the same result as ⌘V there — it's the
       // terminal, preview, and other editable surfaces that need the strip.
-      { role: 'pasteAndMatchStyle' },
-      { role: 'delete' },
-      { role: 'selectAll' },
+      { role: 'pasteAndMatchStyle', label: '粘贴并匹配样式' },
+      { role: 'delete', label: '删除' },
+      { role: 'selectAll', label: '全选' },
       ...(IS_MAC
         ? ([
             { type: 'separator' },
             {
-              label: 'Substitutions',
-              submenu: [{ role: 'showSubstitutions' }, { type: 'separator' }, { role: 'toggleTextReplacement' }]
+              label: '替换',
+              submenu: [{ role: 'showSubstitutions', label: '显示替换选项' }, { type: 'separator' }, { role: 'toggleTextReplacement', label: '文本替换' }]
             }
           ] satisfies MenuItemConstructorOptions[])
         : [])
     ]
   })
   template.push({
-    label: 'View',
+    label: '视图',
     submenu: [
       // Not `role: 'reload'`: that hard-reloads the RENDERER (every pane, the
       // whole shell) and a focused in-app browser needs ⌘R to mean "reload
@@ -6469,23 +6469,23 @@ function buildApplicationMenu() {
       // No accelerator: ⌘R is claimed in `installPreviewShortcut`, which works
       // on every platform (this menu exists only on macOS). Declaring it here
       // too would fire the item and the input hook for one keypress.
-      { click: () => sendPreviewNavCommand('reload'), label: 'Reload' },
-      { role: 'forceReload' },
+      { click: () => sendPreviewNavCommand('reload'), label: '重新加载' },
+      { role: 'forceReload', label: '强制重新加载' },
       {
-        label: 'Toggle Developer Tools',
+        label: '切换开发者工具',
         accelerator: process.platform === 'darwin' ? 'Alt+Cmd+I' : 'Ctrl+Shift+I',
         click: (_menuItem, browserWindow) => toggleDevTools(browserWindow || mainWindow)
       },
       { type: 'separator' },
       {
-        label: 'Actual Size',
+        label: '实际大小',
         accelerator: 'CommandOrControl+0',
         click: () => {
           setAndPersistZoomLevel(mainWindow, DEFAULT_ZOOM_LEVEL)
         }
       },
       {
-        label: 'Zoom In',
+        label: '放大',
         accelerator: 'CommandOrControl+Plus',
         click: () => {
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -6494,7 +6494,7 @@ function buildApplicationMenu() {
         }
       },
       {
-        label: 'Zoom Out',
+        label: '缩小',
         accelerator: 'CommandOrControl+-',
         click: () => {
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -6503,12 +6503,12 @@ function buildApplicationMenu() {
         }
       },
       { type: 'separator' },
-      { role: 'togglefullscreen' }
+      { role: 'togglefullscreen', label: '切换全屏' }
     ]
   })
   template.push(windowMenuTemplate(IS_MAC))
   template.push({
-    label: 'Help',
+    label: '帮助',
     role: 'help',
     submenu: [checkForUpdatesItem]
   })
@@ -6807,7 +6807,7 @@ function installDownloadHandling() {
 
     try {
       item.setSaveDialogOptions({
-        title: 'Save File',
+        title: '保存文件',
         defaultPath: path.join(app.getPath('downloads'), filename),
         filters:
           extension || /^image\//i.test(item.getMimeType() || '')
@@ -14041,7 +14041,7 @@ function createWindow() {
         const exit = details?.exitCode === undefined ? '' : `, exit code ${String(details.exitCode)}`
         rememberLog(`[renderer:main] renderer terminated while live (reason=${reason}${exit}); surfacing recovery page`)
         void loadRendererLoadErrorPage(mainWindow, {
-          title: 'Hermes desktop UI was terminated',
+          title: 'Hermes 桌面界面已终止',
           errorDescription:
             `The desktop UI process was terminated unexpectedly (reason: ${reason}${exit}). ` +
             'Your sessions and the background gateway are unaffected — reload to continue.',
@@ -16501,7 +16501,7 @@ ipcMain.handle('hermes:selectPaths', async (_event, options: any = {}) => {
   }
 
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: options?.title || 'Add context',
+    title: options?.title || '添加上下文',
     defaultPath: resolvedDefaultPath,
     properties: properties as any,
     filters: Array.isArray(options?.filters) ? options.filters : undefined
@@ -17104,7 +17104,7 @@ ipcMain.handle('hermes:setting:defaultProjectDir:set', async (_event, dir) => {
 
 ipcMain.handle('hermes:setting:defaultProjectDir:pick', async () => {
   const result = await dialog.showOpenDialog({
-    title: 'Choose default project directory',
+    title: '选择默认项目目录',
     properties: ['openDirectory', 'createDirectory'],
     defaultPath: readDefaultProjectDir() || app.getPath('home')
   })

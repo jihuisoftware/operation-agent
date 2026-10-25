@@ -110,22 +110,22 @@ export function quitPromptFor(
   const lines = listed.map(title => `• ${title}`)
 
   if (remaining > 0) {
-    lines.push(remaining === 1 ? '• 1 more' : `• ${remaining} more`)
+    lines.push(`• 另有 ${remaining} 个会话`)
   }
 
   return {
-    buttons: backendOwned ? ['Keep Running', 'Quit Anyway'] : ['Cancel', 'Quit'],
+    buttons: backendOwned ? ['继续运行', '仍然退出'] : ['取消', '退出'],
     detail: [
       lines.join('\n'),
       lines.length > 0 ? '' : null,
       backendOwned
-        ? 'Quitting stops the agent mid-turn. Any work it has not finished writing is lost.'
-        : 'The agent keeps running on the gateway. Quitting only closes Hermes on this computer; reconnect later to see the results.'
+        ? '退出会中断助手当前的任务，尚未写入的内容将丢失。'
+        : '助手会继续在后台服务中运行。退出只会关闭本机的 Hermes，稍后重新连接即可查看结果。'
     ]
       .filter(line => line !== null)
       .join('\n')
       .trim(),
-    message: work.count === 1 ? 'Hermes is still working on 1 chat.' : `Hermes is still working on ${work.count} chats.`
+    message: `Hermes 仍在处理 ${work.count} 个会话。`
   }
 }
 

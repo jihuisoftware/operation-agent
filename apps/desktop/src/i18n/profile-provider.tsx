@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { type ReactNode, useEffect } from 'react'
 
+import { OPERATIONS_PROFILE } from '@/lib/operations-profile'
 import { $gateway } from '@/store/gateway'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $connection, $gatewayState } from '@/store/session'
@@ -27,7 +28,11 @@ export function ProfileI18nProvider({ children }: { children: ReactNode }) {
 
   useBackendLocalePacks(scopeKey)
 
-  return <I18nProvider scopeKey={scopeKey}>{children}</I18nProvider>
+  return (
+    <I18nProvider defaultLocale={OPERATIONS_PROFILE.desktop.defaultLocale} scopeKey={scopeKey}>
+      {children}
+    </I18nProvider>
+  )
 }
 
 /**

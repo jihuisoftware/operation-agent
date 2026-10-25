@@ -94,6 +94,7 @@
     "google_meet"
   ],
   "desktop": {
+    "defaultLocale": "zh",
     "disabledPlugins": [
       "hermes-bots",
       "kanban",

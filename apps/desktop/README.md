@@ -1,5 +1,7 @@
 # Hermes Desktop ☤
 
+此运营版本在 macOS 和 Ubuntu 上默认使用简体中文。界面语言可在“设置 → 外观 → 语言”中切换，已保存的语言选择优先于默认值。
+
 <p align="center">
   <a href="https://github.com/NousResearch/hermes-agent/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>
   <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>

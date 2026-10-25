@@ -2,12 +2,13 @@ import { useAuiState } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import type { FC } from 'react'
 
+import { localizedDateFormatter } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { $displayTimestamps } from '@/store/display-timestamps'
 
 import { formatTimelineRange } from './timestamp'
 
-const preciseDateTime = new Intl.DateTimeFormat(undefined, {
+const preciseDateTime = localizedDateFormatter({
   day: 'numeric',
   fractionalSecondDigits: 3,
   hour: 'numeric',

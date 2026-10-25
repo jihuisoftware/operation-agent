@@ -58,7 +58,7 @@ test('quitPromptFor summarizes past the list cap and counts untitled work', () =
   assert.ok(prompt)
   assert.ok(prompt.detail.includes('• d'))
   assert.ok(!prompt.detail.includes('• e'))
-  assert.ok(prompt.detail.includes('• 5 more'))
+  assert.ok(prompt.detail.includes('• 另有 5 个会话'))
 })
 
 // #79579: only a backend the app owns (started over SSH) dies with it. The
@@ -88,8 +88,8 @@ test('quitPromptFor warns about lost work when the app owns the backend (SSH)', 
   const prompt = quitPromptFor({ count: 1, titles: ['Fix login'] }, false, owned)
 
   assert.ok(prompt)
-  assert.ok(prompt.detail.includes('is lost'))
-  assert.deepEqual(prompt.buttons, ['Keep Running', 'Quit Anyway'])
+  assert.ok(prompt.detail.includes('将丢失'))
+  assert.deepEqual(prompt.buttons, ['继续运行', '仍然退出'])
 })
 
 for (const primaryRouteKind of [null, 'remote', 'cloud'] as const) {
@@ -99,9 +99,9 @@ for (const primaryRouteKind of [null, 'remote', 'cloud'] as const) {
 
     assert.ok(prompt)
     assert.ok(prompt.detail.includes('• Fix login'))
-    assert.ok(!prompt.detail.includes('lost'), 'a backend that outlives the app loses nothing')
-    assert.ok(prompt.detail.includes('keeps running'))
-    assert.notDeepEqual(prompt.buttons, ['Keep Running', 'Quit Anyway'])
+    assert.ok(!prompt.detail.includes('丢失'), 'a backend that outlives the app loses nothing')
+    assert.ok(prompt.detail.includes('继续在后台服务中运行'))
+    assert.notDeepEqual(prompt.buttons, ['继续运行', '仍然退出'])
   })
 }
 
