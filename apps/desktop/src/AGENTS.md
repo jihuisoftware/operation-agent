@@ -3,6 +3,11 @@
 Applies on top of `apps/desktop/AGENTS.md` (the judgment guide) and the root `AGENTS.md`.
 Root TypeScript style rules apply.
 
+This operations build shares its scope with `hermes_cli/data/operations-profile.json` through
+`lib/operations-profile.ts`. Bot Mode, Kanban and Radio stay dormant even when previously enabled;
+filter bundled plugins before importing modules with startup side effects. Their retained contracts
+below govern future reuse, not current product entry points.
+
 ## Desktop local execution belongs to the canonical gateway
 
 Electron + React + nanostores (`@assistant-ui/react`) talks JSON-RPC over the existing

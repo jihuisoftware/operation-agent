@@ -221,8 +221,7 @@ const SIDEBAR_NAV: SidebarNavItem[] = [
     keybindActionId: 'nav.capabilities'
   },
 
-  // Artifacts and Scheduled jobs are outputs of running Hermes the developer
-  // way; Capabilities is where tools and skills are configured.
+  // Content outputs and scheduled work stay reachable in the operations Simple mode.
   {
     id: 'artifacts',
     label: '',

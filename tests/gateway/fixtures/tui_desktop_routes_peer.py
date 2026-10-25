@@ -217,6 +217,8 @@ async def _control_refusals(authority, ws, reader, sid, marker, receipt):
 
 async def _connection_card(authority, ws, reader, sid, marker, receipt):
     """A retired connector cannot be restored by an explicit session toolset request."""
+    from tests.gateway.fixtures.local_recovery_probe import rpc
+
     denied = await rpc(ws, 'session.create', request_id='routes-card', source='gui',
                        toolsets=['connections'], cwd=str(Path(authority.profile_id) / 'session-work'))
     assert _error(denied) == 'invalid_params', denied

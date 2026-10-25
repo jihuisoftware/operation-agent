@@ -1,9 +1,9 @@
 # gateway/ — messaging gateway, adapters, delivery
 
-This Desktop-focused branch retires external messaging integrations. Keep the canonical local
-session runtime, scheduler, private tickets and generic API/webhook ingress. Legacy platform
-types and transport helpers below remain for shared runtime/history compatibility; do not
-restore bot activation or platform setup entry points.
+This operations build retires messaging integrations and public API/webhook ingress. Keep the
+local runtime, scheduler and private Desktop tickets/API. `hermes_cli/data/operations-profile.json`
+defines scope; env flags cannot revive retired ingress. Legacy types remain for history compatibility;
+do not restore bot activation or platform setup entry points.
 
 Applies on top of the root `AGENTS.md`. Long-form: `website/docs/developer-guide/gateway-internals.md`.
 New platform adapter: follow `gateway/platforms/ADDING_A_PLATFORM.md` step by step.

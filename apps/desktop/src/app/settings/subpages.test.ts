@@ -23,6 +23,14 @@ const views: SettingsView[] = [
 ]
 
 describe('settings subpage routing', () => {
+  it('returns old multi-agent settings links to the active model settings', () => {
+    for (const page of ['delegation', 'moa']) {
+      expect(resolveSettingsSubpage('config:model', new URLSearchParams({ page }))).toBe('main')
+      expect(configSubpageForField('model', `${page}.model`)).toBeUndefined()
+    }
+    expect(SECTIONS.find(section => section.id === 'model')?.keys).toContain('fallback_providers')
+  })
+
   it('opens the first ordered child for parents and keeps explicit child destinations', () => {
     for (const view of views) {
       const pages = settingsSubpages(view)

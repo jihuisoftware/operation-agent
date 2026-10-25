@@ -712,16 +712,7 @@ export const SECTIONS: DesktopConfigSection[] = [
     id: 'model',
     label: 'Model',
     icon: Box,
-    keys: [
-      'model_context_length',
-      'fallback_providers',
-      'delegation.model',
-      'delegation.provider',
-      'delegation.max_iterations',
-      'delegation.max_concurrent_children',
-      'delegation.child_timeout_seconds',
-      'delegation.reasoning_effort'
-    ]
+    keys: ['model_context_length', 'fallback_providers']
   },
   {
     id: 'chat',

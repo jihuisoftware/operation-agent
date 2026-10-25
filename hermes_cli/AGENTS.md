@@ -103,6 +103,8 @@ set/get/unset <NAME>` route any bare name registered in `OPTIONAL_ENV_VARS` / `_
   canon, NO defaults — for presence-sensitive readers). If the CLI sees a key and the gateway
   doesn't (or vice versa), you're on the wrong loader — check `DEFAULT_CONFIG` coverage. Never
   hand-roll raw-read → overlay → expand; `read_user_config_raw` is for write-back round-trips only.
+- **Operations scope:** `data/operations-profile.json` feeds `config_overlays.py` and
+  `gateway/run_config_loaders.py`; raw/effective reads stay unchanged.
 - **Every `DEFAULT_CONFIG` key has a runtime reader, and every reader a registry entry.** Both drift
   modes are silent: a registered key nothing reads (a knob that does nothing) and a reader of a key
   never registered (never shown, never migrated; new roots also go in `_KNOWN_ROOT_KEYS`). For a new
