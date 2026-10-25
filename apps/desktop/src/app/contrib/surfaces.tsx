@@ -189,13 +189,14 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
       <Route element={chatView} path=":sessionId" />
       <Route element={page(<CapabilitiesView setStatusbarItemGroup={setStatusbarItemGroup} />)} path="capabilities" />
       <Route element={page(<ArtifactsView setStatusbarItemGroup={setStatusbarItemGroup} />)} path="artifacts" />
-      <Route element={null} path="agents" />
+      <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="agents" />
       <Route element={null} path="command-center" />
       <Route element={null} path="cron" />
       <Route element={null} path="profiles" />
       <Route element={null} path="settings" />
-      <Route element={null} path="starmap" />
-      <Route element={null} path="webhooks" />
+      <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="starmap" />
+      <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="webhooks" />
+      <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="session-import" />
       {/* Registry-contributed pages (core features + plugins) render in the
           workspace pane like any built-in view — behind the same blast wall
           as every other contribution mount. */}

@@ -12,7 +12,7 @@ import sys
 
 
 def _gw():
-    from hermes_cli import gateway  # late: the facade imports this module
+    from hermes_cli import gateway
     return gateway
 
 
@@ -353,33 +353,11 @@ def _configure_platform(platform: dict) -> None:
 
 def _wizard_offer_service_action(action: str, question: str, failed_label: str, **kwargs) -> None:
     """Wizard start/restart prompt; prints remediation instead when system scope would need root."""
+    from hermes_cli.gateway_setup_service import _setup_service_action
     if _gw().supports_systemd_services() and _gw()._system_scope_wizard_would_need_root():
         _gw()._print_system_scope_remediation(action)
     elif _gw().prompt_yes_no(question, True):
-        _gw()._setup_service_action(action, failed_label=failed_label, **kwargs)
-
-
-def _setup_service_action(
-    action: str, *, failed_label: str, windows: bool = True, system: bool = False
-) -> None:
-    """Run a wizard service start/restart, printing remediation instead of raising. ``windows=False``
-    skips Windows (pre-platform status block never offers it); ``system`` is a fresh install's scope."""
-    try:
-        backend = _gw()._service_backend(windows=windows)
-        if backend is not None:
-            _gw()._service_call(backend, action, None if action == "restart" else system)
-        elif action == "restart" and windows:
-            _gw().stop_profile_gateway()
-            _gw().print_info("Start manually: hermes gateway")
-    except _gw().UserSystemdUnavailableError as e:
-        _gw().print_error(f"  {failed_label} — user systemd not reachable:")
-        _gw()._print_indented(str(e))
-    except _gw().SystemScopeRequiresRootError as e:
-        # Defense in depth: the wizard's root pre-check should have caught this.
-        _gw().print_error(f"  {failed_label}: {e}")
-        _gw()._print_system_scope_remediation(action)
-    except subprocess.CalledProcessError as e:
-        _gw().print_error(f"  {failed_label}: {e}")
+        _setup_service_action(action, failed_label=failed_label, **kwargs)
 
 
 _WIZARD_BANNER = (
@@ -484,7 +462,8 @@ def _wizard_install_service(backend: str) -> None:
             return
         print()
         if did_install and start_now:
-            _gw()._setup_service_action("start", failed_label="Start failed", system=installed_scope == "system")
+            from hermes_cli.gateway_setup_service import _setup_service_action
+            _setup_service_action("start", failed_label="Start failed", system=installed_scope == "system")
     except subprocess.CalledProcessError as e:
         _gw().print_error(f"  Install failed: {e}")
         _gw().print_info("  You can try manually: hermes gateway install")

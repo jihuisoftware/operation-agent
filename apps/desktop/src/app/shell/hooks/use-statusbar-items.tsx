@@ -27,7 +27,6 @@ import {
   Clock,
   Command,
   FolderOpen,
-  Globe,
   Hash,
   Layers3,
   Loader2,
@@ -40,7 +39,6 @@ import { cacheHitLabel, contextBarLabel, LiveDuration, tokensPerSecondLabel, usa
 import { rollbackSentence } from '@/lib/update-copy'
 import { formatPercentUsed, formatResetsIn } from '@/lib/usage-percent'
 import { useStoreSelector } from '@/lib/use-session-slice'
-import { cn } from '@/lib/utils'
 import { resolveVersionStatus } from '@/lib/version-status'
 import type { ApprovalModeRequester } from '@/store/approval-mode'
 import { copyFilePath, revealFile, shouldOfferLocalReveal } from '@/store/file-actions'
@@ -79,7 +77,7 @@ import {
 } from '@/store/updates'
 import type { StatusResponse, UsageStats } from '@/types/hermes'
 
-import { CRON_ROUTE, SETTINGS_ROUTE, WEBHOOKS_ROUTE } from '../../routes'
+import { CRON_ROUTE, SETTINGS_ROUTE } from '../../routes'
 import type { StatusbarItem } from '../statusbar-controls'
 
 const EMPTY_USAGE: UsageStats = { calls: 0, input: 0, output: 0, total: 0 }
@@ -367,10 +365,9 @@ export function useStatusbarItems({
         inferenceStatus={inferenceStatus}
         onClose={close}
         onOpenSystem={() => openCommandCenterSection('system')}
-        statusSnapshot={statusSnapshot}
       />
     ),
-    [gatewayState, inferenceStatus, openCommandCenterSection, statusSnapshot]
+    [gatewayState, inferenceStatus, openCommandCenterSection]
   )
 
   const gatewayOpen = gatewayState === 'open'
@@ -589,32 +586,6 @@ export function useStatusbarItems({
         variant: 'menu'
       },
       {
-        className: cn(
-          agentsOpen && 'bg-accent/55 text-foreground',
-          subagentsFailed > 0 && 'text-destructive hover:text-destructive'
-        ),
-        detail:
-          subagentsRunning > 0
-            ? copy.subagents(subagentsRunning)
-            : subagentsFailed > 0
-              ? copy.failed(subagentsFailed)
-              : undefined,
-        icon:
-          subagentsFailed > 0 ? (
-            <AlertCircle className="size-3" />
-          ) : subagentsRunning > 0 ? (
-            <Loader2 className="size-3 animate-spin" />
-          ) : (
-            <Codicon name="hubot" size="0.75rem" />
-          ),
-        id: 'agents',
-        label: copy.agents,
-        onSelect: openAgents,
-        title: agentsOpen ? copy.closeAgents : copy.openAgents,
-        toggleLabel: copy.agents,
-        variant: 'action'
-      },
-      {
         icon: <Clock className="size-3" />,
         id: 'cron',
         label: copy.cron,
@@ -622,17 +593,9 @@ export function useStatusbarItems({
         toggleLabel: copy.cron,
         variant: 'action'
       },
-      {
-        icon: <Globe className="size-3" />,
-        id: 'webhooks',
-        label: copy.webhooks,
-        to: WEBHOOKS_ROUTE,
-        toggleLabel: copy.webhooks,
-        variant: 'action'
-      }
+
     ],
     [
-      agentsOpen,
       botsShowing,
       changeWorkspaceItem,
       commandCenterOpen,
@@ -652,12 +615,9 @@ export function useStatusbarItems({
       gatewayRestarting,
       inferenceReady,
       inferenceStatus?.reason,
-      openAgents,
       profileRailVisible,
       projectName,
       sessionsShowing,
-      subagentsFailed,
-      subagentsRunning,
       toggleCommandCenter
     ]
   )

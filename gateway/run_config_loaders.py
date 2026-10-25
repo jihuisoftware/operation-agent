@@ -42,6 +42,18 @@ DEFAULT_HUMAN_DELAY_RANGE_MS: tuple[int, int] = (800, 2500)
 _BUSY_INPUT_MODES = {"interrupt", "queue", "steer"}
 
 
+def load_runtime_config(config_path: Path) -> dict:
+    """Read one profile's effective config and apply the product scope before runtime consumers."""
+    from hermes_cli.config_effective import load_user_config_effective
+    from hermes_cli.operations_profile import apply_operations_profile
+    try:
+        config = load_user_config_effective(config_path)
+    except Exception:
+        logger.debug("Could not load gateway config from %s", config_path, exc_info=True)
+        config = {}
+    return apply_operations_profile(config)
+
+
 class GatewayConfigLoadersMixin:
     """Config/env loaders (busy modes, reasoning, service tier, timeouts, fallback) for GatewayRunner."""
 

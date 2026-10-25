@@ -10,6 +10,8 @@
 
 import { atom } from 'nanostores'
 
+import { operationsPluginAllowed } from '@/lib/operations-profile'
+
 export type PluginKind = 'bundled' | 'disk' | 'runtime'
 export type PluginStatus = 'disabled' | 'error' | 'loaded'
 
@@ -64,6 +66,10 @@ export const $pluginDecisions = atom<Record<string, boolean>>(loadDecisions())
 /** Whether a plugin should register: the user's explicit choice if any, else
  *  the plugin's own default (true for ordinary plugins, false for opt-in). */
 export function pluginActive(id: string, defaultEnabled = true): boolean {
+  if (!operationsPluginAllowed(id)) {
+    return false
+  }
+
   const decisions = $pluginDecisions.get()
 
   return id in decisions ? decisions[id] : defaultEnabled
@@ -134,6 +140,10 @@ export async function enablePackageDesktopHalf(packageName: string, { keepUserCh
 
 /** Live toggle: deactivate + remember, or forget + reactivate. */
 export async function setPluginEnabled(id: string, enabled: boolean): Promise<void> {
+  if (enabled && !operationsPluginAllowed(id)) {
+    return
+  }
+
   saveDecisions({ ...$pluginDecisions.get(), [id]: enabled })
 
   const handle = handles.get(id)

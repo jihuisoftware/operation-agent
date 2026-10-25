@@ -12,14 +12,12 @@ import { cn } from '@/lib/utils'
 import { reconnectGateway } from '@/store/gateway-reconnect'
 import { notifyError } from '@/store/notifications'
 import { runGatewayRestart } from '@/store/system-actions'
-import type { StatusResponse } from '@/types/hermes'
 
 interface GatewayMenuPanelProps {
   gatewayState: string
   inferenceStatus: RuntimeReadinessResult | null
   onClose: () => void
   onOpenSystem: () => void
-  statusSnapshot: StatusResponse | null
 }
 
 const LOG_TAIL = 120
@@ -84,8 +82,7 @@ export function GatewayMenuPanel({
   gatewayState,
   inferenceStatus,
   onClose,
-  onOpenSystem,
-  statusSnapshot
+  onOpenSystem
 }: GatewayMenuPanelProps) {
   const { t } = useI18n()
   const copy = t.shell.gatewayMenu

@@ -1,4 +1,5 @@
 import { translateNow } from '@/i18n/runtime'
+import { operationsCommandAllowed } from '@/lib/operations-profile'
 import { peekCachedSlashCompletion } from '@/lib/slash-completion-cache'
 
 import desktopSlashRegistry from './desktop-slash-registry.json'
@@ -593,6 +594,11 @@ export function canonicalDesktopSlashCommand(command: string): string {
 /** Resolve a command (or alias) to its desktop spec, or null for unknown/extension commands. */
 export function resolveDesktopCommand(command: string): DesktopCommandSpec | null {
   const canonical = canonicalDesktopSlashCommand(command)
+
+  if (!operationsCommandAllowed(canonical)) {
+    return { name: canonical, surface: { kind: 'unavailable', reason: 'advanced' } }
+  }
+
   const local = SPEC_BY_NAME.get(canonical)
   const catalog = specFromCatalog(command)
 

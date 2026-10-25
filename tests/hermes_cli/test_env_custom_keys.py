@@ -39,3 +39,18 @@ def test_custom_key_is_password_masked(monkeypatch):
     # The raw value must never ride in the listing payload.
     assert row["redacted_value"] != "s3cret-value"
     assert "s3cret-value" not in str(row)
+
+
+def test_retired_platform_secrets_are_hidden_without_removing_api_credentials(monkeypatch):
+    rows = _env_rows(monkeypatch, {
+        "TELEGRAM_BOT_TOKEN": "old-telegram-token",
+        "DISCORD_BOT_TOKEN": "old-discord-token",
+        "API_SERVER_KEY": "local-api-secret",
+        "GATEWAY_PROXY_KEY": "proxy-secret",
+    })
+
+    assert "TELEGRAM_BOT_TOKEN" not in rows
+    assert "DISCORD_BOT_TOKEN" not in rows
+    assert rows["API_SERVER_KEY"]["is_set"] is True
+    assert rows["GATEWAY_PROXY_KEY"]["is_set"] is True
+    assert "local-api-secret" not in str(rows)

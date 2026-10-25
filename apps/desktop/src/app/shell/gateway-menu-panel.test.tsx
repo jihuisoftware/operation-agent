@@ -59,7 +59,6 @@ const renderPanel = (gatewayState: string) =>
       inferenceStatus={null}
       onClose={vi.fn()}
       onOpenSystem={vi.fn()}
-      statusSnapshot={null}
     />
   )
 

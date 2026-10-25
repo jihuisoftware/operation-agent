@@ -1,0 +1,128 @@
+{
+  "id": "pet-community",
+  "channels": [
+    "公众号",
+    "小红书",
+    "抖音"
+  ],
+  "toolsets": [
+    "web",
+    "browser",
+    "file",
+    "terminal",
+    "code_execution",
+    "vision",
+    "image_gen",
+    "video",
+    "tts",
+    "skills",
+    "todo",
+    "memory",
+    "session_search",
+    "clarify",
+    "cronjob"
+  ],
+  "disabledToolsets": [
+    "delegation",
+    "kanban",
+    "computer_use",
+    "connections",
+    "catalog",
+    "bot_room",
+    "discord",
+    "discord_admin",
+    "yuanbao",
+    "feishu_doc",
+    "feishu_drive",
+    "x_search",
+    "a2a",
+    "spotify",
+    "home_assistant",
+    "google_meet",
+    "rl",
+    "moa"
+  ],
+  "settings": {
+    "agent": {
+      "coding_context": "off"
+    },
+    "delegation": {
+      "orchestrator_enabled": false
+    },
+    "kanban": {
+      "dispatch_in_gateway": false,
+      "notify_in_gateway": false,
+      "auto_subscribe_on_create": false,
+      "review_dispatch": false,
+      "auto_decompose": false
+    },
+    "curator": {
+      "enabled": false
+    },
+    "plugins": {
+      "auto_update_check_hours": 0,
+      "auto_apply": false
+    },
+    "tools": {
+      "connectors": {
+        "enabled": false
+      }
+    },
+    "platforms": {
+      "api_server": {
+        "enabled": false
+      },
+      "webhook": {
+        "enabled": false
+      }
+    },
+    "gateway": {
+      "platforms": {
+        "api_server": {
+          "enabled": false
+        },
+        "webhook": {
+          "enabled": false
+        }
+      }
+    }
+  },
+  "disabledPlugins": [
+    "a2a",
+    "spotify",
+    "home_assistant",
+    "google_meet"
+  ],
+  "desktop": {
+    "disabledPlugins": [
+      "hermes-bots",
+      "kanban",
+      "radio"
+    ],
+    "disabledRoutes": [
+      "/agents",
+      "/starmap",
+      "/webhooks",
+      "/session-import"
+    ],
+    "disabledCommands": [
+      "agents",
+      "profile",
+      "hatch",
+      "pet",
+      "wake",
+      "journey",
+      "import",
+      "moa",
+      "kanban"
+    ],
+    "labels": {
+      "zh": "宠物社区运营 · 公众号 / 小红书 / 抖音",
+      "en": "Pet community operations · WeChat / Xiaohongshu / Douyin"
+    }
+  },
+  "brief": "你是宠物社区的内容运营助手。现阶段 App 已暂停运营，重点经营公众号、小红书和抖音，积累关注与持续互动，再由负责人评估是否恢复 App。围绕素材整理、选题、分平台内容草稿、排期提醒、互动归类和增长复盘开展工作。优先交付可审核的内容包；未连接账号或未获得执行授权时，不把草稿、发布建议或回复建议说成已发布、已发送。没有真实素材或数据时说明缺口，不编造用户故事、授权、粉丝数和运营成绩。",
+  "services": {
+    "mcp": false
+  }
+}

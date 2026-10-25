@@ -1094,7 +1094,7 @@ Jobs run in a fresh session with no current-chat context, so prompts must be sel
             },
             "deliver": {
                 "type": "string",
-                "description": "Where the job's output is POSTED as a one-way message (the job itself always runs in a fresh session with no chat context). Omit to address the chat/topic this job was created from. Otherwise: 'local' (save only, no delivery), 'all' (every connected home channel, resolved at fire time), 'bot-chat' or 'bot-chat:<profile>' (inject into a Bot Chat as a real message), or platform:chat_id:thread_id (e.g. 'telegram:-1001234567890:17585'). Comma-combine like 'origin,all'. A CLI or TUI session has no channel back into the chat: there the default only saves output (see action='list'), so to notify the user target a gateway-connected platform (e.g. 'telegram' or 'all'), and never promise a default-deliver job will message them in that session."
+                "description": "Where the output is saved or delivered (the job itself runs in a fresh session). Use 'local' to save output for Desktop review, 'origin' for the originating conversation when supported, or 'bot-chat' / 'bot-chat:<profile>' to inject it into a local Bot Chat. Comma-separated targets are supported. Omitted delivery defaults to origin, falling back to local. External messaging platforms are unavailable in this build; do not promise a notification from a local-only job."
             },
             "failure_deliver": {
                 "type": "string",

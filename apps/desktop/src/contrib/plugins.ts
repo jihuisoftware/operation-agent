@@ -2,10 +2,8 @@
  * Plugin discovery — both delivery modes:
  *
  *  - BUNDLED: every `src/plugins/<name>/plugin.{js,ts,tsx}` default-exporting
- *    a `HermesPlugin` registers automatically (vite glob — drop a folder in).
- *    `hermes-bots` (Bot Mode) ships in-tree and is ON by default; other
- *    reference/demo plugins live in the companion `hermes-example-plugins`
- *    repo. `.js` entries are SDK-consumer plugins adopted from standalone
+ *    a `HermesPlugin` registers when allowed by the operations preset.
+ *    Bot Mode, Kanban and Radio are retained as dormant libraries. `.js` entries are SDK-consumer plugins adopted from standalone
  *    repos — they keep the plain-ESM plugin.js form so the file stays
  *    loadable by older desktops' runtime door too.
  *  - RUNTIME: the on-disk doors (`<hermes home>/desktop-plugins/<name>/plugin.js`
@@ -13,12 +11,14 @@
  *    — the agent's/user's doors, watched + hot-reloaded by the runtime loader.
  */
 
+import { operationsPluginAllowed } from '@/lib/operations-profile'
+
 import { trackGatewayEventDisposers } from './events'
 import { createPluginContext, declaredCapabilities, type HermesPlugin } from './plugin'
 import { pluginActive, publishPlugin } from './plugins-store'
 import { watchRuntimePlugins } from './runtime-loader'
 
-const modules = import.meta.glob<{ default: HermesPlugin }>('../plugins/*/plugin.{js,ts,tsx}', { eager: true })
+const modules = import.meta.glob<{ default: HermesPlugin }>('../plugins/*/plugin.{js,ts,tsx}')
 
 // One-shot init guard. Contributions themselves register by id (re-registering
 // is idempotent), but the disk-door watcher setup below (watchRuntimePlugins)
@@ -26,19 +26,32 @@ const modules = import.meta.glob<{ default: HermesPlugin }>('../plugins/*/plugin
 // HMR.
 let loaded = false
 
-export function discoverBundledPlugins(): void {
+export async function discoverBundledPlugins(): Promise<void> {
   if (loaded) {
     return
   }
 
   loaded = true
 
-  for (const [path, mod] of Object.entries(modules)) {
+  for (const [path, load] of Object.entries(modules)) {
+    const directory = path.split('/').at(-2)!
+
+    // Do not evaluate retired plugins: their module initialization can start
+    // watchers even when register() is never called.
+    if (!operationsPluginAllowed(directory)) {
+      continue
+    }
+
+    const mod = await load()
     const plugin = mod.default
 
     if (!plugin?.id || typeof plugin.register !== 'function') {
       console.warn(`[plugins] ${path} has no valid default HermesPlugin export — skipped`)
 
+      continue
+    }
+
+    if (!operationsPluginAllowed(plugin.id)) {
       continue
     }
 

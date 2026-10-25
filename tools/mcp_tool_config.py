@@ -690,7 +690,8 @@ def _portable_mcp_servers(safe_servers: dict[str, dict], rejected: frozenset[str
 def _load_mcp_config() -> dict[str, dict]:
     """``mcp_servers`` from config.yaml as ``{name: config}`` (empty on error / safe mode), ``${VAR}`` interpolated."""
     from agent.safe_worker_policy import safe_worker_enabled
-    if safe_worker_enabled():
+    from hermes_cli.operations_profile import OPERATIONS_PROFILE
+    if safe_worker_enabled() or not OPERATIONS_PROFILE["services"]["mcp"]:
         return {}
     try:
         from hermes_cli.config import load_config

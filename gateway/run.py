@@ -2877,18 +2877,9 @@ def _gateway_config_home() -> Path:
 
 
 def _load_gateway_config(config_path: Path | None = None) -> dict:
-    """The effective user config.yaml (managed overlay, ``${VAR}`` expansion, model-key canon; no
-    DEFAULT_CONFIG merge) — ``{}`` on any error (fail-open). Defaults to the active gateway home
-    (``_hermes_home`` monkeypatches apply); multiplexers pass a path.
-    """
-    if config_path is None:
-        config_path = _gateway_config_home() / 'config.yaml'
-    try:
-        from hermes_cli.config_effective import load_user_config_effective
-        return load_user_config_effective(config_path)
-    except Exception:
-        logger.debug("Could not load gateway config from %s", config_path, exc_info=True)
-        return {}
+    """Profile-scoped runtime configuration, including the operations build preset."""
+    from gateway.run_config_loaders import load_runtime_config
+    return load_runtime_config(config_path or _gateway_config_home() / 'config.yaml')
 
 
 from gateway.session_worker_construct import checkpoint_agent_kwargs as _checkpoint_agent_kwargs

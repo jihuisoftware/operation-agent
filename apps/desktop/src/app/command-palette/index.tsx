@@ -13,7 +13,6 @@ import {
   HUD_SURFACE,
   HUD_TEXT
 } from '@/app/floating-hud'
-import { SESSION_IMPORT_ROUTE } from '@/app/routes'
 import { leaveIntro } from '@/components/onboarding/first-run/intro'
 import { codiconIcon } from '@/components/ui/codicon'
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -32,7 +31,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Cpu,
   Download,
   Egg,
   GitBranch,
@@ -53,9 +51,7 @@ import {
   Settings,
   Settings2,
   SlidersHorizontal,
-  Starmap,
   Sun,
-  Users,
   Wrench,
   Zap
 } from '@/lib/icons'
@@ -98,16 +94,13 @@ import { isUserTheme, resolveTheme } from '@/themes/user-themes'
 import { buildSessionByAnyId, resolvePinnedSessions } from '../chat/sidebar/session-index'
 import { openSessionFromPicker, openSessionIntentFromModifiers } from '../open-session'
 import {
-  AGENTS_ROUTE,
   ARTIFACTS_ROUTE,
   CAPABILITIES_ROUTE,
   COMMAND_CENTER_ROUTE,
   CRON_ROUTE,
   navigateToWorkspacePage,
   NEW_CHAT_ROUTE,
-  PROFILES_ROUTE,
-  SETTINGS_ROUTE,
-  STARMAP_ROUTE
+  SETTINGS_ROUTE
 } from '../routes'
 import { SECTIONS } from '../settings/constants'
 import { type SettingsSearchEntry, settingsSearchTargetQuery } from '../settings/settings-search'
@@ -907,15 +900,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             label: t.shell.statusbar.cron,
             run: go(CRON_ROUTE)
           },
-          { action: 'nav.profiles', icon: Users, id: 'nav-profiles', label: t.profiles.title, run: go(PROFILES_ROUTE) },
-          { action: 'nav.agents', icon: Cpu, id: 'nav-agents', label: t.agents.title, run: go(AGENTS_ROUTE) },
-          {
-            icon: Starmap,
-            id: 'nav-starmap',
-            keywords: ['star map', 'memory', 'memories', 'skills', 'graph', 'learning', 'constellation'],
-            label: t.starmap.title,
-            run: go(STARMAP_ROUTE)
-          }
+
         ]
       },
       projectGroup,
@@ -950,13 +935,6 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             keywords: ['command center', 'sessions', 'pin'],
             label: cc.sections.sessions,
             run: go(`${COMMAND_CENTER_ROUTE}?section=sessions`)
-          },
-          {
-            icon: Download,
-            id: 'session-import',
-            keywords: ['import', 'claude', 'codex', 'conversation'],
-            label: t.sessionImport.action,
-            run: go(SESSION_IMPORT_ROUTE)
           },
           {
             icon: Activity,

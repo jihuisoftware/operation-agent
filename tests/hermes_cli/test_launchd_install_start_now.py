@@ -1,4 +1,4 @@
-"""`hermes gateway install --no-start-now` and the setup wizard's "Start the gateway now?" = No on launchd.
+"""`hermes gateway install --no-start-now` on launchd.
 
 The plist carries RunAtLoad, so loading it (`launchctl bootstrap`) starts the gateway on the spot. A
 no-start install must therefore write the plist without loading it; `hermes gateway start` loads it later.
@@ -46,7 +46,6 @@ def launchd(tmp_path, monkeypatch):
     monkeypatch.setattr(gateway_cli, "_launchctl_supervised_pid", lambda label: state.supervised_pid)
     monkeypatch.setattr(gateway_cli, "_launchctl_bootstrap", lambda *a, **k: state.bootstraps.append(a))
     monkeypatch.setattr(gateway_cli, "refresh_launchd_plist_if_needed", lambda: state.refreshes.append(1) or True)
-    monkeypatch.setattr(gateway_cli, "_setup_service_action", lambda *a, **k: state.starts.append(a))
 
     def fake_run(cmd, *a, **k):
         state.launchctl.append(cmd)
@@ -86,15 +85,3 @@ def test_cli_no_start_now_loads_only_a_gateway_launchd_already_runs(
         assert BOOTOUT in launchd.launchctl
         assert plistlib.loads(launchd.plist.read_bytes())["Label"] == LABEL
         assert "not started" in capsys.readouterr().out
-
-
-def test_wizard_no_to_start_now_installs_without_loading(launchd, monkeypatch):
-    answers = iter([False, True])  # "Start the gateway now?" No, "on login" Yes
-    monkeypatch.setattr(gateway_cli, "prompt_yes_no", lambda *a, **k: next(answers))
-    monkeypatch.setattr(gateway_cli, "is_wsl", lambda: False)
-
-    gateway_cli._wizard_install_service("launchd")
-
-    assert launchd.plist.exists()
-    assert launchd.bootstraps == []
-    assert launchd.starts == []

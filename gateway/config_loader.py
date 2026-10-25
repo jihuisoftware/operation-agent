@@ -517,6 +517,14 @@ def read_yaml_layers(home: Path) -> dict:
     return managed_scope.apply_managed_overlay(yaml_cfg)
 
 
+def apply_operations_scope(config) -> None:
+    """Public ingress is off even when legacy env flags request it; private Desktop API stays separate."""
+    from hermes_cli.operations_profile import OPERATIONS_PROFILE
+    for platform, platform_config in config.platforms.items():
+        if OPERATIONS_PROFILE["settings"]["platforms"].get(platform.value, {}).get("enabled") is False:
+            platform_config.enabled = False
+
+
 def load_yaml_layer(home: Path, gw_data: dict) -> None:
     """Overlay ``read_yaml_layers`` onto *gw_data* in place. Raises on any failure (caller warns + falls back)."""
     yaml_cfg = read_yaml_layers(home)

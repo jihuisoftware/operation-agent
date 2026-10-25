@@ -1,6 +1,6 @@
 """Gateway subcommand for hermes CLI.
 
-Handles: hermes gateway [run|start|stop|restart|status|install|uninstall|setup]
+Handles: hermes gateway [run|start|stop|restart|status|install|uninstall|ensure]
 """
 
 import asyncio

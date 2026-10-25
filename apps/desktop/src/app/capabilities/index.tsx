@@ -6,10 +6,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
+import { OPERATIONS_PROFILE } from '@/lib/operations-profile'
 import { queryClient } from '@/lib/query-client'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
-import { useStoreSelector } from '@/lib/use-session-slice'
-import { $gateway } from '@/store/gateway'
 import { OFFICIAL_SKILLS_KEY } from '@/store/hub-actions'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
@@ -19,9 +18,6 @@ import { PageSearchShell } from '../page-search-shell'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
 import { syncCatalogArcs } from './catalog/catalog-arc'
-import { prefetchCatalogWhenIdle } from './catalog/catalog-data'
-import { ConnectorsTab } from './connectors/connectors-tab'
-import { PluginsTab } from './plugins/plugins-tab'
 import { CapabilityScopeSelector, useCapabilityScope } from './scope-selector'
 import { SKILLS_QUERY_KEY, useSkillsQuery } from './skills/skills-data'
 import { SkillsTab } from './skills/skills-tab'
@@ -31,7 +27,7 @@ import { ToolsetsTab } from './toolsets/toolsets-tab'
 
 // Skills Hub browsing lives inside the Skills tab. Legacy `?tab=hub`
 // links fall back to 'skills' via useRouteEnumParam.
-const CAPABILITY_MODES = ['skills', 'plugins', 'connectors', 'toolsets'] as const
+const CAPABILITY_MODES = ['skills', 'toolsets'] as const
 
 type CapabilityMode = (typeof CAPABILITY_MODES)[number]
 
@@ -65,13 +61,12 @@ export function CapabilitiesView({
   setStatusbarItemGroup: _setStatusbarItemGroup,
   ...props
 }: CapabilitiesViewProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   // Both hooks run unconditionally (rules of hooks); embedded picks the local
   // one so tab clicks inside a dialog don't rewrite the page URL.
   const routeTab = useRouteEnumParam('tab', CAPABILITY_MODES, 'skills')
   const localTab = useState<CapabilityMode>('skills')
   const [mode, setMode] = embedded ? localTab : routeTab
-  const gateway = useStoreSelector($gateway, g => (mode === 'connectors' ? g : null))
 
   const [query, setQuery] = useState('')
 
@@ -96,9 +91,6 @@ export function CapabilitiesView({
 
   useRefreshHotkey(refreshCapabilities)
 
-  // Plugins is small enough to warm from any tab. Skills (~100k rows) only
-  // loads when asked for: an idle parse of it would still block the page.
-  useEffect(() => (mode === 'plugins' ? undefined : prefetchCatalogWhenIdle('plugins')), [mode])
   useEffect(syncCatalogArcs, [])
 
   // Rotating placeholder nudges from the user's own data — teach that search
@@ -128,27 +120,6 @@ export function CapabilitiesView({
   )
 
   const tabContent = {
-    // The gateway instance backs ONLY the live `reload.mcp` RPC, and it is the
-    // ACTIVE gateway's socket — for a scope pinned to a different backend that
-    // (config edits still apply on that backend's next session).
-    connectors: () => (
-      <ConnectorsTab
-        gateway={scope.crossBackend ? null : gateway}
-        key={`connectors-${scope.key}`}
-        profile={scope.profile}
-      />
-    ),
-    // Agent plugins for the scoped profile and app-level desktop plugins.
-    plugins: () => (
-      <PluginsTab
-        key={`plugins-${scope.key}`}
-        onQueryChange={setQuery}
-        profile={scope.profile}
-        query={query}
-        scopeLabel={scope.label}
-        scopeSelector={scope.options.length > 1 ? <CapabilityScopeSelector compact scope={scope} /> : undefined}
-      />
-    ),
     skills: () => (
       <SkillsTab
         installedError={skillsError}
@@ -175,14 +146,15 @@ export function CapabilitiesView({
       searchHidden
       tabs={[
         { id: 'skills', label: t.skills.tabSkills, meta: skills?.length ?? null },
-        { id: 'plugins', label: t.skills.tabPlugins },
-        { id: 'connectors', label: t.connectorsPage.title },
         { id: 'toolsets', label: t.skills.tabToolsets, meta: toolsets ? visibleToolsetCount(toolsets) : null }
       ]}
       tabsAlign="start"
     >
       <div className="flex h-full flex-col">
-        {mode !== 'plugins' && <CapabilityScopeSelector scope={scope} />}
+        <p className="px-4 py-2 text-xs text-muted-foreground">
+          {OPERATIONS_PROFILE.desktop.labels[locale === 'zh' ? 'zh' : 'en']}
+        </p>
+        <CapabilityScopeSelector scope={scope} />
         <div className="flex min-h-0 flex-1 flex-col">{loadGate ?? tabContent[mode]()}</div>
       </div>
     </PageSearchShell>

@@ -37,8 +37,8 @@ def test_a_criterion_button_that_cannot_act_is_refused(tmp_path):
     assert probe(tmp_path, 'control_refusals')['refused']
 
 
-def test_the_connection_card_drives_the_sessions_open_operation(tmp_path):
-    assert probe(tmp_path, 'connection_card')['card']
+def test_retired_connector_cannot_be_enabled_for_a_desktop_session(tmp_path):
+    assert probe(tmp_path, 'connection_card')['refused']
 
 
 @pytest.mark.platforms("posix")

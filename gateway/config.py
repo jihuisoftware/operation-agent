@@ -852,6 +852,7 @@ def load_gateway_config() -> GatewayConfig:
     config = GatewayConfig.from_dict(gw_data)
     config.platforms = {p: c for p, c in config.platforms.items() if p.value in RUNTIME_PLATFORM_VALUES}
     _apply_env_overrides(config)
+    config_loader.apply_operations_scope(config)
     _validate_gateway_config(config)
     return config
 

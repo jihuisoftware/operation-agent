@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
 import { registry } from '@/contrib/registry'
 import type { Contribution } from '@/contrib/types'
+import { operationsRouteAllowed } from '@/lib/operations-profile'
 import type { InterfaceTier } from '@/store/interface-mode'
 
 type NavigateLike = (to: string, options?: { replace?: boolean }) => void
@@ -58,7 +59,7 @@ export interface AppRoute {
   view: AppView
 }
 
-export const APP_ROUTES = [
+const ALL_APP_ROUTES = [
   { id: 'session-import', path: SESSION_IMPORT_ROUTE, view: 'session-import' },
   { id: 'new', path: NEW_CHAT_ROUTE, view: 'chat' },
   { id: 'settings', path: SETTINGS_ROUTE, view: 'settings' },
@@ -72,8 +73,10 @@ export const APP_ROUTES = [
   { id: 'starmap', path: STARMAP_ROUTE, view: 'starmap' }
 ] as const satisfies readonly AppRoute[]
 
+export const APP_ROUTES = ALL_APP_ROUTES.filter(route => operationsRouteAllowed(route.path))
+
 const APP_VIEW_BY_PATH = new Map<string, AppView>(APP_ROUTES.map(route => [route.path, route.view]))
-const RESERVED_PATHS: ReadonlySet<string> = new Set([...APP_ROUTES.map(route => route.path), '/messaging'])
+const RESERVED_PATHS: ReadonlySet<string> = new Set([...ALL_APP_ROUTES.map(route => route.path), '/messaging'])
 
 // ── Contributed routes — the `routes` registry area ─────────────────────────
 // A contribution mounts a FULL PAGE in the workspace pane at `data.path`
@@ -176,7 +179,7 @@ export function isOverlayView(view: AppView): boolean {
  *  Contributed full pages (`extension`) hide the app clusters only while the
  *  page actually mounts `titleBar.*` chrome — those slots are mount-scoped, so
  *  a plugin page with no titlebar contribution keeps the app controls.
- *  First-party workspace pages (capabilities/messaging/artifacts) keep the clusters. */
+ *  First-party workspace pages (capabilities/cron/artifacts) keep the clusters. */
 export function hidesFixedTitlebarClusters(view: AppView): boolean {
   return isOverlayView(view) || view === 'extension'
 }
@@ -245,7 +248,7 @@ export function appViewForPath(pathname: string): AppView {
 }
 
 /** Does `to` land on a full page rendered INSIDE the workspace pane
- *  (skills/messaging/artifacts/contributed routes)? Overlays don't count —
+ *  (skills/cron/artifacts/contributed routes)? Overlays don't count —
  *  they float over whatever the workspace is already showing. */
 export function isWorkspacePageRoute(to: string): boolean {
   const view = appViewForPath(to)
@@ -253,7 +256,7 @@ export function isWorkspacePageRoute(to: string): boolean {
   return view !== 'chat' && !isOverlayView(view)
 }
 
-/** True while the workspace pane shows a FULL PAGE (skills/messaging/
+/** True while the workspace pane shows a FULL PAGE (skills/cron/
  *  artifacts/plugin routes) instead of the chat. Published by the wiring
  *  (which owns the router location); the workspace pane contribution mirrors
  *  it as `headerVeto` so the zone tab bar stands down on pages. Overlays

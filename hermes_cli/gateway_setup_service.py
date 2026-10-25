@@ -1,13 +1,14 @@
 """Gateway service setup orchestration; runtime startup is separate."""
 
 import logging
+import subprocess
 import sys
 
 logger = logging.getLogger(__name__)
 
 SERVICE_INSTALL_QUESTION = (
     "Install the gateway service so Hermes starts automatically at login "
-    "and keeps scheduled jobs and messaging available?"
+    "and keeps scheduled jobs and local sessions available?"
 )
 
 
@@ -68,7 +69,7 @@ def ensure_gateway_service(context: str = "setup", *, interactive: bool = False,
                 interactive=interactive, install=install, config=config
             ):
                 gw.print_info("No service installed. Run: hermes gateway run")
-                gw.print_info("Without a service, scheduled jobs and messaging stop at logout/reboot; jobs cannot run while the host is off.")
+                gw.print_info("Without a service, scheduled jobs and local sessions stop at logout/reboot; jobs cannot run while the host is off.")
                 return False
             if supports_systemd and gw.has_conflicting_systemd_units():
                 gw.print_systemd_scope_conflict_warning()
@@ -90,7 +91,7 @@ def ensure_gateway_service(context: str = "setup", *, interactive: bool = False,
             gw.launchd_start()
         else:
             gw._gw_windows().start()
-        gw.print_success("Gateway service running (cron jobs + messaging platforms).")
+        gw.print_success("Gateway service running (local sessions + cron jobs).")
         return True
     except gw.UserSystemdUnavailableError as exc:
         gw.print_warning("Could not reach user systemd to start the gateway service:")
@@ -109,9 +110,33 @@ def ensure_gateway_service(context: str = "setup", *, interactive: bool = False,
     return False
 
 
+def _setup_service_action(
+    action: str, *, failed_label: str, windows: bool = True, system: bool = False
+) -> None:
+    """Run a wizard service start/restart, printing remediation instead of raising. ``windows=False``
+    skips Windows (pre-platform status block never offers it); ``system`` is a fresh install's scope."""
+    from hermes_cli import gateway as gw
+
+    try:
+        backend = gw._service_backend(windows=windows)
+        if backend is not None:
+            gw._service_call(backend, action, None if action == "restart" else system)
+        elif action == "restart" and windows:
+            gw.stop_profile_gateway()
+            gw.print_info("Start manually: hermes gateway")
+    except gw.UserSystemdUnavailableError as e:
+        gw.print_error(f"  {failed_label} — user systemd not reachable:")
+        gw._print_indented(str(e))
+    except gw.SystemScopeRequiresRootError as e:
+        # Defense in depth: the wizard's root pre-check should have caught this.
+        gw.print_error(f"  {failed_label}: {e}")
+        gw._print_system_scope_remediation(action)
+    except subprocess.CalledProcessError as e:
+        gw.print_error(f"  {failed_label}: {e}")
+
+
 def _wizard_install_service(backend: str) -> None:
     """Choose persistence once; start-now without persistence stays unmanaged."""
-    import subprocess
     from hermes_cli import gateway as gw
     from hermes_cli.gateway_runtime import ensure_gateway_runtime
 
@@ -119,7 +144,7 @@ def _wizard_install_service(backend: str) -> None:
         return
     start_now = gw.prompt_yes_no("  Start the gateway now?", True)
     if not wants_service_install(interactive=True):
-        gw.print_info("Without a service, messaging and scheduled jobs stop at logout/reboot; jobs cannot run while the host is off.")
+        gw.print_info("Without a service, local sessions and scheduled jobs stop at logout/reboot; jobs cannot run while the host is off.")
         if start_now:
             result = ensure_gateway_runtime(gw.get_hermes_home(), timeout=5.0)
             if result.state == "ready":
@@ -142,7 +167,7 @@ def _wizard_install_service(backend: str) -> None:
             return
         record_service_choice("install")
         if start_now and backend != "windows":
-            gw._setup_service_action("start", failed_label="Start failed", system=scope == "system")
+            _setup_service_action("start", failed_label="Start failed", system=scope == "system")
     except (subprocess.CalledProcessError, SystemExit) as exc:
         gw.print_error(f"Install failed: {exc}")
         gw.print_info("You can try manually: hermes gateway install")

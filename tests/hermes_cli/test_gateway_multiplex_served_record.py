@@ -77,28 +77,6 @@ def test_probe_survives_a_missing_default_pid_file(served_root):
     assert named_profile_served_by_running_multiplexer("coder") is True
 
 
-def test_setup_wizard_skips_service_install_for_profile_served_by_multiplexer(
-    served_root, monkeypatch, capsys,
-):
-    """Gateway setup must not create a standalone service for an already served profile."""
-    import hermes_cli.gateway as gw
-
-    calls: list[str] = []
-    monkeypatch.setattr(gw, "_is_service_installed", lambda: False)
-    monkeypatch.setattr(gw, "_is_service_running", lambda: False)
-    monkeypatch.setattr(gw, "_service_backend", lambda: "systemd")
-    monkeypatch.setattr(gw, "prompt_yes_no", lambda *args, **kwargs: True)
-    monkeypatch.setattr(
-        gw, "install_linux_gateway_from_setup", lambda **kwargs: calls.append("install"),
-    )
-    monkeypatch.setattr(
-        gw, "_setup_service_action", lambda *args, **kwargs: calls.append("start"),
-    )
-
-    gw._wizard_post_setup()
-
-    assert calls == []
-    assert "already served by the default multiplexer" in capsys.readouterr().out
 
 
 def test_setup_gateway_service_step_skips_install_for_served_profile(served_root, monkeypatch, capsys):

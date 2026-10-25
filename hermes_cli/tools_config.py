@@ -165,7 +165,8 @@ def _get_effective_configurable_toolsets():
                 result.append(entry)
     except Exception:
         pass
-    return result
+    from hermes_cli.operations_profile import DISABLED_TOOLSETS
+    return [entry for entry in result if entry[0] not in DISABLED_TOOLSETS]
 
 
 def _get_plugin_toolset_keys() -> set:
@@ -403,6 +404,9 @@ def enabled_mcp_server_names(config: dict) -> set[str]:
     """MCP servers globally enabled in config.yaml or by a plugin (shared by platform + cron resolvers). Enabled
     unless ``enabled`` is explicitly falsey; portable-plugin servers (in-memory) count — enabling the plugin is
     the opt-in."""
+    from hermes_cli.operations_profile import OPERATIONS_PROFILE
+    if not OPERATIONS_PROFILE["services"]["mcp"]:
+        return set()
     from tools.mcp_tool_common import mcp_server_enabled
 
     mcp_servers = (config or {}).get("mcp_servers") or {}
