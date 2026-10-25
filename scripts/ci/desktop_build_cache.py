@@ -38,7 +38,7 @@ _INPUT_FILES = (
     "apps/desktop/electron/native/hud-modifier-monitor.m",
     "apps/desktop/electron/native/hud-modifier-monitor-win.cs",
     "apps/desktop/electron/native/hud-modifier-monitor-x11.c",
-    "apps/desktop/scripts/windows-bundle-tools.mjs", "apps/desktop/scripts/prepared-native-deps.mjs",
+    "apps/desktop/scripts/prepared-native-deps.mjs",
     "apps/desktop/scripts/prepared-packaging.mjs", "apps/desktop/scripts/prepare-dmgbuild.mjs",
     "apps/desktop/scripts/prepare_dmgbuild.py", "apps/desktop/scripts/probe-prepared-native.mjs",
 )

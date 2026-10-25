@@ -161,7 +161,7 @@ def validate_windows_bundle(bundle: Path, windows: list[dict]) -> None:
         raise ValueError("Universal bundle must cover both architectures")
 
 
-ALL_HANDOFFS = ("win32-x64", "win32-arm64", "darwin-x64", "darwin-arm64", "termux", "windows-universal")
+ALL_HANDOFFS = ("darwin-x64", "darwin-arm64", "termux")
 
 
 def assemble(root: Path, tag: str, commit: str, public_base: str, out: Path,
@@ -350,11 +350,6 @@ def promote(manifest: dict, root: Path, public_base: str) -> None:
     # Feeds need the per-arch feed legs and APT indexes, not the packages: those are
     # bound by the accepted candidate's sha256 receipts.
     materialize(manifest, root, public_base=public_base, metadata_only=True)
-    windows = next(r for r in manifest["packages"] if r["platform"] == "windows")
-    uri = f"{public_base.rstrip('/')}/releases/win32/stable/stable.appinstaller"
-    appinstaller = root / "stable.appinstaller"
-    write_appinstaller(appinstaller, identity=windows["identity"], publisher=windows["publisher"],
-                       version=windows["version"], self_uri=uri, artifact_uri=windows["artifact"]["url"])
     apt = root / "apt"
     indexes = sorted(p for p in apt.rglob("*") if p.is_file() and not p.relative_to(apt).as_posix().startswith("pool/") and "/by-hash/" not in p.relative_to(apt).as_posix())
     indexes.sort(key=lambda p: p.name == "InRelease")
@@ -380,7 +375,6 @@ def promote(manifest: dict, root: Path, public_base: str) -> None:
         if digest.hexdigest() != sha256_file(file):
             raise ValueError(f"Channel read-back differs: {key}")
 
-    publish_pointer("releases/win32/stable/stable.appinstaller", appinstaller)
     for file in indexes:
         publish_pointer(f"releases/termux/stable/{file.relative_to(apt).as_posix()}", file)
 

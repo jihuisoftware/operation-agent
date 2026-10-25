@@ -852,5 +852,3 @@ class TestStreamTtsTempfileFallback:
         )
         # And the temp file is cleaned up afterwards.
         assert not os.path.exists(played[0]), "temp WAV was not unlinked"
-
-

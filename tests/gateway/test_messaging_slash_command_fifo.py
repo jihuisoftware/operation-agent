@@ -95,11 +95,3 @@ async def test_queued_turn_keeps_the_relay_callback(monkeypatch, command):
     with ctx.relay_callback(transport, original), ctx.native_callback(runner, original, home):
         await method(original, 'chat', source)
     assert accepted == ['C']
-
-
-
-
-
-
-
-

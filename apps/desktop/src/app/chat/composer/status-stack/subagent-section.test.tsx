@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
+import { $interfaceMode } from '@/store/interface-mode'
 import { $subagentsBySession, upsertSubagent } from '@/store/subagents'
 
 import { ComposerStatusStack } from './index'
@@ -17,7 +18,10 @@ vi.stubGlobal(
   }
 )
 
+beforeEach(() => $interfaceMode.set('advanced'))
+
 afterEach(() => {
+  $interfaceMode.set('simple')
   cleanup()
   $subagentsBySession.set({})
 })

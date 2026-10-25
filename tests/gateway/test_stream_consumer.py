@@ -108,41 +108,6 @@ class TestFinalizeCapabilityGate:
         assert picky.edit_message.call_args[1]["finalize"] is True
 
 
-class TestEditMessageFinalizeSignature:
-    """Every concrete platform adapter must accept the ``finalize`` kwarg.
-
-    stream_consumer._send_or_edit always passes ``finalize=`` to
-    ``adapter.edit_message(...)`` (see gateway/stream_consumer.py).  An
-    adapter that overrides edit_message without accepting finalize raises
-    TypeError the first time streaming hits a segment break or final edit.
-    Guard the contract with an explicit signature check so it cannot
-    silently regress — existing tests use MagicMock which swallows any
-    kwarg and cannot catch this.
-    """
-
-    @pytest.mark.parametrize(
-        "module_path,class_name",
-        [
-            ("plugins.platforms.telegram.adapter", "TelegramAdapter"),
-            ("plugins.platforms.discord.adapter", "DiscordAdapter"),
-            ("plugins.platforms.slack.adapter", "SlackAdapter"),
-            ("plugins.platforms.matrix.adapter", "MatrixAdapter"),
-            ("plugins.platforms.mattermost.adapter", "MattermostAdapter"),
-            ("plugins.platforms.feishu.adapter", "FeishuAdapter"),
-            ("plugins.platforms.whatsapp.adapter", "WhatsAppAdapter"),
-            ("plugins.platforms.dingtalk.adapter", "DingTalkAdapter"),
-        ],
-    )
-    def test_edit_message_accepts_finalize(self, module_path, class_name):
-        import inspect
-
-        module = pytest.importorskip(module_path)
-        cls = getattr(module, class_name)
-        params = inspect.signature(cls.edit_message).parameters
-        assert "finalize" in params, (
-            f"{class_name}.edit_message must accept 'finalize' kwarg; "
-            f"stream_consumer._send_or_edit passes it unconditionally"
-        )
 
 
 class TestSendOrEditMediaStripping:
@@ -1593,4 +1558,3 @@ class TestFlushPendingSync:
 
         consumer.finish()
         await task
-

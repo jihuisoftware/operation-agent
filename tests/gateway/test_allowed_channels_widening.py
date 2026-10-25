@@ -88,30 +88,6 @@ class TestMattermostAllowedChannels:
         assert self._would_process("chan123", allowed_cfg=None, allowed_env="") is True
 
 
-    def test_config_bridge(self, monkeypatch, tmp_path):
-        from gateway.config import load_gateway_config
-
-        hermes_home = tmp_path / ".hermes"
-        hermes_home.mkdir()
-        (hermes_home / "config.yaml").write_text(
-            "mattermost:\n"
-            "  allowed_channels:\n"
-            "    - chanABC\n"
-            "    - chanDEF\n",
-            encoding="utf-8",
-        )
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        # Pre-register the key with monkeypatch so teardown cleans it up
-        # even though load_gateway_config mutates os.environ directly
-        # (monkeypatch only restores keys it's touched via setenv/delenv;
-        # delenv on an absent key is a no-op for teardown purposes).
-        monkeypatch.setenv("MATTERMOST_ALLOWED_CHANNELS", "__sentinel__")
-        monkeypatch.delenv("MATTERMOST_ALLOWED_CHANNELS")
-
-        load_gateway_config()
-
-        import os as _os
-        assert _os.environ["MATTERMOST_ALLOWED_CHANNELS"] == "chanABC,chanDEF"
 
 
 # ---------------------------------------------------------------------------
@@ -128,5 +104,3 @@ class TestMatrixAllowedRooms:
         raw = "" or ""
         allowed = {r.strip() for r in raw.split(",") if r.strip()}
         assert allowed == set()
-
-

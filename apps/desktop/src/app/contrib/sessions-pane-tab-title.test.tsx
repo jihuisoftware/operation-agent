@@ -26,7 +26,7 @@ describe('the Sessions pane tab label', () => {
         </I18nProvider>
       )
 
-    expect(inLocale('ru')).not.toBe(inLocale('en'))
+    expect(inLocale('zh')).not.toBe(inLocale('en'))
   })
 
   it('is joined by every other string-titled chrome pane, with a string twin for the zone menu / drag ghost', () => {
@@ -44,20 +44,20 @@ describe('the Sessions pane tab label', () => {
       )
 
     for (const id of ['terminal', 'files']) {
-      expect(inLocale(id, 'ru')).not.toBe(inLocale(id, 'en'))
+      expect(inLocale(id, 'zh')).not.toBe(inLocale(id, 'en'))
     }
 
-    const ruSessions = inLocale('sessions', 'ru')
-    const ruFiles = inLocale('files', 'ru')
+    const zhSessions = inLocale('sessions', 'zh')
+    const zhFiles = inLocale('files', 'zh')
 
     // The non-React readers (zone menu Show/Hide rows, drag ghost chip) call
     // the string twin at menu-open / drag-start, so it follows the runtime
     // locale set after registration — not the English `title` sampled at import.
-    setRuntimeI18nLocale('ru')
+    setRuntimeI18nLocale('zh')
 
     try {
-      expect(chrome('sessions').tabTitleText()).toBe(ruSessions)
-      expect(chrome('files').tabTitleText()).toBe(ruFiles)
+      expect(chrome('sessions').tabTitleText()).toBe(zhSessions)
+      expect(chrome('files').tabTitleText()).toBe(zhFiles)
     } finally {
       setRuntimeI18nLocale('en')
     }

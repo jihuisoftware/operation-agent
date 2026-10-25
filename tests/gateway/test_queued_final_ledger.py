@@ -203,4 +203,3 @@ async def test_a_deeper_chain_keeps_the_innermost_inbound_id():
 # ---------------------------------------------------------------------------
 # The adapter that sent the final owns its message id: the ephemeral delete goes there.
 # ---------------------------------------------------------------------------
-

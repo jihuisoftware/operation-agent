@@ -7,18 +7,11 @@ commands package the current desktop build; they do not stage a fresh runtime.
 
 | Target | Artifact | Update owner |
 |---|---|---|
-| Windows x64 / ARM64, sideload | Signed per-architecture MSIX packages, combined into a universal `.msixbundle`; `.appinstaller` descriptor | Windows App Installer |
-| Windows x64 / ARM64, Store | Store-identity MSIX packages and a separate Store bundle | Microsoft Store |
 | macOS ARM64 / x64 | Signed, notarized `Hermes.app` in DMG and ZIP artifacts | `electron-updater` with Squirrel.Mac |
 | Linux x64 / ARM64 | Local builder can produce AppImage | External replacement; Linux desktop release legs are disabled |
 
-The current MSIX manifest requires Windows 11 22H2 (`10.0.22621.0`).
-The source-script Windows support range is separate from this package floor.
-Windows desktop packaging uses MSIX, not NSIS or MSI.
-
-`bundled` carries the local runtime. `store` carries the same runtime under
-Partner Center's package identity. `light` is a remote-only client without
-Python or a local agent. Light has build/feed support but no release matrix leg.
+`bundled` carries the local runtime. `light` is a remote client without Python
+or a local agent. Windows packaging and signing are retired in this checkout.
 
 ## Payload contents
 
@@ -41,8 +34,7 @@ venv executable. Startup can create user-state records and CLI links.
 Provider calls, model downloads, and optional integration setup can still use
 the network.
 
-Git is a platform exception: Windows stages Git for Windows with Bash.
-POSIX targets use system Git. A Mac without Command Line Tools can therefore
+macOS and Ubuntu use system Git. A Mac without Command Line Tools can therefore
 need them for Git-dependent operations.
 
 User data remains outside the package. Optional additions use writable PM
@@ -62,7 +54,6 @@ use the [bundled-update acceptance suite](../../tests/install/BUNDLED_UPDATES.md
 Acceptance requires a native run with the actual signed release artifacts.
 
 Packaged tool facts describe the final bytes, not only the staged archives.
-Windows refreshes the tool digests after sanitization and batch signing.
 The macOS custom signer retains the builder's entitlements and file selection.
 It refreshes digests after child signatures and before the outer app signature.
 Unsigned macOS builds refresh them at the end of `afterPack`.
@@ -81,26 +72,8 @@ The checkout must be clean, because the build packages `HEAD`. The script passes
 the checkout lock, so a second run cannot delete a build that is still going. Output
 goes to `apps/desktop/release/`.
 
-The scripts do not sign or notarize. They remove `AZURE_SIGN_*` (Windows) and the
-`CSC_*`/`APPLE_*` signing variables (macOS, Linux) from the build, and restore your
-Windows shell afterward. macOS can still sign nested binaries when it finds a
-Developer ID in your keychain.
-
-`-Store` allocates a local claim tag `rc.<N>-vX.Y.Z` (N starts at 900) for the
-next patch after the newest published stable tag, and deletes it when the
-build ends. The tag is never pushed. Each architecture builds on its own host.
-`-Store` prints the claim timestamp as `HERMES_RELEASE_EPOCH=<n>`. To combine the
-x64 and arm64 Store packages, copy both `Store-*.msix` files into one
-`apps/desktop/release`, then run this on that host:
-
-```powershell
-$env:HERMES_RELEASE_EPOCH = '<n from the build>'
-node scripts/bundle-store-msixbundle.mjs --tag vX.Y.Z
-```
-
-Use the epoch from ONE claim for both architectures. The tag is already deleted, so
-without the epoch the bundle step finds no release timestamp. On Windows, use a
-short checkout path such as `C:\hsb`.
+The scripts remove signing environment variables for local builds. macOS can still
+sign nested binaries when it finds a Developer ID in your keychain.
 
 ## Complete native build
 
@@ -115,10 +88,8 @@ version in `pyproject.toml`. Canary tags use the release script's tag grammar.
 Start with host Python 3.11+ and Git. Use `python3` if that is your host's command.
 Preparation asks PM for the pinned Python, Node, npm and private installer;
 preinstalling a separate Node/npm/uv toolchain is not required. Native dependency
-builds still need the platform's compiler, SDK and libraries. Windows ARM64 uses
-the shared Visual Studio/Clang/Rust/static OpenSSL preparation provider, which
-can require Administrator permissions for missing system components. macOS
-requires its native developer tools. This is not a hermetic host SDK.
+builds still need the platform's compiler, SDK and libraries. macOS requires its native
+developer tools. This is not a hermetic host SDK.
 
 The builder:
 
@@ -129,7 +100,7 @@ The builder:
 4. Assembles the PM payload, places JS assets, relocates links, and generates launchers.
 5. Consumes the prepared Electron archive and utilities to package the current OS.
 
-Use `--variant store` with a stable tag on Windows, or `--variant light` for the remote client.
+Use `--variant light` for the remote client.
 Arguments after `--` go to the prepared wrapper, which rejects overrides of
 the admitted target, tools, output and configuration. `electron-builder.config.cjs`
 is the sole packaging configuration. The wrapper disables automatic publishing;
@@ -157,9 +128,7 @@ The displayed paths are the defaults. Use separate build-owned work/cache roots;
 do not pre-create the work directory. `prepared.json` is published after every
 provider succeeds and contains absolute paths for this job, not a portable cache.
 After relocation or a source/lock/tool change, prepare again. Consumption rejects
-missing or changed dependencies without repairing or downloading them. Stable
-Windows builds can consume one preparation for `--variant bundled` and then
-`--variant store`; light and commit preparations cannot switch to Store.
+missing or changed dependencies without repairing or downloading them.
 
 Release jobs restore candidates, prepare, save reusable inputs, and only then
 build/sign. Job-local environments, credentials, products and signature results
@@ -233,7 +202,7 @@ It rejects mixed tag, release-phase, channel-publication, and upgrade inputs.
 
 Builder jobs check out the admitted SHA. Their artifacts and completion receipts
 go to `releases/commit/FULL_SHA/`, separate from tag archives and update channels.
-The run summary lists Windows sideload packages and their universal bundle, macOS DMG/ZIP
+The run summary lists macOS DMG/ZIP
 files, and the Termux package. Linux release legs remain disabled and are listed
 as not built. Only receipt-listed artifacts that exist in storage get download
 links. Missing receipts show the failed or incomplete leg.
@@ -257,79 +226,9 @@ For a local native build, check out the exact SHA and run:
 python scripts/bundles/desktop.py --commit=FULL_SHA --variant=bundled
 ```
 
-The builder uses that commit's project version. Sideload MSIX versions append
-`.0`. The shared MSIX version helper can derive Store versions from commit timestamps,
-but this desktop preparation interface only admits Store packaging for stable tags.
+The builder uses that commit's project version.
 Commit-built stamps disable automatic release-channel updates. Local command and transport tests do not
 replace signed-package installation and update acceptance on each native host.
-
-## Windows signing and App Installer
-
-The signing jobs provide `AZURE_SIGN_ENDPOINT`, `AZURE_SIGN_ACCOUNT`,
-`AZURE_SIGN_PROFILE`, `AZURE_SIGN_PUBLISHER`, and `AZURE_CLIENT_ID`, plus
-Azure authentication. Do not pass publisher names through shell-split `-c`
-arguments. Local unsigned builds are not release-acceptance artifacts.
-
-The packaging hooks sanitize invalid PE certificate tables, then sign and
-timestamp payload EXEs/DLLs. The product EXE receives its signature after
-resource edits. `scripts/sign-msix.mjs` signs the sideload package envelope.
-Store package envelopes remain unsigned for Partner Center to sign.
-
-Unchanged payload files reuse verified signatures from
-`${ELECTRON_BUILDER_CACHE}-payload-signatures`. The key binds input bytes,
-Azure policy, signing tools, and timestamp policy. Filenames and release
-versions do not determine identity. A hit must match executable content and
-pass Authenticode publisher/timestamp checks. Invalid entries become misses.
-The product EXE and package envelopes still receive fresh signatures.
-
-The `before-build.mjs` hook generates MSIX extensions from payload launcher
-names. One execution-alias extension carries the CLI aliases. The manifest
-also registers the Copilot hardware-key provider. Its minimum Windows version
-is part of the package contract.
-
-The release job combines only matching sideload packages from both architectures.
-Store packages never enter the sideload bundle. It publishes bundle bytes before
-the channel descriptor at `releases/win32/CHANNEL/CHANNEL.appinstaller`.
-Light uses `releases/win32/light/CHANNEL/`.
-
-Windows records the descriptor source at installation. The app checks that
-registered source through WinRT and distinguishes an unknown result from no
-update. Apply downloads the descriptor before teardown, then opens the local
-`.appinstaller` file. It does not require the disabled `ms-appinstaller:` protocol.
-The app registers a detached relaunch waiter before handoff.
-
-The build stamp declares `updateMechanism`: `app-installer` for sideload bundles,
-`microsoft-store` for Store builds, `electron-updater` for macOS packages, and
-`self` for source-built apps. Settings shows Microsoft Store for a Store build.
-The runtime does not infer Store ownership from Electron flags or carry a
-second Store boolean. Windows Light declares `external` because it has no
-bundled Python checker. Its OS-registered App Installer source still owns
-automatic updates.
-
-Store builds use `Windows.Services.Store.StoreContext` to check, download,
-and request installation inside Hermes. The native consent UI attaches to the
-current desktop window. Download finishes before backend shutdown; the existing
-relaunch waiter is registered before the install request. Unknown checks,
-cancellation and request failures do not count as successful updates. Native
-acceptance requires a Store-acquired package or flight, not a sideloaded MSIX.
-
-On Windows bundles, PM builds dependency generations on a verified writable
-copy of the bundled Python in its user store. A venv's `Scripts\python.exe` is a
-redirector outside the package. Windows refuses it (WinError 5) when it starts the
-packaged interpreter, and uv runs that redirector during every lock, sync and
-`pip check`. Hermes never runs a venv's own executables. The app and execution
-aliases keep their signed bundled launchers, and children that need a
-generation's packages start through `pm.environments.venv_command`: the bundled
-Python with `-S` plus `pm/_venv_entry.py`, which attaches the generation's
-site-packages. Processes started from the bundled Python keep package access to
-the bundled git, rg and the PM worker. The new venv's generated console scripts
-must not replace the launchers, and are kept off `PATH`.
-
-Sideload stable versions are `X.Y.Z.0`. Canary revisions derive from elapsed
-minutes after the stable baseline. The release script rejects ambiguous or
-overflowing cuts. Store versions use `year.hour-of-year.second-of-hour.0` in UTC,
-with the fourth component reserved for Microsoft. App semver and package
-version are different facts. `scripts/msix-shared.mjs` owns these derivations.
 
 ## macOS signing and updates
 
@@ -378,7 +277,7 @@ npm run dev --workspace apps/desktop
 ```
 
 For an ordinary package of that desktop build, use the workspace's
-`dist:win`, `dist:mac`, `dist:linux`, or `pack` command. Those commands do not
+`dist:mac`, `dist:linux`, or `pack` command. Those commands do not
 replace the complete tagged build described above.
 
 Icons are generated from `assets/nous-girl-*.svg` and `assets/backgrounds/`.

@@ -238,4 +238,3 @@ function isMachO(file) {
   }
   return MACHO_MAGICS.has(buf.readUInt32BE(0))
 }
-

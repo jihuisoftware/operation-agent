@@ -36,6 +36,3 @@ async def test_relay_ws_transport_dial_races_ipv6_ipv4(monkeypatch):
     with pytest.raises(ConnectionRefusedError):
         await t._dial_and_start()
     assert rec.kwargs["happy_eyeballs_delay"] == EXPECTED_DELAY
-
-
-

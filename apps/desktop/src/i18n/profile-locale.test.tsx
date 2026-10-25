@@ -7,10 +7,9 @@ import type { HermesConfigRecord } from '@/hermes'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $connection } from '@/store/session'
 
-import { registerAppLocale } from './registry'
-
 import { useI18n } from './context'
 import { ProfileI18nProvider as I18nProvider } from './profile-provider'
+import { registerAppLocale } from './registry'
 
 let disposePack: () => void
 

@@ -55,6 +55,3 @@ class TestWarnIfCredentialFileBroadlyReadable:
                 is False
             )
         assert caplog.text == ""
-
-
-

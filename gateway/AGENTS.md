@@ -6,7 +6,7 @@ defines scope; env flags cannot revive retired ingress. Legacy types remain for 
 do not restore bot activation or platform setup entry points.
 
 Applies on top of the root `AGENTS.md`. Long-form: `website/docs/developer-guide/gateway-internals.md`.
-New platform adapter: follow `gateway/platforms/ADDING_A_PLATFORM.md` step by step.
+This operations build retains the local Desktop runtime and shared gateway contracts. Bundled messaging adapters and their setup UI are removed.
 
 ## Shape
 
@@ -145,7 +145,7 @@ gateway under the backend, and do NOT "fix" update locks by widening the tree-ki
 - **Token locks.** An adapter that connects with a unique credential (bot token, API key) calls
   `acquire_scoped_lock()` from `gateway.status` in `connect()`/`start()` and `release_scoped_lock()`
   in `disconnect()`/`stop()`, so two profiles cannot share one credential. Canonical:
-  `plugins/platforms/irc/adapter.py`.
+  the active profile scope.
 - **Multiplex profile-scoped env reads MUST fail closed — never borrow from `os.environ`**
   (`agent/secret_scope.py`; #72348, #86905). Under `gateway.multiplex_profiles`, `os.environ` holds
   the DEFAULT profile's values; a secondary profile's `.env` exists only in its secret scope,
@@ -203,7 +203,7 @@ gateway under the backend, and do NOT "fix" update locks by widening the tree-ki
 - **Unserved is reported, never silent.** Shared-ingress platforms (Relay) run on the default
   profile only; a secondary enabling one is logged once with the remedy and stamped into runtime
   status (`run_adapters.py::_note_unserved_secondary_platform`). The WhatsApp bridge is per profile:
-  a paired secondary gets its own adapter and port (`plugins/platforms/whatsapp/bridge_ownership.py`),
+  a paired secondary gets its own adapter and port (legacy messaging bridge ownership),
   an unpaired one is reported as `whatsapp_unpaired`, and a secondary never adopts or signals a
   bridge its own pidfile (pid + start time + port) does not identify. `needs_attention` is
   set and cleared at the single writer (`_update_platform_runtime_status`) on the connect path.

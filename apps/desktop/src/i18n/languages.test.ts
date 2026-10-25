@@ -16,6 +16,7 @@ describe('desktop i18n languages', () => {
   it('falls back to English for empty or unsupported values', () => {
     expect(normalizeLocale(null)).toBe(DEFAULT_LOCALE)
     expect(normalizeLocale('')).toBe(DEFAULT_LOCALE)
+
     for (const retired of ['it', 'ja', 'de-DE', 'zh-Hant', 'ar']) {
       expect(normalizeLocale(retired)).toBe(DEFAULT_LOCALE)
       expect(isSupportedLocaleValue(retired)).toBe(false)

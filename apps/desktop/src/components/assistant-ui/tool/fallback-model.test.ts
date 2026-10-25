@@ -114,7 +114,10 @@ describe('buildToolView error confidence', () => {
         },
         'notice'
       ],
-      [{ toolName: 'skill_manage', result: { success: false, error: "batch aborted, ROLLBACK FAILED for 'demo'" } }, 'error'],
+      [
+        { toolName: 'skill_manage', result: { success: false, error: "batch aborted, ROLLBACK FAILED for 'demo'" } },
+        'error'
+      ],
       [{ result: { success: false, result: { output: { error: { message: 'Connection refused' } } } } }, 'error']
     ]
 
@@ -479,7 +482,7 @@ describe('buildToolView title actions', () => {
   })
 
   it('uses the runtime locale for title text and action placement', () => {
-    setRuntimeI18nLocale('ja')
+    setRuntimeI18nLocale('zh')
 
     const read = buildToolView(part({ args: { path: '/tmp/demo.txt' }, result: undefined, toolName: 'read_file' }), '')
 
@@ -488,10 +491,10 @@ describe('buildToolView title actions', () => {
       ''
     )
 
-    expect(read.title).toBe('demo.txt を読み取り中')
-    expect(read.titleAction).toEqual({ prefix: 'demo.txt を', text: '読み取り中', suffix: '' })
-    expect(web.title).toBe('example.com/docs を読み取り中')
-    expect(web.titleAction).toEqual({ prefix: 'example.com/docs を', text: '読み取り中', suffix: '' })
+    expect(read.title).toBe('正在读取 demo.txt')
+    expect(read.titleAction).toEqual({ prefix: '', text: '正在读取', suffix: ' demo.txt' })
+    expect(web.title).toBe('正在读取 example.com/docs')
+    expect(web.titleAction).toEqual({ prefix: '', text: '正在读取', suffix: ' example.com/docs' })
   })
 })
 

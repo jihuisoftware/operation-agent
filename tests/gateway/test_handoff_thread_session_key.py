@@ -174,5 +174,3 @@ def _organic_matrix_reply_key(adapter, room_id: str, thread_id: str) -> str:
                  "m.relates_to": {"rel_type": "m.thread", "event_id": thread_id}})
     asyncio.run(adapter._on_room_message(event))
     return build_session_key(adapter.handle_message.await_args.args[0].source, thread_sessions_per_user=False)
-
-

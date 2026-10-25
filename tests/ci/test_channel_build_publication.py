@@ -56,7 +56,7 @@ def staged_channel(tmp_path, r2_server, request, monkeypatch):
     build = tmp_path / "build"
     build.mkdir()
     name = request["identity"]["artifactNamePascal"]
-    for platform in ("darwin", "win32"):
+    for platform in ("darwin",):
         for arch in ("arm64", "x64"):
             native = "macos" if platform == "darwin" else "windows"
             metadata = {"platform": native, "arch": arch, "commit": request["commit"], "request": request,
@@ -82,13 +82,6 @@ def staged_channel(tmp_path, r2_server, request, monkeypatch):
             metadata_name = f"metadata-{native}-{arch}.json"
             (build / metadata_name).write_text(json.dumps(metadata), encoding="utf-8")
             handoff.stage_channel_build(request, f"{platform}-{arch}", build, [*files, metadata_name])
-    bundle_name = f"{name}-0.0.7.0-win.msixbundle"
-    with zipfile.ZipFile(build / bundle_name, "w") as archive:
-        archive.writestr("AppxMetadata/AppxBundleManifest.xml", '<Bundle><Identity Name="'
-                         + request["identity"]["msixAppIdWithOrg"] + '" Publisher="CN=Fixture" Version="0.0.7.0"/>'
-                         + '<Packages><Package Type="application" Architecture="arm64"/>'
-                         + '<Package Type="application" Architecture="x64"/></Packages></Bundle>')
-    handoff.stage_channel_build(request, "windows-universal", build, [bundle_name])
     prefix = handoff.channel_prefix(request)
     r2_server.store[scope.key(prefix + "request.json")] = (canonical_json(request), '"request"')
     return request, build
@@ -105,10 +98,7 @@ def test_channel_handoff_binds_full_request_and_feed_bytes(tmp_path, r2_server, 
     needs = {name: {"result": "success"} for name in channel_publish.REQUIRED_JOBS}
     manifest, feeds = channel_publish.assemble(request, fetched, needs=needs)
     assert {(p["platform"], p["arch"]) for p in manifest["packages"]} == {
-        (platform, arch) for platform in ("darwin", "win32") for arch in ("arm64", "x64")}
-    xml = ET.parse(next(p for p in feeds if p.suffix == ".appinstaller")).getroot()
-    assert xml.find("{*}UpdateSettings") is None
-    assert xml.find("{*}MainBundle").get("Name") == request["identity"]["msixAppIdWithOrg"]
+        (platform, arch) for platform in ("darwin",) for arch in ("arm64", "x64")}
     feed = hermes_yaml.safe_load(next(p for p in feeds if p.suffix == ".yml").read_text(encoding="utf-8"))
     assert feed["version"] == request["version"]
     for file in feed["files"]:
@@ -117,7 +107,7 @@ def test_channel_handoff_binds_full_request_and_feed_bytes(tmp_path, r2_server, 
     changed = copy.deepcopy(request)
     changed["bundleEnv"]["HERMES_DATA_DIR_SUFFIX"] = "other packaging input"
     with pytest.raises(ValueError, match="identity"):
-        handoff.fetch_channel_build(changed, ["win32-x64"], tmp_path / "wrong", public_base=request["publicBase"])
+        handoff.fetch_channel_build(changed, ["darwin-x64"], tmp_path / "wrong", public_base=request["publicBase"])
     assert not (tmp_path / "wrong").exists()
     for name in channel_publish.REQUIRED_JOBS:
         for result in ("failure", "skipped", "cancelled", None):
@@ -128,14 +118,14 @@ def test_channel_handoff_binds_full_request_and_feed_bytes(tmp_path, r2_server, 
                 bad[name]["result"] = result
             with pytest.raises(ValueError, match=name):
                 channel_publish.assemble(request, fetched, needs=bad)
-    receipt_path = fetched / "handoff-win32-x64.json"
+    receipt_path = fetched / "handoff-darwin-x64.json"
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     missing = {**receipt, "files": [row for row in receipt["files"] if not row["path"].startswith("metadata-")]}
     receipt_path.write_text(json.dumps(missing), encoding="utf-8")
     with pytest.raises(ValueError, match="omits required"):
         channel_publish.assemble(request, fetched, needs=needs)
     receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
-    metadata = fetched / "metadata-windows-x64.json"
+    metadata = fetched / "metadata-macos-x64.json"
     metadata.write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="receipt"):
         channel_publish.assemble(request, fetched, needs=needs)
@@ -226,15 +216,15 @@ def test_real_workflow_admission_and_public_smoke_fetch(tmp_path, r2_server, sta
     # Re-stage a real ZIP-format MSIX fixture bound to the new admitted commit.
     package_root = tmp_path / "package"
     package_root.mkdir()
-    filename = request["identity"]["artifactNamePascal"] + "-0.0.7-win-x64.msix"
+    filename = request["identity"]["artifactNamePascal"] + "-0.0.7-mac-x64.zip"
     (package_root / filename).write_bytes(b"inert HTTP download fixture, not a native smoke")
-    r2_server.store.pop(prefix + "handoff-win32-x64.json")
+    r2_server.store.pop(prefix + "handoff-darwin-x64.json")
     r2_server.store.pop(prefix + filename)
-    handoff.stage_channel_build(request, "win32-x64", package_root, [filename])
-    fetch = workflow_step("desktop-bundle-smoke.yml", "windows", "Fetch one exact downloadable artifact")
+    handoff.stage_channel_build(request, "darwin-x64", package_root, [filename])
+    fetch = workflow_step("desktop-bundle-smoke.yml", "macos", "Fetch one exact downloadable artifact")
     smoke = tmp_path / "smoke"
     env.update(SMOKE_ROOT=str(smoke), PUBLIC_BASE=request["publicBase"], RELEASE_TAG="", RELEASE_COMMIT=request["commit"],
-               COMMIT_BUILD="false", PLATFORM="win32", ARCH="x64", FORMAT="msix")
+               COMMIT_BUILD="false", PLATFORM="darwin", ARCH="x64", FORMAT="zip")
     result = run_shell(tmp_path, r2_server, fetch, env)
     assert result.returncode == 0, result.stdout + result.stderr
     evidence = json.loads((smoke / "out/download.json").read_text(encoding="utf-8"))
@@ -313,8 +303,8 @@ def test_real_publication_cas_and_manifest_summary(tmp_path, r2_server, staged_c
         assert r2_server.store["releases/channels/stable.json"][0] == b"production sentinel"
         smoke_env = {**env, "SMOKE_ROOT": str(tmp_path / "scoped-smoke"), "PUBLIC_BASE": request["publicBase"],
                      "RELEASE_TAG": "", "RELEASE_COMMIT": request["commit"], "COMMIT_BUILD": "false",
-                     "PLATFORM": "win32", "ARCH": "x64", "FORMAT": "msix", "GITHUB_OUTPUT": str(tmp_path / "smoke-output")}
-        fetch = workflow_step("desktop-bundle-smoke.yml", "windows", "Fetch one exact downloadable artifact")
+                     "PLATFORM": "darwin", "ARCH": "x64", "FORMAT": "zip", "GITHUB_OUTPUT": str(tmp_path / "smoke-output")}
+        fetch = workflow_step("desktop-bundle-smoke.yml", "macos", "Fetch one exact downloadable artifact")
         result = run_shell(tmp_path, r2_server, fetch, smoke_env)
         assert result.returncode == 0, result.stdout + result.stderr
         evidence = json.loads((tmp_path / "scoped-smoke/out/download.json").read_text())
@@ -339,61 +329,6 @@ def test_real_publication_cas_and_manifest_summary(tmp_path, r2_server, staged_c
     assert json.loads(r2_server.store[channel_key][0]) == retired
 
 
-@pytest.mark.platforms("posix")
-def test_channel_windows_record_stage_and_assembly_handoff_shell(tmp_path, r2_server, staged_channel):
-    import shutil
-    request, build = staged_channel
-    release = tmp_path / "apps/desktop/release"
-    release.mkdir(parents=True)
-    filename = request["identity"]["artifactNamePascal"] + "-0.0.7-win-x64.msix"
-    shutil.copy2(build / filename, release / filename)
-    request_file = tmp_path / "channel-request.json"
-    request_file.write_text(json.dumps(request), encoding="utf-8")
-    env = {"GITHUB_WORKSPACE": str(tmp_path), "RUNNER_TEMP": str(tmp_path), "TARGET": "win32-x64",
-           "RELEASE_COMMIT": request["commit"], "CHANNEL_BUILD": request["buildId"],
-           "HERMES_PAYLOAD_TAG": "", "HERMES_BUILD_COMMIT": ""}
-    # This test owns the first metadata publication for this leg; the setup's
-    # transport metadata is deliberately not a native recorder output.
-    prefix = handoff.channel_prefix(request)
-    for key in ("metadata-windows-x64.json", "handoff-win32-x64.json"):
-        r2_server.store.pop(prefix + key)
-    jobs = _workflow()["jobs"]
-    script = stage_step(jobs[native_builds(jobs)[("win32-x64", "commit")]], channel=True)["run"]
-    result = run_shell(tmp_path, r2_server, script, env)
-    assert result.returncode == 0, result.stdout + result.stderr
-    # One-dispatch: the env-default commit equals the request's own, which is
-    # provenance, not selection — the channel stage must accept it.
-    for key in ("metadata-windows-x64.json", "handoff-win32-x64.json"):
-        r2_server.store.pop(prefix + key)
-    result = run_shell(tmp_path, r2_server, script, dict(env, HERMES_BUILD_COMMIT=request["commit"]))
-    assert result.returncode == 0, result.stdout + result.stderr
-    # A different commit stays an override attempt (and stages nothing).
-    result = run_shell(tmp_path, r2_server, script, dict(env, HERMES_BUILD_COMMIT="d" * 40))
-    assert result.returncode != 0 and "another commit" in result.stderr
-    receipt_key = handoff.channel_prefix(request) + "handoff-win32-x64.json"
-    receipt = json.loads(r2_server.store[receipt_key][0])
-    assert receipt["request"] == request
-    metadata = json.loads((release / "metadata-windows-x64.json").read_text(encoding="utf-8"))
-    assert metadata["identity"] == request["identity"]["msixAppIdWithOrg"]
-    assert metadata["applicationId"] == request["identity"]["appNamePascal"]
-    fetch = workflow_step("desktop-bundled-release.yml", universal_assembler(jobs), "Retrieve Windows packages from R2")
-    result = run_shell(tmp_path, r2_server, fetch, env)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert sorted(p.name for p in release.glob("*.msix")) == sorted(p.name for p in build.glob("*.msix"))
-    # Native admission validates package stamps before the stage can claim completion.
-    with zipfile.ZipFile(release / filename) as package:
-        manifest = package.read('AppxManifest.xml')
-    with zipfile.ZipFile(release / filename, "w") as package:
-        package.writestr("AppxManifest.xml", manifest)
-        package.writestr("app/resources/install-stamp.json", json.dumps({"source": "commit-build", "commit": request["commit"]}))
-    before = dict(r2_server.store)
-    result = run_shell(tmp_path, r2_server, script, env)
-    assert result.returncode != 0 and "provenance" in result.stderr
-    assert dict(r2_server.store) == before
-    gate = workflow_step("desktop-bundle-smoke.yml", "validate", "Reject empty or unsupported native smoke jobs")
-    for target, expected in (("darwin/arm64/dmg", 0), ("win32/x64/msixbundle", 0), ("//", 1), ("linux/x64/zip", 1)):
-        result = run_shell(tmp_path, r2_server, gate, {"TARGET": target})
-        assert result.returncode == expected
 
 
 @pytest.mark.platforms("posix")

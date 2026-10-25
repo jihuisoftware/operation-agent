@@ -2,8 +2,7 @@
  * after-pack.mjs — electron-builder afterPack hook.
  *
  * Per-platform post-pack work on the unpacked app: payload relocation, nested
- * Chromium and wheel signing on macOS
- * on Windows. The exe identity stamp lives in after-extract.mjs (#105629).
+ * Chromium and wheel signing on macOS.
  *
  * electron-builder passes a context with:
  *   - electronPlatformName: 'win32' | 'darwin' | 'linux'

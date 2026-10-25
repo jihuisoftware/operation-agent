@@ -77,7 +77,3 @@ async def test_server_retry_after_is_honoured_by_every_adapter(monkeypatch):
 
 def _http_date_in(seconds: int) -> str:
     return format_datetime(datetime.now(UTC) + timedelta(seconds=seconds), usegmt=True)
-
-
-
-

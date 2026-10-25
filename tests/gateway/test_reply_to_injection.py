@@ -126,5 +126,3 @@ async def test_reply_prefix_still_injected_when_text_in_history():
     assert result is not None
     assert result.startswith(f'[Replying to: "{quoted}"]')
     assert result.endswith("What's the best time to go?")
-
-

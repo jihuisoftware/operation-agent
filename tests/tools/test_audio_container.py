@@ -146,5 +146,3 @@ class TestInboundCacheUsesSniffer:
 
         result = await base.cache_audio_from_url("https://example.com/voice.ogg", ext=".ogg")
         assert result.endswith(".mp3")
-
-

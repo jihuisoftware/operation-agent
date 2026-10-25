@@ -46,5 +46,3 @@ def test_bounded_put_refreshes_and_caps():
     assert list(store) == ["k2", "k3", "k4"]
     helpers.bounded_put(store, "k2", "again", cap=3)  # refresh moves it to the newest slot
     assert list(store) == ["k3", "k4", "k2"]
-
-

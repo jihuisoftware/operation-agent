@@ -1,8 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import * as gateway from '@/store/gateway'
+import { $interfaceMode } from '@/store/interface-mode'
 import { _resetSessionOwnerHintsForTests, setSessionOwnerHint } from '@/store/session'
 import { $subagentsBySession, upsertSubagent } from '@/store/subagents'
 
@@ -17,7 +18,10 @@ vi.stubGlobal(
   }
 )
 Element.prototype.animate = vi.fn(() => ({ cancel() {} }) as Animation)
+beforeEach(() => $interfaceMode.set('advanced'))
+
 afterEach(() => {
+  $interfaceMode.set('simple')
   cleanup()
   $subagentsBySession.set({})
   _resetSessionOwnerHintsForTests()

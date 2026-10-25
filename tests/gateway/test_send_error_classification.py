@@ -55,7 +55,3 @@ def test_every_classification_is_in_the_vocabulary():
     ]
     for s in samples:
         assert classify_send_error(None, s) in SEND_ERROR_KINDS
-
-
-
-

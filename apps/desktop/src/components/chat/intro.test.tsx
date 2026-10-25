@@ -77,15 +77,6 @@ it('localizes the custom-personality fallback without translating its user-suppl
   expect(container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent).toContain(
     'My Custom Voice'
   )
-  await act(() => i18n.setLocale('ja'))
-  expect(container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent).toContain(
-    'My Custom Voice'
-  )
-
-  for (const locale of ['fr', 'de', 'es'] as const) {
-    await act(() => i18n.setLocale(locale))
-    const body = container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent
-    expect(body).not.toBe(english)
-    expect(body).toContain('My Custom Voice')
-  }
+  await act(() => i18n.setLocale('en'))
+  expect(container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent).toBe(english)
 })

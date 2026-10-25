@@ -143,7 +143,3 @@ async def test_a_hook_waiting_for_another_chat_does_not_block_it_and_one_chat_st
         assert adapter._admission_lanes == {}  # each chat's lane is dropped once its last admission is done
     assert fired == ["a1", "b1", "a2"]
     assert [row["request_id"] for row in rows if row["request_id"].startswith("a")] == ["a1", "a2"]
-
-
-
-

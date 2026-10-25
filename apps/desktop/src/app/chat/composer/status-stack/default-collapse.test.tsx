@@ -1,9 +1,10 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vitest'
 
 import { $backgroundStatusBySession } from '@/store/composer-status'
 import { $goalsBySession } from '@/store/goals'
+import { $interfaceMode } from '@/store/interface-mode'
 import { $sessionControlBySession } from '@/store/session-control'
 import { $subagentsBySession, upsertSubagent } from '@/store/subagents'
 import { $todosBySession, clearSessionTodos, restoreSessionTodosFromSnapshot } from '@/store/todos'
@@ -33,7 +34,10 @@ const stack = (parked = false) => (
   </MemoryRouter>
 )
 
+beforeEach(() => $interfaceMode.set('advanced'))
+
 afterEach(() => {
+  $interfaceMode.set('simple')
   cleanup()
   $backgroundStatusBySession.set({})
   $goalsBySession.set({})

@@ -27,8 +27,6 @@ class Lane:
 
 LANES = (
     Lane("docker", True, "build and publish the Docker image"),
-    Lane("windows", True, "signed Windows x64 + arm64 MSIX and the universal bundle (the update channel's package)"),
-    Lane("windows-store", True, "unsigned Microsoft Store bundle, submitted to Partner Center (needs no signing)"),
     Lane("macos-arm64", True, "macOS Apple Silicon DMG + ZIP"),
     Lane("macos-intel", False, "macOS Intel DMG + ZIP (unsupported on main; its runner adds over an hour)"),
     Lane("termux", False, "Termux (Android aarch64) APT package"),
@@ -36,7 +34,6 @@ LANES = (
     Lane("nix", True, "Nix checks"),
     Lane("docker-tests", True, "tests of the Docker image before it is published"),
     Lane("pm-bundle", True, "PM bundle acceptance"),
-    Lane("windows-live", True, "Windows live venv E2E"),
     Lane("install-e2e", True, "install and update E2E"),
     Lane("bootstrap-version", True, "bootstrap installer release identity check"),
     Lane("termux-checks", True, "Termux verification (runs only with termux)"),
@@ -46,13 +43,13 @@ LANES = (
 NAMES = tuple(lane.name for lane in LANES)
 DEFAULT = frozenset(lane.name for lane in LANES if lane.default)
 
-DESKTOP = ("windows", "macos-arm64", "macos-intel")
-WINDOWS = ("windows", "windows-store")
-BUNDLES = (*DESKTOP, "windows-store", "termux")
+DESKTOP = ("macos-arm64", "macos-intel")
+WINDOWS = ()
+BUNDLES = (*DESKTOP, "termux")
 # The protected desktop channel, the update feeds and the Termux index move only for a release that
 # built every desktop package the channel serves. A partial set still stages, verifies and (for
 # Windows) submits its packages, but leaves the channels on the previous release.
-CHANNEL_DESKTOP = ("windows", "macos-arm64")
+CHANNEL_DESKTOP = ("macos-arm64",)
 DERIVED = ("bundles", "desktop-channel", "windows-build")
 
 # Each stable-release.yml job and the lanes that must all be on for it to run. A job named here
@@ -67,31 +64,24 @@ JOB_LANES: dict[str, frozenset[str]] = {name: frozenset(needs) for name, needs i
     "publish-docker": ("docker",),
     "pm-bundle": ("pm-bundle",),
     "termux-checks": ("termux-checks", "termux"),
-    "windows-live": ("windows-live",),
     "install-e2e": ("install-e2e",),
     "bootstrap-version": ("bootstrap-version",),
     "candidates-darwin-arm64": ("macos-arm64",),
     "candidates-darwin-x64": ("macos-intel",),
-    "candidates-win32-arm64": ("windows-build",),
-    "candidates-win32-x64": ("windows-build",),
-    "candidates-win32-bundle": ("windows-build",),
     "candidates-termux": ("termux",),
     "candidate-manifest": ("bundles",),
     "publish-bundles": ("bundles",),
     "transitions-darwin-arm64": ("macos-arm64", "upgrade"),
     "transitions-darwin-x64": ("macos-intel", "upgrade"),
-    "transitions-win32": ("windows", "upgrade"),
     "macos-packaged-arm64": ("macos-arm64", "upgrade"),
     "macos-packaged-x64": ("macos-intel", "upgrade"),
-    "windows-packaged": ("windows", "upgrade"),
 }.items()}
 
 CANDIDATE_CALLS = tuple(job for job in JOB_LANES if job.startswith("candidates-"))
 
 # Candidate handoff group and manifest target, each with the lane that builds it.
-HANDOFF_LANE = {"win32-x64": "windows-build", "win32-arm64": "windows-build", "windows-universal": "windows-build",
-                "darwin-arm64": "macos-arm64", "darwin-x64": "macos-intel", "termux": "termux"}
-TARGET_LANE = {"windows/x64": "windows", "windows/arm64": "windows", "macos/arm64": "macos-arm64",
+HANDOFF_LANE = {"darwin-arm64": "macos-arm64", "darwin-x64": "macos-intel", "termux": "termux"}
+TARGET_LANE = {"macos/arm64": "macos-arm64",
                "macos/x64": "macos-intel", "termux/aarch64": "termux"}
 LEFT_OUT = {
     "docker": "the Docker image keeps its previous stable tag",

@@ -197,5 +197,3 @@ async def _resolve_slack_user_target(token, chat_id):
 
 
 # "ephemeral connect (may re-init E2EE per send, see #46310)",
-
-

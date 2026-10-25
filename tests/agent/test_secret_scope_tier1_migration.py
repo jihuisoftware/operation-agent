@@ -138,9 +138,8 @@ class TestAuthzAuthEnv:
 
 # ── Cluster B: matrix startup reads (Slack pattern) ────────────────────────
 
-class TestMatrixStartupSecret:
+class TestSharedStartupSecret:
     def _helper(self):
-        pytest.importorskip("plugins.platforms.matrix.adapter")
         from gateway.platforms._shared import get_scoped_secret
 
         return lambda name: (get_scoped_secret(name, "") or "").strip()

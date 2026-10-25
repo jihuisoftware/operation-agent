@@ -190,5 +190,3 @@ def test_disk_cleanup_protected_cron_paths_follow_the_active_home(homes):
     with scoped(b):
         assert dc._is_protected_cron_path(b / "cron")
         assert not dc._is_protected_cron_path(a / "cron")
-
-

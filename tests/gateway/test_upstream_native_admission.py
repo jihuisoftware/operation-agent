@@ -67,7 +67,3 @@ async def test_non_upstream_adapter_still_default_denies_without_allowlist(
     )
     with pytest.raises(RuntimeStoreError, match="permission_denied"):
         snapshot_native(runner, _fresh_native_event(discord_source))
-
-
-
-

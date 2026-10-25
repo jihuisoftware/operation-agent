@@ -58,4 +58,3 @@ class TestCacheMediaBytes:
 # ---------------------------------------------------------------------------
 # Per-adapter parity: HISTORICAL mappings hardcoded as the contract
 # ---------------------------------------------------------------------------
-

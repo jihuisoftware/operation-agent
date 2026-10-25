@@ -116,13 +116,3 @@ async def test_display_kind_is_a_closed_producer_set(tmp_path, monkeypatch):
 
 
 _SOURCE = dict(chat_id='42', chat_type='dm', user_id='42', user_name='human')
-
-
-
-
-
-
-
-
-
-

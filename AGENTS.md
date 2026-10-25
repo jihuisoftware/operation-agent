@@ -7,13 +7,13 @@ and every root-to-area chain at 30k, so it loads whole on 128k+ models: long for
 
 **Never give up on the right solution.**
 
-## What Hermes Is
+## Current product
 
-Hermes is a personal AI agent that runs the same agent core across a CLI, a messaging
-gateway (Telegram, Discord, Slack, ~20 platforms), a TUI, and an Electron desktop app. It
-learns across sessions (memory + skills), delegates to subagents, runs scheduled jobs, and
-drives a real terminal and browser. It is extended primarily through **plugins and skills**,
-not by growing the core.
+Pet-community operations for 公众号、小红书、抖音, using Desktop on macOS/Ubuntu.
+Chinese/English catalogs remain; Bot Mode, Kanban/Radio UI, messaging adapters and Windows
+packaging are retired. Keep `gateway/`, `tui_gateway/` and `hermes_cli/web_server*` for Desktop.
+Memory, skills, scheduling, delegation, terminal and browser capabilities remain.
+Extend through plugins and skills. Shared runtime compatibility stays where referenced.
 
 Two invariants shape almost every design decision and are the lens for reviewing any change:
 
@@ -158,7 +158,7 @@ Every former god file is a **facade** (public entry points + the names other pac
 | `plugin-catalog/` | `plugin-catalog/README.md` | catalog admission rules (mirrored in the developer guide; keep identical) |
 | `tui_gateway/`, `ui-tui/` | `tui_gateway/AGENTS.md` | process model, JSON-RPC transport, slash flow |
 | `hermes_cli/web_routers/` | `hermes_cli/web_routers/AGENTS.md` | shared Desktop HTTP APIs |
-| `apps/desktop/` | `apps/desktop/AGENTS.md`, `apps/desktop/src/AGENTS.md` | `serve` backend, slash palette, Bot Mode |
+| `apps/desktop/` | `apps/desktop/AGENTS.md`, `apps/desktop/src/AGENTS.md` | local backend and slash palette |
 | `skills/`, `optional-skills/`, `agent/curator*.py` | `skills/AGENTS.md` | frontmatter, authoring standards, curator |
 | `cron/`, kanban | `cron/AGENTS.md` | scheduler invariants, job fields, kanban dispatcher |
 | `tests/` | `tests/AGENTS.md` | runner, placement, OS markers, `wine2e`, banned test shapes |

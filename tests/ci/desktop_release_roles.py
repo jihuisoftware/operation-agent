@@ -24,7 +24,7 @@ SMOKE_WORKFLOW = "./.github/workflows/desktop-bundle-smoke.yml"
 BUILD_CACHE_ACTION = "./.github/actions/desktop-build-cache"
 SHA = "a" * 40
 CANARY_TAG = "v0.28.0+canary.20260818T101010Z"
-PLATFORMS = ("darwin", "win32")
+PLATFORMS = ("darwin",)
 ARCHES = ("arm64", "x64")
 NATIVE_TARGETS = tuple(f"{platform}-{arch}" for platform in PLATFORMS for arch in ARCHES)
 # The release branch may write the shared dependency cache; commit and channel

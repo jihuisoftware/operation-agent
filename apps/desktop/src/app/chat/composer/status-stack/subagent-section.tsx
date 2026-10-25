@@ -10,9 +10,8 @@ import { useI18n } from '@/i18n'
 import { useSessionSlice } from '@/lib/use-session-slice'
 import { $subagentsBySession, type SubagentProgress } from '@/store/subagents'
 
-import { SubagentRow } from './subagent-row'
-
 import { SubagentControls } from './subagent-controls'
+import { SubagentRow } from './subagent-row'
 import { SubagentTranscript } from './subagent-transcript'
 
 interface SubagentSectionProps {

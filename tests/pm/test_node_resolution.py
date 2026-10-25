@@ -240,24 +240,6 @@ def test_npm_consumers_execute_with_pm_node(npm_probe, npm_consumers, consumer):
 
 
 
-@pytest.mark.platforms("posix")
-@pytest.mark.parametrize("surface", ["whatsapp", "photon"])
-def test_runtime_npm_refusal_never_falls_back_to_literal_npm(npm_probe, npm_consumers, monkeypatch, surface):
-    call, bridge = npm_consumers[surface]
-    spawns = []
-    run = subprocess.run
-
-    def forbidden_spawn(*args, **kwargs):
-        if args[0][0] == "git":  # Fatal-status reporting may read the code revision.
-            return run(*args, **kwargs)
-        spawns.append(args)
-        raise AssertionError("refused PM preparation must not spawn npm")
-
-    monkeypatch.setattr(subprocess, "run", forbidden_spawn)
-    call()
-    assert spawns == []
-    assert not (bridge / "called.json").exists()
-    assert pm.installed_package("npm") is None
 
 
 

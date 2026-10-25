@@ -350,7 +350,6 @@ def test_real_db_openers_honor_configured_delete(monkeypatch, tmp_path):
         "delivery_ledger": "delete",
         "verification_evidence": "delete",
         "cron_executions": "delete",
-        "discord_recovery": "delete",
         "session_db": "delete",
         "kanban": "delete",
         "projects": "delete",

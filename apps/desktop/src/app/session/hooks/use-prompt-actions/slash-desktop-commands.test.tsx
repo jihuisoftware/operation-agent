@@ -2,8 +2,8 @@ import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { en } from '@/i18n/en'
-import { zh } from '@/i18n/zh'
 import { setRuntimeI18nLocale } from '@/i18n/runtime'
+import { zh } from '@/i18n/zh'
 import { toChatMessages } from '@/lib/chat-messages'
 import { resolveDesktopCommand } from '@/lib/desktop-slash-commands'
 import { $connection } from '@/store/session'
@@ -77,12 +77,10 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('desktop surfaces for /rollback /agents /config /history', () => {
+describe('desktop surfaces for /rollback /config /history', () => {
   it('routes each to a local action (never slash.exec, never "terminal only")', () => {
     for (const [name, action] of Object.entries({
       '/rollback': 'rollback',
-      '/agents': 'agents',
-      '/tasks': 'agents',
       '/config': 'config',
       '/history': 'history'
     })) {
@@ -197,45 +195,6 @@ describe('/rollback', () => {
     expect(text).not.toContain('REMOVED QUESTION')
     expect(text).not.toContain('REMOVED ANSWER')
     expect(text).toContain(copy.rewound('2'))
-  })
-})
-
-describe('/agents', () => {
-  it("reads this session's subagents and background processes from the owner", async () => {
-    const requestGateway = gateway(method => {
-      if (method === 'subagent.list') {
-        return {
-          subagents: [{ subagent_id: 'sa-1', depth: 1, goal: 'research the API', status: 'running', tool_count: 3 }]
-        }
-      }
-
-      if (method === 'process.list') {
-        return { processes: [{ session_id: 'proc_1', command: 'npm run dev', status: 'running' }] }
-      }
-    })
-
-    const handle = await mount(requestGateway)
-
-    await handle.submitText('/tasks')
-
-    expect(callsOf(requestGateway, 'subagent.list')).toEqual([{ session_id: RUNTIME_SESSION_ID }])
-    expect(callsOf(requestGateway, 'process.list')).toEqual([{ session_id: RUNTIME_SESSION_ID }])
-    expect(callsOf(requestGateway, 'slash.exec')).toEqual([])
-    const text = renderedText(handle)
-    expect(text).toContain('research the API')
-    expect(text).toContain('npm run dev')
-  })
-
-  it('says nothing is running when both lists are empty', async () => {
-    const requestGateway = gateway(method =>
-      method === 'subagent.list' ? { subagents: [] } : method === 'process.list' ? { processes: [] } : undefined
-    )
-
-    const handle = await mount(requestGateway)
-
-    await handle.submitText('/agents')
-
-    expect(renderedText(handle)).toMatch(/no active subagents or background processes/i)
   })
 })
 
@@ -524,10 +483,9 @@ describe('/timestamps, /palette, /worktree, /snapshot', () => {
   })
 })
 
-describe('/export and /import (profile archives)', () => {
+describe('/export (profile archives)', () => {
   it('route to the desktop profile share flows on a local gateway', () => {
     expect(resolveDesktopCommand('/export')?.surface).toEqual({ kind: 'action', action: 'export' })
-    expect(resolveDesktopCommand('/import')?.surface).toEqual({ kind: 'action', action: 'import' })
   })
 
   it('refuse by name on a remote gateway, whose filesystem is not this machine', async () => {
@@ -536,11 +494,9 @@ describe('/export and /import (profile archives)', () => {
     const handle = await mount(requestGateway)
 
     await handle.submitText('/export')
-    await handle.submitText('/import')
 
     expect(callsOf(requestGateway, 'slash.exec')).toEqual([])
     expect(renderedText(handle)).toContain(copy.exportRemote)
-    expect(renderedText(handle)).toContain(copy.importRemote)
   })
 })
 

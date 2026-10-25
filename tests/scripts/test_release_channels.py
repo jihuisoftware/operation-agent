@@ -450,7 +450,7 @@ def test_accepted_release_receipts_feed_the_protected_head_without_rebuilding(tm
         pub = publisher(url)
         base = pub.public_base
         prefix = f"releases/tag/{tag}/"
-        for platform in ("darwin", "win32"):
+        for platform in ("darwin",):
             for arch in ("arm64", "x64"):
                 native = "macos" if platform == "darwin" else "windows"
                 version = "2.0.0" if platform == "darwin" else "2.0.0.0"
@@ -481,20 +481,12 @@ def test_accepted_release_receipts_feed_the_protected_head_without_rebuilding(tm
                 receipt = {"schema": 1, "tag": tag, "commit": commit, "name": f"{platform}-{arch}", "files": rows}
                 (tmp_path / receipt_name(receipt["name"])).write_bytes(canonical_json(receipt))
                 objects[prefix + receipt_name(receipt["name"])] = canonical_json(receipt)
-        bundle_name = f"{identity['artifactNamePascal']}-2.0.0.0-win.msixbundle"
-        with zipfile.ZipFile(tmp_path / bundle_name, "w") as archive:
-            archive.writestr("AppxMetadata/AppxBundleManifest.xml", f'<Bundle><Identity Name="{identity["msixAppIdWithOrg"]}" Publisher="CN=Fixture" Version="2.0.0.0"/><Packages><Package Type="application" Architecture="arm64"/><Package Type="application" Architecture="x64"/></Packages></Bundle>')
-        body = (tmp_path / bundle_name).read_bytes()
-        objects[prefix + bundle_name] = body
-        receipt = {"schema": 1, "tag": tag, "commit": commit, "name": "windows-universal", "files": [{"path": bundle_name, "size": len(body), "sha256": hashlib.sha256(body).hexdigest()}]}
-        (tmp_path / receipt_name(receipt["name"])).write_bytes(canonical_json(receipt))
-        objects[prefix + receipt_name(receipt["name"])] = canonical_json(receipt)
         # An R2 policy record chooses this name, not the legacy default selector.
         record = {"schema": 1, "name": "released", "repository": pub.repository, "policy": "stable-release", "state": "active", "revision": 1, "nextSequence": 1, "head": None, "identity": identity}
         objects["releases/channels/released.json"] = canonical_json(record)
         assert channel_releases.select_channel(pub, "stable-release") == "released"
         native = channel_releases.read_native_receipts(tmp_path, tag, commit)
-        request = pub.allocate_protected("released", commit, "2.0.0", release_tag=tag, version="2.0.0", windows_version="2.0.0.0", identity=identity, policy="stable-release", release_gate=lambda request: True)
+        request = pub.allocate_protected("released", commit, "2.0.0", release_tag=tag, version="2.0.0", windows_version=channel_releases.stable.stable_windows_version(1_787_965_323), identity=identity, policy="stable-release", release_gate=lambda request: True)
         from scripts.bundles.channel_artifacts import assemble
         manifest, feeds = assemble(request, native, tmp_path, artifact_prefix=prefix)
         assert {p["arch"] for p in manifest["packages"]} == {"arm64", "x64"}
@@ -512,11 +504,11 @@ def test_accepted_release_receipts_feed_the_protected_head_without_rebuilding(tm
             channel_releases.match_accepted_packages(manifest, wrong)
         with pytest.raises(ChannelError, match="every native"):
             channel_releases.match_accepted_packages(dict(manifest, packages=manifest["packages"][:1]), accepted)
-        # A release that did not opt into macOS Intel accepts three desktop packages.
+        # A release that did not opt into macOS Intel accepts only the Apple Silicon package.
         def no_intel(rows, key):
             return [row for row in rows if (row[key], row["arch"]) not in (("darwin", "x64"), ("macos", "x64"))]
         lean = dict(accepted, packages=no_intel(accepted["packages"], "platform"))
-        assert channel_releases.native_legs(lean) == ("darwin-arm64", "win32-arm64", "win32-x64", "windows-universal")
+        assert channel_releases.native_legs(lean) == ("darwin-arm64",)
         assert channel_releases.native_legs(accepted) == channel_releases.NATIVE_LEGS
         channel_releases.match_accepted_packages(dict(manifest, packages=no_intel(manifest["packages"], "platform")), lean)
         with pytest.raises(ChannelError, match="every native"):
@@ -556,7 +548,7 @@ def test_accepted_release_receipts_feed_the_protected_head_without_rebuilding(tm
         before = dict(objects)
         assert channel_releases.publish_release("stable-release", {"GITHUB_REPOSITORY": pub.repository}, tmp_path / "retry") == result
         assert objects == before
-        (tmp_path / bundle_name).write_bytes(b"corrupt")
+        (tmp_path / "metadata-macos-arm64.json").write_bytes(b"corrupt")
         with pytest.raises(ChannelError, match="receipt"):
             channel_releases.read_native_receipts(tmp_path, tag, commit)
 
@@ -641,7 +633,7 @@ def test_accepted_stable_reads_the_release_archive_by_tag(monkeypatch):
                      "archive": attempt,
                      "smoke_results": {job: {"result": "success"} for job in channel_releases.stable.SMOKE_JOBS},
                      "packages": []}
-        for platform in ("macos", "windows"):
+        for platform in ("macos",):
             for arch in ("arm64", "x64"):
                 candidate["packages"].append({"platform": platform, "arch": arch, "tag": tag, "commit": commit,
                     "version": "2.0.0" if platform == "macos" else "2026.5761.123.0", "identity": "fixture.identity",

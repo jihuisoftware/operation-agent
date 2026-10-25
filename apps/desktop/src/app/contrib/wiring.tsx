@@ -367,7 +367,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     profilesOpen,
     resetOverlayReturnRoute,
     settingsOpen,
-    toggleCommandCenter,
+    toggleCommandCenter
   } = useOverlayRouting()
 
   const {

@@ -28,7 +28,3 @@ def test_send_error_redacts_token_and_signed_url():
     assert _FAKE_TOKEN not in out["error"]
     assert "sk_live_ABCDEF0123456789" not in out["error"]
     assert "401" in out["error"]  # the diagnostic shape survives
-
-
-
-

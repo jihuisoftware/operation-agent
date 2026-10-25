@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { $apiRequestScope, setApiRequestConnection } from '@/api/client'
+import { $apiRequestScope } from '@/api/client'
 import { $sessionsLimit, resetSessionsLimit, SIDEBAR_SESSIONS_PAGE_SIZE } from '@/store/layout'
 import { $projectScope, ALL_PROJECTS } from '@/store/project-scope'
 import {
@@ -31,7 +31,6 @@ import {
   recordTranscriptTail,
   transcriptTailState
 } from '@/store/transcript-tail'
-import type { StarmapGraph } from '@/types/hermes'
 
 import {
   $gatewaySwitching,
@@ -163,7 +162,6 @@ describe('wipeSessionListsForGatewaySwitch', () => {
 
     expect(invalidateProfileListFetches).toHaveBeenCalled()
   })
-
 })
 
 describe('beginGatewaySwitch / endGatewaySwitch — the shared switch commit point (#93937)', () => {

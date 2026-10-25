@@ -22,16 +22,13 @@ from scripts.releases.draft_warning import strip_draft_warning
 from scripts.releases.versioning import tag_record
 SHA = re.compile(r"[a-f0-9]{40}")
 DIGEST = re.compile(r"[a-f0-9]{64}")
-DESKTOP_TARGETS = ("windows/x64", "windows/arm64", "macos/x64", "macos/arm64")
+DESKTOP_TARGETS = ("macos/x64", "macos/arm64")
 ALL_TARGETS = tuple(lane_set.TARGET_LANE)
 SMOKE_JOBS = {
     "smoke-darwin-arm64": "macOS DMG + ZIP (arm64)",
     "smoke-darwin-x64": "macOS DMG + ZIP (x64)",
-    "smoke-win32-arm64": "Windows MSIX (arm64)",
-    "smoke-win32-x64": "Windows MSIX (x64)",
 }
-SMOKE_TARGETS = {"smoke-darwin-arm64": "macos/arm64", "smoke-darwin-x64": "macos/x64",
-                 "smoke-win32-arm64": "windows/arm64", "smoke-win32-x64": "windows/x64"}
+SMOKE_TARGETS = {"smoke-darwin-arm64": "macos/arm64", "smoke-darwin-x64": "macos/x64"}
 
 
 # Stable releases are cut from ``main`` or from a ``release/*`` maintenance branch.
@@ -91,8 +88,7 @@ def require_success(needs: dict, required: list[str]) -> None:
 
 # Each signed-package upgrade arm and the transitions job that plans it.
 PACKAGED_BY = {"macos-packaged-arm64": "transitions-darwin-arm64",
-               "macos-packaged-x64": "transitions-darwin-x64",
-               "windows-packaged": "transitions-win32"}
+               "macos-packaged-x64": "transitions-darwin-x64"}
 
 
 def gate_expectations(required: list[str], lanes: Iterable[str]) -> dict:
@@ -176,7 +172,6 @@ def stable_windows_version(epoch: object) -> str:
 RECEIPT_TARGETS = {
     "darwin-arm64": ("macos/arm64",),
     "darwin-x64": ("macos/x64",),
-    "win32-bundle": ("windows/x64", "windows/arm64"),
 }
 
 # The staged handoffs each receipt is assembled from. The Windows bundle
@@ -188,7 +183,6 @@ RECEIPT_TARGETS = {
 RECEIPT_HANDOFFS = {
     "darwin-arm64": ("darwin-arm64",),
     "darwin-x64": ("darwin-x64",),
-    "win32-bundle": ("win32-x64", "win32-arm64", "windows-universal"),
 }
 RECEIPT_INCLUDES = ("metadata-*.json",)
 
@@ -787,11 +781,8 @@ def transitions(env: dict) -> None:
 SMOKE_CALLS = {
     "smoke-darwin-arm64": "candidates-darwin-arm64",
     "smoke-darwin-x64": "candidates-darwin-x64",
-    "smoke-win32-arm64": "candidates-win32-bundle",
-    "smoke-win32-x64": "candidates-win32-bundle",
 }
-CANDIDATE_HANDOFFS = ("win32-x64", "win32-arm64", "darwin-x64", "darwin-arm64",
-                      "termux", "windows-universal")
+CANDIDATE_HANDOFFS = ("darwin-x64", "darwin-arm64", "termux")
 CANDIDATE_INCLUDES = ("metadata-*.json",)
 
 

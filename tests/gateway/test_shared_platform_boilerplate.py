@@ -27,44 +27,6 @@ def _multiplex_off():
     ss.set_multiplex_active(prev)
 
 
-@pytest.mark.parametrize("plugin", _ENV_ENABLEMENT_PLUGINS)
-def test_env_enablement_reads_only_through_scoped_getter(plugin, monkeypatch):
-    """A secondary profile is seeded only from its own scope: every var the hook consults must go through
-    ``_shared.get_scoped_secret`` (a fake scope answers them) and never through a raw env read."""
-    mod = importlib.import_module(f"plugins.platforms.{plugin}.adapter")
-    # Anything the plugin resolves through raw env would be visible here; the scoped reader hides it.
-    for var in list(os.environ):
-        if var.startswith(plugin.upper().replace("GOOGLE_CHAT", "GOOGLE")):
-            monkeypatch.delenv(var, raising=False)
-    fake_scope = {
-        "BUZZ_RELAY_URL": "wss://relay", "BUZZ_PRIVATE_KEY": "k" * 8, "BUZZ_CHANNELS": "a,b",
-        "GOOGLE_CHAT_PROJECT_ID": "p", "GOOGLE_CHAT_SUBSCRIPTION_NAME": "s", "GOOGLE_CHAT_MAX_MESSAGES": "3",
-        "IRC_SERVER": "irc.example", "IRC_CHANNEL": "#h", "IRC_PORT": "6697",
-        "LINE_CHANNEL_ACCESS_TOKEN": "t", "LINE_CHANNEL_SECRET": "s", "LINE_PORT": "8081",
-        "NTFY_TOPIC": "topic", "NTFY_TOKEN": "tok",
-        "PHOTON_PROJECT_ID": "pid", "PHOTON_PROJECT_SECRET": "sec", "PHOTON_HOME_CHANNEL": "line-1",
-        "SIMPLEX_WS_URL": "ws://x", "SIMPLEX_GROUP_ALLOWED": "g",
-        "TEAMS_CLIENT_ID": "c", "TEAMS_CLIENT_SECRET": "s", "TEAMS_TENANT_ID": "t", "TEAMS_PORT": "3979",
-    }
-    scoped_hits: list[str] = []
-    raw_hits: list[str] = []
-    real = shared.get_scoped_secret
-
-    def spy(name, default=None, **kw):
-        scoped_hits.append(name)
-        return fake_scope.get(name, default)
-
-    monkeypatch.setattr(shared, "get_scoped_secret", spy)
-    monkeypatch.setattr(shared, "_scoped_get_secret", lambda name, default=None: fake_scope.get(name, default))
-    monkeypatch.setattr(cli_config, "get_env_value", lambda key: raw_hits.append(key))
-    monkeypatch.setattr(os, "getenv", lambda key, default=None: raw_hits.append(key) or default)
-
-    seed = mod._env_enablement()
-
-    assert real is not shared.get_scoped_secret  # the spy really replaced the seam
-    assert seed, f"{plugin}: fake scope holds the required vars, hook must enable"
-    assert scoped_hits, f"{plugin}: enablement never touched the scoped reader"
-    assert not raw_hits, f"{plugin}: raw env reads during enablement: {raw_hits}"
 
 
 def test_home_channel_name_defaults_to_home_everywhere(monkeypatch):
