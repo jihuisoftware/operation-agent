@@ -525,33 +525,19 @@ def load_yaml_layer(home: Path, gw_data: dict) -> None:
 
     gateway_section = yaml_cfg.get("gateway")
     bridge_toplevel_keys(yaml_cfg, gateway_section, gw_data)
-    gateway_platforms = gateway_section.get("platforms") if isinstance(gateway_section, dict) else None
     platforms_data = merge_platform_sections(yaml_cfg, gateway_section, gw_data)
 
-    try:
-        from hermes_cli.plugins import discover_plugins
-        discover_plugins()  # idempotent
-        from gateway.platform_registry import platform_registry as registry
-    except Exception as e:
-        logger.debug("plugin discovery skipped: %s", e)
-        registry = None
-
-    # Only platforms this profile configures (a block above, a gateway.json row, their env/.env) are
-    # materialized: importing every deferred adapter to read its hooks cost each cold start ~0.5 s.
-    entries = None
-    if registry is not None:
-        from gateway.platform_activation import activation_predicate
-        entries = registry.configured_entries(activation_predicate(
-            yaml_cfg=yaml_cfg, platform_names=platforms_data, home=home, registry=registry))
-    targets = shared_loop_targets(registry, None if entries is None else [e for e in entries if e.source == "plugin"])
-    # "Authored" is config.yaml only: a scratch merge leaves out the legacy gateway.json extra
-    # already in ``platforms_data``, which stays the base layer every config.yaml key overrides.
-    authored = snapshot_authored_extra(merge_platform_sections(yaml_cfg, gateway_section, {}))
+    # Messaging adapters are retired. Do not discover their plugins or bridge old
+    # credentials into the process environment while reading a saved config.
+    from gateway.config import RUNTIME_PLATFORM_VALUES
     from hermes_cli import managed_scope
-    managed_extra = _apply_managed_extra(authored, managed_scope.apply_managed_overlay({}), platforms_data)
-    warned: set = set()  # one warning per conflicting (platform, key) across both copy sites
+    authored = snapshot_authored_extra(merge_platform_sections(yaml_cfg, gateway_section, {}))
+    _apply_managed_extra(authored, managed_scope.apply_managed_overlay({}), platforms_data)
+    gateway_platforms = gateway_section.get("platforms") if isinstance(gateway_section, dict) else None
     bridge_platform_shared_keys(
-        yaml_cfg, gateway_platforms, gw_data, platforms_data, targets, warned=warned, authored=authored)
-    apply_plugin_yaml_hooks(yaml_cfg, gateway_platforms, platforms_data, registry,
-                            warned=warned, authored=authored, managed_extra=managed_extra, entries=entries)
-    bridge_core_env_settings(yaml_cfg, platforms_data)
+        yaml_cfg, gateway_platforms, gw_data, platforms_data,
+        [Platform(name) for name in sorted(RUNTIME_PLATFORM_VALUES)], authored=authored,
+    )
+    gw_data["platforms"] = {
+        name: block for name, block in platforms_data.items() if name in RUNTIME_PLATFORM_VALUES
+    }

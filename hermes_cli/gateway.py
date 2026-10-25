@@ -20,7 +20,7 @@ import textwrap
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from hermes_cli import gateway_service_owner, setup_platforms
+from hermes_cli import gateway_service_owner
 
 # UV's bundled Python ships a minimal PATH; ensure launchctl/systemctl are discoverable.
 if os.name == "posix":
@@ -4650,41 +4650,6 @@ def run_gateway(verbose: int = 0, quiet: bool = False, replace: bool = False, fo
     _hard_exit_after_gateway_teardown(0)
 
 
-# =============================================================================
-# Gateway Setup (Interactive Messaging Platform Configuration)
-# =============================================================================
-
-from hermes_cli.gateway_setup_wizard import (
-    _PLATFORMS,
-    _all_platforms,
-    _platform_status,
-    _set_platform_unauthorized_dm_behavior,
-    print_setup_header,
-    confirm_reconfigure,
-    offer_home_channel,
-    save_env_values,
-    prompt_csv,
-    _UNAUTHORIZED_ACCESS_CHOICES,
-    _prompt_unauthorized_access,
-    _telegram_auto_setup,
-    _clean_discord_ids,
-    _prompt_allowlist_var,
-    _setup_standard_platform,
-    _builtin_setup_fn,
-    _configure_platform,
-    _wizard_offer_service_action,
-    _setup_service_action,
-    _WIZARD_BANNER,
-    _WIZARD_BACKEND_LABELS,
-    _WIZARD_NO_SERVICE_LINES,
-    _wizard_service_status_block,
-    _wizard_platform_loop,
-    _wizard_install_service,
-    _wizard_post_setup,
-    gateway_setup,
-)
-
-
 # Operator wording for the out-of-loop watchdog exit reasons stamped by gateway/shutdown_watchdog.py.
 _WATCHDOG_EXIT_REASONS = {
     "loop_liveness_watchdog": (
@@ -5056,10 +5021,6 @@ def _cmd_run(args):
         replace=getattr(args, "replace", False), force=getattr(args, "force", False),
         idle_exit=getattr(args, "idle_exit", False),
     )
-
-
-def _cmd_setup(args):
-    gateway_setup()
 
 
 _WSL_FOREGROUND_HINT = (
@@ -5665,7 +5626,7 @@ def _cmd_migrate(args):
 
 
 _GATEWAY_SUBCOMMANDS = {
-    None: _cmd_run, "run": _cmd_run, "setup": _cmd_setup, "install": _cmd_install,
+    None: _cmd_run, "run": _cmd_run, "install": _cmd_install,
     "uninstall": _cmd_uninstall, "start": _cmd_start, "stop": _cmd_stop, "restart": _cmd_restart,
     "status": _cmd_status, "list": _cmd_list, "migrate-legacy": _cmd_migrate_legacy, "migrate": _cmd_migrate,
 }

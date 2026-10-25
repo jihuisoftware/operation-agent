@@ -561,7 +561,6 @@ export const en: Translations = {
       'nav.settings': 'Open settings',
       'nav.profiles': 'Open profiles',
       'nav.capabilities': 'Open skills',
-      'nav.messaging': 'Open messaging',
       'nav.artifacts': 'Open artifacts',
       'nav.cron': 'Open scheduled jobs',
       'nav.agents': 'Open agents',

@@ -113,7 +113,7 @@ Examples:
     hermes config                 View configuration
     hermes config edit            Edit config in $EDITOR
     hermes config set model gpt-4 Set a config value
-    hermes gateway                Run messaging gateway
+    hermes gateway                Run the local Desktop runtime
     hermes gateway install        Install gateway background service
     hermes gateway start          Start the installed gateway service
     hermes gateway stop           Stop the gateway service

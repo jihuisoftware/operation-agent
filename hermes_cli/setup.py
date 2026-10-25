@@ -1,7 +1,6 @@
 """Interactive setup wizard for Hermes Agent (config lives in ~/.hermes/).
 
-Independently-runnable sections: Model & Provider, Terminal Backend, Agent Settings, Messaging
-Platforms, Tools. Section bodies live in sibling setup_* modules and are re-exported here; they
+Independently-runnable sections: Model & Provider, Terminal Backend, Agent Settings and Tools. Section bodies live in sibling setup_* modules and are re-exported here; they
 resolve shared prompt/config helpers lazily through this module so test patches on
 ``hermes_cli.setup.<name>`` keep working.
 """
@@ -577,7 +576,6 @@ def _record_send_consent_change(*, enabled: bool) -> None:
 
 from hermes_cli.setup_tts import setup_tts
 from hermes_cli.setup_terminal import setup_terminal_backend
-from hermes_cli.setup_platforms import setup_gateway
 from hermes_cli.setup_summary import _print_setup_summary
 from hermes_cli.setup_migration import _skip_configured_section
 from hermes_cli.setup_agent_import import offer_agent_import
@@ -590,7 +588,6 @@ SETUP_SECTIONS = [
     ("model", "Model & Provider", setup_model_provider),
     ("tts", "Text-to-Speech", setup_tts),
     ("terminal", "Terminal Backend", setup_terminal_backend),
-    ("gateway", "Messaging Platforms (Gateway)", setup_gateway),
     ("tools", "Tools", setup_tools),
     ("telemetry", "Shared Metrics", setup_telemetry),
     ("agent", "Agent Settings", setup_agent_settings),
@@ -641,21 +638,12 @@ def _run_full_setup(config: dict, hermes_home, *, is_existing: bool, imported_fr
     def _skip(key: str, label: str) -> bool:
         return bool(imported_from) and _skip_configured_section(config, key, label)
 
-    def _gateway_step() -> None:
-        if not _skip("gateway", "Messaging Platforms"):
-            setup_gateway(config)
-            return
-        # An import does not imply consent to install a persistent service.
-        from hermes_cli.gateway_setup_service import ensure_gateway_service
-        ensure_gateway_service(context="setup", interactive=True, config=config)
-
     def _step(key: str, label: str, run) -> tuple:
         return label, lambda: None if _skip(key, label) else run()
 
     _run_setup_steps([
         _step("model", "Model & Provider", lambda: setup_model_provider(config)),
         _step("terminal", "Terminal Backend", lambda: setup_terminal_backend(config)),
-        ("Messaging Platforms", _gateway_step),
         _step("tools", "Tools", lambda: setup_tools(config, first_install=not is_existing))])
 
 
@@ -724,7 +712,7 @@ def _run_setup_wizard_impl(args):
         _info("Running the full wizard — each prompt shows your current value.",
               "Press Enter to keep it, or type a new value to change it.", "",
               "Tip: jump straight to a section with 'hermes setup model|terminal|",
-              "     gateway|tools|agent', or fill only missing items with --quick.")
+              "     tools|agent', or fill only missing items with --quick.")
     else:
         # First-time setup (--reconfigure / --quick are meaningless here; fall through)
         print()

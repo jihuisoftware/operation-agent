@@ -198,14 +198,11 @@ def collect_directory_manifests() -> list[PluginManifest]:
         logger.debug("  %s: %d manifest(s)", label, len(found))
         manifests.extend(found)
 
-    # Excluded bundled top-level categories have their own discovery. ``platforms/`` is an ordinary category
-    # dir: the recursion keys its adapters ``platforms/<dir>`` like every other category (``web/firecrawl``),
-    # which is the key `hermes plugins enable/disable` and the dashboard write (#27548); the manifest name
-    # (``photon-platform``) stays an accepted alias through ``gate_manifest``.
+    # Category providers have their own loaders; messaging adapters are retired.
     repo_plugins = _origin.get_bundled_plugins_dir()
     logger.debug("Scanning bundled plugins: %s", repo_plugins)
     _scan("bundled (top-level)", repo_plugins, "bundled",
-          {"memory", "context_engine", "model-providers", "cron_providers", "computer_use"})
+          {"memory", "context_engine", "model-providers", "cron_providers", "computer_use", "platforms"})
     user_dir = get_hermes_home() / "plugins"
     logger.debug("Scanning user plugins: %s", user_dir)
     _scan("user", user_dir, "user")
@@ -275,6 +272,9 @@ def gate_manifest(
             f"plugins.toml, or use {RELAY_PLUGINS_CONFIG_ENV} for an explicit user-file override"
         )
         return _placeholder(error, logging.WARNING, "Refusing to load removed Hermes Relay plugin '%s'; %s", error)
+    if manifest.kind == "platform":
+        return _placeholder("messaging platforms are not supported in this build", logging.DEBUG,
+                            "Skipping retired messaging platform '%s'")
     if names & disabled:
         return _placeholder("disabled via config", logging.DEBUG, "Skipping disabled plugin '%s'")
     # Exclusive plugins (memory providers) have their own activation path; record only.
@@ -292,10 +292,6 @@ def gate_manifest(
         # Bundled backends auto-load; selection among them is ``<category>.provider`` config.
         if manifest.kind == "backend":
             return ManifestGate("load_now")
-        # Bundled platforms register LAZILY: eagerly importing ~20 heavy SDKs added seconds to every `hermes`
-        # invocation. A deferred loader keeps every platform available on first use.
-        if manifest.kind == "platform":
-            return ManifestGate("defer")
     if enabled is None or not names & enabled:
         return _placeholder(
             f"not enabled in config (run `hermes plugins enable {lookup_key}` to activate)", logging.DEBUG,

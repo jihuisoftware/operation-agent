@@ -22,7 +22,6 @@ export * from './api/cron'
 export * from './api/delegation'
 export * from './api/local-models'
 export * from './api/mcp'
-export * from './api/messaging'
 export * from './api/models'
 export * from './api/plugins'
 export * from './api/profiles'
@@ -30,6 +29,7 @@ export * from './api/sessions'
 export * from './api/skills'
 export * from './api/system'
 export * from './api/toolsets'
+export * from './api/webhooks'
 
 export type {
   ActionResponse,
@@ -77,20 +77,12 @@ export type {
   MemoryProviderConfig,
   MemoryProviderOAuthStatus,
   MemoryStatusResponse,
-  MessagingEnvVarInfo,
-  MessagingHomeChannel,
-  MessagingPlatformInfo,
-  MessagingPlatformsResponse,
-  MessagingPlatformTestResponse,
-  MessagingPlatformUpdate,
   MoaConfigResponse,
   MoaModelSlot,
   ModelAssignmentRequest,
   ModelAssignmentResponse,
   ModelInfoResponse,
   PaginatedSessions,
-  PairingResponse,
-  PairingUser,
   ProfileCreatePayload,
   ProfileDesktopOverlay,
   ProfileInfo,
@@ -119,9 +111,6 @@ export type {
   StaleAuxAssignment,
   StarmapGraph,
   StatusResponse,
-  TelegramOnboardingApplyResponse,
-  TelegramOnboardingStartResponse,
-  TelegramOnboardingStatusResponse,
   ToolsetConfig,
   ToolsetInfo,
   ToolsetModel,

@@ -1,3 +1,6 @@
+
+> 当前分支以 Desktop 为主要入口，已移除浏览器 Dashboard 和消息平台接入、配置功能。内部 Gateway 继续承担 Desktop 会话、任务调度和本地 API；历史平台配置和会话数据保留在磁盘中。
+
 <p align="center">
   <img src="assets/banner.png" alt="Hermes Agent" width="100%">
 </p>
@@ -67,7 +70,7 @@ hermes              # 交互式 CLI — 开始对话
 hermes model        # 选择 LLM 提供商和模型
 hermes tools        # 配置启用的工具
 hermes config set   # 设置单个配置项
-hermes gateway      # 启动消息网关（Telegram、Discord 等）
+hermes gateway      # 运行 Desktop 共用的本地会话服务
 hermes setup        # 运行完整设置向导（一次性配置所有内容）
 hermes claw migrate # 从 OpenClaw 迁移（如果来自 OpenClaw）
 hermes update       # 更新到最新版本
@@ -103,7 +106,7 @@ Hermes 有两种入口：用 `hermes` 启动终端 UI，或运行网关从 Teleg
 
 | 操作 | CLI | 消息平台 |
 |------|-----|----------|
-| 开始对话 | `hermes` | 运行 `hermes gateway setup` + `hermes gateway start`，然后给机器人发消息 |
+| 开始对话 | `hermes` | 当前分支已移除消息平台入口，请使用 Desktop |
 | 开始新对话 | `/new` 或 `/reset` | `/new` 或 `/reset` |
 | 更换模型 | `/model [provider:model]` | `/model [provider:model]` |
 | 设置人格 | `/personality [name]` | `/personality [name]` |

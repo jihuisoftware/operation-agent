@@ -241,7 +241,6 @@ export const ruOverrides = {
       'nav.settings': 'Открыть настройки',
       'nav.profiles': 'Открыть профили',
       'nav.capabilities': 'Открыть навыки',
-      'nav.messaging': 'Открыть мессенджеры',
       'nav.artifacts': 'Открыть артефакты',
       'nav.cron': 'Открыть запланированные задачи',
       'nav.agents': 'Открыть агенты',

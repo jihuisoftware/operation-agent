@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { approvePairing, getMessagingPlatforms } from './api/messaging'
 import { getAuxiliaryModels, getGlobalModelInfo } from './api/models'
 import { getOfficialSkills, getSkillHubSources } from './api/skills'
 import { getTerminalBackends, getToolsetConfig, selectTerminalBackend } from './api/toolsets'
+import { getWebhooks } from './api/webhooks'
 import {
   getHermesConfigRecord,
   getMcpCatalog,
@@ -123,7 +123,7 @@ describe('capability helpers are connection-scoped', () => {
   it('every explicitly scoped api/ helper dials foreground, not only the Settings pages (#111651)', () => {
     // The class rule lives in the scope helpers themselves, so a helper in
     // any api/ module inherits it — Capabilities hub/toolset-config reads and
-    // the Messaging page were left queueing as background work when the rule
+    // the Webhooks page were left queueing as background work when the rule
     // was spread per call site.
     void getOfficialSkills('coder')
     expect(last()).toMatchObject({ profile: 'coder', priority: 'foreground' })
@@ -134,22 +134,13 @@ describe('capability helpers are connection-scoped', () => {
     void getToolsetConfig('browser', { connectionId: 'homelab', profile: 'coder' })
     expect(last()).toMatchObject({ connectionId: 'homelab', profile: 'coder', priority: 'foreground' })
 
-    void getMessagingPlatforms('coder')
+    void getWebhooks('coder')
     expect(last()).toMatchObject({ profile: 'coder', priority: 'foreground' })
 
     // `null` deliberately targets the primary — that backend is always warm,
     // so it stays untagged like the ambient path.
     void getOfficialSkills(null)
     expect(last()).not.toHaveProperty('priority')
-  })
-
-  it('a foreground tag never leaks into a request body that carries the profile', () => {
-    void approvePairing('telegram', 'req-1', 'coder')
-
-    const call = api.mock.calls.at(-1)?.[0] as { body?: Record<string, unknown>; priority?: string }
-
-    expect(call.priority).toBe('foreground')
-    expect(call.body).toEqual({ platform: 'telegram', request_id: 'req-1', profile: 'coder' })
   })
 
   it('keeps ambient config reads unprioritized for background hydration', () => {

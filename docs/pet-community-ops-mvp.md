@@ -82,7 +82,7 @@ M1 至 M3 共同构成 MVP。外部账号执行必须使用实际授权和已确
 
 业务数据按宿主 Profile 隔离；密钥使用宿主凭证机制；行为配置使用 `config.yaml` 中的插件配置。新增技能、工具和提示词遵守下一会话生效的缓存约束。无需修改核心工具集合，也不读取已停运 App 的数据库作为启动前提。
 
-第一阶段使用 Desktop 聊天和内容包验证流程，工作台页面在流程稳定后通过 Desktop Plugin SDK 增加。CLI 作为开发、自动化和诊断的辅助入口，暂定插件命令 `hermes pet-ops`，具体子命令在实现时注册；本文不表示这些命令已经存在。共享 `apps/shared`、`tui_gateway`、Gateway 和 `hermes_cli/web_server*` API 后端继续服务 Desktop，不随浏览器前端移除。
+第一阶段使用 Desktop 聊天和内容包验证流程，工作台页面在流程稳定后通过 Desktop Plugin SDK 增加。CLI 作为开发、自动化和诊断的辅助入口，暂定插件命令 `hermes pet-ops`，具体子命令在实现时注册；本文不表示这些命令已经存在。共享 `apps/shared`、`tui_gateway`、Gateway 和 `hermes_cli/web_server*` API 后端继续服务 Desktop。Gateway 的 Telegram、Discord 等消息平台接入、配对和配置入口已移除；只保留 Desktop 必需的内部运行服务及通用 API／Webhook 自动化入口。旧平台凭证不再触发自动连接，历史配置和会话数据不删除。
 
 ## 6. 最小数据模型
 

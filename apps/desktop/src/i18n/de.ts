@@ -565,7 +565,6 @@ export const deOverrides = {
       'nav.settings': 'Einstellungen öffnen',
       'nav.profiles': 'Profile öffnen',
       'nav.capabilities': 'Skills öffnen',
-      'nav.messaging': 'Messaging öffnen',
       'nav.artifacts': 'Artefakte öffnen',
       'nav.cron': 'Geplante Jobs öffnen',
       'nav.agents': 'Agenten öffnen',

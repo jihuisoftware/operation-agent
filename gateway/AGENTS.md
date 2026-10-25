@@ -1,5 +1,10 @@
 # gateway/ — messaging gateway, adapters, delivery
 
+This Desktop-focused branch retires external messaging integrations. Keep the canonical local
+session runtime, scheduler, private tickets and generic API/webhook ingress. Legacy platform
+types and transport helpers below remain for shared runtime/history compatibility; do not
+restore bot activation or platform setup entry points.
+
 Applies on top of the root `AGENTS.md`. Long-form: `website/docs/developer-guide/gateway-internals.md`.
 New platform adapter: follow `gateway/platforms/ADDING_A_PLATFORM.md` step by step.
 

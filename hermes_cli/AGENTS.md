@@ -21,8 +21,7 @@ the `┊` activity feed. `load_cli_config()` in `cli.py` merges CLI defaults + u
 
 `hermes_cli/gateway.py` is the `hermes gateway` facade (process discovery, PM-aware systemd unit
 generation/refresh, command dispatch); topical siblings re-exported by the facade include
-`gateway_launchd.py` (macOS LaunchAgent backend), `gateway_setup_wizard.py`
-(`hermes gateway setup`: `_PLATFORMS` registry, status table, per-platform prompts, service offer),
+`gateway_launchd.py` (macOS LaunchAgent backend),
 `gateway_windows*.py`, `gateway_supervised_restart.py`, `gateway_migrate*.py`, `gateway_multiplex_*.py`,
 `gateway_enroll.py`, `gateway_command_errors.py`. Sibling bodies read facade names through `_gw()`
 (late binding on `hermes_cli.gateway`), so monkeypatch on the facade; mutable state such as

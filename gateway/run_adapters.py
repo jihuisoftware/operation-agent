@@ -1900,6 +1900,9 @@ class GatewayAdapterLifecycleMixin:
     def _create_adapter(self, platform: Platform, config: Any) -> Optional[BasePlatformAdapter]:
         """Create an adapter bound to this runner (every lifecycle path goes through here so
         adapters can resolve inbound profile routes before handlers or connect())."""
+        from gateway.config import RUNTIME_PLATFORM_VALUES
+        if platform.value not in RUNTIME_PLATFORM_VALUES:
+            return None
         adapter = self._instantiate_adapter(platform, config)
         if adapter is not None:
             adapter.gateway_runner = self

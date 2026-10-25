@@ -61,7 +61,7 @@ const LOCAL_SOURCE_IDS = new Set(LOCAL_SESSION_SOURCE_IDS)
 
 // External messaging platforms that each get their own self-managed sidebar
 // section (fetched separately from local recents). Mirrors the gateway platform
-// adapters; keep in sync with PLATFORM_ICONS in app/messaging/platform-icon.tsx.
+// adapters; keep in sync with PLATFORM_ICONS in components/session-platform-icon.tsx.
 export const MESSAGING_SESSION_SOURCE_IDS = [
   'telegram',
   'discord',

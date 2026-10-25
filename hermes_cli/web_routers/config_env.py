@@ -34,7 +34,6 @@ config_router = APIRouter()
 router = APIRouter()
 
 # Late-bound so a test's monkeypatch on the owning module wins at call time.
-_channel_managed_env_keys = late("_channel_managed_env_keys", "hermes_cli.web_server_messaging")
 _config_profile_scope = late("_config_profile_scope", "hermes_cli.web_server_profiles")
 _profile_scope = late("_profile_scope", "hermes_cli.web_server_profiles")
 _require_token = late("_require_token")
@@ -266,7 +265,15 @@ async def get_env_vars(profile: Optional[str] = None):
 def _get_env_vars_sync(profile: Optional[str] = None):
     with _profile_scope(profile):
         env_on_disk = load_env()
-    channel_keys = _channel_managed_env_keys()
+        from gateway.config import RUNTIME_PLATFORM_VALUES
+        from hermes_cli.profile_channels import ChannelKeyIndex
+        from hermes_constants import get_hermes_home
+        channel_index = ChannelKeyIndex(get_hermes_home())
+        channel_keys = {
+            key for key in set(OPTIONAL_ENV_VARS) | set(env_on_disk)
+            if (owner := channel_index.platform_for(key)) and owner not in RUNTIME_PLATFORM_VALUES
+        }
+        channel_keys.difference_update({"GATEWAY_PROXY_KEY", "GATEWAY_PROXY_URL"})
     catalog_meta = _catalog_provider_env_metadata()
 
     def _row(var_name: str, info: dict, *, custom: bool = False) -> dict:
@@ -283,8 +290,7 @@ def _get_env_vars_sync(profile: Optional[str] = None):
             "is_password": info.get("password", cat_meta.get("is_password", False)),
             "tools": info.get("tools", []),
             "advanced": info.get("advanced", cat_meta.get("advanced", False)),
-            # Messaging-platform credential owned by a Channels page card; the
-            # Keys/Env page hides it rather than duplicate the richer UI.
+            # Legacy channel keys remain on disk, but have no setup surface.
             "channel_managed": var_name in channel_keys,
             # Provider grouping from the unified catalog, so the desktop groups
             # by the SAME provider identity the CLI `hermes model` picker uses.
@@ -306,6 +312,8 @@ def _get_env_vars_sync(profile: Optional[str] = None):
 
     result = {}
     for var_name, info in OPTIONAL_ENV_VARS.items():
+        if var_name in channel_keys:
+            continue
         result[var_name] = _row(var_name, info)
     # Catalog provider env vars with no hand entry in OPTIONAL_ENV_VARS.
     for var_name in catalog_meta:

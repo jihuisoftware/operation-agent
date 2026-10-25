@@ -347,7 +347,6 @@ export const zhOverrides = {
       'nav.settings': '打开设置',
       'nav.profiles': '打开配置',
       'nav.capabilities': '打开技能',
-      'nav.messaging': '打开消息',
       'nav.artifacts': '打开制品',
       'nav.cron': '打开定时任务',
       'nav.agents': '打开智能体',

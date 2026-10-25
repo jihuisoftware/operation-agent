@@ -822,6 +822,10 @@ class GatewayConfig:
         return "public" if choice is None else choice
 
 
+# This Desktop-focused build retains local execution and generic automation ingress.
+RUNTIME_PLATFORM_VALUES = frozenset({"local", "api_server", "webhook"})
+
+
 def load_gateway_config() -> GatewayConfig:
     """Load gateway configuration. Priority: env > ~/.hermes/config.yaml > legacy gateway.json > defaults."""
     from gateway import config_loader
@@ -846,6 +850,7 @@ def load_gateway_config() -> GatewayConfig:
         )
 
     config = GatewayConfig.from_dict(gw_data)
+    config.platforms = {p: c for p, c in config.platforms.items() if p.value in RUNTIME_PLATFORM_VALUES}
     _apply_env_overrides(config)
     _validate_gateway_config(config)
     return config

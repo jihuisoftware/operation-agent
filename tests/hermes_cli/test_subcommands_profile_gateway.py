@@ -1,69 +1,29 @@
-"""Unit tests for extracted subcommand parser builders (profile, gateway).
-
-Confirms the builders attach the same subactions and ``func=`` dispatch that
-lived inline in ``main()`` before the god-file Phase 2 extraction.
-"""
-
-from __future__ import annotations
+"""Runtime lifecycle commands remain available without messaging setup/enrollment."""
 
 import argparse
+
+import pytest
 
 from hermes_cli.subcommands.gateway import build_gateway_parser
 
 
-def _h_gateway(args):  # pragma: no cover - identity only
-    return "gateway"
+def _parser():
+    parser = argparse.ArgumentParser(prog="hermes")
+    build_gateway_parser(parser.add_subparsers(dest="command"), cmd_gateway=lambda args: args,
+                         cmd_proxy=lambda args: args)
+    return parser
 
 
-def _h_proxy(args):  # pragma: no cover - identity only
-    return "proxy"
+def test_runtime_ensure_and_restart_remain_parseable():
+    args = _parser().parse_args(["gateway", "ensure", "--json", "--timeout", "30"])
+    assert args.gateway_command == "ensure"
+    assert args.json and args.timeout == "30"
+    args = _parser().parse_args(["gateway", "restart", "--detach"])
+    assert args.gateway_command == "restart" and args.detach
 
 
-def _h_gateway_enroll(args):  # pragma: no cover - identity only
-    return "gateway_enroll"
-
-
-
-
-
-
-def _gateway_parser():
-    p = argparse.ArgumentParser(prog="hermes")
-    sub = p.add_subparsers(dest="command")
-    build_gateway_parser(
-        sub,
-        cmd_gateway=_h_gateway,
-        cmd_proxy=_h_proxy,
-        cmd_gateway_enroll=_h_gateway_enroll,
-    )
-    return p
-
-
-
-
-
-
-
-
-
-
-def test_gateway_enroll_dispatch():
-    p = _gateway_parser()
-    ns = p.parse_args(
-        [
-            "gateway",
-            "enroll",
-            "--token",
-            "tok",
-            "--connector-url",
-            "wss://connector.example.com/relay",
-            "--gateway-id",
-            "gw-1",
-        ]
-    )
-    assert ns.command == "gateway"
-    assert ns.gateway_command == "enroll"
-    assert ns.func is _h_gateway_enroll
-    assert ns.token == "tok"
-    assert ns.connector_url == "wss://connector.example.com/relay"
-    assert ns.gateway_id == "gw-1"
+@pytest.mark.parametrize("command", ["setup", "enroll"])
+def test_messaging_setup_and_relay_enrollment_are_removed(command):
+    with pytest.raises(SystemExit) as exc:
+        _parser().parse_args(["gateway", command])
+    assert exc.value.code == 2

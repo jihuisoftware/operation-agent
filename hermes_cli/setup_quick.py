@@ -11,7 +11,6 @@ from pathlib import Path
 logger = logging.getLogger("hermes_cli.setup")
 
 # (env-var name substring, platform label, emoji) — order matters: first match wins.
-_MESSAGING_PLATFORMS = (("TELEGRAM", "Telegram", "📱"), ("DISCORD", "Discord", "💬"), ("SLACK", "Slack", "💼"))
 
 
 
@@ -139,12 +138,12 @@ def _quick_setup_nous_portal(config: dict) -> None:
 
 
 def _run_first_time_quick_setup(config: dict, hermes_home, is_existing: bool, imported_from: str = ""):
-    """Streamlined first-time setup via Nous Portal: OAuth, model, terminal & messaging;
+    """Streamlined first-time setup via Nous Portal: OAuth, model and terminal;
     everything else gets defaults. A model brought by an agent import (*imported_from* names the
     agents) is offered first and kept by default, which skips the Nous Portal step."""
     from hermes_cli.setup import (
         _apply_default_agent_settings, _info, print_info, _print_setup_summary, print_success,
-        prompt_choice, save_config, setup_gateway, setup_terminal_backend
+        prompt_choice, save_config, setup_terminal_backend
     )
     # Step 1: the imported model, or Nous Portal.
     if not _keep_imported_model(config, imported_from):
@@ -155,23 +154,8 @@ def _run_first_time_quick_setup(config: dict, hermes_home, is_existing: bool, im
     _apply_default_agent_settings(config)
     save_config(config)
 
-    # Step 4: Offer messaging gateway setup
-    print()
-    gateway_choice = prompt_choice("Connect a messaging platform? (Telegram, Discord, etc.)", [
-        "Set up messaging now (recommended)", "Skip — set up later with 'hermes setup gateway'",
-    ], 0)
-    if gateway_choice == 0:
-        setup_gateway(config)
-        save_config(config)
-    else:
-        # Messaging is optional; service persistence still requires explicit consent.
-        from hermes_cli.gateway_setup_service import ensure_gateway_service
-        ensure_gateway_service(context="setup", interactive=True, config=config)
-    print()
     print_success("Setup complete! You're ready to go.")
     _info(None, "  Configure all settings:    hermes setup")
-    if gateway_choice != 0:
-        print_info("  Connect Telegram/Discord:  hermes setup gateway")
     _print_macos_fda_tip()
     print()
     _print_setup_summary(config, hermes_home)
@@ -320,9 +304,9 @@ def _run_blank_slate_setup(config: dict, hermes_home, is_existing: bool):
 
 
 def _blank_slate_walkthrough(config: dict, hermes_home):
-    """Opt-in walkthrough for Blank Slate: skills, tools, plugins, MCP, gateway."""
+    """Opt-in walkthrough for Blank Slate: skills, tools, plugins and MCP."""
     from hermes_cli.setup import (
-        _info, print_header, print_info, print_success, print_warning, prompt_yes_no, save_config, setup_gateway,
+        _info, print_header, print_info, print_success, print_warning, prompt_yes_no, save_config,
     )
     # Bundled skills — default to NONE, offer to seed all
     print_header("Bundled Skills", gap=True)
@@ -372,10 +356,6 @@ def _blank_slate_walkthrough(config: dict, hermes_home):
         print_header(header, gap=True)
         print_info(yes_msg if prompt_yes_no(question, default=False) else no_msg)
 
-    # Optional messaging gateway
-    print()
-    if prompt_yes_no("Connect a messaging platform (Telegram, Discord, …)?", default=False):
-        setup_gateway(config)
     save_config(config)
     _blank_slate_done(config, hermes_home, "  Enable more tools:   hermes tools")
 
@@ -413,37 +393,12 @@ def _run_quick_setup(config: dict, hermes_home):
                 print_info(f"  Get key at: {var['url']}")
             _prompt_and_save_env_var(var, f"  Saved {var['name']}", f"  Skipped {var['name']}")
     missing_tools = [v for v in missing_optional if v.get("category") == "tool"]
-    missing_messaging = [v for v in missing_optional if v.get("category") == "messaging" and not v.get("advanced")]
     if missing_tools:  # checklist, then the API-key screen for each pick
         print_header("Tool API Keys", gap=True)
         labels = [var.get("description", var["name"]) + (f" → {', '.join(var['tools'][:2])}" if var.get("tools") else "")
                   for var in missing_tools]
         for idx in prompt_checklist("Which tools would you like to configure?", labels):
             _prompt_api_key(missing_tools[idx])
-    if missing_messaging:  # checklist, then prompt for each selected platform's vars
-        print_header("Messaging Platforms", gap=True)
-        _info("Connect Hermes to messaging apps to chat from anywhere.",
-              "You can configure these later with 'hermes setup gateway'.")
-        # Group by platform in first-seen order; vars matching no platform are dropped.
-        grouped: dict[str, list] = {}
-        emojis = {}
-        for var in missing_messaging:
-            match = next(((plat, emoji) for needle, plat, emoji in _MESSAGING_PLATFORMS if needle in var["name"]), None)
-            if match:
-                grouped.setdefault(match[0], []).append(var)
-                emojis[match[0]] = match[1]
-        platform_order = list(grouped)
-        labels = [f"{emojis[p]} {p}" for p in platform_order]
-        for idx in prompt_checklist("Which platforms would you like to set up?", labels):
-            plat = platform_order[idx]
-            _section_rule(f"{emojis[plat]} {plat}")
-            for var in grouped[plat]:
-                print_info(f"  {var.get('description', '')}")
-                if var.get("url"):
-                    print_info(f"  {var['url']}")
-                _prompt_and_save_env_var(var, "  ✓ Saved", "  Skipped")
-                print()
-
     # Handle missing config fields
     if missing_config:
         _info(None, f"Adding {len(missing_config)} new config option(s) with defaults...")

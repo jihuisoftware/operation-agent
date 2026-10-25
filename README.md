@@ -1,3 +1,6 @@
+
+> This branch uses Desktop as its primary interface. The browser dashboard and messaging-platform setup/integrations are retired. The internal Gateway runtime still owns Desktop sessions, scheduling and authenticated local APIs. Existing channel configuration and history are preserved on disk.
+
 <p align="center">
   <img src="assets/banner.png" alt="Hermes Agent" width="100%">
 </p>

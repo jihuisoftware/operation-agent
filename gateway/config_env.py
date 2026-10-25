@@ -350,17 +350,7 @@ def _scrub_explicit_markers(config: GatewayConfig) -> None:
 
 
 def _apply_env_overrides(config: GatewayConfig) -> None:
-    """Apply environment variable overrides to *config*.
-
-    Order: plugin platforms' declared env rows, then the core-only rows (api_server, webhook,
-    msgraph_webhook; each touches only its own platform), then the registry enable pass, relay
-    disabling (needs every platform's final ``enabled``), and the marker scrub, which must be last.
-    """
-    entries = _configured_plugin_entries(config)
-    _apply_plugin_env_overrides(config, entries + _bundled_env_fallbacks(config, entries))
+    """Apply only generic API/webhook ingress settings; ignore legacy bot credentials."""
     _api_server(config)
     _webhook(config)
-    _msgraph_webhook(config)
-    _enable_plugin_platforms_from_env(config, entries)
-    _relay(config)
     _scrub_explicit_markers(config)

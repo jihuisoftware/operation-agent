@@ -568,7 +568,6 @@ export const esOverrides = {
       'nav.settings': 'Abrir configuración',
       'nav.profiles': 'Abrir perfiles',
       'nav.capabilities': 'Abrir skills',
-      'nav.messaging': 'Abrir mensajería',
       'nav.artifacts': 'Abrir artefactos',
       'nav.cron': 'Abrir tareas programadas',
       'nav.agents': 'Abrir agentes',

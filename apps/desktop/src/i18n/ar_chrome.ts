@@ -69,7 +69,6 @@ export const arChrome = {
       'nav.settings': 'فتح الإعدادات',
       'nav.profiles': 'فتح الملفات الشخصية',
       'nav.capabilities': 'فتح المهارات',
-      'nav.messaging': 'فتح المراسلة',
       'nav.artifacts': 'فتح العناصر',
       'nav.cron': 'فتح المهام المجدولة',
       'nav.agents': 'فتح الوكلاء',

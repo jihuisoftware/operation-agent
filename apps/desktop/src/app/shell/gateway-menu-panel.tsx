@@ -7,7 +7,6 @@ import { Tip } from '@/components/ui/tooltip'
 import { getLogs } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { LayoutDashboard, Power, RefreshCw } from '@/lib/icons'
-import { platformStatusTone } from '@/lib/platform-status'
 import type { RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { cn } from '@/lib/utils'
 import { reconnectGateway } from '@/store/gateway-reconnect'
@@ -135,7 +134,6 @@ export function GatewayMenuPanel({
         : copy.checkingInference
     : copy.disconnected
 
-  const platforms = Object.entries(statusSnapshot?.gateway_platforms || {}).sort(([l], [r]) => l.localeCompare(r))
   const recentLogs = useGatewayLogTail()
 
   // Keep the tail pinned to the latest line as it streams.
@@ -231,22 +229,7 @@ export function GatewayMenuPanel({
         </Section>
       )}
 
-      {platforms.length > 0 && (
-        <Section>
-          <SectionLabel>{copy.messagingPlatforms}</SectionLabel>
-          <ul className="mt-1.5 space-y-1">
-            {platforms.map(([name, platform]) => (
-              <li className="flex items-center justify-between gap-2 text-xs" key={name}>
-                <span className="truncate capitalize">{name}</span>
-                <span className="flex items-center gap-1.5 text-[0.66rem] text-muted-foreground">
-                  <StatusDot tone={platformStatusTone({ state: platform.state })} />
-                  {prettyState(platform.state)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+
     </div>
   )
 }

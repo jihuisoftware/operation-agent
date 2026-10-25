@@ -8,6 +8,8 @@ in `hermes_cli/web_server.py` and `web_server_*.py`, these routers, `tui_gateway
 and `apps/shared/` still support Desktop and integrations. Their historical
 `web` names do not make them removable frontend code.
 
+- Messaging-account setup and bot pairing APIs are retired. Keep runtime lifecycle,
+  Desktop sessions and generic webhook automation; do not restore platform onboarding.
 - Keep route handlers in topical router modules; mount them through the existing
   server assembly. Do not grow the server facade with feature-specific logic.
 - New REST and WebSocket routes use the existing authenticated connection and
