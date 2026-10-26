@@ -1,21 +1,11 @@
-/**
- * Plugin-scoped i18n — the `ctx.storage` analog for locale bundles. A plugin
- * ships its own strings and registers them under its id; it never edits core
- * `en.ts`. Resolution mirrors the app translator: active locale → the plugin's
- * own `en` bundle → the key itself. The active locale is always the app's
- * (`display.language`) — plugins follow the user's choice, they don't own it.
- *
- * Two consumers, same shape as core (`useI18n` / `translateNow`):
- *  - `usePluginI18n(id)` — reactive translator for React UI (re-renders on a
- *    locale switch or a late bundle registration);
- *  - `ctx.i18n.t` — module-level translator for handlers/stores (non-reactive).
- */
+/** Plugin-owned Chinese messages, removed when their plugin unloads. */
 
 import { useStore } from '@nanostores/react'
 import { atom } from 'nanostores'
 import { useCallback } from 'react'
 
 import { useI18n } from './context'
+import { DEFAULT_LOCALE } from './languages'
 import { type AppLocaleRegistration, registerAppLocale } from './registry'
 import { getRuntimeI18nLocale, subscribeRuntimeI18nLocale, translateFrom } from './runtime'
 import type { BundledLocale, Locale } from './types'
@@ -36,7 +26,7 @@ export type PluginLocaleBundles = Partial<Record<BundledLocale, PluginMessages>>
   [locale: Locale]: PluginMessages | undefined
 }
 
-/** Resolve `key` for this plugin against `args`; falls back to English, then
+/** Resolve `key` for this plugin against `args`; falls back to Chinese, then
  *  the raw key. */
 export type PluginTranslate = (key: string, ...args: unknown[]) => string
 
@@ -50,13 +40,8 @@ export interface PluginI18n {
   /** Observe locale changes (not initial registration) to rebuild static labels.
    *  Returns an unsubscribe function; also disposed on plugin unload. */
   onLocaleChange: (listener: () => void) => () => void
-  /** Add (or extend) a language for the WHOLE app — a language pack. The
-   *  strings are a partial of the app catalog (nested, or flat dotted keys)
-   *  merged over the bundled catalog for that id, or English for a new
-   *  language; a string where English has a function becomes a positional
-   *  `{0}`/`{1}` formatter. Attributed to this plugin and dropped on unload;
-   *  the returned disposer drops it early. Registering never changes the
-   *  active language. */
+  /** Extend Chinese app copy. Foreign locales are ignored. The overlay is
+   *  attributed to this plugin and removed when it unloads. */
   registerAppLocale: (id: string, registration: AppLocaleRegistration) => () => void
 }
 
@@ -86,7 +71,7 @@ export function registerPluginLocales(pluginId: string, bundles: PluginLocaleBun
   registry.set(pluginId, byLocale)
 
   for (const [locale, messages] of Object.entries(bundles) as [Locale, PluginMessages | undefined][]) {
-    if (!messages) {
+    if (locale !== 'zh' || !messages) {
       continue
     }
 
@@ -102,8 +87,8 @@ export function registerPluginLocales(pluginId: string, bundles: PluginLocaleBun
   }
 }
 
-export function translatePlugin(pluginId: string, locale: Locale, key: string, args: unknown[]): string {
-  return translateFrom(l => registry.get(pluginId)?.get(l), locale, key, args)
+export function translatePlugin(pluginId: string, _locale: Locale, key: string, args: unknown[]): string {
+  return translateFrom(l => registry.get(pluginId)?.get(l), DEFAULT_LOCALE, key, args)
 }
 
 /** Build the `ctx.i18n` door for a plugin. `track` records the disposer so the

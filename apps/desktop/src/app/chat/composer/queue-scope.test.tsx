@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 
 import type { ClientSessionState } from '@/app/types'
 import { I18nProvider } from '@/i18n/context'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { mainComposerScope } from '@/store/composer'
 import { $queuedPromptsBySession, enqueueQueuedPrompt } from '@/store/composer-queue'
 import { $sessionStates } from '@/store/session-states'
@@ -39,7 +39,7 @@ function Harness({ queueSessionKey }: { queueSessionKey: null | string }) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <MemoryRouter>
-        <I18nProvider configClient={null} initialLocale="en">
+        <I18nProvider>
           <ChatBar
             busy
             disabled={false}

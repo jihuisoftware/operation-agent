@@ -1,7 +1,7 @@
 import { JsonRpcGatewayError } from '@hermes/shared'
 import { beforeEach, expect, test, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 
 import { $notifications, clearNotifications, isDiskFullErrorMessage, notifyError } from './notifications'
 import { $backendRestartRequest, $routeRequest } from './recovery-requests'
@@ -53,7 +53,7 @@ test('ELEVENLABS_API_KEY not set toasts plain copy with an Open Keys action for 
 })
 
 test('structured storage_* error codes route to Maintenance', () => {
-  notifyError(new Error('500 {"detail":{"message":"database is locked","code":"storage_locked"}}'), 'Prompt failed')
+  notifyError(new Error('500 {"detail":{"message":"database is locked","code":"storage_locked"}}'), '提示词发送失败')
 
   $notifications.get()[0]?.action?.onClick()
   expect($routeRequest.get()?.path).toBe('/command-center?section=maintenance')
@@ -89,10 +89,10 @@ test('notifyError posts the full error to desktop.log, not the summary', () => {
     const error = new Error('sqlite3.OperationalError: database is locked')
     error.stack = 'Error: sqlite3.OperationalError: database is locked\n    at saveSession (session.ts:12)'
 
-    notifyError(error, 'Prompt failed')
+    notifyError(error, '提示词发送失败')
 
     expect(logLine).toHaveBeenCalledTimes(1)
-    expect(logLine.mock.calls[0][0]).toContain('Prompt failed')
+    expect(logLine.mock.calls[0][0]).toContain('提示词发送失败')
     expect(logLine.mock.calls[0][0]).toContain('database is locked')
     expect(logLine.mock.calls[0][0]).toContain('session.ts:12')
   } finally {
@@ -119,7 +119,7 @@ test.each(['missing', 'closed'] as const)(
     )
 
     try {
-      const id: string = notifyError(new Error('database is locked'), 'Prompt failed')
+      const id: string = notifyError(new Error('database is locked'), '提示词发送失败')
 
       expect($notifications.get()[0]).toMatchObject({ id, kind: 'error', message: 'database is locked' })
     } finally {
@@ -133,7 +133,7 @@ test('code-skew 503 unwraps to a restart-required summary, not raw IPC JSON', ()
     new Error(
       'Error invoking remote method \'hermes:api\': Error: 503: {"detail":"Restart required: This process is running code from 08b4875f4a but the checkout on disk is now 48d2528066."}'
     ),
-    'Could not load models'
+    '无法加载模型'
   )
 
   expect(lastMessage()).not.toMatch(/hermes:api|systemctl|backend/i)
@@ -194,10 +194,7 @@ test('an unrelated invalid_params keeps the generic toast', () => {
   expect(lastMessage()).toBe('invalid_params')
 
   clearNotifications()
-  notifyError(
-    new JsonRpcGatewayError('invalid_params', { code: 4001, data: { reason: 'invalid_params' } }),
-    'Edit failed'
-  )
+  notifyError(new JsonRpcGatewayError('invalid_params', { code: 4001, data: { reason: 'invalid_params' } }), '编辑失败')
   expect(lastMessage()).toBe('invalid_params')
 })
 

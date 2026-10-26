@@ -38,7 +38,6 @@ DEFAULT = {
     "e2e": True,
     "e2e_upgrade": True,
     "e2e_desktop_core": True,
-    "e2e_desktop_update": True,
     "site": True,
     "scan": True,
     "deps": True,
@@ -51,10 +50,10 @@ DEFAULT = {
     "catalog": True,
 }
 
-SLOW_LANES = {"docker", "nix", "e2e", "e2e_upgrade", "e2e_desktop_core", "e2e_desktop_update"}
+SLOW_LANES = {"docker", "nix", "e2e", "e2e_upgrade", "e2e_desktop_core"}
 
 
-def _lanes(python=False, frontend=False, site=False, scan=False, deps=False, uv_lock=False, npm_lock=False, bootstrap=False, desktop_updater=False, rust=False, docker_meta=False, python_prod=None, nix=False, docker=None, e2e=False, e2e_upgrade=False, e2e_desktop_core=False, e2e_desktop_update=False, remote_backends=False, catalog=False) -> dict[str, bool]:
+def _lanes(python=False, frontend=False, site=False, scan=False, deps=False, uv_lock=False, npm_lock=False, bootstrap=False, desktop_updater=False, rust=False, docker_meta=False, python_prod=None, nix=False, docker=None, e2e=False, e2e_upgrade=False, e2e_desktop_core=False, remote_backends=False, catalog=False) -> dict[str, bool]:
     # python_prod tracks python except for tests-only diffs; default it to
     # python so the majority of cases don't need to spell it out.
     #
@@ -71,7 +70,6 @@ def _lanes(python=False, frontend=False, site=False, scan=False, deps=False, uv_
         "e2e": e2e,
         "e2e_upgrade": e2e_upgrade,
         "e2e_desktop_core": e2e_desktop_core,
-        "e2e_desktop_update": e2e_desktop_update,
         "frontend": frontend,
         "docker_meta": docker_meta,
         "site": site,
@@ -92,7 +90,7 @@ CASES = {
     # through the same compilers (tests/ci/test_update_ci_routing.py).
     "shared JS builder → frontend + both update suites": (
         ["scripts/build/web.mjs"],
-        _lanes(python=True, frontend=True, e2e_upgrade=True, e2e_desktop_update=True),
+        _lanes(python=True, frontend=True, e2e_upgrade=True),
     ),
     "root JS tests → frontend": (["tests-js/product-builders.test.mjs"], _lanes(python=True, frontend=True)),
     "docs-only → nothing heavy": (["README.md", "docs/guide.md"], _lanes()),
@@ -189,13 +187,13 @@ CASES = {
     # the install + update journey, so it starts e2e_upgrade as well.
     "windows.ps1 → desktop_updater": (
         ["scripts/desktop-update/windows.ps1"],
-        _lanes(python=True, desktop_updater=True, e2e_upgrade=True, e2e_desktop_update=True),
+        _lanes(python=True, desktop_updater=True, e2e_upgrade=True),
     ),
     # The shipped updater page is exercised by the desktop Electron suite;
     # a page-only change must run that suite as well as the server tests.
     "updater ui.html → frontend + desktop_updater": (
         ["scripts/desktop-update/ui.html"],
-        _lanes(python=True, frontend=True, desktop_updater=True, e2e_upgrade=True, e2e_desktop_update=True),
+        _lanes(python=True, frontend=True, desktop_updater=True, e2e_upgrade=True),
     ),
     "desktop-update test → desktop_updater": (
         ["tests/scripts/desktop_update/test_desktop_update_windows_progress.py"],
@@ -203,7 +201,7 @@ CASES = {
     ),
     "updater-process.ts → desktop_updater": (
         ["apps/desktop/electron/updater-process.ts"],
-        _lanes(frontend=True, desktop_updater=True, e2e_desktop_update=True),
+        _lanes(frontend=True, desktop_updater=True),
     ),
     "python source alone → no desktop_updater lane": (["gateway/run.py"], _lanes(python=True, scan=True)),
     # `.rs` lives under apps/, so it matches `frontend` too. That lane builds
@@ -303,7 +301,7 @@ CASES = {
     # and the Tauri app's non-Rust sources.
     "install.sh → bootstrap lane": (
         ["scripts/install.sh"],
-        _lanes(python=True, bootstrap=True, python_prod=True, e2e_upgrade=True, e2e_desktop_update=True),
+        _lanes(python=True, bootstrap=True, python_prod=True, e2e_upgrade=True),
     ),
     "setup-hermes.sh → bootstrap lane": (
         ["setup-hermes.sh"],
@@ -354,27 +352,27 @@ CASES = {
     ),
     "updater → e2e_upgrade + desktop update": (
         ["hermes_cli/update_cmd_git.py"],
-        _lanes(python=True, scan=True, e2e_upgrade=True, e2e_desktop_update=True),
+        _lanes(python=True, scan=True, e2e_upgrade=True),
     ),
     "PM → e2e_upgrade + docker": (["pm/environments.py"], _lanes(python=True, scan=True, e2e_upgrade=True, docker=True)),
     # The update pipeline lives beyond the update_* family too: the entry
     # point, launch-time recovery, the gateway restart/pause surface.
     # main.py is also `hermes desktop --build-only`, the update's Desktop rebuild.
     "cmd_update entry → both update suites": (
-        ["hermes_cli/main.py"], _lanes(python=True, scan=True, e2e_upgrade=True, e2e_desktop_update=True),
+        ["hermes_cli/main.py"], _lanes(python=True, scan=True, e2e_upgrade=True),
     ),
     "gateway status stamp → e2e_upgrade": (["gateway/status.py"], _lanes(python=True, scan=True, e2e_upgrade=True)),
     "desktop verify → desktop_updater + both update suites": (
         ["hermes_cli/desktop_update_verify.py"],
-        _lanes(python=True, scan=True, desktop_updater=True, e2e_upgrade=True, e2e_desktop_update=True),
+        _lanes(python=True, scan=True, desktop_updater=True, e2e_upgrade=True),
     ),
     "electron main → desktop update": (
         ["apps/desktop/electron/main.ts"],
-        _lanes(frontend=True, e2e_desktop_update=True),
+        _lanes(frontend=True),
     ),
     "handoff result reader → desktop_updater + desktop update": (
         ["apps/desktop/electron/handoff-result.ts"],
-        _lanes(frontend=True, desktop_updater=True, e2e_desktop_update=True),
+        _lanes(frontend=True, desktop_updater=True),
     ),
     "desktop backend spawn → desktop core": (
         ["apps/desktop/electron/backend-child.ts"],
@@ -398,12 +396,12 @@ CASES = {
     ),
     "desktop update spec → desktop update, not core": (
         ["apps/desktop/e2e/update/app-update.spec.ts"],
-        _lanes(frontend=True, e2e_desktop_update=True),
+        _lanes(frontend=True),
     ),
     # The update suite runs on the core suite's harness.
     "desktop core harness → both desktop suites": (
         ["apps/desktop/e2e/core/harness.ts"],
-        _lanes(frontend=True, e2e_desktop_core=True, e2e_desktop_update=True),
+        _lanes(frontend=True, e2e_desktop_core=True),
     ),
     "image tests → docker": (
         ["tests/docker/test_image_smoke.py"],
@@ -503,21 +501,6 @@ _UPDATE_PATH_FILES = (
     "scripts/desktop-update/windows.ps1",
     "scripts/desktop-update/posix.sh",
 )
-_DESKTOP_UPDATE_PATH_FILES = (
-    "apps/desktop/electron/main.ts",
-    "apps/desktop/electron/update-marker.ts",
-    "apps/desktop/electron/update-gate.ts",
-    "apps/desktop/electron/updater-process.ts",
-    "apps/desktop/electron/updater/checkout.ts",
-    "apps/desktop/electron/handoff-result.ts",
-    "apps/desktop/electron/desktop-installation.ts",
-    "apps/desktop/electron/backend-discovery.ts",
-    "apps/desktop/electron/local-gateway.ts",
-    "scripts/desktop-update/windows.ps1",
-    "scripts/desktop-update/posix.sh",
-    "hermes_cli/desktop_update_verify.py",
-    "hermes_cli/main_desktop.py",
-)
 
 
 @pytest.mark.parametrize("path", _UPDATE_PATH_FILES)
@@ -526,10 +509,6 @@ def test_every_update_path_file_starts_the_real_update_suite(path):
     assert classify([path])["e2e_upgrade"], path
 
 
-@pytest.mark.parametrize("path", _DESKTOP_UPDATE_PATH_FILES)
-def test_every_desktop_update_path_file_starts_the_desktop_update_suite(path):
-    assert (_REPO / path).is_file(), f"{path} moved: update the classifier and this table"
-    assert classify([path])["e2e_desktop_update"], path
 
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -591,7 +570,6 @@ def _iter_if_expressions(job: object):
 _REAL_UPDATE_LANES = (
     ("ci.yaml", "tests", "tests.yml", "e2e_upgrade"),
     ("ci.yaml", "tests-os", "tests-os.yml", "e2e_upgrade"),
-    ("ci.yaml", "e2e-desktop-update", "e2e-desktop-update.yml", "e2e_desktop_update"),
     ("tests-os.yml", "install-update-e2e", "windows-install-update-e2e.yml", "e2e_upgrade"),
     # Not an update suite, but the same contract: the real SSH/Docker backend lane.
     ("ci.yaml", "remote-backends", "remote-backends.yml", "remote_backends"),

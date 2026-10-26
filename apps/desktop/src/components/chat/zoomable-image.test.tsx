@@ -14,7 +14,7 @@ async function renderImage() {
   let result!: ReturnType<typeof render>
   await act(async () => {
     result = render(
-      <I18nProvider configClient={{ getConfig: async () => ({}), saveConfig: async () => ({ ok: true }) }}>
+      <I18nProvider>
         <ZoomableImage alt={ALT} src={SRC} />
       </I18nProvider>
     )
@@ -105,9 +105,9 @@ describe('ZoomableImage lightbox', () => {
     await renderImage()
     await openLightbox()
 
-    const zoomIn = screen.getByRole('button', { name: /zoom in/i })
-    const reset = screen.getByRole('button', { name: /reset/i })
-    const zoomOut = screen.getByRole('button', { name: /zoom out/i })
+    const zoomIn = screen.getByRole('button', { name: /放大/ })
+    const reset = screen.getByRole('button', { name: /重置/ })
+    const zoomOut = screen.getByRole('button', { name: /缩小/ })
 
     await act(async () => {
       fireEvent.click(zoomIn)
@@ -132,7 +132,7 @@ describe('ZoomableImage lightbox', () => {
     const img = lightboxImg()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /zoom in/i }))
+      fireEvent.click(screen.getByRole('button', { name: /放大/ }))
     })
     expect(scaleOf(img)).toBeCloseTo(1.25, 5)
 
@@ -198,7 +198,7 @@ describe('ZoomableImage lightbox', () => {
 
     // Zoom in so panning engages (pan only applies above scale 1).
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /zoom in/i }))
+      fireEvent.click(screen.getByRole('button', { name: /放大/ }))
     })
     expect(scaleOf(img)).toBeCloseTo(1.25, 5)
 
@@ -232,11 +232,7 @@ describe('ZoomableImage lightbox', () => {
 async function renderWithI18n(ui: ReactNode) {
   let result: ReturnType<typeof render>
   await act(async () => {
-    result = render(
-      <I18nProvider configClient={{ getConfig: async () => ({}), saveConfig: async () => ({ ok: true }) }}>
-        {ui}
-      </I18nProvider>
-    )
+    result = render(<I18nProvider>{ui}</I18nProvider>)
   })
 
   return result!

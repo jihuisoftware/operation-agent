@@ -3,12 +3,14 @@
 #
 #   scripts/build-bundle.sh [--variant bundled|light] [-- <electron-builder args>]
 #
-# macOS gets a DMG and ZIP, Linux an AppImage, in apps/desktop/release/.
+# macOS gets a DMG and ZIP in apps/desktop/release/.
 # The commit does not need to be pushed. The build is not notarized, and the
 # release signing variables in your shell are ignored. macOS can still sign
 # nested binaries with a Developer ID that it finds in your keychain.
-# This build targets macOS and Linux.
+# This build targets macOS.
 set -euo pipefail
+
+[ "$(uname -s)" = Darwin ] || { echo "此项目仅支持 macOS。" >&2; exit 1; }
 
 variant=bundled
 while [ $# -gt 0 ]; do

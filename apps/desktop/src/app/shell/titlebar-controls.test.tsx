@@ -26,7 +26,7 @@ function NavigateProbe() {
 function renderControls(pathname: string, props?: { leftTools?: TitlebarTool[]; tools?: TitlebarTool[] }) {
   return render(
     <MemoryRouter initialEntries={[pathname]}>
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <NavigateProbe />
         <TitlebarControls leftTools={props?.leftTools} onOpenSettings={() => {}} tools={props?.tools} />
       </I18nProvider>
@@ -34,8 +34,8 @@ function renderControls(pathname: string, props?: { leftTools?: TitlebarTool[]; 
   )
 }
 
-const windowControls = () => screen.queryByLabelText('Window controls')
-const appControls = () => screen.queryByLabelText('App controls')
+const windowControls = () => screen.queryByLabelText('窗口控件')
+const appControls = () => screen.queryByLabelText('应用控件')
 const pluginChrome = () => screen.queryByText('plugin-chrome')
 const pluginTool = () => screen.queryByLabelText('plugin tool')
 
@@ -197,12 +197,12 @@ describe('titlebar app-action cluster', () => {
     setTitlebarAppActionsSide('left')
     renderControls('/')
 
-    const left = screen.getByLabelText('Window controls')
-    const right = screen.getByLabelText('App controls')
+    const left = screen.getByLabelText('窗口控件')
+    const right = screen.getByLabelText('应用控件')
 
-    expect(within(left).getByLabelText('Open settings')).toBeTruthy()
-    expect(within(left).getByLabelText('Layout editor')).toBeTruthy()
-    expect(within(left).getByLabelText('HUD mode')).toBeTruthy()
-    expect(within(right).queryByLabelText('Open settings')).toBeNull()
+    expect(within(left).getByLabelText('打开设置')).toBeTruthy()
+    expect(within(left).getByLabelText('布局编辑器')).toBeTruthy()
+    expect(within(left).getByLabelText('HUD 模式')).toBeTruthy()
+    expect(within(right).queryByLabelText('打开设置')).toBeNull()
   })
 })

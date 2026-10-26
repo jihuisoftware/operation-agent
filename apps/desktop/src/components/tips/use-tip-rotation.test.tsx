@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $localModelsEnabled } from '@/store/local-models-flag'
 import { markOnboardingDecided } from '@/store/onboarding-presence'
 import { $awaitingResponse, $busy, $connection } from '@/store/session'
@@ -70,7 +70,7 @@ it('offers the update at the first quiet moment despite tutorial settling and co
   await act(async () => {
     await vi.advanceTimersByTimeAsync(2_000)
   })
-  expect($activeTip.get()?.action?.label).toBe('Update now')
+  expect($activeTip.get()?.action?.label).toBe('立即更新')
   expect(api.mock.calls.some(([request]) => 'method' in request && request.method === 'POST')).toBe(false)
 })
 
@@ -99,7 +99,7 @@ it('retries a transient startup failure within a few seconds', async () => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(8_000)
   })
-  expect($activeTip.get()?.action?.label).toBe('Update now')
+  expect($activeTip.get()?.action?.label).toBe('立即更新')
 })
 
 it('waits for an active response and typing to stop', async () => {
@@ -120,7 +120,7 @@ it('waits for an active response and typing to stop', async () => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(2_000)
   })
-  expect($activeTip.get()?.action?.label).toBe('Update now')
+  expect($activeTip.get()?.action?.label).toBe('立即更新')
 })
 
 it('waits for a focused chat with no menu open', async () => {
@@ -141,7 +141,7 @@ it('waits for a focused chat with no menu open', async () => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(2_000)
   })
-  expect($activeTip.get()?.action?.label).toBe('Update now')
+  expect($activeTip.get()?.action?.label).toBe('立即更新')
 })
 
 it('does not consume the update before the model pill is visible', async () => {
@@ -156,7 +156,7 @@ it('does not consume the update before the model pill is visible', async () => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(2_000)
   })
-  expect($activeTip.get()?.action?.label).toBe('Update now')
+  expect($activeTip.get()?.action?.label).toBe('立即更新')
 })
 
 it.each(['flag-off', 'tips-off', 'remote'])('does not read or offer when %s', async guard => {

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
 
 import { I18nProvider, TRANSLATIONS, useI18n } from '@/i18n'
@@ -28,13 +28,13 @@ afterEach(() => {
   resetSidebarView()
 })
 
-it('translates the live filter menu while preserving selected values and the current grouping order', async () => {
+it('renders the Chinese filter menu while preserving selected values and the current grouping order', async () => {
   $interfaceMode.set('advanced')
   setSidebarGrouping('date')
   setSidebarOrdering('manual')
   $sidebarListGroupIds.set(['today'])
   render(
-    <I18nProvider configClient={null} initialLocale="zh">
+    <I18nProvider>
       <Menu />
     </I18nProvider>
   )
@@ -48,14 +48,7 @@ it('translates the live filter menu while preserving selected values and the cur
   fireEvent.keyDown(screen.getByRole('menuitem', { name: zh.status }), { key: 'ArrowRight' })
   fireEvent.click(screen.getByRole('menuitemcheckbox', { name: zh.needsInput }))
   expect($sidebarStatusFilter.get()).toContain('needs-input')
-  await act(() => i18n.setLocale('en'))
-  const en = TRANSLATIONS.en.sidebar.filter
-  expect(screen.getByText(TRANSLATIONS.en.sidebar.profileRail)).toBeTruthy()
-  expect(screen.getByText(TRANSLATIONS.en.sidebar.markAllRead)).toBeTruthy()
-  expect(screen.queryByText(TRANSLATIONS.zh.sidebar.profileRail)).toBeNull()
-  expect(screen.queryByText(TRANSLATIONS.zh.sidebar.markAllRead)).toBeNull()
-  fireEvent.keyDown(screen.getByRole('menuitem', { name: en.status }), { key: 'ArrowRight' })
-  expect(screen.getByRole('menuitemcheckbox', { name: en.needsInput }).getAttribute('aria-checked')).toBe('true')
-  expect(screen.queryByRole('menuitemcheckbox', { name: zh.needsInput })).toBeNull()
+  fireEvent.keyDown(screen.getByRole('menuitem', { name: zh.status }), { key: 'ArrowRight' })
+  expect(screen.getByRole('menuitemcheckbox', { name: zh.needsInput }).getAttribute('aria-checked')).toBe('true')
   expect($sidebarOrdering.get()).toBe('manual')
 })

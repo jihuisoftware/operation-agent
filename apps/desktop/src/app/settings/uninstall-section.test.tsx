@@ -65,9 +65,9 @@ it.each(['missing-policy', 'probe-failed', 'loading'] as const)(
       render(<UninstallSection />)
     })
     expect(getSummary).toHaveBeenCalledOnce()
-    expect(screen.queryByText('Uninstall Hermes')).toBeNull()
-    expect(screen.queryByRole('button', { name: /Uninstall/ })).toBeNull()
-    expect(screen.queryByText('Danger zone')).toBeNull()
+    expect(screen.queryByText('卸载 Hermes')).toBeNull()
+    expect(screen.queryByRole('button', { name: /卸载/ })).toBeNull()
+    expect(screen.queryByText('危险操作')).toBeNull()
     expect(run).not.toHaveBeenCalled()
   }
 )
@@ -78,9 +78,9 @@ it('keeps owned-install removal modes and confirms the selected mode', async ():
     uninstall: { summary: async (): Promise<DesktopUninstallSummary> => summary(true), run }
   })
   render(<UninstallSection />)
-  fireEvent.click(await screen.findByRole('button', { name: /Uninstall Chat GUI only/ }))
+  fireEvent.click(await screen.findByRole('button', { name: /仅卸载聊天图形界面/ }))
   expect(run).not.toHaveBeenCalled()
-  fireEvent.click(screen.getByRole('button', { name: 'Yes, uninstall' }))
+  fireEvent.click(screen.getByRole('button', { name: '是，卸载' }))
   await waitFor((): void => {
     expect(run).toHaveBeenCalledWith('gui')
   })
@@ -94,7 +94,7 @@ it.each(['gui', 'lite', 'full'] as const)(
       uninstall: { summary: async (): Promise<DesktopUninstallSummary> => summary(true), run }
     })
     render(
-      <I18nProvider configClient={null} initialLocale="zh">
+      <I18nProvider>
         <Surface />
       </I18nProvider>
     )
@@ -103,10 +103,7 @@ it.each(['gui', 'lite', 'full'] as const)(
     fireEvent.click(screen.getByRole('button', { name: new RegExp(zh.options[mode].title) }))
     expect(screen.getByText(zh.confirmBody(zh.options[mode].consequence))).toBeTruthy()
     expect(run).not.toHaveBeenCalled()
-    await act((): Promise<void> => i18n.setLocale('en'))
-    const en: (typeof TRANSLATIONS)['en']['settings']['uninstallSection'] = TRANSLATIONS.en.settings.uninstallSection
-    expect(screen.getByText(en.confirmBody(en.options[mode].consequence))).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: en.yesUninstall }))
+    fireEvent.click(screen.getByRole('button', { name: zh.yesUninstall }))
     expect(run).toHaveBeenCalledWith(mode)
   }
 )
@@ -129,8 +126,8 @@ it('shows native removal steps, data location, and Apps settings on a managed Wi
   render(<UninstallSection />)
   expect(await screen.findByText(/Installed apps/)).toBeTruthy()
   expect(screen.getByText(/\/test\/home/)).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'Open Apps settings' }))
+  fireEvent.click(screen.getByRole('button', { name: '打开系统应用设置' }))
   expect(openAppsSettings).toHaveBeenCalledOnce()
   expect(run).not.toHaveBeenCalled()
-  expect(screen.queryByRole('button', { name: /Uninstall/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: /卸载/ })).toBeNull()
 })

@@ -3,7 +3,7 @@ import { useRef } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { PRIMARY_SESSION_VIEW } from '@/app/chat/session-view'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { chatMessageText, textPart } from '@/lib/chat-messages'
 import {
   $connection,

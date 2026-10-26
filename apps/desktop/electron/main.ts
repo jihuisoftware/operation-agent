@@ -728,6 +728,8 @@ if (USER_DATA_OVERRIDE || process.env.HERMES_DATA_DIR_SUFFIX) {
 
 const DEV_SERVER = process.env.HERMES_DESKTOP_DEV_SERVER
 const IS_PACKAGED = app.isPackaged || Boolean(process.env.HERMES_DESKTOP_IS_PACKAGED)
+app.commandLine.appendSwitch('lang', 'zh-CN')
+
 const IS_MAC = process.platform === 'darwin'
 const IS_WINDOWS = process.platform === 'win32'
 const IS_WSL = isWslEnvironment()
@@ -840,22 +842,6 @@ if (DEV_CDP.port) {
   if (why) {
     console.warn(`[hermes] ${why}`)
   }
-}
-
-// WSLg: Chromium blocklists the Mesa vGPU → software compositing → typing lag.
-// /dev/dxg means a real GPU is available; un-blocklist it. Skipped when a remote
-// display already forced software (SSH'd-into-WSL), and on Wayland ozone: WSL has
-// no DRM render node, so forced GPU compositing segfaults the GPU process there.
-if (
-  IS_WSL &&
-  !REMOTE_DISPLAY_REASON &&
-  fs.existsSync('/dev/dxg') &&
-  linuxOzoneBackend(process.env, process.argv) !== 'wayland'
-) {
-  app.commandLine.appendSwitch('ignore-gpu-blocklist')
-  app.commandLine.appendSwitch('enable-gpu-rasterization')
-  app.commandLine.appendSwitch('enable-zero-copy')
-  console.log('[hermes] WSL GPU passthrough (/dev/dxg) detected; enabling GPU acceleration')
 }
 
 // #40077 / #124255: NVIDIA driver 580.x breaks ANGLE's EGL probing (Invalid

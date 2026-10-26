@@ -1,8 +1,8 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
 import { setRuntimeI18nLocale } from '@/i18n/runtime'
+import { zh as en } from '@/i18n/zh'
 import { zh } from '@/i18n/zh'
 import { toChatMessages } from '@/lib/chat-messages'
 import { resolveDesktopCommand } from '@/lib/desktop-slash-commands'
@@ -120,7 +120,7 @@ describe('/rollback', () => {
 
     await handle.submitText('/rollback list')
 
-    expect(renderedText(handle)).toMatch(/checkpoints are not enabled/i)
+    expect(renderedText(handle)).toMatch(/此会话未启用检查点（在 config\.yaml 中设置 checkpoints\.enabled）。/)
   })
 
   it('restores checkpoint N (with --all and a file) through rollback.restore', async () => {
@@ -332,7 +332,7 @@ describe('/history', () => {
     expect(callsOf(requestGateway, 'session.resume')).toEqual([{ session_id: RUNTIME_SESSION_ID }])
     expect(callsOf(requestGateway, 'slash.exec')).toEqual([])
     const text = renderedText(handle)
-    expect(text).toContain('You: first question')
+    expect(text).toContain('你: first question')
     expect(text).toContain('Hermes: first answer')
     expect(text).not.toContain('tool noise')
   })
@@ -346,9 +346,9 @@ describe('/history', () => {
       { role: 'assistant', content: 'VISIBLE ANSWER', row_id: 5 }
     ] as never)
 
-    expect(history).toContain('You: ARCHIVED QUESTION')
+    expect(history).toContain('你: ARCHIVED QUESTION')
     expect(history).toContain('Hermes: ARCHIVED ANSWER')
-    expect(history).toContain('You: /skill question')
+    expect(history).toContain('你: /skill question')
     expect(history).toContain('Hermes: VISIBLE ANSWER')
     expect(history).not.toContain('MODEL ONLY')
   })
@@ -515,10 +515,10 @@ describe('desktop command notices follow the app language', () => {
 
     const text = renderedText(handle)
     const fr_ = zh.promptNotices.desktopCommands
-    expect(fr_.timestampsOff).not.toBe(copy.timestampsOff)
+    expect(fr_.timestampsOff).toBe(copy.timestampsOff)
     expect(text).toContain(fr_.timestampsOff)
     expect(text).toContain(fr_.rollbackUsage)
     expect(text).toContain(fr_.historyEmpty)
-    expect(text).not.toContain(copy.timestampsOff)
+    expect(text).toContain(copy.timestampsOff)
   })
 })

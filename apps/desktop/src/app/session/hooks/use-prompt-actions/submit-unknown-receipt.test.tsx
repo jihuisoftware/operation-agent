@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { readPendingSubmissions } from '@/store/pending-submissions'
 import { $activeGatewayProfile } from '@/store/profile'

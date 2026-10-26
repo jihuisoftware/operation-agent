@@ -3,13 +3,17 @@ import { afterEach, expect, it, vi } from 'vitest'
 
 import type { HermesGateway } from '@/hermes'
 import { I18nProvider } from '@/i18n/context'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $queuedPromptsBySession, enqueueQueuedPrompt, getQueuedPrompts } from '@/store/composer-queue'
 import { reconcilePendingSubmissions } from '@/store/pending-submissions'
 
 import { renderComposerQueueSlot } from './queue-slot'
 
-afterEach(() => { cleanup(); $queuedPromptsBySession.set({}); localStorage.clear() })
+afterEach(() => {
+  cleanup()
+  $queuedPromptsBySession.set({})
+  localStorage.clear()
+})
 
 function renderSlot(
   request = vi.fn(async () => ({})),
@@ -32,17 +36,13 @@ function renderSlot(
     ...overrides
   }
 
-  render(
-    <I18nProvider configClient={{ getConfig: async () => ({}), saveConfig: async () => ({ ok: true }) }}>
-      {renderComposerQueueSlot(inputs)}
-    </I18nProvider>
-  )
+  render(<I18nProvider>{renderComposerQueueSlot(inputs)}</I18nProvider>)
 
   return inputs
 }
 
 async function expand() {
-  fireEvent.click(await screen.findByRole('button', { name: /queued/i }))
+  fireEvent.click(await screen.findByRole('button', { name: /排队/ }))
 }
 
 function rowButtons(text: string) {
@@ -66,10 +66,12 @@ it('Delete on a server-queued card cancels its admission at the authority', asyn
   const request = vi.fn(async () => ({ admission_id: 'adm-1', status: 'terminal', outcome: 'cancelled' }))
   renderSlot(request)
 
-  fireEvent.click(await screen.findByRole('button', { name: /queued/i }))
+  fireEvent.click(await screen.findByRole('button', { name: /排队/ }))
   fireEvent.click(screen.getByRole('button', { name: en.composer.queueDelete }))
 
-  await vi.waitFor(() => expect(request).toHaveBeenCalledWith('prompt.cancel', { session_id: 'runtime-1', admission_id: 'adm-1' }))
+  await vi.waitFor(() =>
+    expect(request).toHaveBeenCalledWith('prompt.cancel', { session_id: 'runtime-1', admission_id: 'adm-1' })
+  )
 })
 
 it('a server-queued card shows the Steer and Edit its owner serves, and never Next (RT-35)', async () => {

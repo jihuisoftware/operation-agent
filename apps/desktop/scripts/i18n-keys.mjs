@@ -3,7 +3,7 @@
 //
 // `hermes plugins validate` checks a pack's `<lang>.desktop.yaml` keys against
 // `locales/_keys.desktop.json` (repo root, committed). This script derives that
-// file from `src/i18n/en.ts` — every leaf's dotted path, sorted; function-
+// file from `src/i18n/zh.ts` — every leaf's dotted path, sorted; function-
 // valued entries are keys too (a pack overrides them with a positional
 // `{0}`/`{1}` string). Run via `npm run i18n:keys` and commit the result (`--check` verifies);
 // the build never writes it — a dirty checkout would break `hermes update`.
@@ -32,14 +32,14 @@ export function renderKeysFile(keys) {
   return `${JSON.stringify({ surface: SURFACE, keys }, null, 2)}\n`
 }
 
-/** Bundle en.ts (it imports app modules through the `@/` alias) into one ESM
+/** Bundle zh.ts (it imports app modules through the `@/` alias) into one ESM
  *  file the emitter can import in plain Node. */
-async function loadEnglishCatalog(source) {
+async function loadChineseCatalog(source) {
   const app = join(source, 'apps/desktop')
   const { build } = await import(pathToFileURL(workspaceTool(source, 'apps/desktop', 'esbuild')).href)
   const outdir = join(app, 'build/i18n-keys')
   mkdirSync(outdir, { recursive: true })
-  const outfile = join(outdir, `en-${process.pid}.mjs`)
+  const outfile = join(outdir, `zh-${process.pid}.mjs`)
   const alias = {
     '@hermes/shared/ansi': join(source, 'apps/shared/src/ansi.ts'),
     '@hermes/shared/billing': join(source, 'apps/shared/src/billing-types.ts'),
@@ -50,7 +50,7 @@ async function loadEnglishCatalog(source) {
     '@': join(app, 'src')
   }
   await build({
-    entryPoints: [join(app, 'src/i18n/en.ts')],
+    entryPoints: [join(app, 'src/i18n/zh.ts')],
     bundle: true,
     format: 'esm',
     platform: 'node',
@@ -65,7 +65,7 @@ async function loadEnglishCatalog(source) {
   })
   try {
     const mod = await import(pathToFileURL(outfile).href)
-    return mod.en
+    return mod.zh
   } finally {
     rmSync(outfile, { force: true })
   }
@@ -74,8 +74,8 @@ async function loadEnglishCatalog(source) {
 export async function emitDesktopKeys({ source = repoRoot, out, check = false } = {}) {
   source = resolve(source)
   out = resolve(out ?? join(source, 'locales', `_keys.${SURFACE}.json`))
-  const en = await loadEnglishCatalog(source)
-  const rendered = renderKeysFile(flattenKeys(en))
+  const zh = await loadChineseCatalog(source)
+  const rendered = renderKeysFile(flattenKeys(zh))
   if (check) {
     let current = ''
     try {
@@ -84,7 +84,7 @@ export async function emitDesktopKeys({ source = repoRoot, out, check = false } 
       // A missing file is drift too.
     }
     if (current !== rendered) {
-      throw new Error(`${out} is out of date with src/i18n/en.ts — run \`npm run i18n:keys\` in apps/desktop and commit it`)
+      throw new Error(`${out} is out of date with src/i18n/zh.ts — run \`npm run i18n:keys\` in apps/desktop and commit it`)
     }
     return out
   }

@@ -1,4 +1,6 @@
-# Building the Desktop Installers
+# Building the macOS Desktop Installers
+
+This operations build supports macOS (Apple Silicon and Intel) and Simplified Chinese only.
 
 Use the complete bundle builder for release artifacts. Ordinary `dist:*`
 commands package the current desktop build; they do not stage a fresh runtime.
@@ -8,10 +10,9 @@ commands package the current desktop build; they do not stage a fresh runtime.
 | Target | Artifact | Update owner |
 |---|---|---|
 | macOS ARM64 / x64 | Signed, notarized `Hermes.app` in DMG and ZIP artifacts | `electron-updater` with Squirrel.Mac |
-| Linux x64 / ARM64 | Local builder can produce AppImage | External replacement; Linux desktop release legs are disabled |
 
 `bundled` carries the local runtime. `light` is a remote client without Python
-or a local agent. Windows packaging and signing are retired in this checkout.
+or a local agent. Only macOS Desktop packages are built.
 
 ## Payload contents
 
@@ -34,7 +35,7 @@ venv executable. Startup can create user-state records and CLI links.
 Provider calls, model downloads, and optional integration setup can still use
 the network.
 
-macOS and Ubuntu use system Git. A Mac without Command Line Tools can therefore
+macOS uses system Git. A Mac without Command Line Tools can therefore
 need them for Git-dependent operations.
 
 User data remains outside the package. Optional additions use writable PM
@@ -64,7 +65,7 @@ Do not refresh facts in `afterSign`: that changes resources covered by the signa
 To build the commit you have checked out, without a tag and without pushing:
 
 ```sh
-scripts/build-bundle.sh            # macOS DMG/ZIP, Linux AppImage
+scripts/build-bundle.sh            # macOS DMG/ZIP
 ```
 
 The checkout must be clean, because the build packages `HEAD`. The script passes
@@ -179,9 +180,7 @@ and packaged JavaScript. This option affects desktop bundles, not Termux.
 The suffix is appended literally; include a leading hyphen if desired.
 `--bundle-unset NAME` explicitly clears an inherited value at app launch, even
 if the caller supplied it. Internally it sets the value to an empty string, not
-an absent key. Clearing `HERMES_HOME` also disables the Windows registry fallback:
-older installers saved that variable permanently, which otherwise takes priority
-over the test suffix. It does not edit the registry or the existing install.
+an absent key.
 For full data-path isolation, also clear `HERMES_DESKTOP_USER_DATA_DIR` if that
 machine uses an explicit Electron directory. Ordinary defaults still preserve
 runtime overrides; `--bundle-env HERMES_HOME=` is a default, not a forced clear.
@@ -277,7 +276,7 @@ npm run dev --workspace apps/desktop
 ```
 
 For an ordinary package of that desktop build, use the workspace's
-`dist:mac`, `dist:linux`, or `pack` command. Those commands do not
+`dist:mac` or `pack` command. Those commands do not
 replace the complete tagged build described above.
 
 Icons are generated from `assets/nous-girl-*.svg` and `assets/backgrounds/`.

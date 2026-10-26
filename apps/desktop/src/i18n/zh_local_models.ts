@@ -2,7 +2,7 @@ import type { TranslationOverride } from '@hermes/shared/i18n'
 
 import type { Translations } from './types'
 
-export const zhLocalModels: TranslationOverride<Translations['settings']['localModels']> = {
+export const zhLocalModels = {
   connectionChanged: '本地模型连接已更改',
   title: '本地模型',
   runtimeTitle: '本地运行时',
@@ -116,4 +116,4 @@ export const zhLocalModels: TranslationOverride<Translations['settings']['localM
   deleteConfirm: model => `从磁盘删除 ${model}？`,
   deleted: model => `已删除 ${model}。`,
   deleteFailed: '删除失败'
-}
+} satisfies TranslationOverride<Translations['settings']['localModels']>

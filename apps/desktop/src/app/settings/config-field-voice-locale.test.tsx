@@ -14,7 +14,7 @@ it('renders the translated Echo Transcripts copy without changing its toggle val
     const t = TRANSLATIONS[locale]
 
     const { unmount } = render(
-      <I18nProvider configClient={null} initialLocale={locale}>
+      <I18nProvider>
         <ConfigField onChange={onChange} schema={{ type: 'boolean' }} schemaKey="stt.echo_transcripts" value={false} />
       </I18nProvider>
     )

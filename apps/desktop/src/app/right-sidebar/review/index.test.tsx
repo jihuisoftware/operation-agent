@@ -27,7 +27,7 @@ beforeAll(() => {
 
 function renderPane() {
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <ReviewPane />
     </I18nProvider>
   )
@@ -54,8 +54,8 @@ describe('ReviewPane header gating', () => {
   it('enables stage-all / revert-all under the uncommitted scope', () => {
     renderPane()
 
-    expect((screen.getByLabelText('Stage all') as HTMLButtonElement).disabled).toBe(false)
-    expect((screen.getByLabelText('Revert all') as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByLabelText('全部暂存') as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByLabelText('全部还原') as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('disables stage-all / revert-all under the branch scope (read-only)', () => {
@@ -63,17 +63,17 @@ describe('ReviewPane header gating', () => {
 
     renderPane()
 
-    expect((screen.getByLabelText('Stage all') as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByLabelText('Revert all') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByLabelText('全部暂存') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByLabelText('全部还原') as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('renders the three scope tabs and switches scope on selection', () => {
     renderPane()
 
-    expect(screen.getByRole('button', { name: 'Uncommitted', pressed: true })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Last turn', pressed: false })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '未提交', pressed: true })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '上一轮', pressed: false })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Branch', pressed: false }))
+    fireEvent.click(screen.getByRole('button', { name: '分支', pressed: false }))
 
     expect($reviewScope.get()).toBe('branch')
   })
@@ -82,9 +82,9 @@ describe('ReviewPane header gating', () => {
     $reviewScope.set('lastTurn')
     renderPane()
 
-    const trigger = screen.getByRole('button', { name: 'Last turn', expanded: false })
+    const trigger = screen.getByRole('button', { name: '上一轮', expanded: false })
     fireEvent.keyDown(trigger, { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Uncommitted' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '未提交' }))
 
     expect($reviewScope.get()).toBe('uncommitted')
   })

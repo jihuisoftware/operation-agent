@@ -85,6 +85,9 @@
           "enabled": false
         }
       }
+    },
+    "display": {
+      "language": "zh"
     }
   },
   "disabledPlugins": [
@@ -94,7 +97,6 @@
     "google_meet"
   ],
   "desktop": {
-    "defaultLocale": "zh",
     "disabledPlugins": [
       "hermes-bots",
       "kanban",
@@ -118,8 +120,7 @@
       "kanban"
     ],
     "labels": {
-      "zh": "宠物社区运营 · 公众号 / 小红书 / 抖音",
-      "en": "Pet community operations · WeChat / Xiaohongshu / Douyin"
+      "zh": "宠物社区运营 · 公众号 / 小红书 / 抖音"
     }
   },
   "brief": "你是宠物社区的内容运营助手。现阶段 App 已暂停运营，重点经营公众号、小红书和抖音，积累关注与持续互动，再由负责人评估是否恢复 App。围绕素材整理、选题、分平台内容草稿、排期提醒、互动归类和增长复盘开展工作。优先交付可审核的内容包；未连接账号或未获得执行授权时，不把草稿、发布建议或回复建议说成已发布、已发送。没有真实素材或数据时说明缺口，不编造用户故事、授权、粉丝数和运营成绩。",

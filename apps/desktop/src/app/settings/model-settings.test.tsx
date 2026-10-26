@@ -140,11 +140,11 @@ describe('ModelSettings', () => {
   it('labels the main provider, model and default controls independently', async () => {
     renderModelSettings()
 
-    expect(await screen.findByRole('combobox', { name: 'Provider' })).toBeTruthy()
-    expect(screen.getByRole('combobox', { name: 'Model' })).toBeTruthy()
-    expect(await screen.findByRole('combobox', { name: 'Reasoning' })).toBeTruthy()
-    expect(screen.getByText('Provider', { exact: true })).toBeTruthy()
-    expect(screen.getByText('Model', { exact: true })).toBeTruthy()
+    expect(await screen.findByRole('combobox', { name: '提供方' })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: '模型' })).toBeTruthy()
+    expect(await screen.findByRole('combobox', { name: '推理' })).toBeTruthy()
+    expect(screen.getByText('提供方', { exact: true })).toBeTruthy()
+    expect(screen.getByText('模型', { exact: true })).toBeTruthy()
     expect(setModelAssignment).not.toHaveBeenCalled()
   })
   it.each(['custom', 'local', 'custom:lab'])(
@@ -161,7 +161,7 @@ describe('ModelSettings', () => {
       expect(screen.queryByText(/undefined/)).toBeNull()
       expect(screen.queryByText(/signs in through your browser/)).toBeNull()
 
-      fireEvent.click(await screen.findByRole('button', { name: 'Set up provider' }))
+      fireEvent.click(await screen.findByRole('button', { name: '设置 提供方' }))
 
       expect(startManualLocalEndpoint).toHaveBeenCalledOnce()
       expect(startManualLocalEndpoint).toHaveBeenCalledWith(null, 'leverage-ai')
@@ -176,7 +176,7 @@ describe('ModelSettings', () => {
 
     renderModelSettings('leverage-ai')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Set up provider' }))
+    fireEvent.click(await screen.findByRole('button', { name: '设置 提供方' }))
 
     expect(startManualOnboarding).toHaveBeenCalledOnce()
     expect(startManualOnboarding).toHaveBeenCalledWith(undefined, 'leverage-ai')
@@ -200,7 +200,7 @@ describe('ModelSettings', () => {
 
     renderModelSettings('leverage-ai')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Set up Anthropic' }))
+    fireEvent.click(await screen.findByRole('button', { name: '设置 Anthropic' }))
 
     expect(startManualProviderOAuth).toHaveBeenCalledWith('anthropic', 'leverage-ai')
     expect(startManualLocalEndpoint).not.toHaveBeenCalled()
@@ -243,7 +243,7 @@ describe('ModelSettings', () => {
 
     await waitFor(() => expect(getGlobalModelInfo).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.getAllByRole('combobox')[0].textContent).toContain('Nous'))
-    expect(screen.queryByRole('button', { name: 'Set up provider' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '设置 提供方' })).toBeNull()
   })
 
   it('preserves a user-defined provider endpoint when applying the main model', async () => {
@@ -282,7 +282,7 @@ describe('ModelSettings', () => {
     fireEvent.click(modelSelect)
     fireEvent.click(await screen.findByRole('option', { name: 'qwen3:latest' }))
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+    fireEvent.click(await screen.findByRole('button', { name: '应用' }))
 
     await waitFor(() =>
       expect(setModelAssignment).toHaveBeenCalledWith({
@@ -315,9 +315,9 @@ describe('ModelSettings', () => {
     renderModelSettings()
 
     await waitFor(() => expect(screen.getAllByRole('combobox')[0].textContent).toBe('Lab'))
-    expect(screen.queryByRole('button', { name: 'Set up provider' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '设置 提供方' })).toBeNull()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+    fireEvent.click(await screen.findByRole('button', { name: '应用' }))
 
     await waitFor(() =>
       expect(setModelAssignment).toHaveBeenCalledWith({
@@ -387,7 +387,7 @@ describe('ModelSettings', () => {
     expect(pluginRow).toBeTruthy()
     expect(screen.getByText('Tab-to-grill questions and brief synthesis')).toBeTruthy()
     // Server-declared label is used for the plugin row only; built-ins keep i18n labels.
-    expect(screen.getByText('Vision')).toBeTruthy()
+    expect(screen.getByText('视觉')).toBeTruthy()
     // Built-ins render first; the plugin row is appended.
     const vision = document.getElementById('aux-task-vision')
     const grill = document.getElementById('aux-task-grill_tab')
@@ -425,9 +425,9 @@ describe('ModelSettings', () => {
     })
     await renderModelSettings()
 
-    expect(await screen.findByText('inherits Compression · openrouter · vendor/fast')).toBeTruthy()
+    expect(await screen.findByText('继承 压缩 · openrouter · vendor/fast')).toBeTruthy()
     // Only the pinned inheriting row offers the way back to its base.
-    const follow = screen.getAllByRole('button', { name: 'Follow Compression' })
+    const follow = screen.getAllByRole('button', { name: '跟随 压缩' })
     expect(follow).toHaveLength(1)
     expect(document.getElementById('aux-task-pinned_task')?.contains(follow[0])).toBe(true)
 
@@ -451,14 +451,14 @@ describe('ModelSettings', () => {
 
     renderModelSettings()
 
-    expect(screen.queryByRole('combobox', { name: 'Vision reasoning effort' })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: '视觉 推理' })).toBeNull()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Change' }))[0])
+    fireEvent.click((await screen.findAllByRole('button', { name: '更改' }))[0])
 
-    fireEvent.click(await screen.findByRole('combobox', { name: 'Vision reasoning effort' }))
-    fireEvent.click(await screen.findByRole('option', { name: 'High' }))
+    fireEvent.click(await screen.findByRole('combobox', { name: '视觉 推理' }))
+    fireEvent.click(await screen.findByRole('option', { name: '高' }))
 
-    const applyButtons = await screen.findAllByRole('button', { name: 'Apply' })
+    const applyButtons = await screen.findAllByRole('button', { name: '应用' })
     fireEvent.click(applyButtons.at(-1)!)
 
     await waitFor(() =>
@@ -476,7 +476,7 @@ describe('ModelSettings', () => {
     renderModelSettings()
 
     // One "Set to main" button per task slot; the first is Vision.
-    const setToMainButtons = await screen.findAllByRole('button', { name: 'Set to main' })
+    const setToMainButtons = await screen.findAllByRole('button', { name: '设为主模型' })
     fireEvent.click(setToMainButtons[0])
 
     await waitFor(() =>
@@ -496,7 +496,7 @@ describe('ModelSettings', () => {
 
     // Auxiliary assignments are a config-file read: they must still render
     // instead of the whole page waiting on the hung metadata probe.
-    expect((await screen.findAllByRole('button', { name: 'Set to main' })).length).toBeGreaterThan(0)
+    expect((await screen.findAllByRole('button', { name: '设为主模型' })).length).toBeGreaterThan(0)
     // The failure surfaces in the load banner rather than skeletons forever.
     await waitFor(() => expect(screen.getByText('Model metadata request timed out')).toBeTruthy())
     // The main-model selector still resolves from the config-backed auxiliary
@@ -525,7 +525,7 @@ describe('ModelSettings', () => {
 
     renderModelSettings()
 
-    const setToMainButtons = await screen.findAllByRole('button', { name: 'Set to main' })
+    const setToMainButtons = await screen.findAllByRole('button', { name: '设为主模型' })
     fireEvent.click(setToMainButtons[0])
 
     await waitFor(() =>
@@ -552,14 +552,14 @@ describe('ModelSettings', () => {
     renderModelSettings()
     await waitFor(() => expect(getGlobalModelInfo).toHaveBeenCalled())
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+    fireEvent.click(await screen.findByRole('button', { name: '应用' }))
 
     await waitFor(() =>
       expect($notifications.get()).toContainEqual(
         expect.objectContaining({
           kind: 'success',
-          title: 'Main model updated',
-          message: 'New sessions will use hermes-4.'
+          title: '主模型已更新',
+          message: '新会话将使用 hermes-4。'
         })
       )
     )
@@ -577,11 +577,11 @@ describe('ModelSettings', () => {
     renderModelSettings()
     await waitFor(() => expect(getGlobalModelInfo).toHaveBeenCalled())
 
-    const applyButton = await screen.findByRole('button', { name: 'Apply' })
+    const applyButton = await screen.findByRole('button', { name: '应用' })
     fireEvent.click(applyButton)
 
     // The switch-time notice names the pinned provider and offers a reset.
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
+    expect(await screen.findByText(/仍由/)).toBeTruthy()
     expect(screen.getByText('nous')).toBeTruthy()
   })
 
@@ -593,7 +593,7 @@ describe('ModelSettings', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <MemoryRouter>
-        <I18nProvider configClient={null} initialLocale={locale}>
+        <I18nProvider>
           <QueryClientProvider client={client}>
             <ModelSettings />
           </QueryClientProvider>
@@ -619,7 +619,7 @@ describe('ModelSettings', () => {
     renderModelSettings()
 
     // Banner present on load, no switch required.
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
+    expect(await screen.findByText(/仍由/)).toBeTruthy()
   })
 
   it('does not warn when an aux slot uses the main alias', async () => {
@@ -629,7 +629,7 @@ describe('ModelSettings', () => {
     })
 
     renderModelSettings()
-    await screen.findAllByRole('button', { name: 'Set to main' })
+    await screen.findAllByRole('button', { name: '设为主模型' })
 
     // 'main' is a backend-supported alias that tracks the active main provider
     // (auxiliary_client._normalize_aux_provider) — it can never be a stale pin. #97310
@@ -661,7 +661,7 @@ describe('ModelSettings', () => {
 
     // The public custom endpoint still bills a provider, so the banner stays —
     // but it names only that one task, not the free LAN pin.
-    expect(await screen.findByText(/1 auxiliary task \(/)).toBeTruthy()
+    expect(await screen.findByText(/1 个辅助任务/)).toBeTruthy()
     // The row shows where the pinned task actually points.
     expect(screen.getByText(/http:\/\/byron\.local:11434\/v1/)).toBeTruthy()
   })
@@ -810,16 +810,16 @@ describe('ModelSettings MoA preset editor', () => {
       const m = TRANSLATIONS[locale].settings.model
       render(
         <MemoryRouter>
-          <I18nProvider configClient={null} initialLocale={locale}>
+          <I18nProvider>
             <QueryClientProvider client={client}>
               <ModelSettings subpage="moa" />
             </QueryClientProvider>
           </I18nProvider>
         </MemoryRouter>
       )
-      expect(m.moaDescription).not.toBe(TRANSLATIONS.en.settings.model.moaDescription)
-      expect(m.moaReferenceHint).not.toBe(TRANSLATIONS.en.settings.model.moaReferenceHint)
-      expect(m.moaAggregatorBilled).not.toBe(TRANSLATIONS.en.settings.model.moaAggregatorBilled)
+      expect(m.moaDescription).toBe(TRANSLATIONS.zh.settings.model.moaDescription)
+      expect(m.moaReferenceHint).toBe(TRANSLATIONS.zh.settings.model.moaReferenceHint)
+      expect(m.moaAggregatorBilled).toBe(TRANSLATIONS.zh.settings.model.moaAggregatorBilled)
       await screen.findByText(m.moaDescription)
       expect(screen.getByText(m.moaReferenceTitle(1))).toBeTruthy()
       expect(screen.getByText(m.moaAggregator)).toBeTruthy()
@@ -843,7 +843,7 @@ describe('ModelSettings MoA preset editor', () => {
 
   async function openReferenceEditor() {
     renderModelSettings()
-    expect(await screen.findByText('Reference 1')).toBeTruthy()
+    expect(await screen.findByText('参考 1')).toBeTruthy()
   }
 
   function slotSelects() {
@@ -913,7 +913,7 @@ describe('ModelSettings MoA preset editor', () => {
     try {
       await openReferenceEditor()
 
-      fireEvent.click(screen.getByRole('switch', { name: 'Enabled' }))
+      fireEvent.click(screen.getByRole('switch', { name: '启用' }))
       await vi.advanceTimersByTimeAsync(700)
 
       expect(saveMoaModels).toHaveBeenCalledWith(
@@ -934,7 +934,7 @@ describe('ModelSettings MoA preset editor', () => {
     try {
       await openReferenceEditor()
 
-      fireEvent.click(screen.getByRole('switch', { name: 'Disable reference 1' }))
+      fireEvent.click(screen.getByRole('switch', { name: '禁用参考 1' }))
       await vi.advanceTimersByTimeAsync(700)
 
       expect(saveMoaModels).toHaveBeenCalledWith(
@@ -974,8 +974,8 @@ describe('ModelSettings stale-aux banner dismissal', () => {
 
     // First visit: the deliberate cross-provider pin surfaces the banner.
     renderModelSettings()
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
-    fireEvent.click(await screen.findByRole('button', { name: TRANSLATIONS.en.settings.model.staleAuxDismiss }))
+    expect(await screen.findByText(/仍由/)).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: TRANSLATIONS.zh.settings.model.staleAuxDismiss }))
 
     await waitFor(() => expect(screen.queryByText(/still run on/)).toBeNull())
 
@@ -990,9 +990,9 @@ describe('ModelSettings stale-aux banner dismissal', () => {
     cleanup()
     getGlobalModelInfo.mockResolvedValue({ provider: 'openrouter', model: 'hermes-4' })
     renderModelSettings()
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
+    expect(await screen.findByText(/仍由/)).toBeTruthy()
     // The dismiss affordance is offered again for the new configuration.
-    expect(screen.getByRole('button', { name: TRANSLATIONS.en.settings.model.staleAuxDismiss })).toBeTruthy()
+    expect(screen.getByRole('button', { name: TRANSLATIONS.zh.settings.model.staleAuxDismiss })).toBeTruthy()
   })
 
   it('keeps the post-switch notice undismissable — it announces a change that just happened', async () => {
@@ -1007,10 +1007,10 @@ describe('ModelSettings stale-aux banner dismissal', () => {
     renderModelSettings()
     await waitFor(() => expect(getGlobalModelInfo).toHaveBeenCalled())
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+    fireEvent.click(await screen.findByRole('button', { name: '应用' }))
 
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: TRANSLATIONS.en.settings.model.staleAuxDismiss })).toBeNull()
+    expect(await screen.findByText(/仍由/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: TRANSLATIONS.zh.settings.model.staleAuxDismiss })).toBeNull()
   })
 })
 
@@ -1029,9 +1029,9 @@ describe('ModelSettings code-skew 503', () => {
     renderModelSettings()
 
     await waitFor(() => {
-      expect(screen.getByText(/running old code after an update/i)).toBeTruthy()
+      expect(screen.getByText(/更新后此后端仍在运行旧代码。请重启以加载新代码。/)).toBeTruthy()
     })
-    expect(screen.getByRole('button', { name: 'Restart backend' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重启后端' })).toBeTruthy()
     expect(screen.queryByText(/hermes:api/)).toBeNull()
     expect(screen.queryByText(/systemctl/)).toBeNull()
   })
@@ -1046,9 +1046,9 @@ describe('ModelSettings code-skew 503', () => {
     getGlobalModelOptions.mockRejectedValueOnce(skewError)
 
     renderModelSettings()
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Restart backend' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('button', { name: '重启后端' })).toBeTruthy())
 
-    fireEvent.click(screen.getByRole('button', { name: 'Restart backend' }))
+    fireEvent.click(screen.getByRole('button', { name: '重启后端' }))
 
     await waitFor(() => expect(recycleBackend).toHaveBeenCalledWith(undefined))
     await waitFor(() => expect(getGlobalModelOptions.mock.calls.length).toBeGreaterThan(1))

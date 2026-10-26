@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $connection, $sessions } from '@/store/session'
@@ -35,8 +35,9 @@ type ClientSessionState = ReturnType<typeof createClientSessionState>
 it('a voice_stopped receipt settles the send with no turn, no error and no retained retry', async () => {
   let state: ClientSessionState = createClientSessionState()
 
-  const requestGateway = vi.fn(async (_method: string, params?: Record<string, unknown>) =>
-    ({ voice_stopped: true, session_id: 'runtime-a', submission_id: params?.submission_id }) as never
+  const requestGateway = vi.fn(
+    async (_method: string, params?: Record<string, unknown>) =>
+      ({ voice_stopped: true, session_id: 'runtime-a', submission_id: params?.submission_id }) as never
   )
 
   const deps = {

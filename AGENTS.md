@@ -9,8 +9,8 @@ and every root-to-area chain at 30k, so it loads whole on 128k+ models: long for
 
 ## Current product
 
-Pet-community operations for 公众号、小红书、抖音, using Desktop on macOS/Ubuntu.
-Chinese/English catalogs remain; Bot Mode, Kanban/Radio UI, messaging adapters and Windows
+Pet-community operations for 公众号、小红书、抖音, using Desktop on macOS only.
+Only Simplified Chinese is supported; Bot Mode, Kanban/Radio UI, messaging adapters and Windows
 packaging are retired. Keep `gateway/`, `tui_gateway/` and `hermes_cli/web_server*` for Desktop.
 Memory, skills, scheduling, delegation, terminal and browser capabilities remain.
 Extend through plugins and skills. Shared runtime compatibility stays where referenced.

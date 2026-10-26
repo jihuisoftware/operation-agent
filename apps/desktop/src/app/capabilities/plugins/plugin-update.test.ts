@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $confirmRequest, settleConfirm } from '@/store/confirm'
 
 import { runPluginUpdate } from './plugin-update'

@@ -192,7 +192,7 @@ describe('titlebar reservation lifecycle', () => {
     render(
       <StrictMode>
         <MemoryRouter>
-          <I18nProvider configClient={null} initialLocale="en">
+          <I18nProvider>
             <RouteChrome />
           </I18nProvider>
         </MemoryRouter>

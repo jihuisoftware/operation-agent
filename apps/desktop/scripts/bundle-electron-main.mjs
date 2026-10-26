@@ -65,8 +65,7 @@ export async function bundleElectronMain({ source, out, stamp, dev = false }) {
   }
   await build({
     ...common,
-    // entry.ts picks the Linux ozone platform (native Wayland/WSLg) and
-    // relaunches before main.ts loads; Electron reads it only from argv.
+    // Reject unsupported hosts before initializing the Desktop runtime.
     entryPoints: [join(source, 'apps/desktop/electron/entry.ts')],
     format: 'esm',
     outfile: join(out, electronOutputs.main),

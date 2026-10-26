@@ -558,7 +558,7 @@ function actStore(mutate: () => void) {
 function renderFindBar(initialPath = '/') {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <FindBar />
       </I18nProvider>
     </MemoryRouter>
@@ -577,7 +577,7 @@ function renderFindBarWithNavigation(initialPath = '/session/a') {
 
   const view = render(
     <MemoryRouter initialEntries={[initialPath]}>
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <CaptureNavigate />
         <FindBar />
       </I18nProvider>
@@ -600,13 +600,13 @@ describe('FindBar', () => {
     openFindBar()
     renderFindBar()
 
-    const input = await screen.findByRole('searchbox', { name: /find in page/i })
+    const input = await screen.findByRole('searchbox', { name: /页面内查找/ })
     expect(input).toBeTruthy()
     expect(input.getAttribute('type')).toBe('search')
     expect(input.getAttribute('role')).toBeNull()
-    expect(screen.getByRole('button', { name: /close/i })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /next match/i })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /previous match/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /关闭/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /下一个匹配/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /上一个匹配/ })).toBeTruthy()
 
     // Counter appears once a query + results exist.
     expect(screen.queryByText('3/12')).toBeNull()
@@ -619,7 +619,7 @@ describe('FindBar', () => {
     openFindBar()
     renderFindBar()
 
-    const input = await screen.findByRole('searchbox', { name: /find in page/i })
+    const input = await screen.findByRole('searchbox', { name: /页面内查找/ })
     // eslint-disable-next-line no-restricted-globals -- asserting real focus requires the live document
     await waitFor(() => expect(document.activeElement).toBe(input))
   })
@@ -630,7 +630,7 @@ describe('FindBar', () => {
     openFindBar()
     renderFindBar()
 
-    const input = (await screen.findByRole('searchbox', { name: /find in page/i })) as HTMLInputElement
+    const input = (await screen.findByRole('searchbox', { name: /页面内查找/ })) as HTMLInputElement
     // eslint-disable-next-line no-restricted-globals -- asserting real focus requires the live document
     await waitFor(() => expect(document.activeElement).toBe(input))
 
@@ -661,7 +661,7 @@ describe('FindBar', () => {
       openFindBar()
       renderFindBar()
 
-      const input = screen.getByRole('searchbox', { name: /find in page/i })
+      const input = screen.getByRole('searchbox', { name: /页面内查找/ })
       fireEvent.change(input, { target: { value: 'n' } })
       fireEvent.change(input, { target: { value: 'ne' } })
       fireEvent.change(input, { target: { value: 'nee' } })
@@ -692,7 +692,7 @@ describe('FindBar', () => {
       openFindBar()
       renderFindBar()
 
-      const input = screen.getByRole('searchbox', { name: /find in page/i }) as HTMLInputElement
+      const input = screen.getByRole('searchbox', { name: /页面内查找/ }) as HTMLInputElement
       input.focus()
       fireEvent.change(input, { target: { value: 'needle' } })
       input.setSelectionRange(6, 6)
@@ -722,7 +722,7 @@ describe('FindBar', () => {
       openFindBar()
       renderFindBar()
 
-      fireEvent.change(screen.getByRole('searchbox', { name: /find in page/i }), {
+      fireEvent.change(screen.getByRole('searchbox', { name: /页面内查找/ }), {
         target: { value: 'needle' }
       })
 
@@ -746,7 +746,7 @@ describe('FindBar', () => {
     setFindQuery('needle')
 
     renderFindBar()
-    const input = screen.getByRole('searchbox', { name: /find in page/i })
+    const input = screen.getByRole('searchbox', { name: /页面内查找/ })
 
     fireEvent.keyDown(input, { key: 'Enter' })
     expect($findInPage.get().matchOrdinal).toBe(2)
@@ -796,7 +796,7 @@ describe('FindBar', () => {
     expect(surface.querySelectorAll('mark.find-hit').length).toBe(1)
 
     renderFindBar()
-    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    fireEvent.click(screen.getByRole('button', { name: /关闭/ }))
 
     expect($findInPage.get().active).toBe(false)
     expect(surface.querySelectorAll('mark.find-hit').length).toBe(0)
@@ -810,10 +810,10 @@ describe('FindBar', () => {
 
     renderFindBar()
 
-    fireEvent.click(screen.getByRole('button', { name: /next match/i }))
+    fireEvent.click(screen.getByRole('button', { name: /下一个匹配/ }))
     expect($findInPage.get().matchOrdinal).toBe(2)
 
-    fireEvent.click(screen.getByRole('button', { name: /previous match/i }))
+    fireEvent.click(screen.getByRole('button', { name: /上一个匹配/ }))
     expect($findInPage.get().matchOrdinal).toBe(1)
   })
 
@@ -926,7 +926,7 @@ describe('view.findInPage keybind gate', () => {
 
     render(
       <MemoryRouter initialEntries={[pathname]}>
-        <I18nProvider configClient={null} initialLocale="en">
+        <I18nProvider>
           <KeybindHarness deps={deps} />
         </I18nProvider>
       </MemoryRouter>

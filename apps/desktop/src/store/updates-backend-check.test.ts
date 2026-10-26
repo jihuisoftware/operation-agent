@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { deriveUpdateStatus } from '@/components/update-status'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import type { BackendUpdateCheckResponse } from '@/types/hermes'
 
 import { mapBackendCheck } from './updates'
@@ -33,7 +33,7 @@ describe('mapBackendCheck', () => {
   })
 
   it('still reports an up-to-date backend when the check ran and found no gap', () => {
-    const status = mapBackendCheck(response({ behind: 0, message: "You're on the latest version." }))
+    const status = mapBackendCheck(response({ behind: 0, message: '已是最新版本。' }))
 
     expect(status.error).toBeUndefined()
     expect(status.behind).toBe(0)

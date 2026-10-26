@@ -53,11 +53,6 @@ const appearanceSetting = (subpage: AppearanceSubpageId, keywords: readonly stri
  */
 export const SETTINGS_MANIFEST = {
   appearance: {
-    language: {
-      subpage: 'general',
-      keywords: ['locale'],
-      copy: t => ({ label: t.language.label, description: t.language.description })
-    },
     introSplash: appearanceSetting('general', ['splash', 'wordmark', 'empty chat', 'new chat'], 'introSplash'),
     modelPricing: appearanceSetting('general', ['price', 'cost', 'tokens', 'model picker', 'cache'], 'modelPricing'),
     resumeLastSession: appearanceSetting(

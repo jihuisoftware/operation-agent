@@ -20,7 +20,7 @@ vi.mock('@/store/notifications', () => ({ notifyError: vi.fn() }))
 
 function renderPrompts(sessionId: string | null = 's1') {
   render(
-    <I18nProvider configClient={null}>
+    <I18nProvider>
       <PromptOverlays sessionId={sessionId} />
     </I18nProvider>
   )
@@ -68,8 +68,8 @@ describe('PromptOverlays', () => {
     )
     renderPrompts()
 
-    const preview = screen.getByRole('region', { name: 'Command' })
-    const password = screen.getByPlaceholderText('sudo password')
+    const preview = screen.getByRole('region', { name: '命令' })
+    const password = screen.getByPlaceholderText('sudo 密码')
 
     expect(preview.textContent).toBe(command)
     expect(preview.compareDocumentPosition(password) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -90,9 +90,9 @@ describe('PromptOverlays', () => {
 
     renderPrompts()
 
-    expect(screen.getByText('Administrator password')).toBeTruthy()
+    expect(screen.getByText('管理员密码')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
 
     await waitFor(() => expect($sudoRequest.get()).toBeNull())
     expect(respond).toHaveBeenCalledWith({ value: '' })
@@ -111,9 +111,9 @@ describe('PromptOverlays', () => {
 
     renderPrompts()
 
-    expect(screen.getByText('Administrator password')).toBeTruthy()
+    expect(screen.getByText('管理员密码')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
 
     await waitFor(() => expect($sudoRequest.get()).toBeNull())
     expect(request).not.toHaveBeenCalled()
@@ -133,7 +133,7 @@ describe('PromptOverlays', () => {
 
     expect(screen.getByText('TEST_SECRET')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
 
     await waitFor(() => expect($secretRequest.get()).toBeNull())
     expect(respond).toHaveBeenCalledWith({ value: '' })
@@ -153,7 +153,7 @@ describe('PromptOverlays', () => {
 
     expect(screen.getByText('TEST_SECRET')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
 
     await waitFor(() => expect($secretRequest.get()).toBeNull())
     expect(request).not.toHaveBeenCalled()

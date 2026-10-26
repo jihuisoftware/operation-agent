@@ -17,11 +17,7 @@ function makeAttachment(id: string, label = 'test.pdf'): ComposerAttachment {
 async function renderWithI18n(ui: React.ReactNode) {
   let result: ReturnType<typeof render>
   await act(async () => {
-    result = render(
-      <I18nProvider configClient={{ getConfig: async () => ({}), saveConfig: async () => ({ ok: true }) }}>
-        {ui}
-      </I18nProvider>
-    )
+    result = render(<I18nProvider>{ui}</I18nProvider>)
   })
 
   return result!
@@ -191,7 +187,7 @@ describe('AttachmentList', () => {
     expect(readFileDataUrl).toHaveBeenCalledWith('/tmp/old.png')
 
     rerender(
-      <I18nProvider configClient={{ getConfig: async () => ({}), saveConfig: async () => ({ ok: true }) }}>
+      <I18nProvider>
         <AttachmentList attachments={[replacement]} />
       </I18nProvider>
     )
@@ -218,7 +214,7 @@ describe('AttachmentList', () => {
 
     await renderWithI18n(<AttachmentList attachments={[makeAttachment('a', 'doc.pdf')]} onRemove={onRemove} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove doc.pdf' }))
+    fireEvent.click(screen.getByRole('button', { name: '移除 doc.pdf' }))
     expect(onRemove).toHaveBeenCalledWith('a')
   })
 

@@ -1,10 +1,10 @@
 import type { Unstable_TriggerItem } from '@assistant-ui/core'
-import { act, cleanup, render, waitFor } from '@testing-library/react'
+import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { renderCommandsCatalog } from '@/app/session/hooks/use-prompt-actions/utils'
 import type { HermesGateway } from '@/hermes'
-import { I18nProvider, useI18n } from '@/i18n'
+import { I18nProvider } from '@/i18n'
 import { TRANSLATIONS } from '@/i18n/catalog'
 import { setRuntimeI18nLocale } from '@/i18n/runtime'
 import type { Locale } from '@/i18n/types'
@@ -21,7 +21,7 @@ const catalog: CommandsCatalogLike = {
   canon: { '/reset': '/new' },
   categories: [
     {
-      name: 'Session',
+      name: '会话',
       pairs: [
         ['/new', 'Backend description'],
         ['/retry', 'Retry the last message']
@@ -63,14 +63,8 @@ describe('desktop slash description localization', () => {
         expect(desktopSlashDescription(command, 'backend')).toBe(expected)
       }
 
-      for (const command of Object.keys(TRANSLATIONS.en.composer.commandDescs)) {
+      for (const command of Object.keys(TRANSLATIONS.zh.composer.commandDescs)) {
         expect(copy.composer.commandDescs[command], `${locale}: ${command}`).toBeTruthy()
-
-        if (locale !== 'en') {
-          expect(copy.composer.commandDescs[command], `${locale}: ${command}`).not.toBe(
-            TRANSLATIONS.en.composer.commandDescs[command]
-          )
-        }
       }
 
       expect(desktopSlashDescription('/reset')).toBe(copy.composer.commandDescs['/new'])
@@ -83,7 +77,7 @@ describe('desktop slash description localization', () => {
     }
   })
 
-  it('refreshes both cached bare and typed suggestions when the UI locale changes', async () => {
+  it('renders bare and typed suggestions in Chinese while preserving skill descriptions', async () => {
     const request = vi.fn(async (method: string) =>
       method === 'commands.catalog'
         ? catalog
@@ -97,27 +91,22 @@ describe('desktop slash description localization', () => {
 
     const api: {
       search?: (query: string) => readonly Unstable_TriggerItem[]
-      setLocale?: ReturnType<typeof useI18n>['setLocale']
     } = {}
 
     function Probe() {
-      api.setLocale = useI18n().setLocale
       api.search = useSlashCompletions({ gateway: { request } as unknown as HermesGateway }).adapter?.search
 
       return null
     }
 
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <Probe />
       </I18nProvider>
     )
 
     for (const query of ['', 'ne']) {
-      for (const locale of ['en', 'zh', 'en'] as const) {
-        await act(async () => {
-          await api.setLocale!(locale)
-        })
+      for (const locale of ['zh'] as const) {
         await waitFor(
           () => {
             const items = api.search!(query)
@@ -134,6 +123,6 @@ describe('desktop slash description localization', () => {
       }
     }
 
-    expect(request).toHaveBeenCalledTimes(2)
+    expect(request).toHaveBeenCalledTimes(1)
   })
 })

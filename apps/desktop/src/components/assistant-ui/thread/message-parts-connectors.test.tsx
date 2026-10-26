@@ -109,7 +109,7 @@ describe('manage_connections routing outside guided onboarding', () => {
     $gateway.set({ request: vi.fn().mockResolvedValue({ status: 'ok' }) } as never)
 
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <SessionViewProvider value={view(SESSION_ID, STORED_ID)}>
           <Fallback {...props()} />
         </SessionViewProvider>
@@ -117,7 +117,7 @@ describe('manage_connections routing outside guided onboarding', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: 'Connect' })).toHaveLength(2)
+      expect(screen.getAllByRole('button', { name: '连接' })).toHaveLength(2)
     })
     expect(screen.queryByText(/running manage connections/i)).toBeNull()
   })

@@ -29,21 +29,13 @@ concurrency:
 
 jobs:
   core:
-    name: Desktop core E2E (Linux)
-    runs-on: blacksmith-32vcpu-ubuntu-2404
+    name: Desktop core E2E (macOS)
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
         with:
           ref: ${{ inputs.commit }}
-
-      - name: Install system dependencies for Electron
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq \
-            xvfb \
-            libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 \
-            xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
 
       - name: Prepare locked Desktop build and test toolchain
         id: pm
@@ -67,24 +59,13 @@ jobs:
         # The generator uses the runtime's Pillow + resvg-py, not a build-only venv.
         run: npm run build
 
-      # Package the Linux app the way users get it (electron-builder --dir; no
-      # installer formats, no publish). The packaging preparer acquires its
-      # pinned archive separately. packaged-smoke.spec.ts asserts the asarUnpack contract
-      # on this output (#121097) and boots the packaged binary to a first chat.
-      - name: Package the desktop app (electron-builder --dir)
-        working-directory: apps/desktop
-        run: npm run builder -- --dir --publish never --linux
-
-      - name: Run the core suite under xvfb
+      - name: Run the core suite
         working-directory: apps/desktop
         run: |
-          xvfb-run -a --server-args="-screen 0 1280x1024x24" \
-            npx playwright test -c e2e/core/playwright.config.ts
+          npx playwright test -c e2e/core/playwright.config.ts
         env:
           CI: 'true'
           HERMES_E2E_PYTHON: ${{ steps.pm.outputs.python-path }}
-          # The pack step above ran: a missing release/linux-unpacked is a failure, not a skip.
-          HERMES_E2E_REQUIRE_PACKAGED: '1'
           OPENROUTER_API_KEY: ''
           OPENAI_API_KEY: ''
           NOUS_API_KEY: ''

@@ -4,7 +4,7 @@ import type { ModelSettingsTranslations } from './types_model_settings'
 import { zhAuxTasks } from './zh_aux_tasks'
 import { zhDelegationRouting } from './zh_delegation_routing'
 
-export const zhModelSettings: TranslationOverride<ModelSettingsTranslations> = {
+export const zhModelSettings = {
   setupProviderFallback: '提供方',
   setUpProvider: name => `设置 ${name}`,
   staleAuxBefore: (count, names) => `${count} 个辅助任务（${names}）仍由 `,
@@ -76,4 +76,4 @@ export const zhModelSettings: TranslationOverride<ModelSettingsTranslations> = {
     draftHint: '应用前，更改仅保留在本地。',
     routing: zhDelegationRouting
   }
-}
+} satisfies TranslationOverride<ModelSettingsTranslations>

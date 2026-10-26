@@ -1,6 +1,6 @@
 import type { DelegationRoutingTranslations } from './types_delegation_routing'
 
-export const zhDelegationRouting: DelegationRoutingTranslations = {
+export const zhDelegationRouting = {
   title: '路由',
   settingsTitle: '子智能体默认设置',
   intro: '决定每个子智能体使用哪个模型。',
@@ -85,4 +85,4 @@ export const zhDelegationRouting: DelegationRoutingTranslations = {
   inactiveProfilesNoDefault: '配置档案路由为每个子智能体挑选配置档案。未选择配置档案的子智能体使用主智能体的模型。',
   inactivePlugin: label => `${label} 决定每个子智能体的模型，因此此设置不适用。`,
   useDefault: '切换为默认'
-}
+} satisfies DelegationRoutingTranslations

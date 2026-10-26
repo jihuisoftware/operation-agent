@@ -10,7 +10,7 @@ afterEach(cleanup)
 describe('VoiceActivity accessibility', () => {
   it('keeps the dictation timer visible without announcing every tick', () => {
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <VoiceActivity state={{ elapsedSeconds: 65, level: 0.5, status: 'recording' }} />
       </I18nProvider>
     )
@@ -19,7 +19,7 @@ describe('VoiceActivity accessibility', () => {
     const timer = screen.getByText('1:05')
 
     expect(status.getAttribute('aria-live')).toBe('polite')
-    expect(status.textContent).toContain('Dictating')
+    expect(status.textContent).toContain('听写中')
     expect(status.textContent).toContain('1:05')
     expect(timer.getAttribute('aria-hidden')).toBe('true')
   })

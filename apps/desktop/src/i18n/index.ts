@@ -1,12 +1,5 @@
 export { BUNDLED_LOCALES, isBundledLocale, TRANSLATIONS } from './catalog'
-export {
-  getConfigDisplayLanguage,
-  type I18nConfigClient,
-  type I18nContextValue,
-  I18nProvider,
-  useI18n,
-  withConfigDisplayLanguage
-} from './context'
+export { type I18nContextValue, I18nProvider, useI18n } from './context'
 export {
   DEFAULT_LOCALE,
   isLocale,

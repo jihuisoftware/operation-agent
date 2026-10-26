@@ -88,15 +88,15 @@ def _build_prepared(prepared, builder_args: list[str], variant: str | None) -> N
 
     request = prepared.request
     validate_builder_identity(request, builder_args)
-    if request.channel_request is not None and not request.target.startswith(("darwin-", "win32-")):
-        raise ValueError("channel builds require a supported native macOS or Windows target")
+    if request.channel_request is not None and not request.target.startswith("darwin-"):
+        raise ValueError("channel builds require a supported native macOS target")
     variant = select_variant(prepared, variant)
     repo, node = request.source, str(prepared.node)
     env = build_environment(prepared, variant, os.environ)
     if request.release_epoch is not None:
         env["HERMES_RELEASE_EPOCH"] = str(request.release_epoch)
     desktop = repo / "apps/desktop"
-    targets = {"darwin": ["--mac", "dmg", "zip"], "linux": ["--linux", "AppImage"]}[sys.platform]
+    targets = ["--mac", "dmg", "zip"]
     package_args = ["--prepared", str(prepared.packager), "--native-deps", str(prepared.native),
                     *targets, f"-c.extraMetadata.version={request.version}"]
     run([node, "scripts/run-electron-builder.mjs", "--validate-only", *package_args, *builder_args],
@@ -126,12 +126,7 @@ def _build_prepared(prepared, builder_args: list[str], variant: str | None) -> N
         run([node, "scripts/build/desktop.mjs", "--source", str(repo), "--icons", str(icons),
              "--stamp", str(desktop / "build/install-stamp.json"), "--native-deps", str(prepared.native),
              "--out", str(desktop / "dist")], cwd=repo, env=env)
-        version_args = []
-        if sys.platform == "win32" and request.channel_request is None and request.tag is not None:
-            script = "const m=require('./scripts/msix-shared.mjs');console.log(m.nativeQuad(process.argv[1], Number(process.env.HERMES_RELEASE_EPOCH)))"
-            quad = capture([node, "-e", script, request.tag], repo, env)
-            version_args = [f'-c.extraMetadata.shortVersion={quad}', f'-c.extraMetadata.shortVersionWindows={quad}']
-        run([node, "scripts/run-electron-builder.mjs", *package_args, *version_args, *builder_args], cwd=desktop,
+        run([node, "scripts/run-electron-builder.mjs", *package_args, *builder_args], cwd=desktop,
             env=packaging_environment(env, os.environ, request.target))
     require_source(repo, request.commit)
 
@@ -145,7 +140,7 @@ def main() -> None:
                              "version comes from the target pyproject, no tag is referenced")
     parser.add_argument("--release-commit", help="Admitted commit for a stable tag not created until green")
     parser.add_argument("--channel-request", type=Path, help="Immutable admitted channel request JSON")
-    parser.add_argument("--variant", choices=["bundled", "store", "light"])
+    parser.add_argument("--variant", choices=["bundled", "light"])
     parser.add_argument("--repo", type=Path, default=ROOT)
     parser.add_argument("--work", type=Path)
     parser.add_argument("--cache", type=Path)

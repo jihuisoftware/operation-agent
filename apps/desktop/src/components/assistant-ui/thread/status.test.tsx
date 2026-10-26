@@ -10,7 +10,7 @@ import { ResponseLoadingIndicator } from './status'
 
 function renderIndicator() {
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <ResponseLoadingIndicator />
     </I18nProvider>
   )

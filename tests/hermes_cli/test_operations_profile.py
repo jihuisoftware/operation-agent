@@ -9,7 +9,9 @@ def test_legacy_profile_keeps_credentials_and_history_but_not_retired_services(t
     from gateway.run import _load_gateway_config
 
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    original = """model:
+    original = """display:
+  language: en
+model:
   provider: custom
   default: content-model
   api_key: unchanged-secret
@@ -45,6 +47,7 @@ platform_hints:
 
     config = load_config() if loader == "merged" else _load_gateway_config(path)
 
+    assert config["display"]["language"] == "zh"
     assert config["model"]["default"] == "content-model"
     assert config["model"]["api_key"] == "unchanged-secret"
     assert "tts" in config["agent"]["disabled_toolsets"]

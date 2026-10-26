@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setApiRequestConnection, setApiRequestProfile } from '@/api/client'
 import type { DesktopUpdateStatus, DesktopVersionInfo } from '@/global'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 
 const storage = new Map<string, string>()
 

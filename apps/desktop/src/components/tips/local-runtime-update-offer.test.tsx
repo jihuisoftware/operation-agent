@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { SETTINGS_ROUTE } from '@/app/routes'
 import { I18nProvider } from '@/i18n'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { queryClient } from '@/lib/query-client'
 import { $activeGatewayRoute } from '@/store/gateway'
 import { $localModelsEnabled } from '@/store/local-models-flag'
@@ -126,7 +126,7 @@ it('lets rotation proceed after a failed eligibility read and retries at a later
   api.mockImplementation(async request => (request.path.endsWith('/jobs') ? { jobs: [] } : eligible))
   vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 6_000)
   await due()
-  expect($activeTip.get()?.action?.label).toBe('Update now')
+  expect($activeTip.get()?.action?.label).toBe('立即更新')
 })
 it('rechecks backend jobs at the due moment instead of trusting an idle store', async () => {
   api.mockImplementation(async request =>
@@ -276,7 +276,7 @@ it.each([{ enabled: false }, { runtime_installed: false }, { update_available: f
 it('the real Update now button navigates and sends exactly one install POST, never on show', async () => {
   await due()
   expect(api.mock.calls.filter(([request]) => request.method === 'POST')).toHaveLength(0)
-  const button = screen.getByRole('button', { name: 'Update now' })
+  const button = screen.getByRole('button', { name: '立即更新' })
   await act(async () => {
     fireEvent.click(button)
     fireEvent.click(button)

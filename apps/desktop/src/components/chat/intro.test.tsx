@@ -1,26 +1,15 @@
-import { act, cleanup, render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { I18nProvider, useI18n } from '@/i18n'
-import type { I18nContextValue } from '@/i18n'
+import { I18nProvider } from '@/i18n'
+import { zh } from '@/i18n/zh'
 
 import { Intro } from './intro'
 import stock from './intro-copy.jsonl?raw'
 
-const CJK_LOCALES = new Set(['zh'])
-
-let i18n: I18nContextValue
-
-function Controls() {
-  i18n = useI18n()
-
-  return null
-}
-
 function Fixture({ personality, seed = 0 }: { personality?: string; seed?: number }) {
   return (
-    <I18nProvider configClient={null} initialLocale="en">
-      <Controls />
+    <I18nProvider>
       <Intro personality={personality} seed={seed} />
     </I18nProvider>
   )
@@ -30,7 +19,8 @@ afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
 })
-it('translates every shipped stock body at the same personality and rotation position', async () => {
+
+it('renders each stock greeting in Chinese at the same personality and rotation position', () => {
   vi.spyOn(Math, 'random').mockReturnValue(0)
 
   const entries = stock
@@ -39,44 +29,22 @@ it('translates every shipped stock body at the same personality and rotation pos
     .map(line => JSON.parse(line) as { personality: string; body: string })
 
   const { container, rerender } = render(<Fixture />)
+  const indices = new Map<string, number>()
 
-  for (const locale of ['zh'] as const) {
-    await act(() => i18n.setLocale(locale))
-    const indices = new Map<string, number>()
-
-    for (const personality of new Set(entries.map(entry => entry.personality))) {
-      expect(i18n.t.intro.stock[personality]).toHaveLength(
-        entries.filter(entry => entry.personality === personality).length
-      )
-    }
-
-    for (const entry of entries) {
-      const seed = indices.get(entry.personality) ?? 0
-      indices.set(entry.personality, seed + 1)
-      rerender(<Fixture personality={entry.personality} seed={seed} />)
-      const body = container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent
-      expect(body).toBeTruthy()
-      expect(body).not.toBe(entry.body)
-
-      if (CJK_LOCALES.has(locale)) {
-        expect(body).toMatch(/[\u3040-\u30ff\u3400-\u9fff]/)
-      }
-    }
+  for (const entry of entries) {
+    const seed = indices.get(entry.personality) ?? 0
+    indices.set(entry.personality, seed + 1)
+    rerender(<Fixture personality={entry.personality} seed={seed} />)
+    const body = container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent
+    expect(body).toBe(zh.intro.stock[entry.personality][seed])
+    expect(body).toMatch(/[\u3400-\u9fff]/)
   }
-
-  await act(() => i18n.setLocale('en'))
-  rerender(<Fixture personality={entries[0].personality} seed={0} />)
-  expect(container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent).toBe(entries[0].body)
 })
-it('localizes the custom-personality fallback without translating its user-supplied name', async () => {
+
+it('keeps the user-supplied personality name in the Chinese fallback greeting', () => {
   vi.spyOn(Math, 'random').mockReturnValue(0)
   const { container } = render(<Fixture personality="My Custom Voice" seed={4} />)
-  const english = container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent
-  await act(() => i18n.setLocale('zh'))
-  expect(container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent).not.toBe(english)
-  expect(container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent).toContain(
-    'My Custom Voice'
-  )
-  await act(() => i18n.setLocale('en'))
-  expect(container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent).toBe(english)
+  const body = container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent
+  expect(body).toContain('My Custom Voice')
+  expect(body).toMatch(/[\u3400-\u9fff]/)
 })

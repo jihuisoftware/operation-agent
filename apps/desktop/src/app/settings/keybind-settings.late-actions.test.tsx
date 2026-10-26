@@ -20,7 +20,7 @@ afterEach(cleanup)
 describe('KeybindSettings late-contributed actions', () => {
   it('lists an action whose keybind registers after mount', () => {
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <KeybindSettings />
       </I18nProvider>
     )

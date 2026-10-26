@@ -41,7 +41,7 @@ function Harness() {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <MemoryRouter>
-        <I18nProvider configClient={null} initialLocale="en">
+        <I18nProvider>
           <ChatBar
             busy={false}
             disabled={false}

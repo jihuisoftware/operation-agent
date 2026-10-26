@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { DesktopUpdateStatus, DesktopVersionInfo } from '@/global'
 import { I18nProvider, type Locale, TRANSLATIONS, type Translations } from '@/i18n'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import type { UpdateApplyState } from '@/store/updates'
 
 import { deriveUpdateStatus, VersionHero } from './update-status'
@@ -64,7 +64,7 @@ describe('deriveUpdateStatus', () => {
       u: en.updates
     })
 
-    expect(on.line).toBe('You’re on the latest stable release (v0.21.6).')
+    expect(on.line).toBe('你正在使用最新的稳定版发布（v0.21.6）。')
 
     // Ahead of the release (forward-only): the check pins the target to HEAD, so
     // targetSha === currentSha; aheadOfRelease keeps it from claiming the release.
@@ -255,7 +255,7 @@ describe('VersionHero bundle banners', () => {
         expect(label).toBeTypeOf('string')
 
         const { unmount }: { unmount: () => void } = render(
-          <I18nProvider configClient={null} initialLocale={locale}>
+          <I18nProvider>
             <VersionHero version={version({ channel })} />
           </I18nProvider>
         )

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 
-JOB_GROUPS = ("darwin-arm64", "darwin-x64", "linux-x64", "linux-arm64", "termux")
+JOB_GROUPS = ("darwin-arm64", "darwin-x64", "termux")
 ALL_JOBS = ",".join(JOB_GROUPS)
 
 # The workflow jobs each group runs, in the names desktop-bundled-release.yml

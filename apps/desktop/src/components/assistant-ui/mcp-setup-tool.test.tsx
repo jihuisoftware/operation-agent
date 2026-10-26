@@ -92,7 +92,7 @@ function renderTool(result?: ToolCallMessagePartProps['result']) {
   const Card = result === undefined ? McpSetupPending : McpSetupTool
 
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <SessionViewProvider value={view(SESSION_ID)}>
         <Card {...props(result)} />
       </SessionViewProvider>
@@ -125,12 +125,12 @@ describe('the MCP setup card', () => {
     setConnectionRequest({ ...REQUEST, targets: [target] })
 
     renderTool()
-    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+    fireEvent.click(screen.getByRole('button', { name: '安装' }))
 
-    expect(screen.getByText('Set up Linear')).toBeTruthy()
+    expect(screen.getByText('设置 Linear')).toBeTruthy()
     expect(screen.getByText('Create a Linear API key.')).toBeTruthy()
     expect(screen.getByLabelText('Team').getAttribute('value')).toBe('workspace')
-    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    fireEvent.click(screen.getByRole('button', { name: '连接' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
     expect(rpc).toHaveBeenCalledWith('connection.respond', {
       op_id: 'operation-1',
@@ -149,8 +149,8 @@ describe('the MCP setup card', () => {
       ]
     })
 
-    expect(screen.getByText('Installed Linear · 2 tools')).toBeTruthy()
-    expect(screen.getByText('Not connected')).toBeTruthy()
+    expect(screen.getByText('已安装 Linear · 2 个工具')).toBeTruthy()
+    expect(screen.getByText('未连接')).toBeTruthy()
     expect(screen.queryByText(/catalog write failed/)).toBeNull()
     expect(screen.queryAllByRole('button').filter(button => !button.hasAttribute('disabled'))).toHaveLength(0)
   })

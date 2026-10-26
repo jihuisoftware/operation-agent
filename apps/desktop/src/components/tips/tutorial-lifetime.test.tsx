@@ -24,7 +24,7 @@ vi.mock('@/store/session', async () => {
 vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('./local-runtime-update-offer', () => ({ offerLocalRuntimeUpdateTip: () => false }))
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 
 const DAY_MS = 24 * 60 * 60_000
 const START = new Date('2026-01-01T12:00:00Z').getTime()

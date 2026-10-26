@@ -18,7 +18,7 @@ const heartbeat: SessionControlHeartbeat = {
 
 function tree(visible: boolean) {
   return (
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <PaneVisibleContext.Provider value={visible}>
         <SessionControlHeartbeatSection
           heartbeat={heartbeat}

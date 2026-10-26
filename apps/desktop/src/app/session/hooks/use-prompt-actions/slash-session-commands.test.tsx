@@ -3,7 +3,7 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CanonicalDesktopProtocol } from '@/api/canonical-protocol'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { textPart } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { resolveDesktopCommand } from '@/lib/desktop-slash-commands'
@@ -202,8 +202,8 @@ describe('/undo on a canonical session', () => {
     const handle = await mount(requestGateway)
     await handle.submitText('/undo')
 
-    expect(renderedText(handle)).toContain('Stop the current reply first')
-    expect(renderedText(handle)).toContain('then run /undo')
+    expect(renderedText(handle)).toContain('请先停止当前回复')
+    expect(renderedText(handle)).toContain('再运行 /undo')
     expect(renderedText(handle)).not.toContain('error: session_busy')
     expect($composerDraft.get()).toBe('half-typed follow-up')
     expect(callsOf(requestGateway, 'session.interrupt')).toEqual([])
@@ -268,8 +268,8 @@ describe('/retry on a canonical session', () => {
     const handle = await mount(requestGateway)
     await handle.submitText('/retry')
 
-    expect(renderedText(handle)).toContain('Stop the current reply first')
-    expect(renderedText(handle)).toContain('then run /retry')
+    expect(renderedText(handle)).toContain('请先停止当前回复')
+    expect(renderedText(handle)).toContain('再运行 /retry')
     expect(callsOf(requestGateway, 'prompt.submit')).toEqual([])
     expect(callsOf(requestGateway, 'session.interrupt')).toEqual([])
     expect(queuedTexts()).toEqual([])
@@ -294,8 +294,8 @@ describe('/undo and /retry while a compression holds the session', () => {
       const handle = await mount(requestGateway)
       await handle.submitText(`/${command}`)
 
-      expect(renderedText(handle)).toContain(`a /compress is running; run /${command} when it finishes`)
-      expect(renderedText(handle)).not.toContain('Stop the current reply first')
+      expect(renderedText(handle)).toContain(`正在运行 /compress；完成后再运行 /${command}`)
+      expect(renderedText(handle)).not.toContain('请先停止当前回复')
       expect(callsOf(requestGateway, 'session.interrupt')).toEqual([])
       expect(callsOf(requestGateway, 'prompt.submit')).toEqual([])
     })
@@ -616,7 +616,14 @@ describe('/steer', () => {
   it('seals the live reply at the steer notice, keeping its running tool live', async () => {
     const requestGateway = gateway(method => (method === 'session.steer' ? { status: 'queued' } : undefined))
     const tool = { type: 'tool-call', toolCallId: 't1', toolName: 'terminal', args: {}, argsText: '{}', timestamp: 2 }
-    const live = { id: 'stream-1', role: 'assistant', pending: true, parts: [{ type: 'text', text: 'before', timestamp: 1 }, tool] }
+
+    const live = {
+      id: 'stream-1',
+      role: 'assistant',
+      pending: true,
+      parts: [{ type: 'text', text: 'before', timestamp: 1 }, tool]
+    }
+
     let handle: HarnessHandle | null = null
     await actRender(
       <Harness

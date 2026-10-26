@@ -1,6 +1,6 @@
 // 侧边栏项目分区的文案，由 zh.ts 组合。
 import type { TranslationOverrides } from './define-locale'
-export const zhProjects: NonNullable<TranslationOverrides['sidebar']>['projects'] = {
+export const zhProjects = {
   showAllSessions: '显示所有会话',
   sectionLabel: '项目',
   home: '主页',
@@ -77,4 +77,4 @@ export const zhProjects: NonNullable<TranslationOverrides['sidebar']>['projects'
   toggle: (label, open) => `${open ? '展开' : '收起'} ${label} 会话`,
   showAllCount: count => `显示全部 ${count} 个会话`,
   back: '全部项目'
-}
+} satisfies NonNullable<TranslationOverrides['sidebar']>['projects']

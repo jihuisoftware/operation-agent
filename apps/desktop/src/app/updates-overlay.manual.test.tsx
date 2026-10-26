@@ -2,7 +2,7 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n/context'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import {
   $backendUpdateApply,
   $updateApply,
@@ -38,7 +38,7 @@ it('shows manual recovery guidance without claiming the help command installs an
   expect($updateApply.get().message).toBe(message)
   await act(async (): Promise<void> => {
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <UpdatesOverlay />
       </I18nProvider>
     )
@@ -63,7 +63,7 @@ it('titles a command-less backend refusal honestly and offers nothing to copy', 
   })
   await act(async (): Promise<void> => {
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <UpdatesOverlay />
       </I18nProvider>
     )
@@ -88,7 +88,7 @@ it('names the backend, not a local install, when a remote refusal carries a bare
   })
   await act(async (): Promise<void> => {
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <UpdatesOverlay />
       </I18nProvider>
     )
@@ -105,7 +105,7 @@ it('keeps the client title for a command-less client manual stage', async (): Pr
   $updateApply.set({
     applying: false,
     stage: 'manual',
-    message: 'Hermes will pick up the new version next time you launch it.',
+    message: '下次启动 Hermes 时会使用新版本。',
     percent: null,
     error: null,
     command: null,
@@ -113,7 +113,7 @@ it('keeps the client title for a command-less client manual stage', async (): Pr
   })
   await act(async (): Promise<void> => {
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <UpdatesOverlay />
       </I18nProvider>
     )

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DesktopUpdateStatus, DesktopVersionInfo, HermesConnection } from '@/global'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $confirmRequest, settleConfirm } from '@/store/confirm'
 import type * as SessionStore from '@/store/session'
 import { $connection } from '@/store/session'

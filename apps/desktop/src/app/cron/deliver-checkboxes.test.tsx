@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { Field } from '@/components/ui/field'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 
 import { DeliverCheckboxes } from './index'
 
@@ -20,7 +20,7 @@ describe('DeliverCheckboxes accessible name', () => {
           c={en.cron}
           id="cron-deliver"
           onChange={() => {}}
-          targets={[{ home_env_var: null, home_target_set: true, id: 'local', name: 'This desktop' }]}
+          targets={[{ home_env_var: null, home_target_set: true, id: 'local', name: '此桌面' }]}
           value="local"
         />
       </Field>

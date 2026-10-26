@@ -15,9 +15,9 @@ def test_one_group_selects_only_itself():
     selected = parse_jobs("termux")
     assert selected["termux"] is True
     assert all(value is False for group, value in selected.items() if group != "termux")
-    selected = parse_jobs("darwin-arm64, linux-x64")
+    selected = parse_jobs("darwin-arm64, darwin-x64")
     assert selected == {**{group: False for group in JOB_GROUPS},
-                        "darwin-arm64": True, "linux-x64": True}
+                        "darwin-arm64": True, "darwin-x64": True}
 
 
 def test_duplicates_unknown_names_and_empty_are_refused():

@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $interfaceMode } from '@/store/interface-mode'
 import { $fileBrowserOpen, FILE_BROWSER_PANE_ID, setFileBrowserOpen, toggleFileBrowserOpen } from '@/store/layout'
 import { $paneStates } from '@/store/panes'
@@ -29,7 +29,7 @@ function fileBrowserSwitch() {
     </QueryClientProvider>
   )
 
-  return screen.getByRole('switch', { name: 'File Browser' })
+  return screen.getByRole('switch', { name: '文件浏览器' })
 }
 
 describe('File Browser setting', () => {

@@ -3,10 +3,7 @@ import type { Translations } from './types'
 type ThreadCopy = Translations['assistant']['thread']
 
 // The error card's layer fallbacks (lib/error-surface-copy.ts): used when a failure code has no own entry.
-// Partial like the rest of this locale: an untranslated layer falls back to English.
-export const zhErrorLayers: {
-  [K in 'errorLayerBodies' | 'errorLayers']: Partial<ThreadCopy[K]>
-} = {
+export const zhErrorLayers = {
   errorLayers: {
     auth: '认证错误',
     billing: '额度不足',
@@ -24,4 +21,6 @@ export const zhErrorLayers: {
     endpoint: 'Hermes 无法连接到你的自定义模型服务器。请确认它正在运行，然后重新发送消息。',
     streaming: '回复完成前连接已断开。请重试以重新发送。'
   }
+} satisfies {
+  [K in 'errorLayerBodies' | 'errorLayers']: Partial<ThreadCopy[K]>
 }

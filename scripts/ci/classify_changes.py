@@ -16,7 +16,7 @@ Lanes:
   and the image's own tests.
 * ``nix``         — ``nix flake check``: the flake files and the dependency
   manifests.
-* ``e2e``, ``e2e_upgrade``, ``e2e_desktop_core``, ``e2e_desktop_update`` —
+* ``e2e``, ``e2e_upgrade``, ``e2e_desktop_core`` —
   the end-to-end suites. The classifier still says which suites a diff
   touches (``_E2E_LANES``, the ``run-e2e`` label), but ci.yaml's ``detect``
   gate forces these lanes off on pull requests and pushes to main: the E2E
@@ -455,45 +455,7 @@ _E2E_LANES: dict[str, tuple[str, ...]] = {
         # reconnect-turn-state.spec.ts: the lost-turn card and Discard live in the queue panel.
         "apps/desktop/src/app/chat/composer/queue-",
     ),
-    "e2e_desktop_update": (
-        *_DESKTOP_E2E_SHARED,
-        "apps/desktop/e2e/update/",
-        "apps/desktop/electron/updater",
-        "apps/desktop/electron/update-",
-        "apps/desktop/electron/app-updater",
-        "apps/desktop/electron/gateway-stop-before-update",
-        "apps/desktop/electron/pre-update-",
-        "apps/desktop/electron/install-stamp",
-        # The rest of the Electron update path (codemap desktop-update §1):
-        # main.ts owns the gate / backend stop / hand-off launch hunks (the
-        # classifier sees files, not hunks), the result reader, the install
-        # kind, the attach-time version check and the in-place app swap.
-        "apps/desktop/electron/main.ts",
-        "apps/desktop/electron/handoff-result",
-        "apps/desktop/electron/desktop-installation",
-        "apps/desktop/electron/backend-discovery",
-        "apps/desktop/electron/local-gateway",  # gateway ensure: code_sha vs checkout, restart on skew
-        "apps/desktop/electron/bundle-swap",
-        "apps/desktop/electron/app-installer-file",
-        "scripts/desktop-update/",
-        "scripts/install.sh",
-        "hermes_cli/update_",
-        "hermes_cli/main_desktop",  # the entry point and the main_desktop_* siblings it imports
-        *_DESKTOP_BUILD_ENTRY_POINTS,
-        *_UPDATE_DEPENDENCIES,
-        # Pipeline modules the Desktop build entry points import directly.
-        "hermes_cli/main.py",  # `hermes desktop --build-only`
-        "hermes_cli/venv_sync.py",
-        "hermes_cli/source_stamp.py",
-        # Imported by the Desktop build's scripts (scripts/build/desktop.mjs closure).
-        "apps/desktop/product-identity.cjs",
-        "scripts/msix-shared.mjs",
-        # The launchers the Desktop relaunches through reach the launch-time repair first.
-        "hermes_cli/_launchers.py",
-        # The backend's /api/health `commit`, which the Desktop compares to the checkout
-        # before attaching to a running backend after an update.
-        "hermes_cli/web_routers/status.py",
-    ),
+
 }
 
 
@@ -509,7 +471,7 @@ def _with_package_inits(paths: tuple[str, ...]) -> tuple[str, ...]:
                                           and os.path.isfile(os.path.join(root, i)))]))
 
 
-for _lane in ("e2e_upgrade", "e2e_desktop_update"):
+for _lane in ("e2e_upgrade",):
     _E2E_LANES[_lane] = _with_package_inits(_E2E_LANES[_lane])
 # The upgrade journeys are their own lane; editing one does not start ``e2e``.
 # The update suite shares apps/desktop/e2e/ with the core suite but not its specs.

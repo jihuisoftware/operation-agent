@@ -31,41 +31,41 @@ describe('VersionDetails', () => {
   }
 
   const cases: VersionCase[] = [
-    { version: { source: 'ci', branch: null }, visible: ['Build Origin', 'CI'] },
+    { version: { source: 'ci', branch: null }, visible: ['构建来源', 'CI'] },
     { version: { source: 'ci', branch: 'unknown' }, visible: ['CI (unknown)'] },
-    { version: { source: 'nix', distribution: 'nix' }, visible: ['Build Origin', 'Nix', 'Distribution'] },
-    { version: { source: 'ci', distribution: 'docker' }, visible: ['CI', 'Distribution', 'Docker'] },
+    { version: { source: 'nix', distribution: 'nix' }, visible: ['构建来源', 'Nix', '发行版'] },
+    { version: { source: 'ci', distribution: 'docker' }, visible: ['CI', '发行版', 'Docker'] },
     {
       version: { distribution: 'desktop-app', hermesRuntime: { type: 'embedded' } },
-      visible: ['Runtime', 'Embedded runtime']
+      visible: ['运行时', '嵌入式（捆绑）']
     },
     {
       version: { hermesRuntime: { type: 'external', source: { type: 'git', root: '/home/u/.hermes/hermes-agent' } } },
-      visible: ['Runtime', 'git (/home/u/.hermes/hermes-agent)'],
-      absent: ['External (uses the machine runtime)']
+      visible: ['运行时', 'git (/home/u/.hermes/hermes-agent)'],
+      absent: ['外部']
     },
-    { version: { hermesRuntime: { type: 'external' } }, visible: ['Runtime', 'External (uses the machine runtime)'] },
+    { version: { hermesRuntime: { type: 'external' } }, visible: ['运行时', '外部'] },
     {
       version: { distribution: 'desktop-app', updateMechanism: 'microsoft-store' },
-      visible: ['Distribution', 'Microsoft Store'],
-      absent: ['Desktop app (MSIX)']
+      visible: ['发行版', 'Microsoft Store'],
+      absent: ['桌面应用 (MSIX)']
     },
     {
       version: { distribution: 'desktop-app', updateMechanism: 'app-installer', payload: 'bundled' },
-      visible: ['Desktop app (MSIX)'],
+      visible: ['桌面应用 (MSIX)'],
       absent: ['Microsoft Store']
     },
     {
       version: { distribution: 'desktop-app', updateMechanism: 'electron-updater', payload: 'bundled' },
-      visible: ['Desktop app'],
-      absent: ['Desktop app (MSIX)']
+      visible: ['桌面应用'],
+      absent: ['桌面应用 (MSIX)']
     },
     // Old-style installer shell (bootstrap artifact over a managed checkout —
     // e.g. iris's v0.17.6 .app): named as the installer, never as MSIX.
     {
       version: { distribution: 'desktop-app', updateMechanism: 'self', payload: 'bootstrap' },
-      visible: ['Desktop app (installer)'],
-      absent: ['Desktop app (MSIX)', 'Microsoft Store']
+      visible: ['桌面应用（安装器）'],
+      absent: ['桌面应用 (MSIX)', 'Microsoft Store']
     },
     // `hermes desktop` packs the same bootstrap payload from a source checkout;
     // a locally built stamp names the source install, never the installer.
@@ -77,24 +77,24 @@ describe('VersionDetails', () => {
         source: 'local',
         installedByScript: true
       },
-      visible: ['Source (install script) + hermes desktop'],
-      absent: ['Desktop app (installer)']
+      visible: ['源码（安装脚本）+ hermes desktop'],
+      absent: ['桌面应用（安装器）']
     },
     {
       version: { distribution: 'desktop-app', updateMechanism: 'self', payload: 'bootstrap', source: 'local' },
-      visible: ['Source + hermes desktop'],
-      absent: ['Desktop app (installer)']
+      visible: ['源码 + hermes desktop'],
+      absent: ['桌面应用（安装器）']
     },
     // install.sh / install.ps1 checkout (receipt present) vs a manual git
     // clone (live provenance, no receipt): both honestly say Source.
-    { version: { installedByScript: true }, visible: ['Source (install script)'] },
-    { version: { source: 'git' }, visible: ['Distribution', 'Source'], absent: ['Source (install script)'] },
-    { version: {}, visible: ['Version'], absent: ['Distribution'] }
+    { version: { installedByScript: true }, visible: ['源码（安装脚本）'] },
+    { version: { source: 'git' }, visible: ['发行版', '源码'], absent: ['源码（安装脚本）'] },
+    { version: {}, visible: ['版本'], absent: ['发行版'] }
   ]
 
   it.each(cases)('renders $version', ({ version, visible, absent = [] }: VersionCase): void => {
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <VersionDetails version={{ ...baseVersion, ...version }} />
       </I18nProvider>
     )
@@ -120,7 +120,7 @@ describe('VersionDetails', () => {
     vi.stubGlobal('hermesDesktop', { openExternal } satisfies Pick<Window['hermesDesktop'], 'openExternal'>)
 
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <VersionDetails version={{ ...baseVersion, commit: 'd233b6d7a9c5b79288e48dfb3b29e2ead106ac73' }} />
       </I18nProvider>
     )
@@ -148,25 +148,25 @@ describe('VersionDetails', () => {
 
     $updateStatus.set({ supported: true, mechanism: 'posix-handoff', channel: 'stable' })
     render_()
-    expect(screen.getByText('Channel')).toBeTruthy()
-    expect(screen.getByText('Stable releases')).toBeTruthy()
+    expect(screen.getByText('渠道')).toBeTruthy()
+    expect(screen.getByText('稳定版发布')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
     cleanup()
 
     $updateStatus.set({ supported: true, mechanism: 'windows-handoff', branch: 'main' })
     render_(true)
-    expect(screen.getByText(/Every commit \(main\)/)).toBeTruthy()
+    expect(screen.getByText(/每个提交 \(main\)/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Change' })).toBeTruthy()
     cleanup()
 
     $updateStatus.set({ supported: true, mechanism: 'posix-handoff', branch: 'feature/gui' })
     render_(true)
-    expect(screen.getByText(/Branch: feature\/gui/)).toBeTruthy()
+    expect(screen.getByText(/分支：feature\/gui/)).toBeTruthy()
     cleanup()
 
     // A packaged install's channel is the package's, not a source track: no row.
     $updateStatus.set({ supported: true, mechanism: 'electron-updater', channel: 'stable' })
     render_(true)
-    expect(screen.queryByText('Channel')).toBeNull()
+    expect(screen.queryByText('渠道')).toBeNull()
   })
 })

@@ -3,7 +3,7 @@ import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 
 import type { Translations } from '@/i18n'
-import { en } from '@/i18n/en'
+import { zh } from '@/i18n/zh'
 import { fmtDate } from '@/lib/time'
 import { formatPercentUsed, formatResetsIn } from '@/lib/usage-percent'
 import { FREE_TIER_MODEL } from '@/store/free-tier'
@@ -207,7 +207,7 @@ export function useSubscriptionState(enabled = true) {
 export function deriveBillingView(
   stateResult?: BillingResult<BillingStateResponse>,
   subscriptionResult?: BillingResult<SubscriptionStateResponse>,
-  b: Translations['settings']['billing'] = en.settings.billing
+  b: Translations['settings']['billing'] = zh.settings.billing
 ): BillingView {
   if (!stateResult) {
     return {
@@ -460,7 +460,7 @@ function creditsPerMonthDisplay(
  */
 export function formatMonthlyCreditsDelta(
   delta?: null | string,
-  b: Translations['settings']['billing'] = en.settings.billing
+  b: Translations['settings']['billing'] = zh.settings.billing
 ): null | string {
   const amount = parseAmount(delta)
 
@@ -876,10 +876,7 @@ function deriveUsageRows(
  * server says they pay (`credits_pay`: Keep going on credits is on AND a top-up balance is left; with
  * the setting on and $0 the next request is refused too); otherwise the other included models still work.
  */
-function deriveWindowRows(
-  planUsage: PlanUsage,
-  b: Translations['settings']['billing']
-): BillingUsageRowView[] {
+function deriveWindowRows(planUsage: PlanUsage, b: Translations['settings']['billing']): BillingUsageRowView[] {
   const copy = b.state.usage.window
   const words = { day: copy.today, month: copy.month, top_tier: copy.topTier, week: copy.week }
 

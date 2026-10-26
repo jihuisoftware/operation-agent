@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
 import { useDebounced } from '@/app/hooks/use-debounced'
-import { LanguageSwitcher } from '@/components/language-switcher'
 import { SearchField } from '@/components/ui/search-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Slider } from '@/components/ui/slider'
@@ -411,7 +410,7 @@ interface AppearanceSettingsProps {
 }
 
 export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
-  const { t, isSavingLocale } = useI18n()
+  const { t } = useI18n()
   const { themeName, mode, resolvedMode, availableThemes, setTheme, setMode } = useTheme()
   const toolViewMode = useStore($toolViewMode)
   const toolViewShadowed = useStore($modeShadowed('toolViewMode'))
@@ -561,15 +560,6 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
         )}
 
         <div className={subpage === undefined ? 'mt-2' : undefined}>
-          {show('general') && (
-            <ListRow
-              action={<LanguageSwitcher />}
-              description={isSavingLocale ? t.language.saving : t.language.description}
-              id={settingElementId(ids.language)}
-              title={t.language.label}
-            />
-          )}
-
           {show('theme') && (
             <ListRow
               action={

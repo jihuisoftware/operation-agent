@@ -1,5 +1,5 @@
 import type { Translations } from '@/i18n'
-import { en } from '@/i18n/en'
+import { zh } from '@/i18n/zh'
 
 import type { BillingStateResponse } from './types'
 import { EMPTY_BILLING_VALUE } from './use-billing-state'
@@ -53,7 +53,7 @@ export function validateAutoReloadInputs(
   thresholdRaw: string,
   reloadToRaw: string,
   bounds: Pick<BillingStateResponse, 'max_usd' | 'min_usd'>,
-  b: Translations['settings']['billing'] = en.settings.billing
+  b: Translations['settings']['billing'] = zh.settings.billing
 ): { error?: string; values?: { reloadTo: string; threshold: string } } {
   const threshold = validateBillingAmount(b.autoReload.threshold, thresholdRaw, bounds, b.amountValidation)
 
@@ -83,7 +83,7 @@ export function validateBillingAmount(
   label: string,
   raw: string,
   bounds: Pick<BillingStateResponse, 'max_usd' | 'min_usd'>,
-  copy: Translations['settings']['billing']['amountValidation'] = en.settings.billing.amountValidation
+  copy: Translations['settings']['billing']['amountValidation'] = zh.settings.billing.amountValidation
 ): { amount?: number; error?: string } {
   const cleaned = raw.trim().replace(/^\$/, '').trim()
 

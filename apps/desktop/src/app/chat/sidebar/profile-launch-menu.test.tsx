@@ -32,7 +32,7 @@ it('opens the clicked canonical route without selecting it and saves only that r
   const select = vi.fn()
   const route = { connectionId: 'homelab', profile: 'designer' }
   render(
-    <I18nProvider configClient={null}>
+    <I18nProvider>
       <ProfileLaunchContextMenu {...route} label="Design studio">
         <button onClick={select} type="button">
           Design studio
@@ -42,20 +42,20 @@ it('opens the clicked canonical route without selecting it and saves only that r
   )
 
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Design studio' }))
-  await act(async () => fireEvent.click(screen.getByRole('menuitem', { name: 'Open in new window' })))
+  await act(async () => fireEvent.click(screen.getByRole('menuitem', { name: '在新窗口中打开' })))
   expect(openWindow).toHaveBeenCalledWith(route)
   expect(select).not.toHaveBeenCalled()
   expect(setDefault).not.toHaveBeenCalled()
 
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Design studio' }))
-  await act(async () => fireEvent.click(screen.getByRole('menuitem', { name: 'Set as default' })))
+  await act(async () => fireEvent.click(screen.getByRole('menuitem', { name: '设为默认' })))
   expect(setDefault).toHaveBeenCalledWith(route)
   expect($defaultProfileRoute.get()).toEqual(route)
   expect(select).not.toHaveBeenCalled()
   expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'success' }))
 
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Design studio' }))
-  expect(screen.getByRole('menuitem', { name: 'Default profile' }).getAttribute('aria-disabled')).toBe('true')
+  expect(screen.getByRole('menuitem', { name: '默认配置档案' }).getAttribute('aria-disabled')).toBe('true')
 })
 
 it('distinguishes the same profile on another source and reports a rejected default write without success', async () => {
@@ -63,7 +63,7 @@ it('distinguishes the same profile on another source and reports a rejected defa
   $defaultProfileRoute.set(original)
   setDefault.mockRejectedValue(new Error('Disk is read-only'))
   render(
-    <I18nProvider configClient={null}>
+    <I18nProvider>
       <ProfileLaunchContextMenu connectionId="local" label="Local designer" profile="designer">
         <button type="button">Local designer</button>
       </ProfileLaunchContextMenu>
@@ -71,7 +71,7 @@ it('distinguishes the same profile on another source and reports a rejected defa
   )
 
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Local designer' }))
-  await act(async () => fireEvent.click(screen.getByRole('menuitem', { name: 'Set as default' })))
+  await act(async () => fireEvent.click(screen.getByRole('menuitem', { name: '设为默认' })))
   expect(setDefault).toHaveBeenCalledWith({ connectionId: 'local', profile: 'designer' })
   expect($defaultProfileRoute.get()).toEqual(original)
   expect(notifyError).toHaveBeenCalled()

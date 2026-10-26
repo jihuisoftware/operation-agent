@@ -1,3 +1,4 @@
+import { requireMacOS } from '../platform-policy.cjs'
 // Source convenience prepares first; --prepared only admits and consumes files.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -127,7 +128,10 @@ function runSourceBuilds(args, nativeDeps, spawn) {
 function selectedPlatform(args) {
   const platforms = [...new Set(args.filter(arg => platformFlags.has(arg)).map(arg => platformFlags.get(arg)))]
   if (platforms.length > 1) throw preparationRequired('Select one packaging platform per invocation')
-  return platforms[0] || process.platform
+  requireMacOS()
+  const selected = platforms[0] || process.platform
+  requireMacOS(selected)
+  return selected
 }
 
 /** @param {string[]} args @param {{ spawn?: typeof spawnSync }} [options] @returns {number} */
@@ -168,9 +172,9 @@ export function runElectronBuilder(args, { spawn = spawnSync } = {}) {
 /** @param {string[]} args @returns {string[]} */
 function sourceFormats(args) {
   if (args.includes('--dir')) return ['dir']
-  const formats = args.filter(arg => ['dmg', 'zip', 'AppImage', 'deb', 'rpm'].includes(arg))
-  const platform = selectedPlatform(args)
-  return formats.length ? formats : platform === 'darwin' ? ['dmg', 'zip'] : ['AppImage']
+  const formats = args.filter(arg => ['dmg', 'zip'].includes(arg))
+  selectedPlatform(args)
+  return formats.length ? formats : ['dmg', 'zip']
 }
 
 if (isMain(import.meta.url)) process.exitCode = runElectronBuilder(process.argv.slice(2))

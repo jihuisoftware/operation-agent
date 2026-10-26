@@ -31,7 +31,7 @@ function renderTree(overrides: Partial<Parameters<typeof ProjectTree>[0]> = {}) 
   const onActivateFile = vi.fn()
 
   const view = render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <ProjectTree
         collapseNonce={0}
         cwd="/w"
@@ -75,7 +75,7 @@ describe('ProjectTree context-menu clicks', () => {
     fireEvent.contextMenu(screen.getByText('a.ts'))
 
     // Radix portals the menu to document.body — outside the row's DOM.
-    const copyPath = await screen.findByText('Copy path')
+    const copyPath = await screen.findByText('复制路径')
     expect(copyPath.closest('[data-radix-popper-content-wrapper]') === null || true).toBeTruthy()
     fireEvent.click(copyPath)
 

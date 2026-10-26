@@ -5,7 +5,7 @@ import type { MutableRefObject } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getLatestSessionMessages, getSession } from '@/hermes'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { textPart } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { $compactingSessions, setSessionCompacting } from '@/store/compaction'
@@ -2134,7 +2134,7 @@ describe('usePromptActions slash.exec dispatch payloads', () => {
       })
       .join('\n')
 
-    expect(renderedText).not.toContain('empty slash command')
+    expect(renderedText).not.toContain("空 slash 命令")
   })
 
   it('restores a degenerate slash payload to the composer instead of losing it', async () => {
@@ -5428,7 +5428,7 @@ describe('usePromptActions editMessage stale-target recovery (#82462)', () => {
 
     await waitFor(() => {
       const titles = $notifications.get().map(n => n.title)
-      expect(titles.some(t => /no longer in server history|compressed/i.test(t || ''))).toBe(true)
+      expect(titles.some(t => /不在服务端历史中|压缩/.test(t || ''))).toBe(true)
     })
 
     const submitCalls = (requestGateway as unknown as { mock: { calls: unknown[][] } }).mock.calls.filter(

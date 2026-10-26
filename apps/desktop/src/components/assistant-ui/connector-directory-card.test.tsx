@@ -71,7 +71,7 @@ function view(): SessionView {
 function inChat(children: ReactNode) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <SessionViewProvider value={view()}>{children}</SessionViewProvider>
       </I18nProvider>
     </QueryClientProvider>
@@ -98,9 +98,9 @@ describe('ConnectorDirectoryCard', () => {
     const { container } = inChat(<ConnectorDirectoryCard onContinue={onContinue} suggested={['slack', 'linear']} />)
 
     await waitFor(() => expect(tileOrder(container)).toEqual(['Slack', 'Linear', 'Gmail', 'Notion']))
-    expect(screen.getByText('Suggested')).toBeTruthy()
+    expect(screen.getByText('推荐')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: '继续' }))
 
     expect(onContinue).toHaveBeenCalledWith({
       connected: ['gmail'],
@@ -128,7 +128,7 @@ describe('ConnectorDirectoryCard', () => {
 
     const { container } = inChat(<ConnectorTool {...props} />)
 
-    expect(screen.getByText('Connected: Slack')).toBeTruthy()
+    expect(screen.getByText('已连接：Slack')).toBeTruthy()
     expect(tileOrder(container)).toEqual([])
   })
 })

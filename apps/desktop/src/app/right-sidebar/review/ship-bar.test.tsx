@@ -17,7 +17,7 @@ const file = (path: string): HermesReviewFile => ({
 
 function renderBar() {
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <ReviewShipBar />
     </I18nProvider>
   )
@@ -39,7 +39,7 @@ describe('ReviewShipBar', () => {
   it('renders the commit bar for the uncommitted scope', () => {
     renderBar()
 
-    expect(screen.getByText('Commit')).toBeTruthy()
+    expect(screen.getByText('提交')).toBeTruthy()
   })
 
   it('renders a read-only note for the branch scope (no working-tree actions)', () => {
@@ -49,8 +49,8 @@ describe('ReviewShipBar', () => {
 
     // The bar itself must be gone (no Commit button), replaced by the note
     // explaining why — not silently vanishing.
-    expect(screen.queryByText('Commit')).toBeNull()
-    expect(screen.getByText(/Read-only view/)).toBeTruthy()
+    expect(screen.queryByText('提交')).toBeNull()
+    expect(screen.getByText(/只读视图 — 暂存、还原和提交操作仅适用于“未提交”/)).toBeTruthy()
     expect(container.firstChild).not.toBeNull()
   })
 

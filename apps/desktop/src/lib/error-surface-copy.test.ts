@@ -23,14 +23,9 @@ it.each(['zh'] as const)('renders provider errors in %s without losing the faili
   for (const layer of ['network', 'provider', 'endpoint', 'streaming'] as const) {
     const surface = parseErrorSurface({ layer, code: 'unknown_failure', retryable: true })
     const copy = errorCardText(TRANSLATIONS[locale].assistant.thread, surface)
-    const english = errorCardText(TRANSLATIONS.en.assistant.thread, surface)
-    expect(copy.title, layer).not.toBe(english.title)
-    expect(copy.body, layer).not.toBe(english.body)
+    expect(copy.title, layer).toMatch(/[\u3400-\u9fff]/)
+    expect(copy.body, layer).toMatch(/[\u3400-\u9fff]/)
   }
-
-  expect(TRANSLATIONS[locale].assistant.thread.errorGenericProvider).not.toBe(
-    TRANSLATIONS.en.assistant.thread.errorGenericProvider
-  )
 
   for (const code of codes) {
     const surface = parseErrorSurface({
@@ -42,9 +37,8 @@ it.each(['zh'] as const)('renders provider errors in %s without losing the faili
     })
 
     const copy = errorCardText(TRANSLATIONS[locale].assistant.thread, surface)
-    const english = errorCardText(TRANSLATIONS.en.assistant.thread, surface)
-    expect(copy.title, code).not.toBe(english.title)
-    expect(copy.body, code).not.toBe(english.body)
+    expect(copy.title, code).toMatch(/[\u3400-\u9fff]/)
+    expect(copy.body, code).toMatch(/[\u3400-\u9fff]/)
     expect(copy.body, code).toContain('Provider Ω')
     expect(copy.body, code).not.toContain('fixture-provider')
   }
@@ -60,8 +54,9 @@ it('does not blame a slow reply when the provider could not be reached', () => {
     retryable: true
   })
 
-  const copy = errorCardText(TRANSLATIONS.en.assistant.thread, surface)
+  const copy = errorCardText(TRANSLATIONS.zh.assistant.thread, surface)
 
-  expect(copy.title).toBe('Could not reach the AI service')
-  expect(copy.body).toContain('OpenCode Go could not be reached')
+  expect(copy.title).toBe('无法连接到 AI 服务')
+  expect(copy.body).toContain('OpenCode Go')
+  expect(copy.body).toMatch(/无法连接/)
 })

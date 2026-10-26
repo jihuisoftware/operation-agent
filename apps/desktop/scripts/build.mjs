@@ -1,4 +1,5 @@
 // npm's source-development composition; the compiler consumes prepared inputs.
+import { requireMacOS } from '../platform-policy.cjs'
 import { execFileSync } from 'node:child_process'
 import { cpSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -7,6 +8,7 @@ import { isMain, repoRoot } from '../../../scripts/build/frontend-common.mjs'
 import { nativeInputsComplete } from './prepared-native-deps.mjs'
 
 export function buildSourceDesktop({ source = repoRoot, icons, run = execFileSync } = {}) {
+  requireMacOS()
   source = resolve(source)
   const app = join(source, 'apps/desktop')
   const step = (script, args = []) => run(process.execPath, [join(source, script), ...args], { cwd: app, stdio: 'inherit' })
@@ -21,7 +23,7 @@ export function buildSourceDesktop({ source = repoRoot, icons, run = execFileSyn
     // prepared pixels; do not create another Python environment to redraw them.
     cpSync(join(icons, 'apps/desktop/assets'), join(app, 'assets'), { recursive: true })
   }
-  // locales/_keys.desktop.json is a committed artifact (i18n-keys.test.mjs pins it to en.ts);
+  // locales/_keys.desktop.json is a committed artifact (i18n-keys.test.mjs pins it to zh.ts);
   // the build must not write into the checkout — a dirty tree breaks `hermes update`.
   // The native inputs carry their own receipt (inputs identity + tree digest): restaging the
   // same sources recompiles two universal helpers for identical bytes on every update.

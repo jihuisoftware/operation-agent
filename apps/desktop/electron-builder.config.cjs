@@ -1,3 +1,4 @@
+const { requireMacOS } = require('./platform-policy.cjs')
 // THE electron-builder configuration — the whole thing, one file. There is
 // no "build" field in package.json: run-electron-builder.mjs always passes
 // --config for this file, so a stray package.json field would be silently
@@ -83,7 +84,12 @@ module.exports = {
     output: 'release'
   },
   files: ['dist/**', 'assets/**', 'public/**', 'package.json'],
-  beforeBuild: async () => false,
+  /** @param {import('app-builder-lib').BeforeBuildContext} context */
+  beforeBuild: async context => {
+    requireMacOS()
+    requireMacOS(context.platform.nodeName)
+    return false
+  },
   beforePack: 'scripts/before-pack.mjs',
   afterPack: 'scripts/after-pack.mjs',
   ...(process.platform === 'darwin' ? { afterSign: 'scripts/notarize.mjs' } : {}),
@@ -194,14 +200,6 @@ module.exports = {
         path: '/Applications'
       }
     ]
-  },
-  linux: {
-    category: 'Development',
-    maintainer: 'Nous Research <support@nousresearch.com>',
-    synopsis: light
-      ? 'Remote-only desktop client for Hermes Agent.'
-      : 'Native desktop shell for Hermes Agent.',
-    target: ['AppImage']
   }
 }
 

@@ -10,7 +10,7 @@ function slashItem(command: string) {
     id: command,
     type: 'slash',
     label: command.slice(1),
-    metadata: { command, display: command, group: 'Skills', meta: '', rawText: command }
+    metadata: { command, display: command, group: '技能', meta: '', rawText: command }
   }
 }
 
@@ -47,7 +47,7 @@ describe('ComposerTriggerPopover keyboard scrolling', () => {
 
   function popover(activeIndex: number, onHover = vi.fn(), nextItems = items) {
     return (
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <ComposerTriggerPopover
           activeIndex={activeIndex}
           items={nextItems}

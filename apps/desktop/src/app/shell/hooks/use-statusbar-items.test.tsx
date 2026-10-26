@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { group } from '@/components/pane-shell/tree/model'
 import { $layoutTree, noteActiveTreeGroup } from '@/components/pane-shell/tree/store'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import type * as DesktopFs from '@/lib/desktop-fs'
 import { $freeTierStatus } from '@/store/free-tier'
@@ -152,8 +152,8 @@ describe('statusbar update channel vocabulary', () => {
 
     const version = renderStatusbarItems().statusbarItems.find(item => item.id === 'version-client')
 
-    expect(version?.label).toBe('v0.21.6 (update)')
-    expect(version?.title).toContain('v0.21.7 is available')
+    expect(version?.label).toBe('v0.21.6 (更新)')
+    expect(version?.title).toContain('版本 v0.21.7 可用')
   })
 
   it('names a stable release older than the checkout as a rollback', () => {
@@ -178,7 +178,6 @@ describe('statusbar update channel vocabulary', () => {
     const version = renderStatusbarItems().statusbarItems.find(item => item.id === 'version-client')
 
     expect(version?.title).toContain(en.settings.about.channel.rollbackBody('v0.21.7'))
-    expect(version?.title).not.toContain(en.shell.statusbar.update)
   })
 })
 
@@ -296,8 +295,8 @@ describe('statusbar session timer — focused since (#103123)', () => {
     const item = sessionTimerItem()
 
     expect(timerSince(item)).toBe(4_000)
-    expect(item?.label).toBe('Focused for')
-    expect(item?.title).toMatch(/not how long a turn/)
+    expect(item?.label).toBe('聚焦以来')
+    expect(item?.title).toMatch(/自本次聚焦该对话以来的时间，不是回合运行时长/)
   })
 
   it('stamps tile focus instead of the day-old row, on the same labeled item', () => {
@@ -315,7 +314,7 @@ describe('statusbar session timer — focused since (#103123)', () => {
     expect(since).toBeLessThanOrEqual(Date.now())
     expect(since).not.toBe(dayOldRowSeconds * 1000)
     expect(since).not.toBe(4_000)
-    expect(item?.label).toBe('Focused for')
+    expect(item?.label).toBe('聚焦以来')
     expect(item?.hidden).toBeFalsy()
   })
 

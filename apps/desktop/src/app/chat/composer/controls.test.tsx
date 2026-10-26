@@ -18,7 +18,7 @@ const state: ChatBarState = {
 
 function renderControls(overrides: Partial<React.ComponentProps<typeof ComposerControls>> = {}) {
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <ComposerControls
         autoSpeak={false}
         busy={false}
@@ -70,32 +70,32 @@ describe('HUD mode', () => {
   it('keeps the mic inline, fans the toggles on hover, and offers no exit in the docked composer', async () => {
     renderControls()
 
-    const mic = screen.getByLabelText('Voice dictation')
+    const mic = screen.getByLabelText('语音听写')
 
     expect(mic).toBeTruthy()
-    expect(screen.queryByLabelText('Read replies aloud')).toBeNull()
+    expect(screen.queryByLabelText('朗读回复')).toBeNull()
 
     fireEvent.pointerEnter(mic.parentElement!)
 
-    expect(await screen.findByLabelText('Read replies aloud')).toBeTruthy()
-    expect(screen.getByLabelText('Wake word "hey hermes"')).toBeTruthy()
-    expect(screen.queryByLabelText('Exit HUD mode')).toBeNull()
-    expect(screen.queryByLabelText('Reset HUD size and position')).toBeNull()
+    expect(await screen.findByLabelText('朗读回复')).toBeTruthy()
+    expect(screen.getByLabelText('唤醒词"hey hermes"')).toBeTruthy()
+    expect(screen.queryByLabelText('退出 HUD 模式')).toBeNull()
+    expect(screen.queryByLabelText('重置 HUD 大小和位置')).toBeNull()
     // No folded menu trigger — the fan's group shares the "Voice" name.
-    expect(screen.queryByRole('button', { name: 'Voice' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '语音' })).toBeNull()
   })
 
   it('folds them into one menu and offers the way out in the HUD', () => {
     $hudMode.set(true)
     renderControls()
 
-    expect(screen.getByLabelText('Voice')).toBeTruthy()
-    expect(screen.getByLabelText('Reset HUD size and position')).toBeTruthy()
-    expect(screen.getByLabelText('Exit HUD mode')).toBeTruthy()
+    expect(screen.getByLabelText('语音')).toBeTruthy()
+    expect(screen.getByLabelText('重置 HUD 大小和位置')).toBeTruthy()
+    expect(screen.getByLabelText('退出 HUD 模式')).toBeTruthy()
 
     // Folded away, not duplicated — the whole point is the row's width back.
-    expect(screen.queryByLabelText('Voice dictation')).toBeNull()
-    expect(screen.queryByLabelText('Read replies aloud')).toBeNull()
+    expect(screen.queryByLabelText('语音听写')).toBeNull()
+    expect(screen.queryByLabelText('朗读回复')).toBeNull()
   })
 
   // A collapsed menu that looked idle while the mic was open would be a worse
@@ -104,8 +104,8 @@ describe('HUD mode', () => {
     $hudMode.set(true)
     renderControls({ voiceStatus: 'recording' })
 
-    expect(screen.getByLabelText('Stop dictation')).toBeTruthy()
-    expect(screen.queryByLabelText('Voice')).toBeNull()
+    expect(screen.getByLabelText('停止听写')).toBeTruthy()
+    expect(screen.queryByLabelText('语音')).toBeNull()
   })
 })
 
@@ -118,25 +118,25 @@ describe('narrow tiles', () => {
   it('folds the voice controls into one menu without entering HUD mode', () => {
     renderControls({ foldVoice: true })
 
-    expect(screen.getByLabelText('Voice')).toBeTruthy()
-    expect(screen.queryByLabelText('Voice dictation')).toBeNull()
-    expect(screen.queryByLabelText('Read replies aloud')).toBeNull()
+    expect(screen.getByLabelText('语音')).toBeTruthy()
+    expect(screen.queryByLabelText('语音听写')).toBeNull()
+    expect(screen.queryByLabelText('朗读回复')).toBeNull()
 
     // Folding is a width decision, not the HUD: no exit affordance appears.
-    expect(screen.queryByLabelText('Exit HUD mode')).toBeNull()
+    expect(screen.queryByLabelText('退出 HUD 模式')).toBeNull()
   })
 
   it('keeps Send at the tightest width, with everything else dropped', () => {
     renderControls({ foldVoice: true, minimal: true })
 
-    expect(screen.getByLabelText('Send')).toBeTruthy()
-    expect(screen.queryByLabelText('Voice')).toBeNull()
+    expect(screen.getByLabelText('发送')).toBeTruthy()
+    expect(screen.queryByLabelText('语音')).toBeNull()
   })
 
   it('keeps Stop reachable mid-turn at the tightest width', () => {
     renderControls({ busy: true, busyAction: 'stop', foldVoice: true, hasComposerPayload: false, minimal: true })
 
-    expect(screen.getByLabelText('Stop')).toBeTruthy()
+    expect(screen.getByLabelText('停止')).toBeTruthy()
   })
 })
 
@@ -144,40 +144,40 @@ describe('ComposerControls shortcut tooltips', () => {
   it('labels busy Send with the effective configured action', async () => {
     renderControls({ busy: true, busyAction: 'steer' })
 
-    await expectShortcutTooltip('Steer the current run', '↵')
+    await expectShortcutTooltip('引导当前运行', '↵')
   })
 
   it('shows Stop only when the composer is empty mid-turn', async () => {
     renderControls({ busy: true, busyAction: 'stop', canSubmit: true, hasComposerPayload: false })
 
-    await expectShortcutTooltip('Stop', '↵')
+    await expectShortcutTooltip('停止', '↵')
   })
 
   it('answers a waiting card with Send when the draft has text, and offers no Queue', () => {
     renderControls({ busy: true, busyAction: 'queue', cardWaiting: true, hasComposerPayload: true })
 
-    expect(screen.getByLabelText('Send')).toBeTruthy()
-    expect(screen.queryByLabelText('Stop')).toBeNull()
-    expect(screen.queryByLabelText('Queue message')).toBeNull()
+    expect(screen.getByLabelText('发送')).toBeTruthy()
+    expect(screen.queryByLabelText('停止')).toBeNull()
+    expect(screen.queryByLabelText('排队消息')).toBeNull()
   })
 
   it('keeps Stop enabled while a card waits and the draft is empty', () => {
     renderControls({ busy: true, busyAction: 'stop', canSubmit: true, cardWaiting: true, hasComposerPayload: false })
 
-    expect(screen.getByLabelText('Stop').hasAttribute('disabled')).toBe(false)
+    expect(screen.getByLabelText('停止').hasAttribute('disabled')).toBe(false)
   })
 
   it('shows Ctrl+Enter for Queue as the secondary mid-turn action', async () => {
     renderControls({ busy: true, busyAction: 'interrupt' })
 
-    await expectShortcutTooltip('Queue message', 'Ctrl+↵')
+    await expectShortcutTooltip('排队消息', 'Ctrl+↵')
   })
 
   it('hides Queue while idle even if the composer has a payload', () => {
     renderControls({ busy: false, busyAction: 'queue', hasComposerPayload: true })
 
-    expect(screen.queryByLabelText('Queue message')).toBeNull()
-    expect(screen.getByLabelText('Send')).toBeTruthy()
+    expect(screen.queryByLabelText('排队消息')).toBeNull()
+    expect(screen.getByLabelText('发送')).toBeTruthy()
   })
 })
 
@@ -188,9 +188,9 @@ describe('wake-word ear visibility', () => {
 
   // The ear lives in the mic's fan now: hover the mic to reach it.
   const findEar = async () => {
-    fireEvent.pointerEnter(screen.getByLabelText('Voice dictation').parentElement!)
+    fireEvent.pointerEnter(screen.getByLabelText('语音听写').parentElement!)
 
-    return screen.findByLabelText('Wake word "hey hermes"')
+    return screen.findByLabelText('唤醒词"hey hermes"')
   }
 
   it('stays reachable during a busy agent turn', async () => {
@@ -234,7 +234,7 @@ describe('wake-word ear visibility', () => {
       }
     })
 
-    const ear = screen.getByLabelText('Wake word: "hey hermes" — paused during voice chat')
+    const ear = screen.getByLabelText('唤醒词:"hey hermes" — 语音对话期间暂停')
     expect((ear as HTMLButtonElement).disabled).toBe(true)
   })
 })

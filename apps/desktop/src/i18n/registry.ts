@@ -1,18 +1,4 @@
-/**
- * App-locale registry — the runtime half of the desktop catalog. `TRANSLATIONS`
- * is what ships in the binary; this registry layers languages that arrive
- * later: a plugin's `host.i18n.registerAppLocale` / `ctx.i18n.registerAppLocale`
- * (source `plugin:<id>`), and the backend's `.desktop.yaml` language packs
- * delivered over `i18n.catalog` (source `backend`). Every registration is
- * PARTIAL: it merges over the bundled catalog for that id (or English for a
- * new language) via `mergeTranslations`; a pack string sitting where English
- * has a function is wrapped into a positional `{0}`/`{1}` formatter.
- *
- * Resolution order for one id: bundled <id> (or en) → registrations in the
- * order they arrived (last wins per key). `$appLocaleVersion` bumps on every
- * change so React translators re-resolve. Picker metadata (endonym, English
- * name, direction) is composed with the bundled table in `./languages`.
- */
+/** Chinese overlays from plugins and the active backend, layered over the bundled catalog. */
 
 import {
   adaptStringOverrides,
@@ -31,16 +17,15 @@ import type { Locale, Translations } from './types'
 export type AppLocaleSource = 'app' | 'backend' | `plugin:${string}`
 
 export interface AppLocaleRegistration {
-  /** Native name shown in the switcher (`Polski`). Falls back to the shared
-   *  endonym table, then the id. */
+  /** Optional metadata retained for plugin compatibility. */
   endonym?: string
-  /** Search-only English name (`Polish`) so an English speaker can find it. */
+
   englishName?: string
-  /** Right-to-left script — drives `<html dir>`. */
+
   rtl?: boolean
   /** The strings. Either a nested partial of `Translations` (TypeScript
    *  plugins) or a flat `{ "common.save": "Zapisz" }` map (YAML packs).
-   *  Missing keys fall back to the bundled catalog, then English. */
+   *  Missing keys fall back to the bundled Chinese catalog. */
   translations?: FlatMessages | Record<string, unknown> | TranslationOverride<Translations>
 }
 
@@ -75,7 +60,7 @@ export function normalizeLocaleId(id: string): string {
 }
 
 function baseCatalog(id: Locale): Translations {
-  return isBundledLocale(id) ? TRANSLATIONS[id] : TRANSLATIONS.en
+  return isBundledLocale(id) ? TRANSLATIONS[id] : TRANSLATIONS.zh
 }
 
 function toTree(translations: AppLocaleRegistration['translations'], base: Translations): Record<string, unknown> {
@@ -115,7 +100,7 @@ function makeEntry(id: Locale, registration: AppLocaleRegistration, source: AppL
  * Register (or replace) a language for one source. Returns a disposer that
  * drops exactly this registration; other sources' entries for the same id
  * stay. An empty id is a no-op. Registering does NOT change the active
- * locale — that stays with `display.language`.
+ * locale — Desktop always uses Chinese.
  */
 export function registerAppLocale(
   rawId: string,
@@ -124,7 +109,7 @@ export function registerAppLocale(
 ): () => void {
   const id = normalizeLocaleId(rawId)
 
-  if (!id) {
+  if (id !== 'zh') {
     return () => {}
   }
 
@@ -173,7 +158,7 @@ export function replaceAppLocaleSource(
   for (const { id: rawId, ...registration } of registrations) {
     const id = normalizeLocaleId(rawId)
 
-    if (id) {
+    if (id === 'zh') {
       const list = entries.get(id) ?? []
       list.push(makeEntry(id, registration, source))
       entries.set(id, list)
@@ -222,7 +207,7 @@ export function registeredLocaleMeta(locale: Locale): RegisteredLocaleMeta[] {
   }))
 }
 
-/** The merged catalog for `locale`: bundled (or English) with every
+/** The merged catalog for `locale`: bundled (or Chinese) with every
  *  registration layered on. Memoized per registry version. */
 export function resolveTranslations(locale: Locale): Translations {
   const version = $appLocaleVersion.get()

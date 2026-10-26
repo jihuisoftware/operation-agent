@@ -27,7 +27,7 @@ async function openWith(status: Partial<DesktopUpdateStatus>): Promise<void> {
   $updateOverlayOpen.set(true)
   await act(async (): Promise<void> => {
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <UpdatesOverlay />
       </I18nProvider>
     )
@@ -36,17 +36,17 @@ async function openWith(status: Partial<DesktopUpdateStatus>): Promise<void> {
 
 it('offers Change only where Settings can switch; a custom branch or older runtime gets the label alone', async () => {
   await openWith({ channel: 'stable', channelSelectable: true })
-  expect(screen.getByText('Channel')).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Change' })).toBeTruthy()
+  expect(screen.getByText('渠道')).toBeTruthy()
+  expect(screen.getByRole('button', { name: '更改' })).toBeTruthy()
   cleanup()
 
   await openWith({ branch: 'feature/gui', channelSelectable: true })
-  expect(screen.getByText(/Branch: feature\/gui/)).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
+  expect(screen.getByText(/分支：feature\/gui/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: '更改' })).toBeNull()
   cleanup()
 
   // An older runtime cannot save a channel, so Settings shows no selector to land on.
   await openWith({ channel: 'stable' })
-  expect(screen.getByText('Stable releases')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
+  expect(screen.getByText('稳定版发布')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: '更改' })).toBeNull()
 })

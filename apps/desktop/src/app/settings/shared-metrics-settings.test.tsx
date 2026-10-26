@@ -14,7 +14,7 @@ vi.mock('@/store/gateway', async importOriginal => ({
 }))
 vi.mock('@/store/desktop-metrics', () => ({ recordOnboarding: vi.fn(), setDesktopMetricsGate: vi.fn() }))
 
-const { en } = await import('@/i18n/en')
+const { zh: en } = await import('@/i18n/zh')
 const { SharedMetricsSettings } = await import('./shared-metrics-settings')
 
 const copy = en.sharedMetrics

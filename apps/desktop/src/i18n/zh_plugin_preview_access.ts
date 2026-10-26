@@ -1,7 +1,7 @@
 import type { PluginPreviewAccessTranslations } from './types_plugin_preview_access'
 
 /** Copy for the preview-script consent prompt and the per-plugin grant list (Capabilities ▸ Plugins). */
-export const zhPluginPreviewAccess: PluginPreviewAccessTranslations = {
+export const zhPluginPreviewAccess = {
   previewScriptPromptTitle: (plugin: string) => `允许 ${plugin} 在此页面运行脚本吗？`,
   previewScriptPromptBody: (plugin: string, origin: string) =>
     `${plugin} 想在预览浏览器中的 ${origin} 上运行 JavaScript。`,
@@ -15,4 +15,4 @@ export const zhPluginPreviewAccess: PluginPreviewAccessTranslations = {
   previewScriptRevoked: (plugin: string, origin: string) => `${plugin} 不能再在 ${origin} 上运行脚本。`,
   previewScriptRevokeUnsaved: (plugin: string, origin: string) =>
     `无法保存此更改，因此它仅在 Hermes 重启前有效。目前 ${plugin} 在 ${origin} 上被阻止。`
-}
+} satisfies PluginPreviewAccessTranslations

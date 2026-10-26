@@ -3,8 +3,7 @@
 //
 // `Translations` is the single source of truth for every translatable string
 // surface. Fully translated locale files may satisfy this interface directly;
-// partial locales should use `defineLocale()` so missing desktop-only strings
-// fall back to English while new keys remain type-checked.
+// the Chinese catalog satisfies this interface without another language as fallback.
 
 import type { ErrorCodeKey } from '@/lib/error-surface'
 import type { TipId } from '@/lib/tips/catalog'
@@ -33,7 +32,7 @@ import type { UninstallSectionTranslations } from './types_uninstall_section'
 import type { UpdateChannelCopy } from './types_update_channel'
 
 /** The locales compiled into the app (`TRANSLATIONS`). */
-export type BundledLocale = 'en' | 'zh'
+export type BundledLocale = 'zh'
 
 /** Any language id the app can render: a bundled locale, or one a plugin /
  *  the backend registered at runtime (`registerAppLocale`). Lowercase

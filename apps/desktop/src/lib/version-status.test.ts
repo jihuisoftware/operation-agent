@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 
 import { resolveVersionStatus } from './version-status'
 
@@ -27,7 +27,7 @@ describe('resolveVersionStatus', () => {
 
     expect(status.label).toBe('v0.4.2 (+12)')
     expect(status.hasUpdate).toBe(true)
-    expect(status.tooltip).toContain('12 commits behind main')
+    expect(status.tooltip).toContain('落后 main 12 个提交')
   })
 
   // FAIL-BEFORE (#84591 class): a shallow install reports behind:null +
@@ -60,28 +60,28 @@ describe('resolveVersionStatus', () => {
   it('drops the diff while an apply is in flight', () => {
     const applying = client({ applying: true, behind: 3, sha: 'abc1234', version: '0.4.2' })
 
-    expect(applying.label).toBe('v0.4.2 · update')
+    expect(applying.label).toBe('v0.4.2 · 更新')
     expect(applying.hasUpdate).toBe(false)
 
-    expect(client({ applying: true, restarting: true, version: '0.4.2' }).label).toBe('v0.4.2 · restart')
+    expect(client({ applying: true, restarting: true, version: '0.4.2' }).label).toBe('v0.4.2 · 重启')
   })
 
   it('labels the backend target distinctly and never claims a client sha', () => {
     const status = backend({ sha: 'abc1234', version: '0.4.2' })
 
-    expect(status.label).toBe('backend v0.4.2')
-    expect(status.tooltip).toBe('Backend v0.4.2')
+    expect(status.label).toBe('后端 v0.4.2')
+    expect(status.tooltip).toBe('后端 v0.4.2')
   })
 
   it('falls back to (update) for a backend that cannot count commits', () => {
     const status = backend({ updateAvailable: true, version: '0.4.2' })
 
-    expect(status.label).toBe('backend v0.4.2 (update)')
+    expect(status.label).toBe('后端 v0.4.2 (更新)')
     expect(status.hasUpdate).toBe(true)
   })
 
   it('prefers the exact commit diff over the generic (update) hint', () => {
-    expect(backend({ behind: 4, updateAvailable: true, version: '0.4.2' }).label).toBe('backend v0.4.2 (+4)')
+    expect(backend({ behind: 4, updateAvailable: true, version: '0.4.2' }).label).toBe('后端 v0.4.2 (+4)')
   })
 
   it('hides a backend row that has no version at all', () => {
@@ -90,7 +90,7 @@ describe('resolveVersionStatus', () => {
 
   it('stable channel: releases use the update word, never a commit count', () => {
     const label = client({ behind: 4, updateAvailable: true, channel: 'stable', version: '0.4.2' }).label
-    expect(label).toBe('v0.4.2 (update)')
+    expect(label).toBe('v0.4.2 (更新)')
   })
 
   it('stable channel tooltip names the release tag', () => {

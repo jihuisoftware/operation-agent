@@ -90,7 +90,7 @@ function renderOffer(request = REQUEST) {
   setConnectionRequest(request)
 
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <ConnectorOffer owner={PRIMARY_OWNER} request={request} />
     </I18nProvider>
   )
@@ -101,7 +101,7 @@ function renderConnector(request = REQUEST) {
   setConnectionRequest(request)
 
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <SessionViewProvider value={view(SESSION_ID)}>
         <ConnectorTool {...props()} />
       </SessionViewProvider>
@@ -136,7 +136,7 @@ describe('ConnectorOffer named-account notice', () => {
 
     setConnectionRequest(request)
     render(
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <MemoryRouter initialEntries={['/chat']}>
           <Routes>
             <Route element={<ConnectorOffer owner={PRIMARY_OWNER} request={request} />} path="/chat" />
@@ -146,9 +146,9 @@ describe('ConnectorOffer named-account notice', () => {
       </I18nProvider>
     )
 
-    expect(screen.getAllByText('Hermes named this Gmail account work.')).toHaveLength(1)
+    expect(screen.getAllByText('Hermes 已将这个 Gmail 账户命名为 work。')).toHaveLength(1)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    fireEvent.click(screen.getByRole('button', { name: '重命名' }))
 
     expect(screen.getByTestId('where').textContent).toBe(
       '/capabilities?tab=connectors&connector=gmail&profile=default&rename=ca_work'
@@ -167,11 +167,7 @@ describe('ConnectorTool operation card', () => {
       ]
     })
 
-    expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual([
-      'Connect',
-      'Try again',
-      'Continue'
-    ])
+    expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['连接', '重试', '继续'])
     expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull()
   })
 
@@ -185,7 +181,7 @@ describe('ConnectorTool operation card', () => {
 
     renderConnector({ ...REQUEST, targets: [{ ...GMAIL, state: 'initiated' }] })
 
-    const connect = await waitFor(() => screen.getByRole('button', { name: 'Connect' }))
+    const connect = await waitFor(() => screen.getByRole('button', { name: '连接' }))
     expect(connect.hasAttribute('disabled')).toBe(false)
     fireEvent.click(connect)
 
@@ -206,7 +202,7 @@ describe('ConnectorTool operation card', () => {
     setPrimaryGateway({ request } as never)
 
     renderOffer({ ...REQUEST, targets: [{ ...GMAIL, connectUrl: null, state: 'failed' }] })
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
 
     await waitFor(() => {
       expect(request).toHaveBeenCalledTimes(1)
@@ -226,14 +222,14 @@ describe('ConnectorTool operation card', () => {
     setPrimaryGateway({ request } as never)
 
     renderOffer({ ...REQUEST, targets: [{ ...GMAIL, connectUrl: null, state: 'failed' }] })
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
 
     await waitFor(() => {
       expect($notifications.get().map(({ kind, title }) => ({ kind, title }))).toEqual([
-        { kind: 'error', title: 'Could not start authorization for Gmail.' }
+        { kind: 'error', title: '无法为 Gmail 开始授权。' }
       ])
     })
-    expect(screen.getByRole('button', { name: 'Try again' }).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByRole('button', { name: '重试' }).hasAttribute('disabled')).toBe(false)
     expect(screen.queryByText('LINK_STILL_VALID')).toBeNull()
   })
 
@@ -245,7 +241,7 @@ describe('ConnectorTool operation card', () => {
 
     renderConnector()
 
-    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: 'Continue' })))
+    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '继续' })))
 
     await waitFor(() => {
       expect(request).toHaveBeenCalledWith('connection.respond', {
@@ -282,10 +278,10 @@ describe('ConnectorTool operation card', () => {
     const buttons = [...window.document.querySelectorAll('[data-connector-offer] button')]
 
     expect(buttons.every(button => button.hasAttribute('disabled'))).toBe(true)
-    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull()
-    expect(screen.getByText('Connected')).toBeTruthy()
-    expect(screen.getByText('Skipped')).toBeTruthy()
-    expect(screen.getByText('Not connected')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '继续' })).toBeNull()
+    expect(screen.getByText('已连接')).toBeTruthy()
+    expect(screen.getByText('已跳过')).toBeTruthy()
+    expect(screen.getByText('未连接')).toBeTruthy()
     expect(screen.queryByText('Access denied by user')).toBeNull()
   })
 })

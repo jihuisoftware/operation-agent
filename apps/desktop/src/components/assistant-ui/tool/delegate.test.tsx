@@ -35,7 +35,7 @@ function view(): SessionView {
 
 function renderCard() {
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <SessionViewProvider value={view()}>
         <DelegateTool
           args={{ tasks: [{ goal: 'Inspect the delegate card' }] }}

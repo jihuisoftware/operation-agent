@@ -907,6 +907,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
       if (result.notice) {
         showLargeModelNotice(result.notice)
       }
+
       setSwitchStaleAux(result.stale_aux ?? [])
       notify({ kind: 'success', title: m.mainAppliedTitle, message: m.mainAppliedMessage(model) })
 
@@ -1306,7 +1307,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
                               value={auxDraft.reasoningEffort}
                             >
                               <SelectTrigger
-                                aria-label={`${copy.label} reasoning effort`}
+                                aria-label={`${copy.label} ${m.reasoning}`}
                                 className={cn('min-w-32', CONTROL_TEXT)}
                               >
                                 <SelectValue />

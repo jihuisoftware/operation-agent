@@ -19,7 +19,7 @@ function mount(target: string, surfaceId: string, key = 'draft-a') {
   const scope = { ...MAIN_COMPOSER_SCOPE, target, attachments: createComposerAttachmentScope() }
 
   const Wrapper = ({ children }: PropsWithChildren) => (
-    <I18nProvider configClient={null}>
+    <I18nProvider>
       <ComposerScopeProvider value={scope}>
         <ComposerSurfaceProvider value={surfaceId}>
           <div data-composer-surface-id={surfaceId} data-composer-target={target}>

@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setSessionArchived } from '@/hermes'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $messagingSessions, $sessions, setMessagingSessions, setSessions } from '@/store/session'
 import type { SessionInfo } from '@/types/hermes'
 

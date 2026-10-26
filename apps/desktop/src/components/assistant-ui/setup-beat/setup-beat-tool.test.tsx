@@ -16,7 +16,7 @@ function renderRow(result: SetupBeatToolResult | undefined) {
   const row = { args: {}, result, toolCallId: 'call-1', toolName: 'setup_beat' } as ToolCallMessagePartProps
 
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <SessionViewProvider value={view}>
         <SetupBeatTool {...row} />
       </SessionViewProvider>
@@ -45,10 +45,10 @@ describe('SetupBeatTool', () => {
 
   it('says a card answer was not accepted, and a row left without a card once the turn ended was not answered', () => {
     renderRow({ beat: 'layout', error: 'The card sent an answer this beat does not accept.' })
-    expect(screen.getByText('Answer not accepted')).not.toBeNull()
+    expect(screen.getByText('未接受该回答')).not.toBeNull()
     cleanup()
 
     renderRow(undefined)
-    expect(screen.getByText('No answer')).not.toBeNull()
+    expect(screen.getByText('未回答')).not.toBeNull()
   })
 })

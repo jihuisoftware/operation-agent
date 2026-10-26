@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { atom } from 'nanostores'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type I18nContextValue, I18nProvider, useI18n } from '@/i18n'
+import { I18nProvider } from '@/i18n'
 import type { CustomEndpointsResponse } from '@/types/hermes'
 
 const getCustomEndpoints = vi.fn()
@@ -79,20 +79,13 @@ afterEach(() => {
 })
 
 describe('CustomEndpointsSettings', () => {
-  it('localizes endpoint editing on language changes without changing transport or draft identifiers', async () => {
+  it('keeps endpoint transport and draft identifiers intact in the Chinese editor', async () => {
     getCustomEndpoints.mockResolvedValue(emptyResponse)
     saveCustomEndpoint.mockResolvedValue(savedResponse)
-    let language!: I18nContextValue
-
-    function Surface() {
-      language = useI18n()
-
-      return <CustomEndpointsSettings />
-    }
 
     render(
-      <I18nProvider configClient={null} initialLocale="zh">
-        <Surface />
+      <I18nProvider>
+        <CustomEndpointsSettings />
       </I18nProvider>
     )
     await screen.findByText('暂无自定义端点')
@@ -100,12 +93,11 @@ describe('CustomEndpointsSettings', () => {
     fireEvent.change(screen.getByRole('textbox', { name: '端点 URL' }), { target: { value: 'http://fixture.test/v1' } })
     fireEvent.change(screen.getByRole('combobox', { name: '默认模型' }), { target: { value: 'fixture-model' } })
     fireEvent.click(screen.getByRole('button', { name: 'Responses API' }))
-    await act(() => language.setLocale('zh-hant'))
-    expect((screen.getByRole('textbox', { name: '名稱' }) as HTMLInputElement).value).toBe('Fixture Ω')
+    expect((screen.getByRole('textbox', { name: '名称' }) as HTMLInputElement).value).toBe('Fixture Ω')
     expect(screen.getByText('API 模式')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '自動偵測' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '自动检测' })).toBeTruthy()
     expect(saveCustomEndpoint).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: '儲存' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(saveCustomEndpoint).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Fixture Ω',
@@ -134,17 +126,17 @@ describe('CustomEndpointsSettings', () => {
 
     render(<CustomEndpointsSettings />)
 
-    await screen.findByText('No custom endpoints')
-    fireEvent.change(screen.getByPlaceholderText('Axet Proxy'), { target: { value: 'Responses gateway' } })
+    await screen.findByText('暂无自定义端点')
+    fireEvent.change(screen.getByPlaceholderText('我的代理'), { target: { value: 'Responses gateway' } })
     fireEvent.change(screen.getByPlaceholderText('http://127.0.0.1:8081/v1'), {
       target: { value: 'https://responses-gateway.example.com/v1' }
     })
     fireEvent.click(screen.getByRole('button', { name: 'Responses API' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+      fireEvent.click(screen.getByRole('button', { name: '测试' }))
     })
     fireEvent.change(screen.getByPlaceholderText('gpt-5.4'), { target: { value: 'gpt-5.6-sol-high' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     expect(validateCustomEndpoint).toHaveBeenCalledWith(
       expect.objectContaining({ api_mode: 'codex_responses' }),
@@ -184,14 +176,14 @@ describe('CustomEndpointsSettings', () => {
     render(<CustomEndpointsSettings />)
 
     await waitFor(() => expect(getCustomEndpoints).toHaveBeenCalledWith('content-studio'))
-    expect(screen.getByText('Applies to')).toBeTruthy()
+    expect(screen.getByText('应用于')).toBeTruthy()
 
-    fireEvent.change(await screen.findByPlaceholderText('Axet Proxy'), { target: { value: 'Studio gateway' } })
+    fireEvent.change(await screen.findByPlaceholderText('我的代理'), { target: { value: 'Studio gateway' } })
     fireEvent.change(await screen.findByPlaceholderText('http://127.0.0.1:8081/v1'), {
       target: { value: 'https://studio.example.com/v1' }
     })
     fireEvent.change(await screen.findByPlaceholderText('gpt-5.4'), { target: { value: 'studio-model' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     expect(saveCustomEndpoint).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Studio gateway' }),
@@ -222,13 +214,13 @@ describe('CustomEndpointsSettings', () => {
       <CustomEndpointsSettings onConfigSaved={onConfigSaved} onMainModelChanged={onMainModelChanged} />
     )
 
-    await screen.findByText('No custom endpoints')
-    fireEvent.change(screen.getByPlaceholderText('Axet Proxy'), { target: { value: 'Profile A' } })
+    await screen.findByText('暂无自定义端点')
+    fireEvent.change(screen.getByPlaceholderText('我的代理'), { target: { value: 'Profile A' } })
     fireEvent.change(screen.getByPlaceholderText('http://127.0.0.1:8081/v1'), {
       target: { value: 'http://profile-a.test/v1' }
     })
     fireEvent.change(screen.getByPlaceholderText('gpt-5.4'), { target: { value: 'model-a' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(saveCustomEndpoint).toHaveBeenCalledTimes(1)
 
     // SettingsView keys ProvidersSettings by the selected profile, so a profile
@@ -253,10 +245,10 @@ describe('CustomEndpointsSettings', () => {
     })
     render(<CustomEndpointsSettings onConfigSaved={vi.fn()} onMainModelChanged={vi.fn()} />)
 
-    await screen.findByText('No custom endpoints')
+    await screen.findByText('暂无自定义端点')
     const urlInput = screen.getByPlaceholderText<HTMLInputElement>('http://127.0.0.1:8081/v1')
     fireEvent.change(urlInput, { target: { value: 'http://h.test' } })
-    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Test' })))
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: '测试' })))
 
     // Save stores form.baseUrl verbatim and chat POSTs {base_url}/chat/completions, so the
     // typed bare root would 404 every request even though the test looked green.

@@ -22,11 +22,11 @@ concurrency:
 
 jobs:
   e2e:
-    name: Playwright E2E (Linux)
+    name: Playwright E2E (macOS)
     # This job builds the renderer and the electron bundle, then drives a real
-    # Electron app under xvfb. vite, tsc and the Playwright workers all scale
+    # Electron app on macOS. vite, tsc and the Playwright workers all scale
     # with the core count.
-    runs-on: blacksmith-32vcpu-ubuntu-2404
+    runs-on: macos-15
     timeout-minutes: 20
     outputs:
       review_status: ${{ steps.review-status.outputs.review_status }}
@@ -34,18 +34,6 @@ jobs:
       - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
         with:
           ref: ${{ inputs.commit }}
-
-      # ── System deps for Electron on headless Ubuntu ───────────────────
-      # Electron needs GTK, NSS,atk, etc. even under xvfb. Playwright's
-      # install-deps covers browsers; for Electron we install the apt
-      # packages directly.
-      - name: Install system dependencies for Electron
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq \
-            xvfb \
-            libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 \
-            xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
 
       - name: Set up the locked desktop toolchain
         uses: ./.github/actions/setup-pm
@@ -80,28 +68,21 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/desktop/e2e/*-snapshots
-          key: visual-baselines-${{ github.ref_name }}
+          key: visual-baselines-macos-${{ github.ref_name }}
           restore-keys: |
-            visual-baselines-main
+            visual-baselines-macos-main
 
-      # ── Run Playwright E2E under xvfb ─────────────────────────────────
-      # xvfb runs at a fixed 1280x1024 screen so the 1220x800 Electron
-      # window always has a consistent viewport for screenshot comparison.
-      # On main, we run with --update-snapshots to generate baselines.
-      # `npm run test:e2e` builds dist/ as a pretest hook so the renderer
-      # is always fresh — no separate build step needed.
+      # Compare native macOS screenshots with the macOS baseline.
       - name: Run Playwright E2E tests
         working-directory: apps/desktop
         run: |
           # A stable run is on main too, but it tests a candidate. It compares and never rewrites baselines.
           if [ "${{ github.ref_name }}" = "main" ] && [ -z "${{ inputs.commit }}" ]; then
             echo "On main — generating/updating baseline screenshots"
-            npm run build && xvfb-run -a --server-args="-screen 0 1280x1024x24" \
-              npx playwright test --reporter=list --update-snapshots
+            npm run build && npx playwright test --reporter=list --update-snapshots
           else
             echo "On PR — comparing against cached baselines"
-            npm run build && xvfb-run -a --server-args="-screen 0 1280x1024x24" \
-              npx playwright test --reporter=list
+            npm run build && npx playwright test --reporter=list
           fi
         env:
           CI: 'true'
@@ -116,7 +97,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/desktop/e2e/*-snapshots
-          key: visual-baselines-main
+          key: visual-baselines-macos-main
 
       # ── Upload Playwright report (HTML + traces) ──────────────────────
       - name: Upload Playwright report

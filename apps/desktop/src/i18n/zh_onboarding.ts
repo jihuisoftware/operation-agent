@@ -1,6 +1,6 @@
 import type { TranslationOverrides } from './define-locale'
 
-export const zhOnboarding: TranslationOverrides['onboarding'] = {
+export const zhOnboarding = {
   headerTitle: '开始设置 Hermes Agent',
   headerDesc: '连接模型提供方即可开始对话。大多数选项只需一次点击。',
   preparingInstall: 'Hermes 正在完成安装。首次运行通常不到一分钟。',
@@ -73,4 +73,4 @@ export const zhOnboarding: TranslationOverrides['onboarding'] = {
   change: '更改',
   startChatting: '开始',
   docs: provider => `${provider} 文档`
-}
+} satisfies TranslationOverrides['onboarding']

@@ -28,7 +28,7 @@ const goal = (status: SessionGoal['status'], title = 'ship the feature', detail?
 function renderStack(sessionId: null | string = SID) {
   return render(
     <MemoryRouter>
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <ComposerStatusStack queue={null} sessionId={sessionId} />
       </I18nProvider>
     </MemoryRouter>
@@ -50,9 +50,9 @@ describe('ComposerStatusStack goal indicator', () => {
 
     renderStack()
 
-    expect(screen.getByText('Goal active')).toBeTruthy()
+    expect(screen.getByText('目标进行中')).toBeTruthy()
     expect(screen.queryByText('ship the feature')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /Goal (active|paused)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /目标(进行中|已暂停)/ }))
     expect(screen.getByText('ship the feature')).toBeTruthy()
   })
 
@@ -61,9 +61,9 @@ describe('ComposerStatusStack goal indicator', () => {
 
     renderStack()
 
-    expect(screen.getByText('Goal paused')).toBeTruthy()
+    expect(screen.getByText('目标已暂停')).toBeTruthy()
     expect(screen.queryByText('ship the feature')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /Goal (active|paused)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /目标(进行中|已暂停)/ }))
     expect(screen.getByText('ship the feature')).toBeTruthy()
   })
 

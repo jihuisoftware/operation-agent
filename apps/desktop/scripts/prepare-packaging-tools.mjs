@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
+import { requireMacOS } from '../platform-policy.cjs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
@@ -29,6 +30,7 @@ export function pinnedPackageRoot(source, name) {
 
 /** @param {string} target @returns {'x64' | 'arm64'} */
 export function packagingTargetArch(target) {
+  requireMacOS()
   if (target === `${process.platform}-x64`) return 'x64'
   if (target === `${process.platform}-arm64`) return 'arm64'
   throw new Error(`Packaging preparation requires a same-OS x64/arm64 target, got ${target}`)
@@ -58,9 +60,9 @@ async function preparePackagingTools({ source, out, cache, target = `${process.p
   pinnedPackageRoot(source, 'electron-builder')
   const require = createRequire(path.join(source, 'apps/desktop/package.json'))
   const config = require(path.join(source, 'apps/desktop/electron-builder.config.cjs'))
-  formats ??= process.platform === 'darwin' ? ['dmg', 'zip'] : ['AppImage']
+  formats ??= ['dmg', 'zip']
   if (process.env.CUSTOM_DMGBUILD_PATH) throw new Error('Preparation must select the pinned dmgbuild supplier, not CUSTOM_DMGBUILD_PATH')
-  const supported = process.platform === 'darwin' ? ['dir', 'dmg', 'zip'] : ['dir', 'AppImage', 'deb', 'rpm', 'zip']
+  const supported = ['dir', 'dmg', 'zip']
   if (formats.some(format => !supported.includes(format))) throw new Error(`Unsupported prepared package formats: ${formats.join(', ')}`)
   const dmg = formats.includes('dmg') ? prepareDmgbuild({ source, out, cache, binary: dmgbuild }) : null
   const previousCache = process.env.ELECTRON_BUILDER_CACHE

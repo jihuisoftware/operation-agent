@@ -4,7 +4,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import type { DesktopUpdateStatus } from '@/global'
 import { I18nProvider } from '@/i18n'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $updateStatus, resetUpdateApplyState } from '@/store/updates'
 
 import { DiscontinuedNotice } from './retirement-view'
@@ -37,7 +37,7 @@ test('discontinued retirement shows the uninstall notice and persists dismissal 
   }
 
   render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <Dialog open>
         <DialogContent>
           <DiscontinuedNotice

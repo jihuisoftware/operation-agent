@@ -109,7 +109,7 @@ function openCard(payload: ConnectionRequestPayload = PAYLOAD) {
   setConnectionRequest(request)
 
   return render(
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <SessionViewProvider value={view(SESSION_ID)}>
         <div data-testid="catalog">
           <CatalogInstallTool {...PROPS} />
@@ -179,10 +179,10 @@ describe('the catalog install card', () => {
     openCard()
 
     expect(screen.getByTestId('catalog').querySelectorAll('[data-connector-row]')).toHaveLength(2)
-    expect(row('nvidia-app').getByText('plugin')).toBeTruthy()
+    expect(row('nvidia-app').getByText('插件')).toBeTruthy()
     expect(row('nvidia-app').getByText(NVIDIA_APP.description!)).toBeTruthy()
     expect(row('nvidia-app').getByText('Windows')).toBeTruthy()
-    expect(row('obsidian-notes').getByText('skill')).toBeTruthy()
+    expect(row('obsidian-notes').getByText('技能')).toBeTruthy()
     expect(row('obsidian-notes').getByText(OBSIDIAN.description!)).toBeTruthy()
     expect(row('obsidian-notes').queryByText('Windows')).toBeNull()
   })
@@ -190,21 +190,21 @@ describe('the catalog install card', () => {
   it('sends defaults from the row, the modal values from Advanced, and nothing on Cancel', async () => {
     openCard()
 
-    fireEvent.click(row('obsidian-notes').getByRole('button', { name: 'Install' }))
+    fireEvent.click(row('obsidian-notes').getByRole('button', { name: '安装' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
     expect(rpc).toHaveBeenLastCalledWith(...respondedWith([{ env: null, name: 'obsidian-notes', status: 'approved' }]))
 
-    fireEvent.click(row('nvidia-app').getByRole('button', { name: 'Advanced' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(row('nvidia-app').getByRole('button', { name: '高级' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(rpc).toHaveBeenCalledTimes(1)
 
-    fireEvent.click(row('nvidia-app').getByRole('button', { name: 'Advanced' }))
+    fireEvent.click(row('nvidia-app').getByRole('button', { name: '高级' }))
     const dialog = within(screen.getByRole('dialog'))
-    fireEvent.click(dialog.getByRole('combobox', { name: 'Install for profile' }))
+    fireEvent.click(dialog.getByRole('combobox', { name: '安装到配置文件' }))
     fireEvent.click(await screen.findByRole('option', { name: 'work' }))
-    fireEvent.click(dialog.getByRole('switch', { name: /Force reinstall/ }))
-    fireEvent.click(dialog.getByRole('button', { name: 'Install' }))
+    fireEvent.click(dialog.getByRole('switch', { name: /强制重装（替换已存在的安装）/ }))
+    fireEvent.click(dialog.getByRole('button', { name: '安装' }))
 
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2))
     expect(rpc).toHaveBeenLastCalledWith(
@@ -240,15 +240,15 @@ describe('the catalog install card', () => {
       2
     )
 
-    expect(row('nvidia-app').getByText(/Installed · 12 tools/)).toBeTruthy()
+    expect(row('nvidia-app').getByText(/已安装 · 12 个工具/)).toBeTruthy()
     expect(row('nvidia-app').queryByText('nvapp_client_tool_0')).toBeNull()
-    fireEvent.click(row('nvidia-app').getByRole('button', { name: 'show names' }))
+    fireEvent.click(row('nvidia-app').getByRole('button', { name: '显示名称' }))
     expect(row('nvidia-app').getByText('nvapp_client_tool_0')).toBeTruthy()
     expect(row('nvidia-broadcast').getByText(/NVIDIA Broadcast is not running/)).toBeTruthy()
-    expect(row('obsidian-notes').getByText('Skipped')).toBeTruthy()
+    expect(row('obsidian-notes').getByText('已跳过')).toBeTruthy()
     expect(row('obsidian-notes').queryByRole('button')).toBeNull()
 
-    fireEvent.click(row('nvidia-broadcast').getByRole('button', { name: 'Try again' }))
+    fireEvent.click(row('nvidia-broadcast').getByRole('button', { name: '重试' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
     expect(rpc).toHaveBeenLastCalledWith(
       ...respondedWith([{ env: null, name: 'nvidia-broadcast', status: 'approved' }])

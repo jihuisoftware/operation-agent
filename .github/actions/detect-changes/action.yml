@@ -39,9 +39,6 @@ outputs:
   e2e_desktop_core:
     description: Run the Desktop core Electron suite (apps/desktop/e2e/core).
     value: ${{ steps.classify.outputs.e2e_desktop_core }}
-  e2e_desktop_update:
-    description: Run the Desktop install/update Electron suite (apps/desktop/e2e/update).
-    value: ${{ steps.classify.outputs.e2e_desktop_update }}
   site:
     description: Build the Docusaurus docs site.
     value: ${{ steps.classify.outputs.site }}

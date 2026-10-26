@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $sharedMetricsConsent, type SharedMetricsConsent } from '@/store/shared-metrics'
 

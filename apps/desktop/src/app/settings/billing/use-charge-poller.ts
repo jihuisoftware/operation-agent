@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useRef, useState } from 'react'
 
 import { type Translations, useI18n } from '@/i18n'
-import { en } from '@/i18n/en'
+import { zh } from '@/i18n/zh'
 
 import type { BillingApi, BillingRefusal } from './api'
 import { useBillingApi } from './api'
@@ -104,7 +104,7 @@ export async function pollChargeSettlement(
       return {
         amountUsd: settlement.status.amount_usd,
         kind: 'success',
-        message: en.settings.billing.charge.added(settlement.status.amount_usd ?? '')
+        message: zh.settings.billing.charge.added(settlement.status.amount_usd ?? '')
       }
 
     case 'failed':
@@ -115,7 +115,7 @@ export async function pollChargeSettlement(
         reason: settlement.status.reason,
         message: renderChargeFailed(settlement.status.reason),
         retryFreshKey: true,
-        title: en.settings.billing.charge.failedTitle
+        title: zh.settings.billing.charge.failedTitle
       }
     case 'ambiguous': {
       if (settlement.status && refusalPolicy(settlement.error).ambiguousMidPoll) {
@@ -127,9 +127,9 @@ export async function pollChargeSettlement(
           kind: 'ambiguous',
           copy: 'unconfirmed',
           refusal,
-          message: en.settings.billing.charge.unconfirmedBody(resolved.message),
+          message: zh.settings.billing.charge.unconfirmedBody(resolved.message),
           portalUrl: portalUrl ?? opts.portalUrl ?? undefined,
-          title: en.settings.billing.charge.unconfirmedTitle
+          title: zh.settings.billing.charge.unconfirmedTitle
         }
       }
 
@@ -137,9 +137,9 @@ export async function pollChargeSettlement(
         kind: 'failure',
         copy: 'check',
         reason: observed.refusal?.message,
-        message: observed.refusal?.message || en.settings.billing.charge.checkBody,
+        message: observed.refusal?.message || zh.settings.billing.charge.checkBody,
         retryFreshKey: true,
-        title: en.settings.billing.charge.checkTitle
+        title: zh.settings.billing.charge.checkTitle
       }
     }
 
@@ -148,9 +148,9 @@ export async function pollChargeSettlement(
         kind: 'failure',
         copy: 'check',
         reason: observed.refusal?.message || settlement.status.message,
-        message: observed.refusal?.message || settlement.status.message || en.settings.billing.charge.checkBody,
+        message: observed.refusal?.message || settlement.status.message || zh.settings.billing.charge.checkBody,
         retryFreshKey: true,
-        title: en.settings.billing.charge.checkTitle
+        title: zh.settings.billing.charge.checkTitle
       }
 
     case 'cancelled':
@@ -259,9 +259,9 @@ export function useChargeFlow() {
         setOutcome({
           kind: 'failure',
           copy: 'untracked',
-          message: en.settings.billing.charge.untrackedBody,
+          message: zh.settings.billing.charge.untrackedBody,
           retryFreshKey: true,
-          title: en.settings.billing.charge.untrackedTitle
+          title: zh.settings.billing.charge.untrackedTitle
         })
         setPhaseState('done')
 
@@ -295,13 +295,13 @@ function timeoutOutcome(portalUrl?: null | string): ChargeFlowOutcome {
   return {
     kind: 'ambiguous',
     copy: 'timeout',
-    message: en.settings.billing.charge.timeoutBody,
+    message: zh.settings.billing.charge.timeoutBody,
     portalUrl: portalUrl ?? undefined,
-    title: en.settings.billing.charge.timeoutTitle
+    title: zh.settings.billing.charge.timeoutTitle
   }
 }
 
-function renderChargeFailed(reason: null | string | undefined, copy = en.settings.billing.charge): string {
+function renderChargeFailed(reason: null | string | undefined, copy = zh.settings.billing.charge): string {
   switch ((reason || '').trim()) {
     case 'authentication_required':
       return copy.authenticationRequired

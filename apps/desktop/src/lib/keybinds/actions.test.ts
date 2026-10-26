@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { TRANSLATIONS } from '@/i18n/catalog'
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 
 import {
   defaultBindings,
@@ -33,7 +33,7 @@ describe('KEYBIND_ACTIONS', () => {
 
     expect(action).toMatchObject({ category: 'session', defaults: [] })
     expect(defaultBindings()['session.archive']).toEqual([])
-    expect(en.keybinds.actions['session.archive']).toBe('Archive current session')
+    expect(en.keybinds.actions['session.archive']).toBe('归档当前会话')
     expect(KEYBIND_ACTIONS.filter(candidate => candidate.id === 'session.archive')).toHaveLength(1)
   })
 
@@ -42,7 +42,7 @@ describe('KEYBIND_ACTIONS', () => {
 
     expect(action).toMatchObject({ category: 'composer', defaults: [] })
     expect(defaultBindings()['composer.dictate']).toEqual([])
-    expect(en.keybinds.actions['composer.dictate']).toBe('Start / stop dictation')
+    expect(en.keybinds.actions['composer.dictate']).toBe('开始 / 停止听写')
     expect(KEYBIND_ACTIONS.filter(candidate => candidate.id === 'composer.dictate')).toHaveLength(1)
   })
 

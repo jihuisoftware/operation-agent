@@ -1,7 +1,6 @@
 name: Desktop Bundled Release
 
 # macOS builds sign/notarize and stage DMG, ZIP, blockmaps and receipts.
-# Linux release jobs remain disabled; the local builder supports AppImage.
 # Stable candidates are promoted only after acceptance. Commit builds stage
 # immutable artifacts without publishing an updater channel.
 # Native payloads use scripts/bundles/desktop.py and PM-managed environments.
@@ -28,7 +27,7 @@ on:
       jobs:
         description: 'Comma-separated job groups. Default: every group.'
         type: string
-        default: 'darwin-arm64,darwin-x64,linux-x64,linux-arm64,termux'
+        default: 'darwin-arm64,darwin-x64,termux'
       skip-tests:
         description: 'Stable candidates only: build and stage without native smokes or in-build test suites (the claim has no smoke lane).'
         type: boolean
@@ -102,7 +101,7 @@ on:
         description: 'Comma-separated job groups. Default: every group.'
         required: false
         type: string
-        default: 'darwin-arm64,darwin-x64,linux-x64,linux-arm64,termux'
+        default: 'darwin-arm64,darwin-x64,termux'
       termux_upgrade_from_tag:
         description: 'Published release tag whose R2 Termux package must upgrade to this build'
         required: false
@@ -171,8 +170,6 @@ jobs:
       # One admission-parsed switch per job group; every job gates on its own.
       darwin-arm64: ${{ steps.admission.outputs.darwin-arm64 }}
       darwin-x64: ${{ steps.admission.outputs.darwin-x64 }}
-      linux-x64: ${{ steps.admission.outputs.linux-x64 }}
-      linux-arm64: ${{ steps.admission.outputs.linux-arm64 }}
       termux: ${{ steps.admission.outputs.termux }}
       # Every group selected: the joins that render or summarize a whole build.
       all-jobs: ${{ steps.admission.outputs.all-jobs }}
@@ -770,29 +767,6 @@ jobs:
         ${{ (inputs.build_commit == '' && inputs.channel == '' && needs.build-darwin-x64-release.result == 'success' && needs.build-darwin-x64-commit.result == 'skipped')
           || ((inputs.build_commit != '' || inputs.channel != '') && needs.build-darwin-x64-commit.result == 'success' && needs.build-darwin-x64-release.result == 'skipped') }}
     steps: *native-build-result-steps
-
-  # ── Linux builders (DISABLED for now) ─────────────────────────────────────
-  build-linux-x64:
-    name: bundled linux-x64 (disabled for now)
-    if: needs.validate.outputs.linux-x64 == 'true'
-    needs: validate
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 5
-    steps:
-      - name: Disabled
-        shell: bash
-        run: echo "::notice::linux bundled builds are disabled for now — re-enable in desktop-bundled-release.yml"
-
-  build-linux-arm64:
-    name: bundled linux-arm64 (disabled for now)
-    if: needs.validate.outputs.linux-arm64 == 'true'
-    needs: validate
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 5
-    steps:
-      - name: Disabled
-        shell: bash
-        run: echo "::notice::linux bundled builds are disabled for now — re-enable in desktop-bundled-release.yml"
 
   stage-receipt-darwin-arm64:
     name: Stage the darwin-arm64 stable receipt
@@ -1453,7 +1427,7 @@ jobs:
 
   builds-table:
     name: Render the release builds table
-    needs: [validate, build-darwin-arm64, build-darwin-x64, build-linux-x64, build-linux-arm64, smoke-darwin-arm64, smoke-darwin-x64, publish-darwin-updater, termux-deb]
+    needs: [validate, build-darwin-arm64, build-darwin-x64, smoke-darwin-arm64, smoke-darwin-x64, publish-darwin-updater, termux-deb]
     # Failed builds still get a per-tag diagnostic page. The renderer only
     # advances the channel landing page when every prerequisite succeeded.
     if: |
@@ -1498,7 +1472,7 @@ jobs:
 
   commit-builds-summary:
     name: Upload status page to R2
-    needs: [validate, build-darwin-arm64, build-darwin-x64, build-linux-x64, build-linux-arm64, smoke-darwin-arm64, smoke-darwin-x64, termux-deb]
+    needs: [validate, build-darwin-arm64, build-darwin-x64, smoke-darwin-arm64, smoke-darwin-x64, termux-deb]
     if: |
       always() && inputs.build_commit != '' && inputs.channel == '' && inputs.disposable_channel == ''
       && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
@@ -1619,7 +1593,7 @@ jobs:
 
   publish-canary:
     name: Publish the canary release
-    needs: [validate, build-darwin-arm64, build-darwin-x64, build-linux-x64, build-linux-arm64, builds-table, smoke-darwin-arm64, smoke-darwin-x64, publish-darwin-updater]
+    needs: [validate, build-darwin-arm64, build-darwin-x64, builds-table, smoke-darwin-arm64, smoke-darwin-x64, publish-darwin-updater]
     if: |
       always()
       && inputs.build_commit == '' && inputs.channel == ''
@@ -1628,10 +1602,8 @@ jobs:
       && needs.validate.outputs.darwin-arm64 == 'true' && needs.validate.outputs.darwin-x64 == 'true'
       && true && true
       && true
-      && needs.validate.outputs.linux-x64 == 'true' && needs.validate.outputs.linux-arm64 == 'true'
       && true && true
       && needs.build-darwin-arm64.result == 'success' && needs.build-darwin-x64.result == 'success'
-      && needs.build-linux-x64.result == 'success' && needs.build-linux-arm64.result == 'success'
       && needs.builds-table.result == 'success'
       && true
       && needs.smoke-darwin-arm64.result == 'success' && needs.smoke-darwin-x64.result == 'success'

@@ -61,7 +61,7 @@ describe('useStatusSnapshot', () => {
         children
       }: {
         children: ReactNode
-      }): ReactElement => createElement(I18nProvider, { configClient: null, initialLocale: locale, children })
+      }): ReactElement => createElement(I18nProvider, { children })
 
       const requestGateway: GatewayRequester = vi.fn().mockResolvedValue({}) as unknown as GatewayRequester
 

@@ -28,7 +28,7 @@ function snapshotTree(visible: boolean) {
 
 function transcriptTree(visible: boolean) {
   return (
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <PaneVisibleContext.Provider value={visible}>
         <SubagentTranscript sessionId={SID} subagentId="worker" />
       </PaneVisibleContext.Provider>

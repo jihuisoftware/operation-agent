@@ -1,6 +1,6 @@
 import type { FirstRunCopy } from './types_first_run'
 
-export const zhFirstRun: FirstRunCopy = {
+export const zhFirstRun = {
   beats: {
     name: '名字',
     theme: '强调色',
@@ -46,4 +46,4 @@ export const zhFirstRun: FirstRunCopy = {
     action: '重新运行',
     failed: '无法启动新手引导'
   }
-}
+} satisfies FirstRunCopy

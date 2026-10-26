@@ -15,7 +15,7 @@ const entry = (id: string, text: string): QueuedPromptEntry => ({
 
 function renderPanel(entries: QueuedPromptEntry[], onDiscardLost?: (id: string) => void) {
   return render(
-    <I18nProvider configClient={{ getConfig: async () => ({}), saveConfig: async () => ({ ok: true }) }}>
+    <I18nProvider>
       <QueuePanel
         busy={false}
         editingId={null}
@@ -37,7 +37,7 @@ afterEach(cleanup)
 async function renderExpandedPanel(entries: QueuedPromptEntry[]) {
   const view = renderPanel(entries)
 
-  fireEvent.click(await view.findByRole('button', { name: /queued/i }))
+  fireEvent.click(await view.findByRole('button', { name: /排队/ }))
 
   return view
 }
@@ -56,7 +56,7 @@ describe('QueuePanel expandable previews', () => {
     await screen.findByText('Quick note')
 
     // Exactly the two long/multiline entries get a toggle, not the short one.
-    expect(screen.getAllByRole('button', { name: /expand/i })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: /展开/ })).toHaveLength(2)
   })
 
   it('expands an entry to its full text and collapses it back', async () => {
@@ -69,16 +69,16 @@ describe('QueuePanel expandable previews', () => {
       await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === text)
     ).toBeTruthy()
 
-    const toggle = screen.getByRole('button', { name: /expand/i })
+    const toggle = screen.getByRole('button', { name: /展开/ })
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
 
     fireEvent.click(toggle)
 
-    const collapse = screen.getByRole('button', { name: /collapse/i })
+    const collapse = screen.getByRole('button', { name: /收起/ })
     expect(collapse.getAttribute('aria-expanded')).toBe('true')
 
     fireEvent.click(collapse)
-    expect(screen.getByRole('button', { name: /expand/i }).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByRole('button', { name: /展开/ }).getAttribute('aria-expanded')).toBe('false')
   })
 })
 
@@ -88,21 +88,24 @@ describe('QueuePanel expandable previews', () => {
 describe('QueuePanel lost turn', () => {
   it('shows the lost turn and its Discard without expanding, and names the pause', async () => {
     const onDiscardLost = vi.fn()
-    renderPanel([{ ...entry('lost', 'doomed turn'), serverStatus: 'unknown' }, entry('next', 'follow up')], onDiscardLost)
+    renderPanel(
+      [{ ...entry('lost', 'doomed turn'), serverStatus: 'unknown' }, entry('next', 'follow up')],
+      onDiscardLost
+    )
 
-    expect(await screen.findByText('Turn lost during restart')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /2 queued — paused/i })).toBeTruthy()
+    expect(await screen.findByText('重启期间该轮次已丢失')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /2 条排队 — 已暂停/ })).toBeTruthy()
     // Only the lost row is previewed while collapsed; the healthy follow-up stays inside the section.
     expect(screen.queryByText('follow up')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    fireEvent.click(screen.getByRole('button', { name: '丢弃' }))
     expect(onDiscardLost).toHaveBeenCalledWith('lost')
   })
 
   it('opens when a queued row turns lost after the panel mounted', async () => {
     const view = renderPanel([entry('a', 'first')])
-    expect(view.queryByText('Turn lost during restart')).toBeNull()
+    expect(view.queryByText('重启期间该轮次已丢失')).toBeNull()
     view.rerender(
-      <I18nProvider configClient={{ getConfig: async () => ({}), saveConfig: async () => ({ ok: true }) }}>
+      <I18nProvider>
         <QueuePanel
           busy={false}
           editingId={null}
@@ -116,6 +119,6 @@ describe('QueuePanel lost turn', () => {
         />
       </I18nProvider>
     )
-    expect(await screen.findByText('Turn lost during restart')).toBeTruthy()
+    expect(await screen.findByText('重启期间该轮次已丢失')).toBeTruthy()
   })
 })

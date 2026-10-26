@@ -9,8 +9,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
 import type { ErrorCardCopy } from '@/i18n/types'
+import { zh as en } from '@/i18n/zh'
 import { $displayTimestamps } from '@/store/display-timestamps'
 import { $activeSessionId } from '@/store/session'
 import { type SessionTileDelegate, setSessionTileDelegate } from '@/store/session-states'
@@ -202,7 +202,7 @@ describe('AssistantMessage branch button visibility (bug #2 fix)', () => {
   it('shows the Branch in new chat button when a handler is provided (open chat)', async () => {
     render(<Harness onBranchInNewChat={() => undefined} />)
 
-    expect(await screen.findByRole('button', { name: 'Branch in new chat' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '在新对话中分支' })).toBeTruthy()
   })
 
   it('hides the Branch in new chat button when no handler is provided (session-tile / branched chat)', async () => {
@@ -213,7 +213,7 @@ describe('AssistantMessage branch button visibility (bug #2 fix)', () => {
     // unrendered message.
     await screen.findByText('done')
 
-    expect(screen.queryByRole('button', { name: 'Branch in new chat' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '在新对话中分支' })).toBeNull()
   })
 })
 
@@ -238,10 +238,10 @@ describe('ownership refusal recovery (#106217)', () => {
   it('offers Start new session and suppresses Retry for live-owner refusals', async () => {
     render(<Harness assistant={ownershipRefusalMessage()} />)
 
-    expect(await screen.findByRole('button', { name: 'Start new session' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(await screen.findByRole('button', { name: '开始新会话' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
 
-    screen.getByRole('button', { name: 'Start new session' }).click()
+    screen.getByRole('button', { name: '开始新会话' }).click()
     expect(requestFreshSession).toHaveBeenCalledTimes(1)
   })
 
@@ -273,11 +273,11 @@ describe('code-keyed error card copy and actions', () => {
     // The user bubble itself is also labelled "Edit message"; assert on the
     // card's own action button.
     const editActions = screen
-      .getAllByRole('button', { name: 'Edit message' })
+      .getAllByRole('button', { name: '编辑消息' })
       .filter(button => button.classList.contains('aui-error-action'))
 
     expect(editActions).toHaveLength(1)
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
   })
 
   it('offers Choose a model and no Retry when the model is not available', async () => {
@@ -287,8 +287,8 @@ describe('code-keyed error card copy and actions', () => {
       />
     )
 
-    expect(await screen.findByRole('button', { name: 'Choose a model' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(await screen.findByRole('button', { name: '选择模型' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
     // The raw HTTP body is not the lead sentence.
     expect(screen.getByText(copy(codes.model_not_found.title))).toBeTruthy()
     expect(screen.getByText(/HTTP 400/).closest('details')).not.toBeNull()
@@ -298,9 +298,9 @@ describe('code-keyed error card copy and actions', () => {
     render(<Harness assistant={failedMessage({ code: 'context_overflow', layer: 'provider', retryable: true })} />)
 
     expect(await screen.findByText(copy(codes.context_overflow.title))).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Compress conversation' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Start new session' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.getByRole('button', { name: '压缩会话' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '开始新会话' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
   })
 
   it('names the provider and keeps Retry for a rate limit', async () => {
@@ -315,7 +315,7 @@ describe('code-keyed error card copy and actions', () => {
 
     expect(await screen.findByText(copy(codes.rate_limit.title))).toBeTruthy()
     expect(screen.getByText(copy(codes.rate_limit.body, 'openai'))).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
   })
 
   it('falls back to the generic headline when no descriptor was sent (older backend)', async () => {
@@ -327,7 +327,7 @@ describe('code-keyed error card copy and actions', () => {
     render(<Harness assistant={legacy} />)
 
     expect(await screen.findByText(en.assistant.thread.errorLayers.generic)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
   })
 })
 
@@ -348,13 +348,13 @@ describe('scheduled retry at the usage-limit reset (#98852)', () => {
 
     render(<Harness assistant={rateLimited(resetsAt)} onReload={onReload} />)
 
-    const arm = await screen.findByRole('button', { name: /^Retry when the limit resets \(\d\d:\d\d\)$/ })
+    const arm = await screen.findByRole('button', { name: /^限额重置后重试（\d\d:\d\d）$/ })
 
     vi.useFakeTimers()
     fireEvent.click(arm)
 
-    expect(screen.getByTestId('error-retry-scheduled').textContent).toMatch(/Retrying at \d\d:\d\d — in \d+m \d\ds/)
-    expect(screen.queryByRole('button', { name: /^Retry when the limit resets/ })).toBeNull()
+    expect(screen.getByTestId('error-retry-scheduled').textContent).toMatch(/将于 \d\d:\d\d 重试 — 还剩 \d+m \d\ds/)
+    expect(screen.queryByRole('button', { name: /^限额重置后重试/ })).toBeNull()
 
     await act(async () => vi.advanceTimersByTime(resetsAt * 1000 - Date.now() - 1_000))
     expect(onReload).not.toHaveBeenCalled()
@@ -371,11 +371,11 @@ describe('scheduled retry at the usage-limit reset (#98852)', () => {
     const resetsAt = Math.floor(Date.now() / 1000) + 600
 
     const view = render(<Harness assistant={rateLimited(resetsAt)} onReload={onReload} />)
-    const armName = /^Retry when the limit resets/
+    const armName = /^限额重置后重试/
 
     fireEvent.click(await screen.findByRole('button', { name: armName }))
     vi.useFakeTimers()
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
     expect(screen.queryByTestId('error-retry-scheduled')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: armName }))
@@ -386,7 +386,7 @@ describe('scheduled retry at the usage-limit reset (#98852)', () => {
     vi.useRealTimers()
 
     render(<Harness assistant={rateLimited(Math.floor(Date.now() / 1000) - 60)} onReload={onReload} />)
-    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '重试' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: armName })).toBeNull()
   })
 })
@@ -427,15 +427,15 @@ describe("a window plan's limit: one-click switch and credits (no silent switch)
       </MemoryRouter>
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Switch to Model Free (free)' }))
+    fireEvent.click(await screen.findByRole('button', { name: '切换到 Model Free（free）' }))
 
     await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1))
     expect(switchSessionModel).toHaveBeenCalledWith('rt-1', 'example/model-free:free', 'nous')
     // No balance: the credits way on is Billing, labelled for what it does.
-    expect(screen.getByRole('button', { name: 'Open billing settings' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Turn on Keep going on credits' })).toBeNull()
+    expect(screen.getByRole('button', { name: '打开账单设置' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '开启用额度继续' })).toBeNull()
     // The generic provider menu is replaced by the one-click switch.
-    expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '切换服务商' })).toBeNull()
   })
 
   it('re-runs nothing while the switch is unconfirmed or the user keeps the current model', async () => {
@@ -452,7 +452,7 @@ describe("a window plan's limit: one-click switch and credits (no silent switch)
       </MemoryRouter>
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Switch to Model Free (free)' }))
+    fireEvent.click(await screen.findByRole('button', { name: '切换到 Model Free（free）' }))
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 0))
     })
@@ -467,8 +467,8 @@ describe("a window plan's limit: one-click switch and credits (no silent switch)
       </MemoryRouter>
     )
 
-    expect(await screen.findByRole('button', { name: 'Turn on Keep going on credits' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Switch to Model Free (free)' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '开启用额度继续' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '切换到 Model Free（free）' })).toBeTruthy()
   })
 
   it('with no model to offer, still points at choosing one', async () => {
@@ -478,7 +478,7 @@ describe("a window plan's limit: one-click switch and credits (no silent switch)
       </MemoryRouter>
     )
 
-    expect(await screen.findByRole('button', { name: 'Open billing settings' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '打开账单设置' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /^Switch to / })).toBeNull()
   })
 })
@@ -507,9 +507,9 @@ describe('rejected API key recovery', () => {
 
     expect(await screen.findByText(copy(en.assistant.thread.errorAuthKinds.api_key.title, 'OpenAI'))).toBeTruthy()
     // Fixing the key changes the outcome, so Retry stays as the follow-up click.
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
 
-    screen.getByRole('button', { name: 'Update API key' }).click()
+    screen.getByRole('button', { name: '更新 API 密钥' }).click()
     await waitFor(() =>
       expect(screen.getByTestId('location').textContent).toMatch(/\?tab=providers&pview=keys&key=OPENAI_API_KEY$/)
     )
@@ -528,7 +528,7 @@ describe('switch provider on a live session (#95066)', () => {
       </MemoryRouter>
     )
 
-    const button = await screen.findByRole('button', { name: 'Switch provider' })
+    const button = await screen.findByRole('button', { name: '切换服务商' })
     const before = screen.getByTestId('location').textContent
 
     button.click()
@@ -547,7 +547,7 @@ describe('switch provider on a live session (#95066)', () => {
       </MemoryRouter>
     )
 
-    ;(await screen.findByRole('button', { name: 'Switch provider' })).click()
+    ;(await screen.findByRole('button', { name: '切换服务商' })).click()
 
     expect(requestModelMenuToggle).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(screen.getByTestId('location').textContent).toMatch(/\?tab=config:model$/))
@@ -558,11 +558,11 @@ describe('expired OAuth grant recovery', () => {
   it('explains the expiry and re-runs that provider sign-in in one click', async () => {
     render(<Harness assistant={oauthExpiredMessage()} />)
 
-    expect(await screen.findByText(/Nous Portal sign-in has expired/)).toBeTruthy()
+    expect(await screen.findByText(/^Nous Portal 登录已过期$/)).toBeTruthy()
     // Signing in changes the outcome, so Retry stays as the follow-up click.
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
 
-    screen.getByRole('button', { name: 'Sign in to Nous Portal again' }).click()
+    screen.getByRole('button', { name: '重新登录 Nous Portal' }).click()
     expect(startManualProviderOAuth).toHaveBeenCalledWith('nous', undefined)
   })
 })

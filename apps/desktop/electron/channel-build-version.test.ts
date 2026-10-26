@@ -53,7 +53,7 @@ function load(build: ChannelBuildRequest): PackagingFacts {
   process.env.HERMES_DESKTOP_VARIANT = 'bundled'
   process.env._HERMES_CHANNEL_REQUEST_JSON = JSON.stringify(build)
 
-  for (const file of ['../product-identity.cjs', '../electron-builder.config.cjs']) {
+  for (const file of ['../product-identity.cjs', '../electron-builder.config.cjs', '../platform-policy.cjs']) {
     delete require.cache[require.resolve(file)]
   }
 
@@ -70,7 +70,7 @@ afterEach((): void => {
     delete process.env[key]
   }
 
-  for (const file of ['../product-identity.cjs', '../electron-builder.config.cjs']) {
+  for (const file of ['../product-identity.cjs', '../electron-builder.config.cjs', '../platform-policy.cjs']) {
     delete require.cache[require.resolve(file)]
   }
 })
@@ -155,7 +155,7 @@ test('channel packaging reuses admitted identity and rejects unsupported or unsa
 test('a channel that copies the stable identity packages and runs as the regular app', (): void => {
   process.env.HERMES_DESKTOP_VARIANT = 'bundled'
 
-  for (const file of ['../product-identity.cjs', '../electron-builder.config.cjs']) {
+  for (const file of ['../product-identity.cjs', '../electron-builder.config.cjs', '../platform-policy.cjs']) {
     delete require.cache[require.resolve(file)]
   }
 

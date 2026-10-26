@@ -1,10 +1,9 @@
 // health: allow FILE_LINES -- locale data: translated copy for the usage-window plan UI (allowance gauges, Large/Free tags, the limit card), one key per string
-import { mergeTranslations } from '@hermes/shared/i18n'
-
 import { defineFieldCopy } from '@/app/settings/field-copy'
 
-import { defineLocale, type TranslationOverrides } from './define-locale'
+import type { TranslationOverrides } from './define-locale'
 import { introZh } from './intro-zh'
+import type { Translations } from './types'
 import { zhAssistant } from './zh_assistant'
 import { zhBoot } from './zh_boot'
 import { zhCapabilities } from './zh_capabilities'
@@ -232,11 +231,11 @@ const zhBase = {
       disableFailed: name => `无法禁用 ${name} MCP。`
     },
     errors: {
-      elevenLabsNeedsKey: 'ElevenLabs STT 需要 ELEVENLABS_API_KEY。',
+      elevenLabsNeedsKey: '请先在密钥设置中配置 ElevenLabs，才能使用语音转写。',
       elevenLabsRejectedKey: 'ElevenLabs 拒绝了该 API key (401)。',
       diskFull: '磁盘已满 — 请腾出一些空间后再试。',
-      gatewayAuthFailed: '网关认证失败 — 请检查你的 API_SERVER_KEY。',
-      methodNotAllowed: '桌面后端拒绝了该请求 (405 Method Not Allowed)。请尝试重启 Hermes Desktop。',
+      gatewayAuthFailed: '网关登录已失效，请重新连接。',
+      methodNotAllowed: '此请求无法完成，请重启 Hermes Desktop 后重试。',
       microphonePermission: '麦克风权限已被拒绝。',
       openaiRejectedApiKey: 'OpenAI 拒绝了该 API key。',
       openaiTtsNeedsKey: 'OpenAI TTS 需要 VOICE_TOOLS_OPENAI_KEY 或 OPENAI_API_KEY。',
@@ -3772,8 +3771,6 @@ const zhBase = {
 
   onboarding: zhOnboarding,
 
-  // Not yet translated — English fallbacks so the free-tier surfaces stay
-  // readable until a zh pass lands.
   freeTier: {
     providerRowTitle: 'Nous · 免费层',
     providerRowPitch: '登录 Nous 账户以解锁更多模型和工具。',
@@ -4762,9 +4759,195 @@ const zhBase = {
   }
 } satisfies TranslationOverrides
 
-export const zhOverrides = [zhAssistant, zhBoot, zhCapabilities, zhChrome, zhConnectors].reduce<TranslationOverrides>(
-  (copy, additions) => mergeTranslations(copy, additions),
-  zhBase
-)
-
-export const zh = defineLocale(zhOverrides)
+export const zh: Translations = {
+  ...zhBase,
+  ...zhAssistant,
+  ...zhBoot,
+  ...zhCapabilities,
+  ...zhChrome,
+  ...zhConnectors,
+  catalog: {
+    ...zhBase['catalog'],
+    ...zhCapabilities['catalog']
+  },
+  externalOpenFailed: {
+    ...zhBase['externalOpenFailed'],
+    ...zhChrome['externalOpenFailed']
+  },
+  connectors: {
+    ...zhBase['connectors'],
+    ...zhChrome['connectors']
+  },
+  fileMenu: {
+    ...zhBase['fileMenu'],
+    ...zhChrome['fileMenu']
+  },
+  boot: {
+    ...zhBase['boot'],
+    ...zhBoot['boot'],
+    errors: {
+      ...zhBase['boot']['errors'],
+      ...zhBoot['boot']['errors']
+    },
+    failure: {
+      ...zhBase['boot']['failure'],
+      ...zhBoot['boot']['failure']
+    }
+  },
+  notifications: {
+    ...zhBase['notifications'],
+    ...zhChrome['notifications'],
+    errors: {
+      ...zhBase['notifications']['errors'],
+      ...zhChrome['notifications']['errors']
+    }
+  },
+  keybinds: {
+    ...zhBase['keybinds'],
+    ...zhChrome['keybinds'],
+    actions: {
+      ...zhBase['keybinds']['actions'],
+      ...zhChrome['keybinds']['actions']
+    }
+  },
+  settings: {
+    ...zhBase['settings'],
+    ...zhChrome['settings'],
+    plugins: {
+      ...zhBase['settings']['plugins'],
+      ...zhChrome['settings']['plugins']
+    },
+    fieldLabels: {
+      ...zhBase['settings']['fieldLabels'],
+      ...zhChrome['settings']['fieldLabels']
+    },
+    fieldDescriptions: {
+      ...zhBase['settings']['fieldDescriptions'],
+      ...zhChrome['settings']['fieldDescriptions']
+    },
+    uninstallSection: {
+      ...zhBase['settings']['uninstallSection'],
+      ...zhChrome['settings']['uninstallSection']
+    },
+    model: {
+      ...zhBase['settings']['model'],
+      ...zhChrome['settings']['model']
+    },
+    localModels: {
+      ...zhBase['settings']['localModels'],
+      ...zhChrome['settings']['localModels']
+    },
+    toolsets: {
+      ...zhBase['settings']['toolsets'],
+      ...zhChrome['settings']['toolsets'],
+      terminalBackend: {
+        ...zhBase['settings']['toolsets']['terminalBackend'],
+        ...zhChrome['settings']['toolsets']['terminalBackend']
+      }
+    }
+  },
+  skills: {
+    ...zhBase['skills'],
+    ...zhCapabilities['skills'],
+    plugins: {
+      ...zhBase['skills']['plugins'],
+      ...zhCapabilities['skills']['plugins']
+    },
+    hub: {
+      ...zhBase['skills']['hub'],
+      ...zhCapabilities['skills']['hub']
+    }
+  },
+  messaging: {
+    ...zhBase['messaging'],
+    ...zhChrome['messaging']
+  },
+  profiles: {
+    ...zhBase['profiles'],
+    ...zhChrome['profiles']
+  },
+  cron: {
+    ...zhBase['cron'],
+    ...zhChrome['cron']
+  },
+  sidebar: {
+    ...zhBase['sidebar'],
+    ...zhChrome['sidebar']
+  },
+  composer: {
+    ...zhBase['composer'],
+    ...zhChrome['composer']
+  },
+  updates: {
+    ...zhBase['updates'],
+    ...zhChrome['updates'],
+    applyStatus: {
+      ...zhBase['updates']['applyStatus'],
+      ...zhChrome['updates']['applyStatus']
+    }
+  },
+  install: {
+    ...zhBase['install'],
+    ...zhChrome['install']
+  },
+  onboarding: {
+    ...zhBase['onboarding'],
+    ...zhChrome['onboarding']
+  },
+  freeTier: {
+    ...zhBase['freeTier'],
+    ...zhChrome['freeTier']
+  },
+  shell: {
+    ...zhBase['shell'],
+    ...zhChrome['shell'],
+    statusbar: {
+      ...zhBase['shell']['statusbar'],
+      ...zhChrome['shell']['statusbar']
+    }
+  },
+  preview: {
+    ...zhBase['preview'],
+    ...zhChrome['preview']
+  },
+  assistant: {
+    ...zhBase['assistant'],
+    ...zhAssistant['assistant'],
+    thread: {
+      ...zhBase['assistant']['thread'],
+      ...zhAssistant['assistant']['thread'],
+      errorLayerBodies: {
+        ...zhBase['assistant']['thread']['errorLayerBodies'],
+        ...zhAssistant['assistant']['thread']['errorLayerBodies']
+      },
+      errorCodes: {
+        ...zhBase['assistant']['thread']['errorCodes'],
+        ...zhAssistant['assistant']['thread']['errorCodes']
+      }
+    },
+    approval: {
+      ...zhBase['assistant']['approval'],
+      ...zhAssistant['assistant']['approval']
+    },
+    catalogInstall: {
+      ...zhBase['assistant']['catalogInstall'],
+      ...zhAssistant['assistant']['catalogInstall']
+    }
+  },
+  prompts: {
+    ...zhBase['prompts'],
+    ...zhChrome['prompts']
+  },
+  desktop: {
+    ...zhBase['desktop'],
+    ...zhChrome['desktop'],
+    handoff: {
+      ...zhBase['desktop']['handoff'],
+      ...zhChrome['desktop']['handoff']
+    }
+  },
+  errors: {
+    ...zhBase['errors'],
+    ...zhChrome['errors']
+  }
+}

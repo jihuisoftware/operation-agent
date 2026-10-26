@@ -48,7 +48,7 @@ function job(overrides: Partial<LocalRuntimeJob>): LocalRuntimeJob {
 function renderActions(current: LocalRuntimeJob) {
   act(() => {
     render(
-      <I18nProvider configClient={null}>
+      <I18nProvider>
         <LocalModelDownloadActions job={current} />
       </I18nProvider>
     )
@@ -69,27 +69,27 @@ describe('LocalModelDownloadActions', () => {
   it('running download without explicit can_pause shows NO control (no guessing about old backends)', () => {
     renderActions(job({}))
 
-    expect(screen.queryByRole('button', { name: /pause/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /暂停/ })).toBeNull()
   })
 
   it('can_pause:false hides the control (server start / default assignment)', () => {
     renderActions(job({ can_pause: false }))
 
-    expect(screen.queryByRole('button', { name: /pause/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /暂停/ })).toBeNull()
   })
 
   it('pause_requested renders a disabled pending control, not a vanished one', () => {
     renderActions(job({ can_pause: false, pause_requested: true }))
 
-    const pending = screen.getByRole('button', { name: /pause/i })
+    const pending = screen.getByRole('button', { name: /暂停/ })
     expect((pending as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('paused hides Resume when can_resume is not explicitly true', () => {
     renderActions(job({ status: 'paused' }))
 
-    expect(screen.getByText(/paused/i)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /resume/i })).toBeNull()
+    expect(screen.getByText(/已暂停/i)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /继续/ })).toBeNull()
   })
 
   it('a paused:false response is a benign race — truth is re-kicked, no false failure toast', async () => {
@@ -102,7 +102,7 @@ describe('LocalModelDownloadActions', () => {
     vi.mocked(pauseLocalDownload).mockResolvedValue({ ok: true, paused: false })
 
     renderActions(job({ can_pause: true }))
-    fireEvent.click(screen.getByRole('button', { name: /pause/i }))
+    fireEvent.click(screen.getByRole('button', { name: /暂停/ }))
 
     await waitFor(() => {
       expect(watchLocalRuntimeJobs).toHaveBeenCalled()
@@ -116,7 +116,7 @@ describe('LocalModelDownloadActions', () => {
     vi.mocked(pauseLocalDownload).mockRejectedValue(new Error('unknown download job'))
 
     renderActions(job({ can_pause: true }))
-    fireEvent.click(screen.getByRole('button', { name: /pause/i }))
+    fireEvent.click(screen.getByRole('button', { name: /暂停/ }))
 
     await waitFor(() => {
       expect(notifyError).toHaveBeenCalledTimes(1)
@@ -128,19 +128,19 @@ describe('LocalModelDownloadActions', () => {
 
     vi.mocked(pauseLocalDownload).mockRejectedValue(new Error('offline'))
     renderActions(job({ can_pause: true }))
-    fireEvent.click(screen.getByRole('button', { name: /pause/i }))
+    fireEvent.click(screen.getByRole('button', { name: /暂停/ }))
     await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1))
     const pauseTitle: string = vi.mocked(notifyError).mock.calls[0]?.[1] as string
     cleanup()
 
     vi.mocked(resumeLocalDownload).mockRejectedValue(new Error('offline'))
     renderActions(job({ can_resume: true, status: 'paused' }))
-    fireEvent.click(screen.getByRole('button', { name: /resume/i }))
+    fireEvent.click(screen.getByRole('button', { name: /继续/ }))
     await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(2))
     const resumeTitle: string = vi.mocked(notifyError).mock.calls[1]?.[1] as string
 
-    expect(pauseTitle).toMatch(/pause/i)
-    expect(resumeTitle).toMatch(/resume/i)
+    expect(pauseTitle).toMatch(/暂停/)
+    expect(resumeTitle).toMatch(/继续/)
     expect(pauseTitle).not.toBe(resumeTitle)
   })
 
@@ -167,10 +167,10 @@ const statusCopy = {
   downloadEtaHours: (hours: number, minutes: number) => (minutes ? `${hours} h ${minutes} min` : `${hours} h`),
   downloadEtaMinutes: (count: number) => `${count} min`,
   downloadEtaSeconds: (count: number) => `${count} sec`,
-  downloadPausedLabel: 'Paused',
+  downloadPausedLabel: '已暂停',
   downloadProgress: (done: string, total: string) => `${done} of ${total}`,
   downloadSpeed: (rate: string) => `${rate}`,
-  downloadStatusRunning: 'Downloading'
+  downloadStatusRunning: '下载中'
 }
 
 describe('downloadStatusText', () => {
@@ -180,14 +180,14 @@ describe('downloadStatusText', () => {
       statusCopy
     )
 
-    expect(text).toBe('Downloading · 1.0 GB of 4.0 GB · 24 MB/s · ~2 min left')
+    expect(text).toBe('下载中 · 1.0 GB of 4.0 GB · 24 MB/s · ~2 min left')
   })
 
   it('drops speed and ETA rather than guessing when the backend reports none', () => {
     // 4 * (1 << 30): a plain shift overflows 32-bit and would silently read 0.
     const text = downloadStatusText(job({ done_bytes: 1 << 30, total_bytes: 4 * (1 << 30) }), statusCopy)
 
-    expect(text).toBe('Downloading · 1.0 GB of 4.0 GB')
+    expect(text).toBe('下载中 · 1.0 GB of 4.0 GB')
   })
 
   it('a parked job keeps its frozen counter but shows no live rate', () => {
@@ -202,7 +202,7 @@ describe('downloadStatusText', () => {
       statusCopy
     )
 
-    expect(text).toBe('Paused · 1.0 GB of 4.0 GB')
+    expect(text).toBe('已暂停 · 1.0 GB of 4.0 GB')
   })
 
   it('a non-download phase shows the phase detail, not a byte counter', () => {

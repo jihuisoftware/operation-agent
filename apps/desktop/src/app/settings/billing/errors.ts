@@ -1,5 +1,5 @@
 import type { Translations } from '@/i18n'
-import { en } from '@/i18n/en'
+import { zh } from '@/i18n/zh'
 
 import type { BillingRefusal } from './api'
 
@@ -25,7 +25,7 @@ const stripeRetryMessage = (refusal: BillingRefusal, copy: Translations['setting
 
 export const resolveRefusal = (
   refusal: BillingRefusal,
-  copy: Translations['settings']['billing']['errors'] = en.settings.billing.errors
+  copy: Translations['settings']['billing']['errors'] = zh.settings.billing.errors
 ): BillingRefusalPresentation => {
   switch (refusal.kind) {
     case 'consent_required':

@@ -521,15 +521,11 @@ long transcript or a busy terminal.
 
 - Every user-facing string goes through `useI18n()` (`src/i18n/context.tsx`).
   No literals in JSX.
-- **Update all locales together** — every catalog registered in
-  `src/i18n/catalog.ts`. A string change in `en.ts` that skips the others is a
-  regression (drifted punctuation, stale labels). Keep trailing-punctuation and
-  tone consistent across all of them. `fr`, `de`, and `es` are complete
-  `Translations` objects, so a key missing there fails the type check; the
-  `defineLocale()` overlays fall back to English instead.
-- **Sparse locales** (`ar`, `ru`) override the English base through
-  `defineLocale()`. Large catalogs are split by topic: the Arabic source lives
-  in `src/i18n/ar_<topic>.ts`, recomposed by `src/i18n/ar.ts`.
+- Desktop supports Simplified Chinese only. Keep `src/i18n/zh.ts` complete against
+  `Translations`; the compiler checks that every required message is present.
+- Chinese catalogs are split by topic (`zh_<topic>.ts`). Backend and plugin
+  overlays may extend Chinese copy; other language registrations are ignored.
+- Saved language preferences and OS language never change the UI language.
 
 ## State (TypeScript)
 

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $desktopBoot } from '@/store/boot'
 import { $notifications } from '@/store/notifications'
 import { $desktopOnboarding } from '@/store/onboarding'
@@ -92,8 +92,8 @@ describe('BootFailureOverlay', () => {
       </>
     )
 
-    const recoverySurface = screen.getByRole('dialog', { name: /Hermes couldn't start/i })
-    const retry = screen.getByRole('button', { name: /retry/i })
+    const recoverySurface = screen.getByRole('dialog', { name: /Hermes 无法启动/ })
+    const retry = screen.getByRole('button', { name: /重试/ })
     const backgroundAction = screen.getByText(/background action/i)
 
     retry.focus()
@@ -106,22 +106,22 @@ describe('BootFailureOverlay', () => {
   it('swaps to the in-place gateway settings view (no route nav) and back', async () => {
     render(<BootFailureOverlay />)
 
-    fireEvent.click(screen.getByRole('button', { name: /gateway settings/i }))
+    fireEvent.click(screen.getByRole('button', { name: /网关设置/ }))
     // Recovery actions give way to the embedded panel (behind a Back control).
-    expect(await screen.findByRole('button', { name: /back/i })).toBeTruthy()
-    expect(screen.getByRole('dialog', { name: /gateway settings/i }).getAttribute('aria-modal')).toBe('true')
-    expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
+    expect(await screen.findByRole('button', { name: /返回/ })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: /网关设置/ }).getAttribute('aria-modal')).toBe('true')
+    expect(screen.queryByRole('button', { name: /重试/ })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /back/i }))
-    expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /back/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /返回/ }))
+    expect(screen.getByRole('button', { name: /重试/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /返回/ })).toBeNull()
   })
 
   it('hides the modal on dismiss without clearing the boot error', () => {
     const { rerender } = render(<BootFailureOverlay />)
     const error = $desktopBoot.get().error
 
-    fireEvent.click(screen.getByRole('button', { name: /^close$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /关闭/ }))
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect($desktopBoot.get().error).toBe(error)
@@ -129,9 +129,9 @@ describe('BootFailureOverlay', () => {
 
     $desktopBoot.set({ ...$desktopBoot.get(), error: 'A different startup failure' })
     rerender(<BootFailureOverlay />)
-    expect(screen.getByRole('dialog', { name: /Hermes couldn't start/i })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: /Hermes 无法启动/ })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /^close$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /关闭/ }))
     expect(screen.queryByRole('dialog')).toBeNull()
 
     $desktopBoot.set({ ...$desktopBoot.get(), error: null, running: false })
@@ -139,14 +139,14 @@ describe('BootFailureOverlay', () => {
     $desktopBoot.set({ ...$desktopBoot.get(), error, running: false })
     rerender(<BootFailureOverlay />)
 
-    expect(screen.getByRole('dialog', { name: /Hermes couldn't start/i })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: /Hermes 无法启动/ })).toBeTruthy()
   })
 
   it('dismisses on Escape and keeps the boot error latched', () => {
     render(<BootFailureOverlay />)
     const error = $desktopBoot.get().error
 
-    fireEvent.keyDown(screen.getByRole('dialog', { name: /Hermes couldn't start/i }), { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('dialog', { name: /Hermes 无法启动/ }), { key: 'Escape' })
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect($desktopBoot.get().error).toBe(error)
@@ -155,10 +155,10 @@ describe('BootFailureOverlay', () => {
   it('dismisses from the embedded gateway settings view', async () => {
     render(<BootFailureOverlay />)
 
-    fireEvent.click(screen.getByRole('button', { name: /gateway settings/i }))
-    expect(await screen.findByRole('dialog', { name: /gateway settings/i })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /网关设置/ }))
+    expect(await screen.findByRole('dialog', { name: /网关设置/ })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /^close$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /关闭/ }))
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect($desktopBoot.get().error).toBeTruthy()
@@ -168,21 +168,21 @@ describe('BootFailureOverlay', () => {
     render(<BootFailureOverlay />)
     const error = $desktopBoot.get().error
 
-    fireEvent.click(screen.getByRole('button', { name: /^close$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /关闭/ }))
     expect(screen.queryByRole('dialog')).toBeNull()
 
     act(() => $desktopBoot.set({ ...$desktopBoot.get(), running: true }))
     act(() => $desktopBoot.set({ ...$desktopBoot.get(), error, running: false }))
 
-    expect(screen.getByRole('dialog', { name: /Hermes couldn't start/i })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: /Hermes 无法启动/ })).toBeTruthy()
   })
 
   it('drops local-only Repair and Use-local-gateway on a local failure', () => {
     render(<BootFailureOverlay />)
     // No connection config stub → treated as a local failure.
-    expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /repair/i })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /use local gateway/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /重试/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /修复安装/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /使用本地网关/ })).toBeNull()
   })
 
   it('leads with Gateway settings and drops Repair for a remote (token) failure', async () => {
@@ -190,9 +190,9 @@ describe('BootFailureOverlay', () => {
 
     try {
       render(<BootFailureOverlay />)
-      await waitFor(() => expect(screen.queryByRole('button', { name: /repair/i })).toBeNull())
-      expect(screen.getByRole('button', { name: /gateway settings/i })).toBeTruthy()
-      expect(screen.getByRole('button', { name: /use local gateway/i })).toBeTruthy()
+      await waitFor(() => expect(screen.queryByRole('button', { name: /修复安装/ })).toBeNull())
+      expect(screen.getByRole('button', { name: /网关设置/ })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /使用本地网关/ })).toBeTruthy()
     } finally {
       restore()
     }
@@ -203,10 +203,10 @@ describe('BootFailureOverlay', () => {
 
     try {
       render(<BootFailureOverlay />)
-      fireEvent.click(screen.getByRole('button', { name: /gateway settings/i }))
+      fireEvent.click(screen.getByRole('button', { name: /网关设置/ }))
 
-      expect(await screen.findByRole('button', { name: /back/i })).toBeTruthy()
-      expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
+      expect(await screen.findByRole('button', { name: /返回/ })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /重试/ })).toBeNull()
     } finally {
       restore()
     }
@@ -234,7 +234,7 @@ describe('BootFailureOverlay', () => {
 
     try {
       render(<BootFailureOverlay />)
-      fireEvent.click(await screen.findByRole('button', { name: /sign out & sign in/i }))
+      fireEvent.click(await screen.findByRole('button', { name: /退出并重新登录/ }))
 
       await waitFor(() => expect(login).toHaveBeenCalledWith(gatewayUrl))
       expect(logout).toHaveBeenCalledTimes(1)
@@ -278,7 +278,7 @@ describe('BootFailureOverlay', () => {
 
     try {
       render(<BootFailureOverlay />)
-      fireEvent.click(await screen.findByRole('button', { name: /sign in/i }))
+      fireEvent.click(await screen.findByRole('button', { name: /登录/ }))
 
       await waitFor(() => expect(cloudAgentSignIn).toHaveBeenCalledWith(gatewayUrl))
       // The ladder owns the logout: exactly one drop of this gateway's cookies.
@@ -310,16 +310,16 @@ describe('BootFailureOverlay', () => {
       render(<BootFailureOverlay />)
       // Cloud-specific title + actionable recovery instead of the generic
       // remote-failure copy.
-      expect(await screen.findByText(/Nous Cloud agent is down/i)).toBeTruthy()
+      expect(await screen.findByText(/Nous Cloud 代理已宕机/i)).toBeTruthy()
       // Portal and Discord are dedicated action buttons (localized labels
       // can't drift the URLs, which live in code).
-      expect(screen.getByRole('button', { name: /check portal status/i })).toBeTruthy()
-      expect(screen.getByRole('button', { name: /get help on discord/i })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /查看 Portal 状态/ })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /在 Discord 获取帮助/ })).toBeTruthy()
       // Cloud-down is a remote failure: local-only Repair is dropped; the
       // actionable paths are Gateway settings + Use local gateway.
-      expect(screen.queryByRole('button', { name: /repair/i })).toBeNull()
-      expect(screen.getByRole('button', { name: /gateway settings/i })).toBeTruthy()
-      expect(screen.getByRole('button', { name: /use local gateway/i })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /修复安装/ })).toBeNull()
+      expect(screen.getByRole('button', { name: /网关设置/ })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /使用本地网关/ })).toBeTruthy()
       // The electron-built error message (portal / local mode / Discord) is
       // still surfaced in the error box.
       expect(screen.getByText(/ares-3009\.agents\.nousresearch\.com/i)).toBeTruthy()
@@ -355,11 +355,11 @@ describe('BootFailureOverlay', () => {
 
       // The bundled artifact has no installer to repair with — the action is
       // a docs link, and the hint says reinstall instead of re-run installer.
-      expect(await screen.findByRole('button', { name: /reinstall the app/i })).toBeTruthy()
-      expect(screen.queryByRole('button', { name: /repair install/i })).toBeNull()
-      expect(screen.getByText(/reinstall the app to restore/i)).toBeTruthy()
+      expect(await screen.findByRole('button', { name: /重新安装 Hermes Desktop/ })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /修复安装/ })).toBeNull()
+      expect(screen.getByText(/捆绑安装无法从应用内部自修复——重新安装 Hermes Desktop 以恢复其后端。/)).toBeTruthy()
 
-      fireEvent.click(screen.getByRole('button', { name: /reinstall the app/i }))
+      fireEvent.click(screen.getByRole('button', { name: /重新安装 Hermes Desktop/ }))
       await waitFor(() =>
         expect(openExternal).toHaveBeenCalledWith('https://hermes-agent.nousresearch.com/docs/user-guide/desktop')
       )
@@ -375,11 +375,11 @@ describe('BootFailureOverlay', () => {
     try {
       render(<BootFailureOverlay />)
 
-      expect(await screen.findByRole('button', { name: /retry/i })).toBeTruthy()
+      expect(await screen.findByRole('button', { name: /重试/ })).toBeTruthy()
       // Wait for the bundled snapshot to land before asserting the negatives.
-      await waitFor(() => expect(screen.queryByRole('button', { name: /repair install/i })).toBeNull())
-      expect(screen.queryByRole('button', { name: /reinstall the app/i })).toBeNull()
-      expect(screen.queryByText(/reinstall the app to restore/i)).toBeNull()
+      await waitFor(() => expect(screen.queryByRole('button', { name: /修复安装/ })).toBeNull())
+      expect(screen.queryByRole('button', { name: /重新安装 Hermes Desktop/ })).toBeNull()
+      expect(screen.queryByText(/捆绑安装无法从应用内部自修复——重新安装 Hermes Desktop 以恢复其后端。/)).toBeNull()
     } finally {
       restore()
     }
@@ -408,7 +408,7 @@ describe('BootFailureOverlay', () => {
 
     try {
       render(<BootFailureOverlay />)
-      fireEvent.click(await screen.findByRole('button', { name: /repair install/i }))
+      fireEvent.click(await screen.findByRole('button', { name: /修复安装/ }))
 
       const message =
         failure === 'thrown'
@@ -423,7 +423,7 @@ describe('BootFailureOverlay', () => {
         )
       )
       expect(reload).not.toHaveBeenCalled()
-      expect(screen.getByRole('button', { name: /repair install/i }).hasAttribute('disabled')).toBe(false)
+      expect(screen.getByRole('button', { name: /修复安装/ }).hasAttribute('disabled')).toBe(false)
     } finally {
       restore()
       Object.defineProperty(window, 'location', originalLocation)
@@ -443,7 +443,7 @@ describe('BootFailureOverlay', () => {
 
     try {
       render(<BootFailureOverlay />)
-      fireEvent.click(await screen.findByRole('button', { name: /repair install/i }))
+      fireEvent.click(await screen.findByRole('button', { name: /修复安装/ }))
 
       await waitFor(() => expect(reload).toHaveBeenCalled())
       expect($notifications.get().some(n => n.kind === 'error')).toBe(false)

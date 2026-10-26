@@ -297,3 +297,11 @@ def test_clean_run_cannot_delete_the_outputs_of_a_build_that_holds_the_lock(tmp_
         prepare(request, clean=True)
 
     assert running.read_text(encoding="utf-8") == "output of the build that holds the lock"
+
+
+@pytest.mark.parametrize("target", ["linux-x64", "linux-arm64", "win32-x64"])
+def test_desktop_rejects_non_macos_targets(target):
+    from scripts.bundles.desktop_prepare import require_desktop_target
+
+    with pytest.raises(ValueError, match="macOS"):
+        require_desktop_target(target)

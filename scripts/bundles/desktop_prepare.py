@@ -86,6 +86,11 @@ def validate_channel_request(value: dict) -> dict:
     return deepcopy(value)
 
 
+def require_desktop_target(target: str) -> None:
+    if target not in {"darwin-arm64", "darwin-x64"}:
+        raise ValueError("此项目仅支持 macOS（Apple Silicon / Intel）。")
+
+
 @dataclass(frozen=True)
 class BuildRequest:
     source: Path
@@ -110,6 +115,7 @@ class BuildRequest:
         from scripts.releases.commit_build import require_commit, version_at
         from scripts.termux.deb_version import channel_for_tag
 
+        require_desktop_target(current_target())
         if channel_request is not None:
             channel_request = validate_channel_request(channel_request)
             if variant != "bundled":
@@ -248,6 +254,7 @@ class PreparedDesktop:
 
     def validate(self) -> None:
         from pm.store import current_target
+        require_desktop_target(self.request.target)
         self.request.validate_channel()
         if (self.request_digest is not None or self.request.channel_request is not None) and self.request_digest != self.request.identity_digest():
             raise ValueError("preparation request identity changed; prepare again")

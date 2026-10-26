@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type I18nContextValue, I18nProvider, useI18n } from '@/i18n'
+import { I18nProvider } from '@/i18n'
 import { $freeTierSignIn } from '@/store/free-tier-sign-in'
 
 import { formatMoney } from './billing-amounts'
@@ -84,23 +84,16 @@ afterEach(() => {
 })
 
 describe('BillingSettings', () => {
-  it('changes billing shell language without losing the credit amount or issuing a charge', async () => {
+  it('preserves the entered credit amount and reports charge failures in Chinese', async () => {
     apiMocks.fetchBillingState.mockResolvedValue(okBilling(postTrainBillingState))
     apiMocks.fetchSubscriptionState.mockResolvedValue(okSubscription(postTrainSubscriptionState))
-    let language!: I18nContextValue
-
-    function Surface() {
-      language = useI18n()
-
-      return <BillingSettings />
-    }
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <MemoryRouter>
-        <I18nProvider configClient={null} initialLocale="zh">
+        <I18nProvider>
           <QueryClientProvider client={client}>
-            <Surface />
+            <BillingSettings />
           </QueryClientProvider>
         </I18nProvider>
       </MemoryRouter>
@@ -109,19 +102,15 @@ describe('BillingSettings', () => {
     expect(screen.getByText('余额')).toBeTruthy()
     const input = screen.getByRole('spinbutton', { name: '自定义充值金额' }) as HTMLInputElement
     fireEvent.change(input, { target: { value: '37' } })
-    await act(() => language.setLocale('zh-hant'))
-    expect(screen.getByText('支付與額度')).toBeTruthy()
-    expect(screen.getByText('餘額')).toBeTruthy()
-    expect((screen.getByRole('spinbutton', { name: '自訂儲值金額' }) as HTMLInputElement).value).toBe('37')
+    expect(input.value).toBe('37')
     expect(apiMocks.charge).not.toHaveBeenCalled()
     apiMocks.charge.mockResolvedValue({
       ok: false,
       refusal: { kind: 'stripe_unavailable', message: '', retryAfter: 120 },
       idempotencyKey: 'fixture-charge'
     })
-    fireEvent.click(screen.getByRole('button', { name: '購買' }))
-    await screen.findByText(/Stripe 遇到問題/)
-    await act(() => language.setLocale('zh'))
+    fireEvent.click(screen.getByRole('button', { name: '购买' }))
+    await screen.findByText(/Stripe 遇到问题/)
     expect(screen.getByText(/Stripe 遇到问题/)).toBeTruthy()
     expect(apiMocks.charge).toHaveBeenCalledTimes(1)
     expect(apiMocks.charge).toHaveBeenCalledWith('37', undefined)
@@ -136,12 +125,12 @@ describe('BillingSettings', () => {
     renderBilling()
 
     expect(await screen.findByText('$142.50')).toBeTruthy()
-    expect(screen.getByText('Visa •••• 4242 - subscription card')).toBeTruthy()
+    expect(screen.getByText('Visa •••• 4242 - 订阅卡')).toBeTruthy()
     expect(screen.getByRole('button', { name: '$25' }).hasAttribute('disabled')).toBe(false)
     expect(screen.getByRole('button', { name: '$50' }).hasAttribute('disabled')).toBe(false)
     expect(screen.getByRole('button', { name: '$100' }).hasAttribute('disabled')).toBe(false)
-    expect(screen.getByRole('spinbutton', { name: 'Custom credit amount' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /^Buy$/ }).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByRole('spinbutton', { name: '自定义充值金额' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^购买$/ }).hasAttribute('disabled')).toBe(false)
   })
 
   it('disables buy controls when no card is on file', async () => {
@@ -153,15 +142,15 @@ describe('BillingSettings', () => {
     renderBilling()
 
     // No card → the payment row collapses to a single "Add payment method" link.
-    expect(await screen.findByRole('button', { name: /Add payment method/ })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: /添加支付方式/ })).toBeTruthy()
     expect(screen.queryByText('No card on file')).toBeNull()
     expect(screen.getByRole('button', { name: '$25' }).hasAttribute('disabled')).toBe(true)
     expect(screen.getByRole('button', { name: '$50' }).hasAttribute('disabled')).toBe(true)
     expect(screen.getByRole('button', { name: '$100' }).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('spinbutton', { name: 'Custom credit amount' }).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('button', { name: /^Buy$/ }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('spinbutton', { name: '自定义充值金额' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: /^购买$/ }).hasAttribute('disabled')).toBe(true)
 
-    fireEvent.click(screen.getByRole('button', { name: /^Buy$/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^购买$/ }))
 
     expect(apiMocks.charge).not.toHaveBeenCalled()
   })
@@ -172,14 +161,14 @@ describe('BillingSettings', () => {
 
     apiMocks.updateAutoReload.mockResolvedValue({ data: { ok: true }, ok: true })
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Manage' }))
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Auto-refill threshold' }), {
+    fireEvent.click(await screen.findByRole('button', { name: '管理' }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: '自动充值阈值' }), {
       target: { value: '15' }
     })
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Auto-refill reload-to amount' }), {
+    fireEvent.change(screen.getByRole('spinbutton', { name: '自动充值金额' }), {
       target: { value: '20' }
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     await waitFor(() =>
       expect(apiMocks.updateAutoReload).toHaveBeenCalledWith({
@@ -189,29 +178,29 @@ describe('BillingSettings', () => {
       })
     )
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['billing', 'state'] }))
-    expect(await screen.findByText('Auto-refill updated.')).toBeTruthy()
+    expect(await screen.findByText('自动充值已更新。')).toBeTruthy()
   })
 
   it('rejects auto-refill amounts outside the billing bounds', async () => {
     renderBilling()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Manage' }))
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Auto-refill threshold' }), {
+    fireEvent.click(await screen.findByRole('button', { name: '管理' }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: '自动充值阈值' }), {
       target: { value: '7.50' }
     })
 
-    expect(screen.getByText(`Threshold: minimum is ${formatMoney(10)}.`, { collapseWhitespace: false })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByText(`阈值：最低金额为 ${formatMoney(10)}。`, { collapseWhitespace: false })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(true)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     expect(apiMocks.updateAutoReload).not.toHaveBeenCalled()
   })
 
   it('shows "Keep going on credits" only on window plans and flips it', async () => {
     renderBilling()
-    await screen.findByRole('button', { name: 'Manage' })
-    expect(screen.queryByRole('switch', { name: 'Keep going on credits' })).toBeNull()
+    await screen.findByRole('button', { name: '管理' })
+    expect(screen.queryByRole('switch', { name: '用额度继续' })).toBeNull()
     cleanup()
 
     apiMocks.fetchBillingState.mockResolvedValue(okBilling({ ...todayBillingState, keep_going_on_credits: false }))
@@ -219,7 +208,7 @@ describe('BillingSettings', () => {
     const client = renderBilling()
     const invalidate = vi.spyOn(client, 'invalidateQueries')
 
-    const toggle = await screen.findByRole('switch', { name: 'Keep going on credits' })
+    const toggle = await screen.findByRole('switch', { name: '用额度继续' })
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     fireEvent.click(toggle)
 
@@ -234,8 +223,8 @@ describe('BillingSettings', () => {
 
     renderBilling()
 
-    expect(await screen.findByText('Charges $10 automatically when your balance falls below $5.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Manage' })).toBeTruthy()
+    expect(await screen.findByText('余额低于 $5 时自动扣款 $10。')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '管理' })).toBeTruthy()
   })
 
   it('requires inline confirmation before disabling auto-refill', async () => {
@@ -243,13 +232,13 @@ describe('BillingSettings', () => {
 
     apiMocks.updateAutoReload.mockResolvedValue({ data: { ok: true }, ok: true })
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Manage' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Disable' }))
+    fireEvent.click(await screen.findByRole('button', { name: '管理' }))
+    fireEvent.click(screen.getByRole('button', { name: '禁用' }))
 
-    expect(screen.getByText('Turn off auto-refill?')).toBeTruthy()
+    expect(screen.getByText('关闭自动充值？')).toBeTruthy()
     expect(apiMocks.updateAutoReload).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Turn off' }))
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
 
     // The gateway requires threshold + top_up_amount even to disable, so the current
     // amounts ride along (todayBillingState: threshold $5, reload-to $10).
@@ -267,12 +256,12 @@ describe('BillingSettings', () => {
     // Manage must stay silent until the user edits or attempts to save (spec §9).
     renderBilling()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Manage' }))
+    fireEvent.click(await screen.findByRole('button', { name: '管理' }))
 
-    expect(screen.getByRole('spinbutton', { name: 'Auto-refill threshold' })).toBeTruthy()
-    expect(screen.queryByText(`Threshold: minimum is ${formatMoney(10)}.`, { collapseWhitespace: false })).toBeNull()
+    expect(screen.getByRole('spinbutton', { name: '自动充值阈值' })).toBeTruthy()
+    expect(screen.queryByText(`阈值：最低金额为 ${formatMoney(10)}。`, { collapseWhitespace: false })).toBeNull()
     // Save is disabled because the prefilled config is invalid — but no error yet.
-    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(true)
   })
 
   it('navigates to the in-app plans grid from the plan card and back', async () => {
@@ -283,18 +272,18 @@ describe('BillingSettings', () => {
 
     renderBilling()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'View plans' }))
+    fireEvent.click(await screen.findByRole('button', { name: '查看套餐' }))
 
-    expect(await screen.findByText('Plans')).toBeTruthy()
+    expect(await screen.findByText('套餐')).toBeTruthy()
     // No subscription → the free tier is the inert current plan, the three paid
     // tiers are "Choose ↗" upgrades (no "subscribe to Free").
-    expect(screen.getByText('Current plan')).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: /Choose/ }).length).toBe(3)
-    expect(screen.queryByRole('button', { name: 'Downgrade' })).toBeNull()
+    expect(screen.getByText('当前套餐')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /选择/ }).length).toBe(3)
+    expect(screen.queryByRole('button', { name: '降级' })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to billing' }))
+    fireEvent.click(screen.getByRole('button', { name: '返回账单' }))
 
-    expect(await screen.findByRole('button', { name: 'View plans' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '查看套餐' })).toBeTruthy()
   })
 
   it('renders the current marker and an actionable downgrade when deep-linked to the plans grid', async () => {
@@ -305,11 +294,11 @@ describe('BillingSettings', () => {
 
     renderBilling(['/settings?tab=billing&bview=plans'])
 
-    expect(await screen.findByText('Current plan')).toBeTruthy()
+    expect(await screen.findByText('当前套餐')).toBeTruthy()
     // Free sits below Plus → an in-app (enabled) "Downgrade" button, not disabled.
-    expect(screen.getByRole('button', { name: 'Downgrade' }).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByRole('button', { name: '降级' }).hasAttribute('disabled')).toBe(false)
     // Super + Ultra are upgrades.
-    expect(screen.getAllByRole('button', { name: /Choose/ }).length).toBe(2)
+    expect(screen.getAllByRole('button', { name: /选择/ }).length).toBe(2)
   })
 
   it('falls back to overview (no live Choose grid) when a team deep-links bview=plans', async () => {
@@ -317,9 +306,9 @@ describe('BillingSettings', () => {
     // plans capability, so the URL must not surface a grid of Choose buttons.
     renderBilling(['/settings?tab=billing&bview=plans'])
 
-    expect(await screen.findByText('Payment & credits')).toBeTruthy()
-    expect(screen.queryByText('Plans')).toBeNull()
-    expect(screen.queryByRole('button', { name: /Choose/ })).toBeNull()
+    expect(await screen.findByText('支付与额度')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '返回账单' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /选择/ })).toBeNull()
   })
 
   it('falls back to overview when a non-changer personal account deep-links bview=plans', async () => {
@@ -329,9 +318,9 @@ describe('BillingSettings', () => {
 
     renderBilling(['/settings?tab=billing&bview=plans'])
 
-    expect(await screen.findByText('Payment & credits')).toBeTruthy()
-    expect(screen.queryByText('Plans')).toBeNull()
-    expect(screen.queryByRole('button', { name: /Choose/ })).toBeNull()
+    expect(await screen.findByText('支付与额度')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '返回账单' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /选择/ })).toBeNull()
   })
 
   it('runs an in-app downgrade: preview → confirm → schedule with the tier id → refetch → overview', async () => {
@@ -345,7 +334,7 @@ describe('BillingSettings', () => {
         effective_at: '2026-08-15T00:00:00Z',
         monthly_credits_delta: '-88',
         ok: true,
-        target_tier_name: 'Free'
+        target_tier_name: '免费'
       },
       ok: true
     })
@@ -354,20 +343,20 @@ describe('BillingSettings', () => {
     const client = renderBilling(['/settings?tab=billing&bview=plans'])
     const invalidate = vi.spyOn(client, 'invalidateQueries')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Downgrade' }))
+    fireEvent.click(await screen.findByRole('button', { name: '降级' }))
 
     await waitFor(() => expect(apiMocks.previewSubscriptionChange).toHaveBeenCalledWith('cltier000free0000personal'))
-    expect(await screen.findByText(/No charge now/)).toBeTruthy()
+    expect(await screen.findByText(/现在不扣费/)).toBeTruthy()
     // Credits delta renders as signed dollars, not the raw wire string "-88".
-    expect(screen.getByText(/Monthly credits change: −\$88\/mo\./)).toBeTruthy()
+    expect(screen.getByText(/每月额度变化：−\$88\/月/)).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm downgrade' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认降级' }))
 
     await waitFor(() => expect(apiMocks.scheduleSubscriptionChange).toHaveBeenCalledWith('cltier000free0000personal'))
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['billing', 'subscription'] }))
     // Scheduled → back on the overview.
-    expect(await screen.findByText('Payment & credits')).toBeTruthy()
-    expect(screen.queryByText('Plans')).toBeNull()
+    expect(await screen.findByText('支付与额度')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '返回账单' })).toBeNull()
   })
 
   it('surfaces the step-up affordance when scheduling a downgrade needs approval', async () => {
@@ -376,7 +365,7 @@ describe('BillingSettings', () => {
     apiMocks.fetchBillingState.mockResolvedValue(fixture.billing)
     apiMocks.fetchSubscriptionState.mockResolvedValue(fixture.subscription)
     apiMocks.previewSubscriptionChange.mockResolvedValue({
-      data: { effect: 'scheduled', effective_at: '2026-08-15T00:00:00Z', ok: true, target_tier_name: 'Free' },
+      data: { effect: 'scheduled', effective_at: '2026-08-15T00:00:00Z', ok: true, target_tier_name: '免费' },
       ok: true
     })
     apiMocks.scheduleSubscriptionChange.mockResolvedValue({
@@ -386,13 +375,13 @@ describe('BillingSettings', () => {
 
     renderBilling(['/settings?tab=billing&bview=plans'])
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Downgrade' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Confirm downgrade' }))
+    fireEvent.click(await screen.findByRole('button', { name: '降级' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认降级' }))
 
-    expect(await screen.findByText('Remote Spending needs approval:')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Verify to continue' })).toBeTruthy()
+    expect(await screen.findByText('需要批准远程支出:')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '验证以继续' })).toBeTruthy()
     // The failed schedule offers a retry in place.
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
     expect(apiMocks.scheduleSubscriptionChange).toHaveBeenCalledTimes(1)
   })
 
@@ -406,9 +395,9 @@ describe('BillingSettings', () => {
     const client = renderBilling()
     const invalidate = vi.spyOn(client, 'invalidateQueries')
 
-    expect(await screen.findByText('Changes to Free on Aug 15.')).toBeTruthy()
+    expect(await screen.findByText('于 Aug 15 更改为 Free。')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }))
 
     await waitFor(() => expect(apiMocks.resumeSubscription).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['billing', 'subscription'] }))
@@ -422,14 +411,14 @@ describe('BillingSettings', () => {
         ...todaySubscriptionState,
         can_change_plan: true,
         context: 'personal',
-        current: { ...todaySubscriptionState.current, tier_id: 't_ultra', tier_name: 'Ultra' },
+        current: { ...todaySubscriptionState.current, tier_id: 't_ultra', tier_name: '超高' },
         tiers: [
           {
             dollars_per_month_display: '$0',
             is_current: false,
             is_enabled: true,
             monthly_credits: '0.1',
-            name: 'Free',
+            name: '免费',
             tier_id: 't_free',
             tier_order: 0
           },
@@ -456,7 +445,7 @@ describe('BillingSettings', () => {
             is_current: true,
             is_enabled: true,
             monthly_credits: '220',
-            name: 'Ultra',
+            name: '超高',
             tier_id: 't_ultra',
             tier_order: 3
           }
@@ -464,7 +453,7 @@ describe('BillingSettings', () => {
       })
     )
     apiMocks.previewSubscriptionChange.mockResolvedValue({
-      data: { effect: 'scheduled', effective_at: '2026-08-15T00:00:00Z', ok: true, target_tier_name: 'Free' },
+      data: { effect: 'scheduled', effective_at: '2026-08-15T00:00:00Z', ok: true, target_tier_name: '免费' },
       ok: true
     })
 
@@ -477,19 +466,19 @@ describe('BillingSettings', () => {
 
     renderBilling(['/settings?tab=billing&bview=plans'])
 
-    const downgrades = await screen.findAllByRole('button', { name: 'Downgrade' })
+    const downgrades = await screen.findAllByRole('button', { name: '降级' })
     expect(downgrades.length).toBe(3)
 
     fireEvent.click(downgrades[0])
-    fireEvent.click(await screen.findByRole('button', { name: 'Confirm downgrade' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认降级' }))
 
     // Scheduling in flight → the two remaining tiles + Back are disabled.
     await waitFor(() => {
-      const remaining = screen.getAllByRole('button', { name: 'Downgrade' })
+      const remaining = screen.getAllByRole('button', { name: '降级' })
       expect(remaining.length).toBe(2)
       expect(remaining.every(btn => btn.hasAttribute('disabled'))).toBe(true)
     })
-    expect(screen.getByRole('button', { name: 'Back to billing' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: '返回账单' }).hasAttribute('disabled')).toBe(true)
 
     settleSchedule({ data: { ok: true }, ok: true })
   })
@@ -509,9 +498,9 @@ describe('BillingSettings', () => {
 
     renderBilling()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }))
+    fireEvent.click(await screen.findByRole('button', { name: '撤销' }))
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Undoing…' }).hasAttribute('disabled')).toBe(true))
+    await waitFor(() => expect(screen.getByRole('button', { name: '正在撤销…' }).hasAttribute('disabled')).toBe(true))
 
     settleResume({ data: { ok: true }, ok: true })
   })
@@ -522,13 +511,13 @@ describe('BillingSettings', () => {
     apiMocks.fetchBillingState.mockResolvedValue(fixture.billing)
     apiMocks.fetchSubscriptionState.mockResolvedValue(fixture.subscription)
     apiMocks.previewSubscriptionChange.mockResolvedValue({
-      data: { effect: 'scheduled', effective_at: '2026-08-15T00:00:00Z', ok: true, target_tier_name: 'Free' },
+      data: { effect: 'scheduled', effective_at: '2026-08-15T00:00:00Z', ok: true, target_tier_name: '免费' },
       ok: true
     })
 
     renderBilling(['/settings?tab=billing&bview=plans'])
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Downgrade' }))
+    fireEvent.click(await screen.findByRole('button', { name: '降级' }))
 
     const panel = await screen.findByRole('status')
 
@@ -547,17 +536,17 @@ describe('BillingSettings', () => {
       }
     })
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Manage' }))
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Auto-refill threshold' }), {
+    fireEvent.click(await screen.findByRole('button', { name: '管理' }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: '自动充值阈值' }), {
       target: { value: '15' }
     })
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Auto-refill reload-to amount' }), {
+    fireEvent.change(screen.getByRole('spinbutton', { name: '自动充值金额' }), {
       target: { value: '20' }
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
-    expect(await screen.findByText('Remote Spending needs approval:')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Verify to continue' })).toBeTruthy()
+    expect(await screen.findByText('需要批准远程支出:')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '验证以继续' })).toBeTruthy()
   })
 
   it('keeps disabled auto-refill portal-only with no enable control', async () => {
@@ -566,10 +555,10 @@ describe('BillingSettings', () => {
 
     renderBilling()
 
-    expect((await screen.findAllByText('Off')).length).toBeGreaterThan(0)
-    expect(screen.getByText('Turn on auto-refill from the portal')).toBeTruthy()
+    expect((await screen.findAllByText('已关闭')).length).toBeGreaterThan(0)
+    expect(screen.getByText('在门户中开启自动充值')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /enable/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Manage' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '管理' })).toBeNull()
   })
 
   it('disables buy controls while polling and renders the settled outcome', async () => {
@@ -593,13 +582,13 @@ describe('BillingSettings', () => {
 
     renderBilling()
 
-    fireEvent.click(await screen.findByRole('button', { name: /^Buy$/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^购买$/ }))
 
-    expect(await screen.findByText('Processing… checking settlement')).toBeTruthy()
+    expect(await screen.findByText('处理中…正在确认结算')).toBeTruthy()
     expect(screen.getByRole('button', { name: '$25' }).hasAttribute('disabled')).toBe(true)
     expect(screen.getByRole('button', { name: '$50' }).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('spinbutton', { name: 'Custom credit amount' }).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('button', { name: /^Buy$/ }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('spinbutton', { name: '自定义充值金额' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: /^购买$/ }).hasAttribute('disabled')).toBe(true)
 
     settleStatus({
       data: {
@@ -611,9 +600,7 @@ describe('BillingSettings', () => {
     })
 
     await waitFor(() =>
-      expect(
-        screen.getByText(`${formatMoney(25)} added. Balance is refreshing.`, { collapseWhitespace: false })
-      ).toBeTruthy()
+      expect(screen.getByText(`已添加 ${formatMoney(25)}，正在刷新余额。`, { collapseWhitespace: false })).toBeTruthy()
     )
   })
 
@@ -624,12 +611,12 @@ describe('BillingSettings', () => {
 
     renderBilling()
 
-    expect(await screen.findByText('Connect your Nous account')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByText('连接你的 Nous 账户')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '登录' }))
     expect($freeTierSignIn.get()).toEqual({ status: 'requested' })
     expect(apiMocks.openExternal).not.toHaveBeenCalled()
     $freeTierSignIn.set({ status: 'closed' })
-    expect(screen.queryByText('Payment method')).toBeNull()
-    expect(screen.queryByText('Usage')).toBeNull()
+    expect(screen.queryByText('支付方式')).toBeNull()
+    expect(screen.queryByText('用量')).toBeNull()
   })
 })

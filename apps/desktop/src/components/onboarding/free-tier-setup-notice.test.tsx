@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 import { $freeTierStatus, freeTierSetupFailure } from '@/store/free-tier'
 import type { OnboardingContext } from '@/store/onboarding'
 import type { FreeTierStatus } from '@/types/hermes'

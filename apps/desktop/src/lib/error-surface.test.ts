@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { zh as en } from '@/i18n/zh'
 
 import {
   ERROR_CODE_KEYS,

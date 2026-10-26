@@ -1,6 +1,6 @@
 import type { AuxTaskCopyMap } from './types_aux_tasks'
 
-export const zhAuxTasks: AuxTaskCopyMap = {
+export const zhAuxTasks = {
   vision: { label: '视觉', hint: '图片分析' },
   compression: { label: '压缩', hint: '上下文压缩' },
   skills_hub: { label: '技能中心', hint: '技能搜索' },
@@ -13,4 +13,4 @@ export const zhAuxTasks: AuxTaskCopyMap = {
   kanban_decomposer: { label: '看板分解', hint: '任务拆解' },
   profile_describer: { label: '配置描述', hint: '自动生成配置描述' },
   curator: { label: '维护器', hint: '技能使用审查' }
-}
+} satisfies AuxTaskCopyMap

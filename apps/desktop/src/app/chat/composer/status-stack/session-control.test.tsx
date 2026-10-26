@@ -129,7 +129,7 @@ const mockEntry = (overrides?: Partial<SessionControlEntry>): SessionControlEntr
 function renderStack(sessionId: null | string = SID, props: Record<string, unknown> = {}) {
   return render(
     <MemoryRouter>
-      <I18nProvider configClient={null} initialLocale="en">
+      <I18nProvider>
         <ComposerStatusStack queue={null} sessionId={sessionId} {...props} />
       </I18nProvider>
     </MemoryRouter>
@@ -170,7 +170,7 @@ describe('ComposerStatusStack session-control UI', () => {
     expect(mockRefreshSessionControl).toHaveBeenCalledWith(SID)
     expect(mockRefreshSessionGoal).not.toHaveBeenCalled()
     // Legacy goal remains available while capability is unknown.
-    fireEvent.click(screen.getByRole('button', { name: /Goal active/ }))
+    fireEvent.click(screen.getByRole('button', { name: /目标进行中/ }))
     expect(screen.getByText('Legacy Goal Title')).toBeTruthy()
   })
 
@@ -188,7 +188,7 @@ describe('ComposerStatusStack session-control UI', () => {
 
     renderStack()
 
-    fireEvent.click(screen.getByRole('button', { name: /Goal active/ }))
+    fireEvent.click(screen.getByRole('button', { name: /目标进行中/ }))
     expect(screen.getByText('Structured Goal Title')).toBeTruthy()
     expect(screen.queryByText('Legacy Goal Title')).toBeNull()
   })
@@ -214,10 +214,10 @@ describe('ComposerStatusStack session-control UI', () => {
 
     renderStack()
 
-    const loopMenuTrigger = screen.getByRole('button', { name: /loop actions/i })
+    const loopMenuTrigger = screen.getByRole('button', { name: /循环操作/ })
     fireEvent.click(loopMenuTrigger)
 
-    const pauseItem = await screen.findByRole('menuitem', { name: /pause loop/i })
+    const pauseItem = await screen.findByRole('menuitem', { name: /暂停循环/ })
     fireEvent.click(pauseItem)
 
     await waitFor(() => {
@@ -248,13 +248,13 @@ describe('ComposerStatusStack session-control UI', () => {
 
       renderStack()
 
-      expect(screen.getByText(/Heartbeat active · every 90s · next 00:01:00/)).toBeTruthy()
+      expect(screen.getByText(/心跳活跃 · 每 90 秒 · 下次 00:01:00/)).toBeTruthy()
 
       act(() => {
         vi.advanceTimersByTime(60_000)
       })
 
-      expect(screen.getByText(/Heartbeat active · every 90s · due — waiting for idle/)).toBeTruthy()
+      expect(screen.getByText(/心跳活跃 · 每 90 秒 · 已到期，等待会话空闲/)).toBeTruthy()
     } finally {
       vi.useRealTimers()
     }
@@ -272,19 +272,19 @@ describe('ComposerStatusStack session-control UI', () => {
 
       renderStack()
 
-      expect(screen.getByText(/Loop active · Run 3\/10 · next 00:45:00/)).toBeTruthy()
+      expect(screen.getByText(/循环活跃 · 运行 3\/10 · 下次 00:45:00/)).toBeTruthy()
 
       act(() => {
         vi.advanceTimersByTime(61_000)
       })
 
-      expect(screen.getByText(/Loop active · Run 3\/10 · next 00:43:59/)).toBeTruthy()
+      expect(screen.getByText(/循环活跃 · 运行 3\/10 · 下次 00:43:59/)).toBeTruthy()
 
       act(() => {
         vi.advanceTimersByTime(44 * 60_000)
       })
 
-      expect(screen.getByText(/Loop active · Run 3\/10 · due — waiting for idle/)).toBeTruthy()
+      expect(screen.getByText(/循环活跃 · 运行 3\/10 · 已到期，等待会话空闲/)).toBeTruthy()
     } finally {
       vi.useRealTimers()
     }
@@ -304,10 +304,10 @@ describe('ComposerStatusStack session-control UI', () => {
 
     renderStack()
 
-    const menuTrigger = screen.getByRole('button', { name: /goal actions/i })
+    const menuTrigger = screen.getByRole('button', { name: /目标操作/ })
     fireEvent.click(menuTrigger)
 
-    const pauseItem = await screen.findByRole('menuitem', { name: /pause goal/i })
+    const pauseItem = await screen.findByRole('menuitem', { name: /暂停目标/ })
     fireEvent.click(pauseItem)
 
     const alert = await screen.findByRole('alert')
@@ -336,10 +336,10 @@ describe('ComposerStatusStack session-control UI', () => {
 
     renderStack(SID, { onSubmit })
 
-    const menuTrigger = screen.getByRole('button', { name: /goal actions/i })
+    const menuTrigger = screen.getByRole('button', { name: /目标操作/ })
     fireEvent.click(menuTrigger)
 
-    const resumeItem = await screen.findByRole('menuitem', { name: /resume goal/i })
+    const resumeItem = await screen.findByRole('menuitem', { name: /恢复目标/ })
     fireEvent.click(resumeItem)
 
     await waitFor(() => {
@@ -370,15 +370,15 @@ describe('ComposerStatusStack session-control UI', () => {
 
     renderStack(SID, { onSubmit })
 
-    const menuTrigger = screen.getByRole('button', { name: /goal actions/i })
+    const menuTrigger = screen.getByRole('button', { name: /目标操作/ })
     fireEvent.click(menuTrigger)
 
-    const resumeItem = await screen.findByRole('menuitem', { name: /resume goal/i })
+    const resumeItem = await screen.findByRole('menuitem', { name: /恢复目标/ })
     fireEvent.click(resumeItem)
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert.textContent).toContain('Failed to submit goal continuation')
+      expect(alert.textContent).toContain('提交目标后续内容失败')
     })
   })
 
@@ -398,8 +398,8 @@ describe('ComposerStatusStack session-control UI', () => {
     })
 
     renderStack(SID, { onSubmit })
-    fireEvent.click(screen.getByRole('button', { name: /goal actions/i }))
-    fireEvent.click(await screen.findByRole('menuitem', { name: /resume goal/i }))
+    fireEvent.click(screen.getByRole('button', { name: /目标操作/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /恢复目标/ }))
 
     await waitFor(() => {
       expect(getQueuedPrompts('stored-1')).toMatchObject([
@@ -408,6 +408,6 @@ describe('ComposerStatusStack session-control UI', () => {
     })
     expect(onSubmit).not.toHaveBeenCalled()
     expect(screen.queryByRole('alert')).toBeNull()
-    expect(screen.getByText(/continuation queued/i)).toBeTruthy()
+    expect(screen.getByText(/目标已恢复 — 后续内容已排队，将在当前回合结束后发送/)).toBeTruthy()
   })
 })

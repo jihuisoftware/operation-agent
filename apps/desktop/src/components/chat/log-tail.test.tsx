@@ -14,7 +14,7 @@ function Harness({ lines }: { lines: string[] }) {
   const search = useLogSearch(lines, query)
 
   return (
-    <I18nProvider configClient={null}>
+    <I18nProvider>
       <LogSearchField onChange={setQuery} placeholder="Search logs" search={search} value={query} />
       <LogTail emptyLabel="No logs" lines={lines} search={search} />
     </I18nProvider>

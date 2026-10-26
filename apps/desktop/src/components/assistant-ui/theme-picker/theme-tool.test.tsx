@@ -25,7 +25,7 @@ function row(props: Partial<ToolCallMessagePartProps>) {
   const part = { args: {}, toolCallId: 'call-1', toolName: 'set_theme', ...props } as ToolCallMessagePartProps
 
   return (
-    <I18nProvider configClient={null} initialLocale="en">
+    <I18nProvider>
       <ThemeProvider>
         <SessionViewProvider value={view}>
           <ThemeTool {...part} />
@@ -71,7 +71,7 @@ describe('ThemeTool', () => {
     expect(respond).not.toHaveBeenCalled()
     expect($accentOverride.get()).not.toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: '继续' }))
 
     expect(respond).toHaveBeenCalledWith({ picked: { accent: 'violet' } })
     expect(screen.getByText('Ultraviolet').closest('[data-theme-settled]')).not.toBeNull()
@@ -97,11 +97,11 @@ describe('ThemeTool', () => {
       args: { calls: [{ arguments: { picker: 'layout' }, name: 'set_theme' }] },
       toolName: 'tool_call'
     })
-    fireEvent.click(screen.getByRole('button', { name: /Elite/ }))
+    fireEvent.click(screen.getByRole('button', { name: /精英/ }))
 
     expect(respond).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: '继续' }))
 
     expect(respond).toHaveBeenCalledWith({ picked: { layout: 'terminal-deck' } })
   })
@@ -112,12 +112,12 @@ describe('ThemeTool', () => {
     // A layout preview re-parents the chat; a new key remounts the row the same way.
     const { rerender } = render(<Fragment key="before">{row(props)}</Fragment>)
 
-    fireEvent.click(screen.getByRole('button', { name: /Elite/ }))
+    fireEvent.click(screen.getByRole('button', { name: /精英/ }))
     rerender(<Fragment key="after">{row(props)}</Fragment>)
 
-    expect(screen.getByRole('button', { name: /Elite/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /精英/ }).getAttribute('aria-pressed')).toBe('true')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: '继续' }))
 
     expect(respond).toHaveBeenCalledWith({ picked: { layout: 'terminal-deck' } })
   })
@@ -127,7 +127,7 @@ describe('ThemeTool', () => {
 
     const { rerender } = renderRow({ args: { picker: 'layout' } })
 
-    fireEvent.click(screen.getByRole('button', { name: /Elite/ }))
+    fireEvent.click(screen.getByRole('button', { name: /精英/ }))
 
     expect($terminalTakeover.get()).toBe(true)
     expect($fileBrowserOpen.get()).toBe(true)

@@ -1,9 +1,3 @@
-/**
- * The Sessions sidebar pane registers at module import, before `I18nProvider`
- * has fetched `display.language`, so its string `title` is whatever English
- * `translateNow` sampled then. The strip label must come from `tabTitle`,
- * which subscribes to the live locale.
- */
 import type { ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
@@ -15,18 +9,13 @@ const { registry } = await import('@/contrib/registry')
 await import('./controller')
 
 describe('the Sessions pane tab label', () => {
-  it('follows the live locale instead of the register-time title', () => {
+  it('keeps the pane title Chinese for legacy locale requests', () => {
     const sessions = registry.getArea('panes').find(c => c.id === 'sessions')!
     const tabTitle = (sessions.data as { tabTitle: () => ReactNode }).tabTitle
 
-    const inLocale = (locale: string) =>
-      renderToStaticMarkup(
-        <I18nProvider configClient={null} initialLocale={locale}>
-          {tabTitle()}
-        </I18nProvider>
-      )
+    const inLocale = (locale: string) => renderToStaticMarkup(<I18nProvider>{tabTitle()}</I18nProvider>)
 
-    expect(inLocale('zh')).not.toBe(inLocale('en'))
+    expect(inLocale('zh')).toBe(inLocale('en'))
   })
 
   it('is joined by every other string-titled chrome pane, with a string twin for the zone menu / drag ghost', () => {
@@ -37,14 +26,10 @@ describe('the Sessions pane tab label', () => {
       }
 
     const inLocale = (id: string, locale: string) =>
-      renderToStaticMarkup(
-        <I18nProvider configClient={null} initialLocale={locale}>
-          {chrome(id).tabTitle()}
-        </I18nProvider>
-      )
+      renderToStaticMarkup(<I18nProvider>{chrome(id).tabTitle()}</I18nProvider>)
 
     for (const id of ['terminal', 'files']) {
-      expect(inLocale(id, 'zh')).not.toBe(inLocale(id, 'en'))
+      expect(inLocale(id, 'zh')).toBe(inLocale(id, 'en'))
     }
 
     const zhSessions = inLocale('sessions', 'zh')

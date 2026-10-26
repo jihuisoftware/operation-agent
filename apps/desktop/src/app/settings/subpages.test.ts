@@ -28,6 +28,7 @@ describe('settings subpage routing', () => {
       expect(resolveSettingsSubpage('config:model', new URLSearchParams({ page }))).toBe('main')
       expect(configSubpageForField('model', `${page}.model`)).toBeUndefined()
     }
+
     expect(SECTIONS.find(section => section.id === 'model')?.keys).toContain('fallback_providers')
   })
 
@@ -124,16 +125,16 @@ describe('settings subpage routing', () => {
     // Platform-gated rows aside, the whole manifest reaches the palette.
     const definitions = Object.values(SETTINGS_MANIFEST).flatMap(rows => Object.values(rows))
     const gated = definitions.filter(setting => 'available' in setting).length
-    const targets = settingSearchTargets(TRANSLATIONS.en)
+    const targets = settingSearchTargets(TRANSLATIONS.zh)
     expect(targets.length).toBeGreaterThanOrEqual(definitions.length - gated)
     expect(new Set(targets.map(target => target.id)).size).toBe(targets.length)
     expect(targets.map(target => target.label)).toEqual(
       expect.arrayContaining([
-        'In-App Tips',
-        'Guided Tours',
-        'Keep computer awake',
-        'Auto-archive stale chats',
-        TRANSLATIONS.en.settings.about.updates
+        '应用内提示',
+        '引导导览',
+        '保持电脑唤醒',
+        '自动归档闲置会话',
+        TRANSLATIONS.zh.settings.about.updates
       ])
     )
   })

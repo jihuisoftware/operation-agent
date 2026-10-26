@@ -1,4 +1,3 @@
-import { en } from './en'
 import type { BundledLocale, Translations } from './types'
 import { zh } from './zh'
 
@@ -6,7 +5,6 @@ import { zh } from './zh'
  *  packs, backend `.desktop.yaml` packs) are NOT here — resolve through
  *  `resolveTranslations()` in `./registry`, which layers them over these. */
 export const TRANSLATIONS: Record<BundledLocale, Translations> = {
-  en,
   zh
 }
 

@@ -61,7 +61,7 @@ export function CapabilitiesView({
   setStatusbarItemGroup: _setStatusbarItemGroup,
   ...props
 }: CapabilitiesViewProps) {
-  const { locale, t } = useI18n()
+  const { t } = useI18n()
   // Both hooks run unconditionally (rules of hooks); embedded picks the local
   // one so tab clicks inside a dialog don't rewrite the page URL.
   const routeTab = useRouteEnumParam('tab', CAPABILITY_MODES, 'skills')
@@ -133,7 +133,14 @@ export function CapabilitiesView({
       />
     ),
     toolsets: () => (
-      <ToolsetsTab hints={toolsetHints} key={`toolsets-${scope.key}`} onQueryChange={setQuery} profile={scope.profile} query={query} toolsets={toolsets ?? []} />
+      <ToolsetsTab
+        hints={toolsetHints}
+        key={`toolsets-${scope.key}`}
+        onQueryChange={setQuery}
+        profile={scope.profile}
+        query={query}
+        toolsets={toolsets ?? []}
+      />
     )
   } satisfies Record<CapabilityMode, () => React.ReactNode>
 
@@ -151,9 +158,7 @@ export function CapabilitiesView({
       tabsAlign="start"
     >
       <div className="flex h-full flex-col">
-        <p className="px-4 py-2 text-xs text-muted-foreground">
-          {OPERATIONS_PROFILE.desktop.labels[locale === 'zh' ? 'zh' : 'en']}
-        </p>
+        <p className="px-4 py-2 text-xs text-muted-foreground">{OPERATIONS_PROFILE.desktop.labels.zh}</p>
         <CapabilityScopeSelector scope={scope} />
         <div className="flex min-h-0 flex-1 flex-col">{loadGate ?? tabContent[mode]()}</div>
       </div>
