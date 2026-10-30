@@ -1,6 +1,8 @@
 # Contributing to Hermes Agent
 
-Thank you for contributing to Hermes Agent! This guide covers everything you need: setting up your dev environment, understanding the architecture, deciding what to build, and getting your PR merged.
+当前分支为通用运营平台，主题由用户自行输入或选择；公众号、小红书、抖音为首批渠道。仅支持 macOS Desktop 与简体中文。产品范围以 [README](README.md)、[AGENTS.md](AGENTS.md) 和 `hermes_cli/data/operations-profile.json` 为准，业务计划见 [MVP 方案](docs/operations-platform-mvp.md)。
+
+下文保留 Hermes 共享运行时的贡献与测试约定。跨平台、消息适配器、Kanban、delegation 与 MCP 的实现说明不表示这些入口在运营版开放；新增运营能力通过独立插件与技能实现。开发启动请使用 [README 的本分支步骤](README.md#本地开发)，不要用上游安装器替换当前工作副本。
 
 ---
 
@@ -9,7 +11,7 @@ Thank you for contributing to Hermes Agent! This guide covers everything you nee
 We value contributions in this order:
 
 1. **Bug fixes** — crashes, incorrect behavior, data loss. Always top priority.
-2. **Cross-platform compatibility** — macOS, different Linux distros, and WSL2 on Windows. We want Hermes to work everywhere.
+2. **macOS Desktop reliability** — startup, connections, Chinese UI, installation and updates. Preserve referenced shared-runtime contracts without reopening retired product surfaces.
 3. **Security hardening** — shell injection, prompt injection, path traversal, privilege escalation. See [Security](#security-considerations).
 4. **Performance and robustness** — retry logic, error handling, graceful degradation.
 5. **New skills** — but only broadly useful ones. See [Should it be a Skill or a Tool?](#should-it-be-a-skill-or-a-tool)
@@ -716,7 +718,8 @@ See `hermes_cli/skin_engine.py` for the full schema and existing skins as exampl
 
 ## Cross-Platform Compatibility
 
-Hermes runs on Linux, macOS, and native Windows (plus WSL2). When writing code
+The shared runtime retains Linux and Windows (including WSL2) contracts; this operations
+product supports macOS Desktop only. When writing shared code
 that touches the OS, assume *any* platform can hit your code path.
 
 > **Before you PR:** run `scripts/check-windows-footguns.py` to catch the
@@ -909,7 +912,7 @@ Hermes has terminal access. Security matters.
 - **Resolve symlinks** with `os.path.realpath()` before path-based access control checks
 - **Don't log secrets.** API keys, tokens, and passwords should never appear in log output
 - **Catch broad exceptions** around tool execution so a single failure doesn't crash the agent loop
-- **Test on all platforms** if your change touches file paths, process management, or shell commands
+- **Test on macOS** for Desktop changes; verify any affected shared-runtime host contracts on their native test lanes
 
 If your PR affects security, note it explicitly in the description.
 
@@ -973,7 +976,7 @@ refactor/description   # Code restructuring
 1. **Run tests**: use `scripts/run_tests.sh` for the same environment and per-file isolation as CI.
 2. **Run the lint checks**: `python scripts/check` (the blocking lint lane, locally).
 3. **Test manually**: Run `hermes` and exercise the code path you changed
-4. **Check cross-platform impact**: If you touch file I/O, process management, or terminal handling, consider macOS, Linux, and WSL2
+4. **Check runtime impact**: Validate macOS Desktop first; preserve referenced shared-runtime contracts when changing file I/O, process management, or terminal handling
 5. **Keep PRs focused**: One logical change per PR. Don't mix a bug fix with a refactor with a new feature.
 
 ### PR description
@@ -1006,7 +1009,7 @@ Scopes: `cli`, `gateway`, `tools`, `skills`, `agent`, `install`, `whatsapp`, `se
 Examples:
 ```
 fix(cli): prevent crash in save_config_value when model is a string
-feat(gateway): add WhatsApp multi-user session isolation
+fix(gateway): preserve profile scope when reconnecting Desktop
 fix(security): prevent shell injection in sudo password piping
 test(tools): add unit tests for file_operations
 ```

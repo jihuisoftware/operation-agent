@@ -1,4 +1,4 @@
-"""Build-wide pet-community scope, layered at config reads without rewriting user data.
+"""Build-wide operations scope, layered at config reads without rewriting user data.
 
 The JSON is also consumed by Desktop. Model credentials, memory, history and
 user-disabled tools survive; an old generic configuration cannot start retired services.

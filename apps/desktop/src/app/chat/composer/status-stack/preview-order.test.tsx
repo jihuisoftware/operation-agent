@@ -59,7 +59,7 @@ it.each([false, true])('keeps artifact links below the queue with background wor
 
   const view = render(stack(true))
   const file = screen.getByText('index.html')
-  const header = screen.getByRole('button', { name: /1 Queued/ })
+  const header = screen.getByRole('button', { name: /1 条排队/ })
   expectBefore(screen.getByText('Task item'), file)
   expectBefore(header, file)
   expect(screen.queryAllByText('Live preview')).toHaveLength(background ? 1 : 0)
@@ -77,5 +77,5 @@ it.each([false, true])('keeps artifact links below the queue with background wor
   view.rerender(stack(false))
   expectBefore(screen.getByText('Task item'), file)
   view.rerender(stack(true))
-  expectBefore(screen.getByRole('button', { name: /1 Queued/ }), file)
+  expectBefore(screen.getByRole('button', { name: /1 条排队/ }), file)
 })

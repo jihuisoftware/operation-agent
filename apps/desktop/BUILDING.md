@@ -1,6 +1,9 @@
 # Building the macOS Desktop Installers
 
-This operations build supports macOS (Apple Silicon and Intel) and Simplified Chinese only.
+This operations build supports macOS (arm64 and x64 build targets) and Simplified Chinese only.
+A supported build target is not a claim that an installer has been published or passed native
+acceptance. See [product scope](../../README.md) for enabled features; upstream releases do not
+establish availability of this operations branch.
 
 Use the complete bundle builder for release artifacts. Ordinary `dist:*`
 commands package the current desktop build; they do not stage a fresh runtime.
@@ -20,7 +23,7 @@ The bundled payload contains:
 
 - The release's source snapshot without `.git`.
 - Pinned CPython and uv, plus a ready Python dependency tree.
-- Node.js, npm, supported managed tools, and prebuilt TUI/dashboard assets.
+- Node.js, npm, supported managed tools, and prebuilt TUI assets.
 - A manifest, tool facts, the installed feature list, and build provenance.
 - Generated CLI launchers from the archived project's script declarations.
 
@@ -97,7 +100,7 @@ The builder:
 1. Admits the clean source revision and prepares managed tools in isolated build state.
 2. Prepares the locked JS workspace union, icon environment, Electron-native bindings,
    packaging utilities, and the application/independent PM environments when selected.
-3. Compiles icons and the selected TUI, dashboard and desktop products.
+3. Compiles icons and the selected TUI and desktop products; the browser Dashboard frontend is removed.
 4. Assembles the PM payload, places JS assets, relocates links, and generates launchers.
 5. Consumes the prepared Electron archive and utilities to package the current OS.
 
@@ -108,12 +111,12 @@ is the sole packaging configuration. The wrapper disables automatic publishing;
 the release workflow owns uploads and channel promotion.
 
 `pm bundle --out DIR --ref REF` stages the native runtime only.
-`scripts/bundles/stage.py` also builds the TUI/dashboard unless both products
-are supplied explicitly. Both generate launchers; neither creates an Electron installer.
+`scripts/bundles/stage.py` also builds the TUI unless its product is supplied
+explicitly with `--tui`. Both generate launchers; neither creates an Electron installer.
 The launcher stage checks the payload and records its relative launch paths.
 The Electron build bakes these paths into its stamp. Desktop startup does not
 inspect, create, or repair a PM payload. Non-bundled builds carry no placeholder payload.
-See [shared bundle builds](../../docs/shared-bundle-builds.md) for Termux reuse.
+Shared PM staging code may retain other host contracts; they are not Desktop release targets for this operations build.
 
 ### Prepare once, then build
 
@@ -134,14 +137,12 @@ missing or changed dependencies without repairing or downloading them.
 Release jobs restore candidates, prepare, save reusable inputs, and only then
 build/sign. Job-local environments, credentials, products and signature results
 are not dependency snapshot inputs. The signature cache retains its own lifetime.
-Commit jobs request token-enforced read-only cache access; the conditional YAML
-mode still needs GitHub acceptance (see the
-[cache-policy caveat](../../docs/shared-bundle-builds.md#cache-ownership)). A
-separate key or skipped save alone would not protect release caches. Archival remains an independent
-prerequisite, and R2 upload credentials are not exposed to desktop preparation.
+Validate cache access permissions in the actual release workflow before release;
+a separate key or skipped save alone does not protect release caches. Archival remains an
+independent prerequisite, and R2 upload credentials must not be exposed to desktop preparation.
 
 Strict consumption means no dependency acquisition, not offline signing.
-Timestamp services, Azure signing, Apple notarization and publication remain
+Timestamp services, Apple notarization and publication remain
 online operations. Validate unsigned packaging with dependency networking denied
 on each target, then verify signed installers and launchers on their native hosts.
 
@@ -201,9 +202,9 @@ It rejects mixed tag, release-phase, channel-publication, and upgrade inputs.
 
 Builder jobs check out the admitted SHA. Their artifacts and completion receipts
 go to `releases/commit/FULL_SHA/`, separate from tag archives and update channels.
-The run summary lists macOS DMG/ZIP
-files, and the Termux package. Linux release legs remain disabled and are listed
-as not built. Only receipt-listed artifacts that exist in storage get download
+The run summary is the authority for the artifacts actually built. This operations Desktop
+release targets macOS DMG/ZIP; shared release machinery for other products does not
+extend its scope. Only receipt-listed artifacts that exist in storage get download
 links. Missing receipts show the failed or incomplete leg.
 
 Each commit build also writes a downloads page to
@@ -243,8 +244,9 @@ Unsigned local builds do not satisfy these gates.
 
 Both DMG and ZIP artifacts are required by the release pipeline. The ZIP is
 the update artifact, not an optional duplicate of the download DMG.
-See [macOS bundle updates](../../docs/macos-bundle-updates.md) for feed validation
-and native-event ordering.
+Feed validation and native-event ordering are implemented in
+[`electron/updater/mac.ts`](electron/updater/mac.ts) and its sibling tests.
+Verify them with the actual signed artifacts before release.
 
 ### DMG detach diagnostics
 
@@ -284,9 +286,10 @@ Icons are generated from `assets/nous-girl-*.svg` and `assets/backgrounds/`.
 (`HERMES_PYTHON`, else `python` on PATH); Pillow and resvg-py are core
 dependencies. Generated PNG/ICO/ICNS files are not source assets.
 
-[Stable release admission](../../docs/stable-releases.md) requires the full
-pipeline, not just successful packaging. Native signed-package update tests
+Stable release admission requires the full pipeline, not just successful packaging;
+the admission implementation lives in [`scripts/releases/stable.py`](../../scripts/releases/stable.py).
+Native signed-package update tests
 live in the [existing install/update family](../../tests/install/BUNDLED_UPDATES.md).
 A helper test or unpacked-app smoke is not proof of native install, update,
-or automatic relaunch. Historical receipts and current unresolved gates are
-separate in [PM audit status](../../docs/pm-audit-status.md).
+or automatic relaunch. Record the exact revision, architecture, artifact and result for each acceptance run;
+this document does not claim that the current branch has passed those gates.

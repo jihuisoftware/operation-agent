@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getRuntimeI18nLocale, setRuntimeI18nLocale } from '@/i18n/runtime'
+import { setRuntimeI18nLocale } from '@/i18n/runtime'
 
 import {
   calendarBucket,
@@ -27,19 +27,13 @@ const labels = {
 const now = 1_000 * DAY
 const ago = (delta: number) => formatAgo(now - delta, labels, now)
 
-it('uses the UI language for dates and relative time, including after a language switch', () => {
-  const previous = getRuntimeI18nLocale()
+it('keeps dates and relative time Chinese for legacy language preferences', () => {
   const date = new Date(2026, 9, 25)
 
-  try {
-    setRuntimeI18nLocale('zh')
+  for (const locale of ['zh', 'en', 'auto']) {
+    setRuntimeI18nLocale(locale)
     expect(fmtMonth.format(date)).toBe('十月')
     expect(relativeTime(now - 2 * MINUTE, now)).toBe('2分钟前')
-    setRuntimeI18nLocale('en')
-    expect(fmtMonth.format(date)).toBe('October')
-    expect(relativeTime(now - 2 * MINUTE, now)).toBe('2 min. ago')
-  } finally {
-    setRuntimeI18nLocale(previous)
   }
 })
 

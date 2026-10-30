@@ -72,7 +72,6 @@ it('keeps caller-provided and generated slash IDs when a busy target queues the 
       appendSessionTextMessage: vi.fn(),
       branchCurrentSession: async () => true,
       handleSkinCommand: () => '',
-      openMemoryGraph: vi.fn(),
       refreshSessions: async () => undefined,
       startFreshSessionDraft: vi.fn()
     })

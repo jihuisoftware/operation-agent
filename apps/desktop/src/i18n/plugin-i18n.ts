@@ -4,10 +4,9 @@ import { useStore } from '@nanostores/react'
 import { atom } from 'nanostores'
 import { useCallback } from 'react'
 
-import { useI18n } from './context'
 import { DEFAULT_LOCALE } from './languages'
 import { type AppLocaleRegistration, registerAppLocale } from './registry'
-import { getRuntimeI18nLocale, subscribeRuntimeI18nLocale, translateFrom } from './runtime'
+import { translateFrom } from './runtime'
 import type { BundledLocale, Locale } from './types'
 
 /** A leaf message: a literal or an interpolator (`n => `${n} left``). */
@@ -19,15 +18,13 @@ export interface PluginMessages {
   [key: string]: PluginMessages | PluginMessageValue
 }
 
-/** Locale → messages. The bundled ids autocomplete; any other id (a language
- *  a pack plugin registered with `registerAppLocale`) is accepted too. A
- *  bundle for a locale the app can't select is simply never resolved. */
+/** Locale → messages. Other ids remain accepted for plugin compatibility;
+ *  only the Chinese bundle is registered. */
 export type PluginLocaleBundles = Partial<Record<BundledLocale, PluginMessages>> & {
   [locale: Locale]: PluginMessages | undefined
 }
 
-/** Resolve `key` for this plugin against `args`; falls back to Chinese, then
- *  the raw key. */
+/** Resolve a Chinese plugin message against `args`; missing messages return the key. */
 export type PluginTranslate = (key: string, ...args: unknown[]) => string
 
 export interface PluginI18n {
@@ -37,15 +34,15 @@ export interface PluginI18n {
   /** Module-level translator against the app's active locale (mirrors
    *  `translateNow`). Non-reactive — in React prefer `usePluginI18n`. */
   t: PluginTranslate
-  /** Observe locale changes (not initial registration) to rebuild static labels.
-   *  Returns an unsubscribe function; also disposed on plugin unload. */
+  /** Compatibility subscription: the locale is fixed, so no change events fire.
+   *  The returned disposer is still tracked on plugin unload. */
   onLocaleChange: (listener: () => void) => () => void
   /** Extend Chinese app copy. Foreign locales are ignored. The overlay is
    *  attributed to this plugin and removed when it unloads. */
   registerAppLocale: (id: string, registration: AppLocaleRegistration) => () => void
 }
 
-const registry = new Map<string, Map<Locale, PluginMessages>>()
+const registry = new Map<string, PluginMessages>()
 
 /** Bumps whenever a plugin's bundles change, so React translators re-render on
  *  a registration that lands after first paint. */
@@ -67,16 +64,11 @@ function mergeMessages(base: PluginMessages, overrides: PluginMessages): PluginM
 }
 
 export function registerPluginLocales(pluginId: string, bundles: PluginLocaleBundles): () => void {
-  const byLocale = registry.get(pluginId) ?? new Map<Locale, PluginMessages>()
-  registry.set(pluginId, byLocale)
+  const messages = bundles.zh
 
-  for (const [locale, messages] of Object.entries(bundles) as [Locale, PluginMessages | undefined][]) {
-    if (locale !== 'zh' || !messages) {
-      continue
-    }
-
-    const prev = byLocale.get(locale)
-    byLocale.set(locale, prev ? mergeMessages(prev, messages) : messages)
+  if (messages) {
+    const previous = registry.get(pluginId)
+    registry.set(pluginId, previous ? mergeMessages(previous, messages) : messages)
   }
 
   $version.set($version.get() + 1)
@@ -88,7 +80,7 @@ export function registerPluginLocales(pluginId: string, bundles: PluginLocaleBun
 }
 
 export function translatePlugin(pluginId: string, _locale: Locale, key: string, args: unknown[]): string {
-  return translateFrom(l => registry.get(pluginId)?.get(l), DEFAULT_LOCALE, key, args)
+  return translateFrom(registry.get(pluginId), key, args)
 }
 
 /** Build the `ctx.i18n` door for a plugin. `track` records the disposer so the
@@ -96,16 +88,14 @@ export function translatePlugin(pluginId: string, _locale: Locale, key: string, 
 export function createPluginI18n(pluginId: string, track: (dispose: () => void) => () => void): PluginI18n {
   return {
     register: bundles => track(registerPluginLocales(pluginId, bundles)),
-    onLocaleChange: listener => track(subscribeRuntimeI18nLocale(listener)),
+    onLocaleChange: () => track(() => {}),
     registerAppLocale: (id, registration) => track(registerAppLocale(id, registration, `plugin:${pluginId}`)),
-    t: (key, ...args) => translatePlugin(pluginId, getRuntimeI18nLocale(), key, args)
+    t: (key, ...args) => translatePlugin(pluginId, DEFAULT_LOCALE, key, args)
   }
 }
 
-/** Reactive scoped translator for React UI. Re-renders on a locale switch or a
- *  late bundle registration. Pass your plugin id (your default export's `id`). */
+/** Reactive scoped translator for React UI. Re-renders on a late bundle registration. Pass your plugin id (your default export's `id`). */
 export function usePluginI18n(pluginId: string): PluginTranslate {
-  const { locale } = useI18n()
   const version = useStore($version)
 
   // `version` is the registry's change token and must key the translator's
@@ -113,8 +103,8 @@ export function usePluginI18n(pluginId: string): PluginTranslate {
   // render slices on `t` itself, so a stable `t` over a mutated registry
   // serves stale strings after a late bundle registration.
   return useCallback(
-    (key: string, ...args: unknown[]) => translatePlugin(pluginId, locale, key, args),
+    (key: string, ...args: unknown[]) => translatePlugin(pluginId, DEFAULT_LOCALE, key, args),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pluginId, locale, version]
+    [pluginId, version]
   )
 }

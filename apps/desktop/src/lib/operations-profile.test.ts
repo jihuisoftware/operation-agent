@@ -1,15 +1,30 @@
 import { describe, expect, it } from 'vitest'
 
-import { appViewForPath, routeSessionId } from '@/app/routes'
+import { appViewForPath, contributedRoutes, routeSessionId } from '@/app/routes'
 import { isDesktopSlashCommand } from '@/lib/desktop-slash-commands'
 
 describe('operations entry points', () => {
   it('does not interpret retired pages as sessions or expose their slash actions', () => {
-    for (const path of ['/agents', '/starmap', '/webhooks', '/session-import']) {
-      expect(routeSessionId(path)).toBeNull()
-      expect(appViewForPath(path)).toBe('chat')
+    for (const path of ['/agents', '/starmap', '/webhooks', '/session-import', '/messaging']) {
+      for (const suffix of ['', '?tab=old', '#old']) {
+        expect(routeSessionId(path + suffix)).toBeNull()
+        expect(appViewForPath(path + suffix)).toBe('chat')
+      }
+
+      expect(contributedRoutes([{ area: 'routes', id: 'retired', data: { path }, render: () => null }])).toEqual([])
     }
-    for (const command of ['/agents', '/tasks', '/profile', '/hatch', '/pet', '/import']) {
+
+    for (const command of [
+      '/agents',
+      '/tasks',
+      '/profile',
+      '/hatch',
+      '/pet',
+      '/import',
+      '/journey',
+      '/learning',
+      '/memory-graph'
+    ]) {
       expect(isDesktopSlashCommand(command)).toBe(false)
     }
   })

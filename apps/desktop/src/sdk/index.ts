@@ -1547,9 +1547,8 @@ export const host = {
   /** Chromium's custom spell-check dictionary, one validated word per call. */
   spellcheck: spellcheckHost,
 
-  /** Language packs: `host.i18n.registerAppLocale(id, { endonym, rtl?,
-   *  translations })` adds a whole UI language at runtime (see `sdk/i18n.ts`);
-   *  `host.i18n.languageOptions()` lists what the switcher shows. */
+  /** Chinese copy overlays: `host.i18n.registerAppLocale('zh', { translations })`.
+   *  `host.i18n.languageOptions()` returns Simplified Chinese (see `sdk/i18n.ts`). */
   i18n: i18nHost
 }
 

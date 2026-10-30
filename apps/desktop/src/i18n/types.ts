@@ -34,10 +34,8 @@ import type { UpdateChannelCopy } from './types_update_channel'
 /** The locales compiled into the app (`TRANSLATIONS`). */
 export type BundledLocale = 'zh'
 
-/** Any language id the app can render: a bundled locale, or one a plugin /
- *  the backend registered at runtime (`registerAppLocale`). Lowercase
- *  BCP-47-ish (`pl`, `pt-br`). Resolve strings through the registry, never
- *  by indexing `TRANSLATIONS` directly. */
+/** String ids remain accepted for plugin/backend compatibility; Desktop
+ *  renders only Chinese. Resolve copy through the registry to include overlays. */
 export type Locale = string
 
 /** One error-card entry: a short title and one plain sentence. Either may

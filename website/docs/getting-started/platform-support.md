@@ -1,68 +1,37 @@
 ---
 sidebar_position: 2.5
-title: "Platform Support"
-description: "Which operating systems, distribution methods, and features Hermes Agent supports."
+title: "平台支持"
+description: "通用运营版的 macOS、简体中文与共享运行时边界。"
 ---
 
-# Platform Support
+# 平台支持
 
-Hermes Agent maintains support for many platforms and distribution methods, but we can't support every possible install method.
+当前分支为通用运营平台，主题由用户输入或选择，公众号、小红书和抖音为首批渠道。主要入口为 **macOS Desktop**，界面仅支持**简体中文**。
 
----
+## 当前产品范围
 
-## Tier 1
+| 项目 | 支持范围 |
+| --- | --- |
+| 桌面系统 | macOS；启动、构建和打包入口执行平台检查 |
+| 构建架构 | macOS arm64 / x64；具体架构的可下载产物以实际构建为准 |
+| 界面语言 | 简体中文；旧语言设置与系统语言均归一到中文 |
+| 本地后端 | Desktop 连接共享 Gateway，复用 Agent、调度和存储 |
+| 辅助入口 | CLI / TUI 用于开发、自动化和诊断 |
+| Windows / Linux 桌面 | 不属于当前产品范围，不提供对应打包命令 |
+| 浏览器 Dashboard、Bot Mode、Kanban / Radio 界面 | 已移除 |
 
-We strive to never break installations and updates for these. Issues & regressions in Tier 1 are our first priority and take precedence over other platforms.
+## 构建目标与支持边界 {#build-targets-and-support-priority}
 
-| OS / Architecture                                                             | Installation methods                                                                                                           | Notes                                                                                                                                                     |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **macOS** (Apple Silicon)                                                     | [Hermes Desktop](https://hermes-agent.nousresearch.com/), [`install.sh`](./installation.md) |
-| [**Windows 10 / 11**](../user-guide/windows-native.md) (x86_64, aarch64) | [`install.ps1`](./installation.md), [MSIX desktop](../user-guide/windows-native.md) | The MSIX package requires Windows 11 22H2 or later. Optional dependencies have [architecture limits](../user-guide/windows-native.md). |
-| **Linux / [WSL2](../user-guide/windows-wsl-quickstart.md)** (x86_64, aarch64) | [`install.sh`](./installation.md)                                                           | We test on the latest Ubuntu and WSL2. If your distro has glibc, systemd, and follows the Filesystem Hierarchy Standard, it's likely to work pretty well. |
-| [**Docker Container**](../user-guide/docker.md) (x86_64, aarch64) | [`docker pull`](../user-guide/docker.md)                                                                           | Docker installs do not support `hermes update`. Updating is done by running a new image.                                                                  |
+普通桌面打包使用 `npm run dist:mac --workspace apps/desktop`，完整运行时包使用仓库根目录的 `scripts/build-bundle.sh`，后者要求干净工作区并打包 `HEAD`。
 
----
+macOS DMG 用于安装，ZIP 用于更新。源码构建需要 Git 与 Xcode Command Line Tools。构建入口允许 macOS 不等于所有架构都已完成签名、安装及更新验收；发布必须依据实际产物验证。
 
-## Tier 2
+当前不承诺已发布运营版安装器。上游 Hermes 下载站、旧版 bootstrap 安装器和其他分支的发布矩阵不代表本分支的交付状态。
 
-These platforms are maintained in-tree only as a best effort.
-Releases may break them, and we can't promise we'll fix them promptly when they break.
+## 不开放的能力 {#unsupported}
 
-PRs will be accepted to fix issues with them, but they will take precedence below fixing issues with Tier 1 platforms.
+当前预设关闭多 Agent 协作工具、Kanban 工具与自动派单、MCP 服务、公共 API／Webhook、自动技能整理和插件自动更新检查。普通配置中的旧开关不能覆盖发行版范围。
 
-| OS / Architecture              | Installation methods                                                 | Notes                                                                        |
-| ------------------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **Nix** (macOS, Linux, NixOS) | [Nix flake and modules](./nix-setup.md) | Nix owns runtime installation and updates. |
-| **Android / [Termux](./termux.md)** (aarch64) | [Signed APT repository](./termux.md), then `pkg install hermes-agent` | Prerelease package with Python, Node, and TUI. Not built by default: only releases cut with `--with termux` (and `windows` and `macos-arm64`) update the APT channel. Run the gateway in a Termux session; Android can terminate background processes. |
+`gateway/`、`tui_gateway/`、`hermes_cli/web_server*` 和部分跨平台实现继续为共享运行时保留。技术参考中的 Windows、Linux、Termux、消息适配器、delegation、Kanban 或 MCP 描述，不代表当前产品对这些入口作出支持承诺。
 
-### Build targets and support priority
-
-Stable releases build the macOS desktop bundle for Apple Silicon (`arm64`) only.
-The Intel macOS (`x64`) bundle and the Termux APT package are **not built by
-default**: a release includes them only when it is cut with
-`release.py release --with macos-intel` or `--with termux`. A release
-without macOS Intel replaces the one shared macOS stable update feed with an
-arm64-only feed, so Intel Macs installed from a desktop bundle get no update
-until a release is cut with `--with macos-intel`. A release without Termux
-leaves the Termux APT channel on its previous release.
-The `Hermes-Setup.dmg` bootstrap installer is built for Apple Silicon only, so
-on an Intel Mac it reports "not supported on this Mac". Intel Macs can install
-the [CLI](./installation.md#linux--macos--wsl2) and run
-`hermes desktop`, or use a `darwin-x64` bundle from a release that included it.
-Linux desktop packaging is disabled in the release workflow, although local
-AppImage builds and native Linux PM bundle checks exist.
-
-## Unsupported
-
-These platforms and distribution methods are **not** supported.
-We suggest that you migrate to a supported distribution method or platform.
-They may be broken right now, they may break more in the future.
-PRs to fix them will _not_ be accepted, and any code that keeps compatibility with them may be removed at any point.
-
-- Android / Termux on non-aarch64 devices (aarch64 is [supported](./termux.md) via our APT package)
-- installs via the AUR (we might upstream patches if it helps out &lt;3)
-- 32-bit x86 macOS. Intel x86_64 desktop bundles are built only for releases cut with `--with macos-intel`.
-- installs via `pypi` (e.g. `uv tool install hermes-agent`, `pip install hermes-agent`, etc.)
-- installs via `brew` (`brew install hermes-agent`)
-
-If you are using an unsupported distribution method, please read the [the installation guide](./installation.md) to learn how to switch to a supported one.
+开始使用请参阅[安装说明](./installation.md)和[快速开始](./quickstart.md)。

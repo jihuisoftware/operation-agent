@@ -61,12 +61,12 @@ it('offers a collapsed read-only checklist from an idle session, without a runni
   )
   render(stack())
 
-  const review = screen.getByRole('button', { name: /Previous tasks 1\/2/ })
+  const review = screen.getByRole('button', { name: /以往任务 1\/2/ })
   expect(review.getAttribute('aria-expanded')).toBe('false')
   expect(screen.queryByText('Still open')).toBeNull()
   fireEvent.click(review)
   expect(screen.getByText('Still open')).toBeTruthy()
-  expect(screen.queryByLabelText('Running')).toBeNull()
+  expect(screen.queryByLabelText('运行中')).toBeNull()
 })
 
 it('auto-expands only todos and keeps other groups closed as activity arrives', () => {
@@ -89,7 +89,7 @@ it('auto-expands only todos and keeps other groups closed as activity arrives', 
   expect(screen.queryByText('Worker task')).toBeNull()
   expect(screen.queryByText('Queued request')).toBeNull()
 
-  const header = screen.getByRole('button', { name: /1 Subagent/ })
+  const header = screen.getByRole('button', { name: /1 个子代理/ })
   fireEvent.click(header)
   expect(screen.getByText('Worker task')).toBeTruthy()
   expect(screen.getByText('Progress arrived')).toBeTruthy()
@@ -122,13 +122,13 @@ it('starts structured goals collapsed and preserves manual queue expansion when 
     }
   })
   const view = render(stack())
-  const goal = screen.getByRole('button', { name: /Goal active/ })
+  const goal = screen.getByRole('button', { name: /目标.*进行中/ })
   expect(goal.getAttribute('aria-expanded')).toBe('false')
   expect(screen.queryByText('Criterion')).toBeNull()
   fireEvent.click(goal)
   expect(screen.getByText('Criterion')).toBeTruthy()
 
-  const queued = screen.getByRole('button', { name: /1 queued/i })
+  const queued = screen.getByRole('button', { name: /1 条排队/ })
   fireEvent.click(queued)
   expect(screen.getByText('Queued request')).toBeTruthy()
   view.rerender(stack(true))

@@ -1,19 +1,19 @@
 # Hermes Agent - Development Guide
 
-For AI coding assistants and developers working on hermes-agent. This root file is a hub: what
-applies everywhere, then a routing table. Each area's `AGENTS.md` loads automatically when you work
-in that directory; read it before editing there. `python scripts/check` caps this file at 12k chars
-and every root-to-area chain at 30k, so it loads whole on 128k+ models: long form goes in the guide.
+Read each area's `AGENTS.md` before editing there. This file holds shared rules and routing.
+`python scripts/check` caps it at 12k chars and every root-to-area chain at 30k; long form goes
+in the developer guide.
 
 **Never give up on the right solution.**
 
 ## Current product
 
-Pet-community operations for 公众号、小红书、抖音, using Desktop on macOS only.
+General operations platform; users enter or choose their topic. Desktop on macOS only.
 Only Simplified Chinese is supported; Bot Mode, Kanban/Radio UI, messaging adapters and Windows
 packaging are retired. Keep `gateway/`, `tui_gateway/` and `hermes_cli/web_server*` for Desktop.
-Memory, skills, scheduling, delegation, terminal and browser capabilities remain.
-Extend through plugins and skills. Shared runtime compatibility stays where referenced.
+Memory, skills, scheduling, terminal and browser remain. Delegation, Kanban and MCP internals
+remain but their tools/services are disabled. Scope: `hermes_cli/data/operations-profile.json`;
+status and plans: `README.md`. Extend through plugins and skills; preserve shared runtime contracts.
 
 Two invariants shape almost every design decision and are the lens for reviewing any change:
 
@@ -84,7 +84,7 @@ hermes-agent/
 ├── hermes_cli/           # CLI subcommands, setup, config, plugins loader, updater, web_routers/
 ├── tools/                # Tool implementations (tools/registry.py) + environments/ backends
 ├── gateway/              # run.py facade + run_*.py phases + session*.py + platforms/
-├── plugins/              # memory/, context_engine/, model-providers/, kanban/, image_gen/, ...
+├── plugins/              # memory/, context_engine/, model-providers/, delegation/, image_gen/, ...
 ├── skills/               # Built-in skills (by category)   optional-skills/: shipped, not active
 ├── ui-tui/, tui_gateway/ # Ink terminal UI + its Python JSON-RPC backend (also serves Desktop)
 ├── apps/desktop/         # Primary Electron UI (+ apps/shared); no web SPA

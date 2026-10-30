@@ -166,7 +166,6 @@ function statusbarSelect() {
   const { result } = renderHook(
     () =>
       useStatusbarItems({
-        agentsOpen: false,
         changeSessionCwd: async () => {},
         chatOpen: true,
         commandCenterOpen: false,
@@ -175,7 +174,6 @@ function statusbarSelect() {
         freshDraftReady: false,
         gatewayState: 'ready',
         inferenceStatus: null,
-        openAgents: () => undefined,
         openCommandCenterSection: () => undefined,
         requestGateway: async () => undefined as never,
         statusSnapshot: null,

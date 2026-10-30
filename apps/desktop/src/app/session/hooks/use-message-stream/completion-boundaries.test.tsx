@@ -71,7 +71,6 @@ function mount(rpc = requestGateway) {
       getRuntimeIdForStoredSession: () => SID,
       getRouteToken: () => 'completion-route',
       handleSkinCommand: () => '',
-      openMemoryGraph: () => undefined,
       refreshSessions: noop,
       requestGateway: rpc,
       resumeStoredSession: noop,

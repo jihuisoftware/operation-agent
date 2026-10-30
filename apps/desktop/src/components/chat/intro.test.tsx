@@ -1,11 +1,11 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { I18nProvider } from '@/i18n'
+import { I18nProvider, registerAppLocale } from '@/i18n'
+import { resetAppLocaleRegistry } from '@/i18n/registry'
 import { zh } from '@/i18n/zh'
 
 import { Intro } from './intro'
-import stock from './intro-copy.jsonl?raw'
 
 function Fixture({ personality, seed = 0 }: { personality?: string; seed?: number }) {
   return (
@@ -17,28 +17,28 @@ function Fixture({ personality, seed = 0 }: { personality?: string; seed?: numbe
 
 afterEach(() => {
   cleanup()
+  resetAppLocaleRegistry()
   vi.restoreAllMocks()
 })
 
-it('renders each stock greeting in Chinese at the same personality and rotation position', () => {
+it('rotates Chinese greetings and keeps the same greeting across rerenders', () => {
   vi.spyOn(Math, 'random').mockReturnValue(0)
-
-  const entries = stock
-    .trim()
-    .split('\n')
-    .map(line => JSON.parse(line) as { personality: string; body: string })
-
   const { container, rerender } = render(<Fixture />)
-  const indices = new Map<string, number>()
+  const body = () => container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent
 
-  for (const entry of entries) {
-    const seed = indices.get(entry.personality) ?? 0
-    indices.set(entry.personality, seed + 1)
-    rerender(<Fixture personality={entry.personality} seed={seed} />)
-    const body = container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent
-    expect(body).toBe(zh.intro.stock[entry.personality][seed])
-    expect(body).toMatch(/[\u3400-\u9fff]/)
-  }
+  expect(body()).toBe(zh.intro.stock.none[0])
+  rerender(<Fixture />)
+  expect(body()).toBe(zh.intro.stock.none[0])
+  rerender(<Fixture seed={1} />)
+  expect(body()).toBe(zh.intro.stock.none[1])
+  rerender(<Fixture seed={zh.intro.stock.none.length} />)
+  expect(body()).toBe(zh.intro.stock.none[0])
+})
+
+it('keeps a Chinese greeting when an overlay supplies an empty rotation', () => {
+  registerAppLocale('zh', { translations: { intro: { stock: { none: [] } } } })
+  const { container } = render(<Fixture />)
+  expect(container.querySelector('[data-slot="aui_intro"] > div > p:last-child')!.textContent).toBe(zh.intro.stock.none[0])
 })
 
 it('keeps the user-supplied personality name in the Chinese fallback greeting', () => {

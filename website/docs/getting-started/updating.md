@@ -6,6 +6,12 @@ description: "How to update Hermes Agent to the latest version or uninstall it"
 
 # Updating & Uninstalling
 
+:::info 当前运营分支
+本版仅支持 macOS Desktop 与简体中文。macOS bundled 应用使用其自身更新渠道；源码更新前确认远端、分支和渠道属于当前运营版，避免更新到上游通用版本。当前不承诺已有运营版公开发布渠道。
+
+下文的多平台安装所有权、迁移及卸载细节保留为共享运行时参考，不扩展[当前平台支持](./platform-support.md)。Windows、Linux、Termux 与消息机器人相关步骤不作为本版操作指南。
+:::
+
 ## Updating
 
 Choose the update method for the installation that is running:

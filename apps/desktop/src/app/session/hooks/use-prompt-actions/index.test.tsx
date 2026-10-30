@@ -8,6 +8,7 @@ import { getLatestSessionMessages, getSession } from '@/hermes'
 import { zh as en } from '@/i18n/zh'
 import { textPart } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
+import { desktopSlashUnavailableMessage } from '@/lib/desktop-slash-commands'
 import { $compactingSessions, setSessionCompacting } from '@/store/compaction'
 import { $composerAttachments, $composerDraft, type ComposerAttachment, setComposerDraft } from '@/store/composer'
 import { $queuedPromptsBySession, getQueuedPrompts } from '@/store/composer-queue'
@@ -2188,55 +2189,45 @@ describe('usePromptActions desktop slash pickers', () => {
     expect(requestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
   })
 
-  it('opens the memory graph overlay for /journey and its aliases instead of hitting the backend', async () => {
-    const openMemoryGraph = vi.fn()
+  it('refuses retired memory graph commands and aliases without executing them on the backend', async () => {
     const requestGateway = vi.fn(async () => ({}) as never)
 
     let handle: HarnessHandle | null = null
     await actRender(
-      <Harness
-        onReady={h => (handle = h)}
-        openMemoryGraph={openMemoryGraph}
-        refreshSessions={async () => undefined}
-        requestGateway={requestGateway}
-      />
+      <Harness onReady={h => (handle = h)} refreshSessions={async () => undefined} requestGateway={requestGateway} />
     )
 
-    await handle!.submitText('/journey')
-    await handle!.submitText('/memory-graph')
-    await handle!.submitText('/learning')
+    for (const command of ['/journey', '/memory-graph', '/learning']) {
+      await handle!.submitText(command)
+    }
 
-    expect(openMemoryGraph).toHaveBeenCalledTimes(3)
+    const replies = handle!.state().messages.filter(message => message.role === 'system')
+
+    expect(replies).toHaveLength(3)
+    expect(JSON.stringify(replies)).toContain(desktopSlashUnavailableMessage('journey'))
     expect(requestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
     expect(requestGateway).not.toHaveBeenCalledWith('command.dispatch', expect.anything())
   })
 
-  it('reports each typed command to shared metrics once, locally handled ones included, never alias re-dispatches', async () => {
-    const openMemoryGraph = vi.fn()
-
+  it('reports each typed command once, including local commands but excluding alias re-dispatches', async () => {
     const requestGateway = vi.fn(
       async (method: string, _params?: Record<string, unknown>) =>
-        (method === 'slash.exec' ? { type: 'alias', target: 'journey' } : {}) as never
+        (method === 'slash.exec' ? { type: 'alias', target: 'help' } : {}) as never
     )
 
     let handle: HarnessHandle | null = null
     await actRender(
-      <Harness
-        onReady={h => (handle = h)}
-        openMemoryGraph={openMemoryGraph}
-        refreshSessions={async () => undefined}
-        requestGateway={requestGateway}
-      />
+      <Harness onReady={h => (handle = h)} refreshSessions={async () => undefined} requestGateway={requestGateway} />
     )
 
-    await handle!.submitText('/journey') // desktop-local: never reaches the gateway's slash.exec
-    await handle!.submitText('/mg') // user alias: the backend answers "run /journey"
+    await handle!.submitText('/help')
+    await handle!.submitText('/my-help')
 
-    expect(openMemoryGraph).toHaveBeenCalledTimes(2)
+    expect(requestGateway.mock.calls.filter(([method]) => method === 'commands.catalog')).toHaveLength(2)
     expect(requestGateway.mock.calls.filter(([method]) => method === SLASH_METRIC).map(([, params]) => params)).toEqual(
       [
-        { command: 'journey', session_id: RUNTIME_SESSION_ID },
-        { command: 'mg', session_id: RUNTIME_SESSION_ID }
+        { command: 'help', session_id: RUNTIME_SESSION_ID },
+        { command: 'my-help', session_id: RUNTIME_SESSION_ID }
       ]
     )
   })
@@ -5605,6 +5596,7 @@ describe('usePromptActions send from a window behind the stored transcript', () 
     })
 
     const requestGateway = vi.fn(async () => ({}) as never)
+
     let handle: HarnessHandle | null = null
 
     await actRender(

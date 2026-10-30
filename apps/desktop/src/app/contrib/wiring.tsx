@@ -354,16 +354,13 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   }, [location.pathname])
 
   const {
-    agentsOpen,
     chatOpen,
     closeOverlayToPreviousRoute,
     commandCenterInitialSection,
     commandCenterOpen,
     cronOpen,
     currentView,
-    openAgents,
     openCommandCenterSection,
-    openStarmap,
     profilesOpen,
     resetOverlayReturnRoute,
     settingsOpen,
@@ -691,7 +688,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     getRuntimeIdForStoredSession,
     getRouteToken,
     handleSkinCommand,
-    openMemoryGraph: openStarmap,
     refreshSessions,
     requestGateway,
     resumeStoredSession: resumeSession,
@@ -1146,7 +1142,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     followDefaultModel,
     changeSessionCwd,
     getGateway: () => gatewayRef.current,
-    openAgents,
     openCommandCenterSection,
     requestGateway,
     selectModel,
@@ -1174,15 +1169,8 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   const terminalNode = useMemo(() => <TerminalSurface />, [])
 
   const statusbarNode = useMemo(
-    () => (
-      <StatusbarSurface
-        actions={actions}
-        agentsOpen={agentsOpen}
-        chatOpen={chatOpen}
-        commandCenterOpen={commandCenterOpen}
-      />
-    ),
-    [actions, agentsOpen, chatOpen, commandCenterOpen]
+    () => <StatusbarSurface actions={actions} chatOpen={chatOpen} commandCenterOpen={commandCenterOpen} />,
+    [actions, chatOpen, commandCenterOpen]
   )
 
   // The voice cap changes only on config load; the gateway instance + all

@@ -1,273 +1,93 @@
-# Hermes Desktop ☤
+# 通用运营 Desktop
 
-此运营版本在 macOS 和 Ubuntu 上默认使用简体中文。界面语言可在“设置 → 外观 → 语言”中切换，已保存的语言选择优先于默认值。
+本分支提供通用运营能力，主题由用户自行输入或选择，首批渠道为公众号、小红书和抖音。**仅支持 macOS，界面固定为简体中文**。旧语言设置会归一到中文，不提供语言切换。产品范围见[根 README](../../README.md)，业务模块进度见 [MVP 方案](../../docs/operations-platform-mvp.md)。
 
-<p align="center">
-  <a href="https://github.com/NousResearch/hermes-agent/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>
-  <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
-  <a href="https://discord.gg/NousResearch"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://github.com/NousResearch/hermes-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
-</p>
+## 输入或选择主题
 
-**The native desktop app for [Hermes Agent](../../README.md) — the self-improving AI agent from [Nous Research](https://nousresearch.com).** Same agent, same skills, same memory as the CLI and gateway, in a polished native window — chat with streaming tool output, side-by-side previews, a file browser, voice, and settings, no terminal required. Available for **macOS, Windows, and Linux**.
+在输入框说明本次运营的主题、受众、目标和渠道；方向未确定时，可请助手提供候选，再选择或自定义。已有上下文会继续使用，无需每次重新填写。当前使用对话入口，独立主题选择与保存界面仍待开发。
 
-> **Intel Macs:** the `Hermes-Setup.dmg` bootstrap installer is built for
-> Apple Silicon (arm64) only, so on an Intel Mac it reports "not supported on
-> this Mac". Stable releases build the native `darwin-x64` bundle only when
-> cut with `--with macos-intel`; otherwise install the
-> [CLI](../../README.md) and run `hermes desktop`. See
-> [Platform Support](../../website/docs/getting-started/platform-support.md#build-targets-and-support-priority).
+## 当前能力
 
-<table>
-<tr><td><b>Chat with the full agent</b></td><td>Streaming responses, live tool activity, structured tool summaries, and the same conversation history as every other Hermes surface.</td></tr>
-<tr><td><b>Side-by-side previews</b></td><td>Render web pages, files, and tool outputs in a right-hand pane while you keep chatting.</td></tr>
-<tr><td><b>File browser</b></td><td>Explore and preview the working directory without leaving the app.</td></tr>
-<tr><td><b>Voice</b></td><td>Talk to Hermes and hear it back.</td></tr>
-<tr><td><b>Settings & onboarding</b></td><td>Manage providers, models, tools, and credentials from a real UI. First-run setup gets you to your first message in seconds.</td></tr>
-<tr><td><b>Stays current</b></td><td>Built-in updates pull the latest agent and rebuild the app in place.</td></tr>
-</table>
+Desktop 提供流式对话、工具执行展示、内容预览、文件浏览、模型与凭证配置、技能、记忆和定时任务。语音、图像和视频相关能力取决于所配置的模型与服务。
 
----
+Bot Mode、Kanban／Radio 界面及旧的 agents、starmap、webhooks、session-import 页面已移除。多 Agent 协作工具、Kanban 工具与自动派单、MCP 服务及公共 API／Webhook 当前关闭。素材台账、内容审批、发布回填和增长报表仍待开发，生成草稿不代表已经发布。
 
-## Install
+## 本地开发
 
-### Install with Hermes (recommended)
-
-Already have the Hermes CLI? Just run:
+在仓库根目录使用独立开发数据目录并激活 PM 环境：
 
 ```bash
-hermes desktop
+export HERMES_HOME="$HOME/hermes-operations-dev"
+export HERMES_RUNTIME_DIR="$HERMES_HOME/tools"
+source ./activate
+npm ci
+HERMES_DESKTOP_HERMES_ROOT="$PWD" npm run dev --workspace apps/desktop
 ```
 
-It builds and launches the GUI against your existing install — same config, keys, sessions, and skills. If Desktop cannot find a usable runtime or saved remote connection, first launch lets you connect to an existing Hermes gateway or install Hermes locally. Local onboarding then walks you through choosing a provider and model.
+macOS 源码构建需要 Git 和 Xcode Command Line Tools。Node/npm 版本以根目录 `package.json` 的 `engines` 为准；依赖从仓库根目录安装，关联 Desktop、共享组件与 TUI 等工作区。
 
-### Prebuilt installers
+已准备好本分支运行时的开发环境也可执行 `hermes desktop`。不要把上游安装器或上游公开安装包当成本运营分支的发行物。
 
-Prebuilt installers are built and distributed via [the Hermes Desktop website.](https://hermes-agent.nousresearch.com/).
-
----
-
-## Updating
-
-Update through the owner of the installed artifact: Windows App Installer for
-sideload MSIX, Microsoft Store for Store packages, and `electron-updater` for
-macOS bundles. Source-built apps use the checkout update handoff.
-
-`hermes update` updates managed source checkouts; it does not rewrite a bundled
-payload. See [BUILDING.md](BUILDING.md) for package and release contracts.
-
----
-
-## Screenshot shortcut (macOS)
-
-Enable **Settings → Keyboard Shortcuts → Screenshot shortcut**, then press the
-left and right Command keys together in any app. Hermes captures that app's
-frontmost window and attaches the image to the last-active Hermes composer,
-including split-pane chats. It does not send the draft or capture the whole
-screen. Release both keys before taking another screenshot.
-
-The shortcut is off by default and saved only on this Mac. macOS requires
-**Input Monitoring** and **Screen & System Audio Recording** permission; the
-settings row links to the relevant system pane and offers Retry. If macOS asks
-to restart the app after granting access, do so before retrying. Review the
-attachment before sending, especially when the captured window is sensitive.
-
-## Requirements
-
-Bundled packages provide Python 3.14 and their supported dependencies.
-Source/bootstrap builds have a separate preparation path. Platform-native
-requirements, including system Git on POSIX, are described in [BUILDING.md](BUILDING.md).
-macOS source builds also require Xcode Command Line Tools to compile the native
-shortcut helper. Prebuilt installers include it; no compiler is needed at runtime.
-
----
-
-## Development
-
-Want to hack on the app itself? Install workspace deps from the repo root once, then run the dev server from this directory:
+使用独立的 Desktop 数据目录与应用实例：
 
 ```bash
-npm install          # from repo root — links apps/desktop, web, apps/shared
-cd apps/desktop
-npm run dev          # Vite renderer + Electron, which boots the Python backend
+scripts/dev-sandbox.sh -- npm run dev --workspace apps/desktop
+scripts/dev-sandbox.sh --persistent -- npm run dev --workspace apps/desktop
 ```
 
-Point the app at a specific source checkout, or sandbox it away from your real config:
+第一条命令退出时清理临时数据；第二条保留数据供下次启动。启动界面调试可运行 `npm run dev:fake-boot --workspace apps/desktop`。
+
+## 运行边界
+
+- **Electron**：解析后端运行时，管理原生窗口、文件系统、Git、安装与更新，通过受限 preload 接口提供原生能力。
+- **React**：管理路由、面板、交互状态和对话展示；共享状态按功能放入 nanostores。
+- **Gateway 与 Agent**：管理会话、模型调用、工具执行与调度，通过 `tui_gateway` 的 JSON-RPC／WebSocket 和共享 HTTP API 服务 Desktop。
+
+本地连接通过 `hermes gateway ensure --json` 获取或启动共享 Gateway，使用私有控制票据认证。无需独立启动 `hermes serve`，也不使用浏览器 Dashboard 前端。退出 Desktop 或切换连接只断开查看端，不终止 Gateway；需要停止时执行 `hermes gateway stop`。
+
+`gateway/`、`tui_gateway/`、`apps/shared/` 与 `hermes_cli/web_server*` 是 Desktop 的依赖。保留这些组件不表示重新开放消息机器人或公共 Web 界面。
+
+Bundled 构建使用包内运行时，数据留在包外。包内运行时损坏时应报告损坏，不自动改用任意 PATH 上的 Python 或 Hermes。源码构建可通过 `HERMES_DESKTOP_HERMES_ROOT` 指向明确的工作副本。
+
+## 连接与 Profile
+
+现有本地、远程及 Cloud 连接机制保留。使用远程连接时，Agent 工具、终端和文件操作在远程后端执行。共享连接机制不代表本分支承诺支持其他桌面操作系统；远程后端兼容性需单独验证。
+
+Profile 用于隔离配置、凭证、历史和业务数据。连接或 Profile 切换只改变当前查看与请求路由，不应取消后台任务。项目可以组织多个目录和会话；业务台账仍须由后续业务插件持久化。
+
+## 截图快捷键
+
+在设置中启用截图快捷键后，同时按左右 Command 键可截取当前应用的前台窗口，并作为附件加入最近活动的输入框，不会自动发送。此功能默认关闭，需要 macOS 的输入监控及屏幕录制权限。授权后按系统提示重启应用，再检查附件内容。
+
+## 构建与更新
+
+从仓库根目录执行：
 
 ```bash
-# throwaway HERMES_HOME, separate Electron userData, distinct app name to avoid the single-instance lock
-../../scripts/dev-sandbox.sh npm run dev
-HERMES_DESKTOP_HERMES_ROOT=/path/to/clone npm run dev
-HERMES_HOME=$HOME/.hermes/cache/scratch/throwaway npm run dev
-npm run dev:fake-boot   # exercise the startup overlay with deterministic delays
+npm run pack --workspace apps/desktop       # 未封装的应用目录
+npm run dist:mac --workspace apps/desktop   # DMG / ZIP
+scripts/build-bundle.sh                    # 完整运行时包，要求干净工作区
 ```
 
-### Building installers
+普通 `pack`／`dist:mac` 不会准备一份全新的 Agent 运行时。完整构建、arm64／x64 目标、签名与公证要求见 [BUILDING.md](BUILDING.md)。本分支不提供 Windows/Linux 打包命令。
+
+macOS bundled 应用使用包所属的更新渠道与 `electron-updater`；源码安装使用源码更新流程。`hermes update` 不重写 bundled payload。更新前确认目标仓库、分支和渠道属于当前运营版，安装包是否可用以实际构建产物为准。
+
+## 验证与排错
 
 ```bash
-npm run dist:mac     # DMG + zip
-npm run dist:win     # MSIX
-npm run dist:linux   # AppImage + deb + rpm
-npm run pack         # unpacked app under release/ (no installer)
+npm run typecheck --workspace apps/desktop
+npm run lint --workspace apps/desktop
+npm run test:ui --workspace apps/desktop
+npm run test:desktop:platforms --workspace apps/desktop
 ```
 
-These are ordinary packaging commands, not complete tagged payload builds.
-Use [BUILDING.md](BUILDING.md) for the native bundled builder, Azure/Apple
-signing, R2 artifact publication, and release gates. The current release matrix
-publishes Windows and macOS packages; Linux desktop legs are disabled.
+安装、启动、更新或打包路径变更还应执行 `npm run test:desktop:all --workspace apps/desktop`，并完成实际 macOS 安装包验证。仅类型检查或单元测试通过不代表发布验收完成。
 
-### How it works
-
-The bundled app carries the Electron shell, native React chat surface, and
-local agent payload. It runs the payload directly from resources. User data
-lives in `HERMES_HOME` outside the app. Bootstrap builds instead provision a
-source installation. A remote-only Light variant exists as a build target but
-is not published.
-
-The app has three boundaries:
-
-- **Electron** resolves and validates a runnable backend, owns native
-  filesystem/git/window capabilities, and exposes a narrow preload bridge.
-- **React** owns the Desktop routes, panes, interaction state, and
-  `@assistant-ui/react` transcript.
-- **Hermes Agent** runs as a headless `hermes serve` process and exposes the
-  `tui_gateway` JSON-RPC/WebSocket API. The renderer connects through
-  [`apps/shared`](../shared/), which is also used by the browser dashboard.
-
-A bundled artifact uses its payload. If that payload is unusable, the app
-reports damage rather than installing a second checkout. It does not adopt
-an arbitrary `hermes` command on PATH or a system Python installation.
-
-Non-bundled builds can use the explicit source-root override, development
-checkout, completed managed install, or `HERMES_DESKTOP_HERMES` deployment
-override before offering bootstrap. Candidates are probed before use.
-A runtime that predates `serve` falls back to headless
-`dashboard --no-open`. This is compatibility for the backend command only and
-does not launch or embed the dashboard UI.
-
-The Electron orchestration entry point is `electron/main.ts`; pure resolution,
-probe, hardening, and platform policies live in focused modules beside it. The
-renderer is under `src/`, with shared atoms in `src/store` and transport/native
-adapters in `src/lib`.
-
-Before changing the app, read:
-
-- [`AGENTS.md`](./AGENTS.md): architecture, state ownership, resolver/fallback,
-  transport, performance, and testing rules.
-- [`DESIGN.md`](./DESIGN.md): visual system, information architecture, motion,
-  direct manipulation, and keyboard behavior.
-
-### Connections, projects, and switching
-
-Desktop supports a managed local backend, explicit remote gateways, and Hermes
-Cloud connections. Remote and cloud modes use the same remote-capability path;
-authentication and discovery differ, not the renderer feature model.
-
-When no usable local runtime or saved remote connection exists, the first-run
-screen offers **Connect to existing Hermes** before starting the local installer.
-Desktop probes the gateway to discover token or OAuth authentication, requires a
-successful HTTP and WebSocket connection test, and saves the connection using
-the same encrypted Desktop configuration used by Settings. A saved remote
-connection bypasses this choice on later launches. The regular Desktop build
-still includes the local-install option; this is a remote operating mode, not a
-separate client-only application.
-
-In remote mode the gateway host is the execution boundary: agent tools,
-terminal commands, and file operations run against the remote Hermes host, not
-the computer displaying the Desktop UI.
-
-Remote gateways that sit behind an access proxy may require extra headers on
-every HTTP and WebSocket request. Configure them per connection in Settings →
-Connections (Extra gateway headers), or add a `headers` object to Desktop's
-Electron `userData/connection.json` remote block:
-
-```json
-{
-  "mode": "remote",
-  "remote": {
-    "url": "https://hermes.example.com",
-    "authMode": "token",
-    "token": { "encoding": "safeStorage", "value": "..." },
-    "headers": {
-      "CF-Access-Client-Id": { "encoding": "safeStorage", "value": "..." },
-      "CF-Access-Client-Secret": { "encoding": "safeStorage", "value": "..." }
-    }
-  }
-}
-```
-
-Per-profile remote entries under `profiles[name].headers` use the same shape.
-Desktop applies these headers only to matching remote gateway requests, treats
-`https` and `wss` as the same gateway origin for WebSocket upgrades, and drops
-transport- or Hermes-managed header names such as `Authorization`, `Cookie`,
-`Host`, `Origin`, `Referer`, and `X-Hermes-Session-Token`.
-
-Projects are the workspace abstraction. A project may own multiple folders,
-repositories, worktrees, and sessions; a bare new chat remains detached unless
-the user enters a project or configures a default project directory. Use the
-Projects UI rather than adding a second per-session folder-picker workflow.
-
-Changing profiles or connection modes is a soft workspace switch, not another
-cold boot. The shell and current management overlay remain mounted while
-gateway-bound nanostores are wiped, query-backed data is invalidated, and the
-new connection repopulates skeletons. This prevents rows or transcripts from
-the previous gateway bleeding into the next one. Switching changes only the
-foreground view and request route: it does not cancel turns or stop a backend,
-and retained background sockets continue receiving events from running jobs.
-
-### Verification
-
-Run before opening a PR (lint may surface pre-existing warnings but must exit cleanly):
+启动失败先检查当前 Profile 数据目录下的 `logs/desktop.log`，再核对运行时路径、模型配置与 Gateway 状态。使用 PM 的诊断与修复路径，不直接删除正在使用的运行环境。macOS 麦克风权限需要重置时可执行：
 
 ```bash
-npm run fix
-npm run typecheck
-npm run lint
-npm run test:ui
-npm run test:desktop:platforms
-```
-
-Run `npm run test:desktop:all` for install, boot, update, packaging, or other
-release-path changes.
-
-### Troubleshooting
-
-Boot logs land in `HERMES_HOME/logs/desktop.log` (includes backend output and recent Python tracebacks) — check it first if the app reports a boot failure.
-
-**macOS / Linux:**
-
-```bash
-# Force a clean first-launch setup
-rm "$HOME/.hermes/hermes-agent/.hermes-bootstrap-complete"
-# Rebuild a broken Python venv
-rm -rf "$HOME/.hermes/hermes-agent/venv"
-# Reset a stuck macOS microphone prompt (macOS only)
 tccutil reset Microphone com.nousresearch.hermes
 ```
 
-**Windows (PowerShell):**
-
-```powershell
-# Force a clean first-launch setup
-Remove-Item "$env:LOCALAPPDATA\hermes\hermes-agent\.hermes-bootstrap-complete"
-# Rebuild a broken Python venv
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\hermes\hermes-agent\venv"
-```
-
-> The default Hermes home on Windows is `%LOCALAPPDATA%\hermes`. Set the `HERMES_HOME` env var if you've relocated it.
-
----
-
-## Community
-
-- 💬 [Discord](https://discord.gg/NousResearch)
-- 📖 [Documentation](https://hermes-agent.nousresearch.com/docs/)
-- 🐛 [Issues](https://github.com/NousResearch/hermes-agent/issues)
-
----
-
-## License
-
-MIT — see [LICENSE](../../LICENSE).
-
-Built by [Nous Research](https://nousresearch.com).
+修改代码前阅读 [AGENTS.md](AGENTS.md)、[src/AGENTS.md](src/AGENTS.md) 和 [DESIGN.md](DESIGN.md)。许可证状态见[根 README](../../README.md#许可证)。

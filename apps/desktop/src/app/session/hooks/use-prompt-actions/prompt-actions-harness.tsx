@@ -44,7 +44,6 @@ export function Harness({
   onUpdateState,
   onReady,
   onSeedState,
-  openMemoryGraph,
   refreshSessions,
   requestGateway,
   resumeStoredSession,
@@ -69,7 +68,6 @@ export function Harness({
   ) => void
   onReady: (handle: HarnessHandle) => void
   onSeedState?: (state: Record<string, unknown>) => void
-  openMemoryGraph?: () => void
   refreshSessions: () => Promise<void>
   requestGateway: <T>(method: string, params?: Record<string, unknown>, timeoutMs?: number) => Promise<T>
   resumeStoredSession?: (storedSessionId: string) => Promise<void> | void
@@ -124,7 +122,6 @@ export function Harness({
     getRuntimeIdForStoredSession: getRuntimeIdForStoredSession ?? (() => null),
     getRouteToken: getRouteToken ?? (() => 'token'),
     handleSkinCommand: () => '',
-    openMemoryGraph: openMemoryGraph ?? (() => undefined),
     refreshSessions,
     requestGateway,
     resumeStoredSession: resumeStoredSession ?? (() => undefined),

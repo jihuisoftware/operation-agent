@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
 import { registry } from '@/contrib/registry'
 import type { Contribution } from '@/contrib/types'
-import { operationsRouteAllowed } from '@/lib/operations-profile'
+import { DISABLED_OPERATIONS_ROUTES, operationsRouteAllowed } from '@/lib/operations-profile'
 import type { InterfaceTier } from '@/store/interface-mode'
 
 type NavigateLike = (to: string, options?: { replace?: boolean }) => void
@@ -13,18 +13,12 @@ export const SESSION_ROUTE_PREFIX = '/'
 export const NEW_CHAT_ROUTE = '/'
 export const SETTINGS_ROUTE = '/settings'
 export const COMMAND_CENTER_ROUTE = '/command-center'
-export const SESSION_IMPORT_ROUTE = '/session-import'
 export const CAPABILITIES_ROUTE = '/capabilities'
-export const WEBHOOKS_ROUTE = '/webhooks'
 export const ARTIFACTS_ROUTE = '/artifacts'
 export const CRON_ROUTE = '/cron'
 export const PROFILES_ROUTE = '/profiles'
-export const AGENTS_ROUTE = '/agents'
-export const STARMAP_ROUTE = '/starmap'
 
 export type AppView =
-  | 'session-import'
-  | 'agents'
   | 'artifacts'
   | 'capabilities'
   | 'chat'
@@ -37,21 +31,8 @@ export type AppView =
   | 'extension'
   | 'profiles'
   | 'settings'
-  | 'starmap'
-  | 'webhooks'
 
-export type AppRouteId =
-  | 'session-import'
-  | 'agents'
-  | 'artifacts'
-  | 'capabilities'
-  | 'command-center'
-  | 'cron'
-  | 'new'
-  | 'profiles'
-  | 'settings'
-  | 'starmap'
-  | 'webhooks'
+export type AppRouteId = 'artifacts' | 'capabilities' | 'command-center' | 'cron' | 'new' | 'profiles' | 'settings'
 
 export interface AppRoute {
   id: AppRouteId
@@ -60,23 +41,25 @@ export interface AppRoute {
 }
 
 const ALL_APP_ROUTES = [
-  { id: 'session-import', path: SESSION_IMPORT_ROUTE, view: 'session-import' },
   { id: 'new', path: NEW_CHAT_ROUTE, view: 'chat' },
   { id: 'settings', path: SETTINGS_ROUTE, view: 'settings' },
   { id: 'command-center', path: COMMAND_CENTER_ROUTE, view: 'command-center' },
   { id: 'capabilities', path: CAPABILITIES_ROUTE, view: 'capabilities' },
-  { id: 'webhooks', path: WEBHOOKS_ROUTE, view: 'webhooks' },
   { id: 'artifacts', path: ARTIFACTS_ROUTE, view: 'artifacts' },
   { id: 'cron', path: CRON_ROUTE, view: 'cron' },
-  { id: 'profiles', path: PROFILES_ROUTE, view: 'profiles' },
-  { id: 'agents', path: AGENTS_ROUTE, view: 'agents' },
-  { id: 'starmap', path: STARMAP_ROUTE, view: 'starmap' }
+  { id: 'profiles', path: PROFILES_ROUTE, view: 'profiles' }
 ] as const satisfies readonly AppRoute[]
 
 export const APP_ROUTES = ALL_APP_ROUTES.filter(route => operationsRouteAllowed(route.path))
 
 const APP_VIEW_BY_PATH = new Map<string, AppView>(APP_ROUTES.map(route => [route.path, route.view]))
-const RESERVED_PATHS: ReadonlySet<string> = new Set([...ALL_APP_ROUTES.map(route => route.path), '/messaging'])
+
+// Retired URLs must remain reserved so old links never become session IDs or plugin routes.
+const RESERVED_PATHS: ReadonlySet<string> = new Set([
+  ...ALL_APP_ROUTES.map(route => route.path),
+  ...DISABLED_OPERATIONS_ROUTES,
+  '/messaging'
+])
 
 // ── Contributed routes — the `routes` registry area ─────────────────────────
 // A contribution mounts a FULL PAGE in the workspace pane at `data.path`
@@ -159,16 +142,7 @@ export interface ProfileGroupHeaderContribution {
 // Views that render as a full-screen modal card (OverlayView) over the shell.
 // While one is open the app's titlebar control clusters must hide so they don't
 // bleed over the overlay (they sit at a higher z-index than the overlay card).
-export const OVERLAY_VIEWS: ReadonlySet<AppView> = new Set([
-  'session-import',
-  'agents',
-  'command-center',
-  'cron',
-  'profiles',
-  'settings',
-  'starmap',
-  'webhooks'
-])
+export const OVERLAY_VIEWS: ReadonlySet<AppView> = new Set(['command-center', 'cron', 'profiles', 'settings'])
 
 export function isOverlayView(view: AppView): boolean {
   return OVERLAY_VIEWS.has(view)

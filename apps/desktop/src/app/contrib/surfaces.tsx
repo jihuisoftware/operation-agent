@@ -70,12 +70,10 @@ export const TerminalSurface = memo(function TerminalSurface() {
  *  bar alone, never the chat/sidebar/terminal. */
 export const StatusbarSurface = memo(function StatusbarSurface({
   actions,
-  agentsOpen,
   chatOpen,
   commandCenterOpen
 }: {
   actions: WiringActions
-  agentsOpen: boolean
   chatOpen: boolean
   commandCenterOpen: boolean
 }) {
@@ -90,7 +88,6 @@ export const StatusbarSurface = memo(function StatusbarSurface({
   const extraRightItems = useStatusbarContributions('right')
 
   const { leftStatusbarItems, statusbarItems } = useStatusbarItems({
-    agentsOpen,
     changeSessionCwd: actions.changeSessionCwd,
     chatOpen,
     commandCenterOpen,
@@ -99,7 +96,6 @@ export const StatusbarSurface = memo(function StatusbarSurface({
     freshDraftReady,
     gatewayState,
     inferenceStatus,
-    openAgents: actions.openAgents,
     openCommandCenterSection: actions.openCommandCenterSection,
     requestGateway: actions.requestGateway,
     statusSnapshot,

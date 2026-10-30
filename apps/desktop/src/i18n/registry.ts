@@ -10,7 +10,8 @@ import {
 } from '@hermes/shared/i18n'
 import { atom } from 'nanostores'
 
-import { isBundledLocale, TRANSLATIONS } from './catalog'
+import { TRANSLATIONS } from './catalog'
+import { DEFAULT_LOCALE } from './languages'
 import type { Locale, Translations } from './types'
 
 /** Who registered a language: the backend's pack layer, a plugin, or app code. */
@@ -38,29 +39,24 @@ export interface RegisteredLocaleMeta {
 }
 
 interface Entry extends RegisteredLocaleMeta {
-  id: Locale
   /** Nested, already unflattened; adapted against the base at resolve time. */
   translations?: Record<string, unknown>
 }
 
-const entries = new Map<Locale, Entry[]>()
-const resolved = new Map<Locale, { version: number; value: Translations }>()
+let entries: Entry[] = []
+let resolved: Translations | undefined
 
 /** Bumps whenever a language is registered or dropped. Translators key on it. */
 export const $appLocaleVersion = atom(0)
 
 const bump = () => {
-  resolved.clear()
+  resolved = undefined
   $appLocaleVersion.set($appLocaleVersion.get() + 1)
 }
 
 /** Lowercase, `_` → `-`, trimmed — the same identity the backend uses. */
 export function normalizeLocaleId(id: string): string {
   return id.trim().toLowerCase().replace(/_/g, '-')
-}
-
-function baseCatalog(id: Locale): Translations {
-  return isBundledLocale(id) ? TRANSLATIONS[id] : TRANSLATIONS.zh
 }
 
 function toTree(translations: AppLocaleRegistration['translations'], base: Translations): Record<string, unknown> {
@@ -85,14 +81,13 @@ function toTree(translations: AppLocaleRegistration['translations'], base: Trans
   return unflattenMessages(leaves, base)
 }
 
-function makeEntry(id: Locale, registration: AppLocaleRegistration, source: AppLocaleSource): Entry {
+function makeEntry(registration: AppLocaleRegistration, source: AppLocaleSource): Entry {
   return {
-    id,
     source,
     endonym: registration.endonym?.trim() || undefined,
     englishName: registration.englishName?.trim() || undefined,
     rtl: registration.rtl,
-    translations: registration.translations ? toTree(registration.translations, baseCatalog(id)) : undefined
+    translations: registration.translations ? toTree(registration.translations, TRANSLATIONS.zh) : undefined
   }
 }
 
@@ -113,33 +108,22 @@ export function registerAppLocale(
     return () => {}
   }
 
-  const entry = makeEntry(id, registration, source)
-
-  const list = (entries.get(id) ?? []).filter(existing => existing.source !== source)
-  list.push(entry)
-  entries.set(id, list)
+  const entry = makeEntry(registration, source)
+  entries = entries.filter(existing => existing.source !== source)
+  entries.push(entry)
   bump()
 
   return () => {
-    const current = entries.get(id)
+    const next = entries.filter(existing => existing !== entry)
 
-    if (!current) {
-      return
+    if (next.length !== entries.length) {
+      entries = next
+      bump()
     }
-
-    const next = current.filter(existing => existing !== entry)
-
-    if (next.length) {
-      entries.set(id, next)
-    } else {
-      entries.delete(id)
-    }
-
-    bump()
   }
 }
 
-/** Drop every language one source registered (the backend layer on a profile
+/** Drop the copy one source registered (the backend layer on a profile
  *  switch, a plugin on unload). */
 export function unregisterAppLocaleSource(source: AppLocaleSource): void {
   if (dropSource(source)) {
@@ -147,8 +131,8 @@ export function unregisterAppLocaleSource(source: AppLocaleSource): void {
   }
 }
 
-/** Atomically swap one source's whole set of languages — one version bump,
- *  so a refresh never paints an intermediate "no languages" state. */
+/** Atomically replace one source's Chinese overlays with one version bump,
+ *  so a refresh never paints an intermediate state without that source's copy. */
 export function replaceAppLocaleSource(
   source: AppLocaleSource,
   registrations: ReadonlyArray<{ id: string } & AppLocaleRegistration>
@@ -159,9 +143,7 @@ export function replaceAppLocaleSource(
     const id = normalizeLocaleId(rawId)
 
     if (id === 'zh') {
-      const list = entries.get(id) ?? []
-      list.push(makeEntry(id, registration, source))
-      entries.set(id, list)
+      entries.push(makeEntry(registration, source))
     }
   }
 
@@ -169,37 +151,25 @@ export function replaceAppLocaleSource(
 }
 
 function dropSource(source: AppLocaleSource): boolean {
-  let changed = false
-
-  for (const [id, list] of entries) {
-    const next = list.filter(entry => entry.source !== source)
-
-    if (next.length !== list.length) {
-      changed = true
-
-      if (next.length) {
-        entries.set(id, next)
-      } else {
-        entries.delete(id)
-      }
-    }
-  }
+  const next = entries.filter(entry => entry.source !== source)
+  const changed = next.length !== entries.length
+  entries = next
 
   return changed
 }
 
 export function isRegisteredLocale(value: unknown): value is Locale {
-  return typeof value === 'string' && entries.has(value)
+  return value === DEFAULT_LOCALE && entries.length > 0
 }
 
-/** Ids at least one source registered, in registration order. */
+/** Only Chinese can have registered overlays. */
 export function registeredLocaleIds(): Locale[] {
-  return [...entries.keys()]
+  return entries.length ? [DEFAULT_LOCALE] : []
 }
 
-/** Per-source metadata for one id (registration order). */
+/** Per-source metadata retained for plugin compatibility. */
 export function registeredLocaleMeta(locale: Locale): RegisteredLocaleMeta[] {
-  return (entries.get(locale) ?? []).map(({ endonym, englishName, rtl, source }) => ({
+  return (locale === DEFAULT_LOCALE ? entries : []).map(({ endonym, englishName, rtl, source }) => ({
     endonym,
     englishName,
     rtl,
@@ -207,19 +177,19 @@ export function registeredLocaleMeta(locale: Locale): RegisteredLocaleMeta[] {
   }))
 }
 
-/** The merged catalog for `locale`: bundled (or Chinese) with every
- *  registration layered on. Memoized per registry version. */
+/** The Chinese catalog with source-ordered overlays, cached until registration changes. */
 export function resolveTranslations(locale: Locale): Translations {
-  const version = $appLocaleVersion.get()
-  const cached = resolved.get(locale)
-
-  if (cached && cached.version === version) {
-    return cached.value
+  if (locale !== DEFAULT_LOCALE) {
+    return TRANSLATIONS.zh
   }
 
-  let value = baseCatalog(locale)
+  if (resolved) {
+    return resolved
+  }
 
-  for (const entry of entries.get(locale) ?? []) {
+  let value = TRANSLATIONS.zh
+
+  for (const entry of entries) {
     if (entry.translations) {
       value = mergeTranslations<Translations>(
         value,
@@ -228,13 +198,13 @@ export function resolveTranslations(locale: Locale): Translations {
     }
   }
 
-  resolved.set(locale, { version, value })
+  resolved = value
 
   return value
 }
 
 /** Test seam: forget every registration. */
 export function resetAppLocaleRegistry(): void {
-  entries.clear()
+  entries = []
   bump()
 }

@@ -87,7 +87,6 @@ function renderStatusbarItems(changeSessionCwd: (cwd: string, sessionId?: string
   const { result } = renderHook(
     () =>
       useStatusbarItems({
-        agentsOpen: false,
         changeSessionCwd,
         chatOpen: true,
         commandCenterOpen: false,
@@ -96,7 +95,6 @@ function renderStatusbarItems(changeSessionCwd: (cwd: string, sessionId?: string
         freshDraftReady: false,
         gatewayState: 'ready',
         inferenceStatus: null,
-        openAgents: () => {},
         openCommandCenterSection: () => {},
         requestGateway: async () => undefined as never,
         statusSnapshot: null,
@@ -257,7 +255,6 @@ describe('statusbar workspace menu — change working directory', () => {
 })
 
 const statusbarOptions = {
-  agentsOpen: false,
   changeSessionCwd: async () => {},
   chatOpen: true,
   commandCenterOpen: false,
@@ -266,7 +263,6 @@ const statusbarOptions = {
   freshDraftReady: false,
   gatewayState: 'ready' as const,
   inferenceStatus: null,
-  openAgents: () => {},
   openCommandCenterSection: () => {},
   requestGateway: async () => undefined as never,
   statusSnapshot: null,

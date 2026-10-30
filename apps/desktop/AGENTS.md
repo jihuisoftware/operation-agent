@@ -12,6 +12,8 @@ wrong — but never break an invariant to make a change easier.
 
 ## What this app is
 
+This operations build supports macOS and Simplified Chinese only; product scope is documented in
+[`README.md`](./README.md) and shared through `hermes_cli/data/operations-profile.json`.
 Desktop is its own native chat surface. It is not the browser dashboard and it
 does not embed the TUI. Three parties, each authoritative for one thing:
 

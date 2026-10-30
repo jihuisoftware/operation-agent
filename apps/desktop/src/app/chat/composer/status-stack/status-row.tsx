@@ -77,7 +77,7 @@ interface StatusItemRowProps {
   /** Clear a finished background task from the stack. */
   onDismiss?: (id: string) => void
   /** Open the subagent's own session window, livestreamed by the gateway's
-   *  child-session mirror (Agents view fallback for older gateways). */
+   *  child-session mirror, when the gateway supplies a child session id. */
   onOpen?: () => void
   /** Cancel a running background task. */
   onStop?: (id: string) => void

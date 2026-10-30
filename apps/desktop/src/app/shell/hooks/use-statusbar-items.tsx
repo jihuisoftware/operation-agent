@@ -21,18 +21,7 @@ import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { useI18n } from '@/i18n'
 import { displayPath, pathLeaf } from '@/lib/display-path'
 import { statusBarGatewayHealth } from '@/lib/gateway-health-pill'
-import {
-  Activity,
-  AlertCircle,
-  Clock,
-  Command,
-  FolderOpen,
-  Hash,
-  Layers3,
-  Loader2,
-  Terminal,
-  Zap
-} from '@/lib/icons'
+import { Activity, AlertCircle, Clock, Command, FolderOpen, Hash, Layers3, Loader2, Terminal, Zap } from '@/lib/icons'
 import { type RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { resolveSessionTimerSince } from '@/lib/session-timer-since'
 import { cacheHitLabel, contextBarLabel, LiveDuration, tokensPerSecondLabel, usageContextLabel } from '@/lib/statusbar'
@@ -83,7 +72,6 @@ import type { StatusbarItem } from '../statusbar-controls'
 const EMPTY_USAGE: UsageStats = { calls: 0, input: 0, output: 0, total: 0 }
 
 interface StatusbarItemsOptions {
-  agentsOpen: boolean
   changeSessionCwd: (cwd: string, sessionId?: string) => Promise<void>
   chatOpen: boolean
   commandCenterOpen: boolean
@@ -91,7 +79,6 @@ interface StatusbarItemsOptions {
   extraRightItems: readonly StatusbarItem[]
   gatewayState: string
   inferenceStatus: RuntimeReadinessResult | null
-  openAgents: () => void
   openCommandCenterSection: (section: CommandCenterSection) => void
   freshDraftReady: boolean
   requestGateway: <T = unknown>(method: string, params?: Record<string, unknown>) => Promise<T>
@@ -124,7 +111,6 @@ function versionItem(
 
 // health: allow CC FUNC_LINES -- usage-window plans: one status-bar gauge item, hidden for every other account; this hook was over both targets on main
 export function useStatusbarItems({
-  agentsOpen,
   changeSessionCwd,
   chatOpen,
   commandCenterOpen,
@@ -132,7 +118,6 @@ export function useStatusbarItems({
   extraRightItems,
   gatewayState,
   inferenceStatus,
-  openAgents,
   openCommandCenterSection,
   requestGateway,
   statusSnapshot,
@@ -592,8 +577,7 @@ export function useStatusbarItems({
         to: CRON_ROUTE,
         toggleLabel: copy.cron,
         variant: 'action'
-      },
-
+      }
     ],
     [
       botsShowing,

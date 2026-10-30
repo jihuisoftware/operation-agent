@@ -46,7 +46,6 @@ function mountStatusbar() {
   }
 
   const options = {
-    agentsOpen: false,
     changeSessionCwd: async () => {},
     chatOpen: true,
     commandCenterOpen: false,
@@ -55,7 +54,6 @@ function mountStatusbar() {
     freshDraftReady: false,
     gatewayState: 'open',
     inferenceStatus: null,
-    openAgents: vi.fn(),
     openCommandCenterSection: vi.fn(),
     requestGateway,
     statusSnapshot: null,

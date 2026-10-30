@@ -158,7 +158,6 @@ function Harness({ pendingScope, suspend, onSubmit }: HarnessProps) {
     getRoutedStoredSessionId: () => route,
     getRouteToken,
     handleSkinCommand: () => '',
-    openMemoryGraph: () => {},
     refreshSessions: async () => {},
     requestGateway: request,
     resumeStoredSession: async () => {

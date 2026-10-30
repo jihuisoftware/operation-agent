@@ -328,7 +328,6 @@ describe('submission intent destinations', () => {
           appendSessionTextMessage: vi.fn(),
           branchCurrentSession: async () => true,
           handleSkinCommand: () => '',
-          openMemoryGraph: vi.fn(),
           refreshSessions: async () => undefined,
           startFreshSessionDraft: vi.fn()
         })
@@ -575,7 +574,6 @@ describe('submission intent destinations', () => {
         appendSessionTextMessage: vi.fn(),
         branchCurrentSession: async () => true,
         handleSkinCommand: () => '',
-        openMemoryGraph: vi.fn(),
         refreshSessions: async () => undefined,
         startFreshSessionDraft: vi.fn()
       })

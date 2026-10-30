@@ -1,28 +1,34 @@
 ---
 sidebar_position: 3
 title: "Hermes Desktop"
-description: "The native Hermes desktop app — a polished experience for chatting with Hermes, with streaming tool output, side-by-side previews, a file browser, voice, cron, profiles, skills, and settings. macOS, Windows, and Linux."
+description: "macOS 简体中文运营版 Desktop 的范围说明与共享桌面机制参考。"
 ---
 
 # Hermes Desktop
 
+:::info 当前运营分支
+本版为通用运营平台，主题由用户输入或选择，公众号、小红书和抖音为首批渠道；仅支持 macOS 与简体中文。当前启动流程见[安装说明](../getting-started/installation.md)，业务使用见[快速开始](../getting-started/quickstart.md)。
+
+下文保留通用 Desktop 的机制参考，旧安装方式与功能列表不作为本版支持承诺。Bot Mode、Kanban／Radio、消息平台入口和浏览器 Dashboard 前端已移除；多 Agent 协作工具、Kanban 工具、MCP 服务与公共 API／Webhook 当前关闭。素材、审批、发布台账和增长报表仍待开发。
+:::
+
 The Hermes desktop app is a native app built around the **same** agent you get from the CLI and the gateway — same config, same API keys, same sessions, same skills, same memory. It is not a separate product or a lightweight clone; it uses the same Hermes Agent core and settings, and drives it through a modern & thoughtfully designed UI. If you have used `hermes` in a terminal, everything you set up there is already here, and anything you do here shows up there.
 
-It runs on **macOS (Apple Silicon), Windows, and Linux** — see [Platform Support](../getting-started/platform-support.md) for the full matrix.
+当前 Desktop 仅运行于 **macOS**，构建架构为 arm64 / x64；实际发布产物与验证范围见[平台支持](../getting-started/platform-support.md)。
 
 :::tip Which interface is which?
 Hermes has several front ends that all talk to the same agent:
 
 - **Desktop App** (this page) — a native application with a purpose-built UI for chat, configuration, and management.
 - **CLI** (`hermes`) and **[TUI](./tui.md)** (`hermes --tui`) — terminal interfaces.
-- **[Web Dashboard](./features/web-dashboard.md)** (`hermes dashboard`) — a browser admin panel; its optional **Chat** tab embeds the TUI through a pseudo-terminal.
+- **浏览器 Dashboard** — 当前分支已移除前端与入口；共享 HTTP API 仍供 Desktop 使用。
 
-Pick whichever fits the moment. They share state, so you can start a session in one and resume it in another.
+Desktop 是当前产品的主要入口，CLI/TUI 保留为辅助入口。
 :::
 
 ## Install
 
-Download the app from the [Hermes Desktop product page](https://hermes-agent.nousresearch.com/desktop), or follow the [installation instructions for Hermes Desktop](../getting-started/installation.md).
+使用本分支源码或已经核验的本分支 macOS 产物，参阅[安装说明](../getting-started/installation.md)。上游下载页不代表运营版安装包已发布。
 
 If you already have Hermes installed, simply run
 
@@ -34,9 +40,9 @@ That uses your current config, keys, sessions, and skills.
 
 ## What's in the app
 
-The desktop app is organized as a chat-first window with a left sidebar for navigation. It's built to allow managing multiple simultaneous agent conversations, configuring messaging providers, creating artifacts, browsing projects' folder structures, and working on multiple projects at once.
+The desktop app is organized as a chat-first window with a left sidebar for navigation. It's built to allow managing multiple simultaneous agent conversations, configuring models, creating artifacts, browsing projects' folder structures, and working on multiple projects at once.
 
-Sidebar selection follows the focused chat pane. Opening or focusing a session tab clears a page's highlight, including contributed pages such as Kanban, even when the workspace retains that page's route.
+Sidebar selection follows the focused chat pane. Opening or focusing a session tab clears a page's highlight, including contributed pages, even when the workspace retains that page's route.
 
 ### Chat
 
@@ -350,7 +356,7 @@ chats decide who replies: [Bot Mode: A Roster of Agents](./bot-mode.md).
 - **Command palette** — press **Cmd+K** or **Cmd+P** (Ctrl+K / Ctrl+P on Windows/Linux) to jump to actions and navigate the app from the keyboard: open any page or settings section, jump to a session by title or id, switch model/theme/color mode, spawn a terminal, restart the gateway, update Hermes, and more.
 - **Rebindable shortcuts** — **Settings → Keyboard Shortcuts** (or **Cmd/Ctrl+/**) opens the shortcuts panel where you can remap almost every binding — profile switching, session navigation, view toggles, and any shortcuts contributed by desktop plugins. Duplicate assignments are flagged as conflicts. A few defaults worth knowing: **Cmd/Ctrl+N** new session, **Cmd/Ctrl+.** Command Center, **Cmd/Ctrl+,** Settings, **Cmd/Ctrl+Shift+F** search sessions, **Cmd/Ctrl+1–9** switch to the Nth tab of the pane under the pointer (or the focused pane) and switch profiles when no pane has a tab strip, **Shift+X** toggle light/dark.
 - **Custom zoom shortcuts** — zoom the interface in half-step increments for finer control over text size.
-- **UI language switcher** — change the app's interface language in-app: English, Simplified Chinese (zh-Hans), Traditional Chinese (zh-Hant), Japanese, Arabic (RTL), and Russian.
+- **界面语言** — 固定为简体中文；旧设置和操作系统语言均归一到中文，不提供语言切换。
 
 ### Sessions & profiles
 

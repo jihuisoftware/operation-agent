@@ -1,5 +1,9 @@
 # Website
 
+本目录包含从 Hermes 继承的共享运行时参考。当前运营版仅支持 macOS Desktop 与简体中文，产品范围以[根 README](../README.md)、[平台支持](docs/getting-started/platform-support.md)和 `hermes_cli/data/operations-profile.json` 为准。
+
+[快速开始](docs/getting-started/quickstart.md)与[安装说明](docs/getting-started/installation.md)面向当前分支。其他系统、旧消息适配器、Dashboard、Kanban、delegation、MCP 的专题说明保留为实现或历史参考，不代表运营版入口已开放，也不承诺上游网站的安装包属于本分支。技术参考使用英文不意味着产品提供英文界面。
+
 This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
 
 > **Reading the docs on GitHub?** The Markdown under `docs/` is authored for the rendered site at

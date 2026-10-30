@@ -71,7 +71,6 @@ export type DesktopActionId =
   | 'help'
   | 'history'
   | 'import'
-  | 'journey'
   | 'new'
   | 'palette'
   | 'pet'
@@ -246,7 +245,7 @@ const DESKTOP_COMMAND_SPECS: readonly DesktopCommandSpec[] = [
     name: '/journey',
     description: 'Open the memory graph — skills + memories over time',
     aliases: ['/learning', '/memory-graph'],
-    surface: action('journey')
+    surface: unavailable('advanced')
   },
 
   // Overlay pickers
