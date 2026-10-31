@@ -64,6 +64,8 @@ plugin, and fail to resolve in a disk plugin). Capability comes in tiers:
 - **`ui.*`** — the design language: the app's real components, theme variables,
   icons, and formatters, so your UI matches the app pixel-for-pixel.
 
+Background plugin requests may capture `host.state.requestOwner.get()` (the connection and profile together) and pass it as `ctx.rest(path, { owner, ...options })`. This pins subsequent writes and acknowledgements to that owner even when the user changes the active profile. Both null fields remain untagged; omitted `owner` retains the existing ambient-profile behavior. Dispose owner-bound workers on a scope change and mount new workers for the new owner.
+
 ## Two delivery modes
 
 | Mode | Where | Who | Build step |
@@ -1377,6 +1379,7 @@ host.state.cwd              // ReadableAtom<string>
 host.state.gateway          // ReadableAtom<string>  socket state ('idle' | 'connecting' | 'open' | …)
 host.state.model            // ReadableAtom<string>
 host.state.profile          // ReadableAtom<string>
+host.state.requestOwner     // ReadableAtom<{ connectionId: string | null; profile: string | null }>
 host.state.viewport         // ReadableAtom<{ width, height, narrow }>
 ```
 

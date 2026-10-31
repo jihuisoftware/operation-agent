@@ -43,6 +43,8 @@ import { DocsLink, FlowPanel, Status } from './flow'
 import { FreeTierSetupNotice } from './free-tier-setup-notice'
 import { DecodedLabel } from './glyph'
 import {
+  DIRECT_API_KEY_OPTIONS,
+  DirectKeyProviderRows,
   FeaturedProviderRow,
   FireworksProviderRow,
   LocalModelsProviderRow,
@@ -52,6 +54,7 @@ import {
 } from './providers'
 
 export {
+  DirectKeyProviderRows,
   FeaturedProviderRow,
   FireworksProviderRow,
   KeyProviderRow,
@@ -82,9 +85,17 @@ export interface ApiKeyOption {
   short?: string
 }
 
-// Curated order mirrors CANONICAL_PROVIDERS: Fireworks sits #2 overall (after
-// Nous Portal OAuth), ahead of OpenRouter and the rest of the key catalog.
+// Keep the direct providers visible even before the backend catalog loads.
 const API_KEY_OPTIONS: ApiKeyOption[] = [
+  ...DIRECT_API_KEY_OPTIONS,
+  {
+    id: 'kimi-coding',
+    name: 'Kimi（国际区）',
+    envKey: 'KIMI_API_KEY',
+    docsUrl: 'https://platform.kimi.ai/docs/api/overview',
+    description: '使用 Kimi 国际区开放平台的 API 密钥；中国区密钥请选择“Kimi（中国区）”。',
+    short: '月之暗面 · 国际区'
+  },
   {
     id: 'fireworks',
     name: 'Fireworks AI',
@@ -634,7 +645,15 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
           initialEnvKey={localEndpoint ? 'OPENAI_BASE_URL' : apiKeyInitialEnv}
           onBack={() => setOnboardingMode('oauth')}
           onSave={(envKey, value, name, apiKey, modelName) =>
-            saveOnboardingApiKey(envKey, value, name, ctx, apiKey, modelName)
+            saveOnboardingApiKey(
+              envKey,
+              value,
+              name,
+              ctx,
+              apiKey,
+              modelName,
+              apiKeyOptions.find(option => option.envKey === envKey)?.id
+            )
           }
           options={apiKeyOptions}
         />
@@ -680,6 +699,7 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
     <div className="grid gap-2">
       <div className="grid max-h-[60dvh] gap-2 overflow-y-auto p-1">
         {featured ? <FeaturedProviderRow onSelect={select} provider={featured} /> : null}
+        <DirectKeyProviderRows onSelect={openKeyForm} />
         {/* The no-account path: everything runs on this machine. Shipped
             behind the --local launch flag. (Fireworks moved into the
             expanded list on main.) */}

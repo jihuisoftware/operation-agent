@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { runInTerminal } from '@/app/right-sidebar/store'
 import {
+  DirectKeyProviderRows,
   FEATURED_ID,
   FeaturedProviderRow,
   FireworksProviderRow,
@@ -164,7 +165,7 @@ function OAuthPicker({
   disconnecting: null | string
   onDisconnect: (provider: OAuthProvider) => void
   onTerminalDisconnect: (provider: OAuthProvider) => void
-  onWantApiKey: () => void
+  onWantApiKey: (envKey?: string) => void
   onWantLocalModels: () => void
   providers: OAuthProvider[]
   profile?: string
@@ -199,7 +200,7 @@ function OAuthPicker({
         <SettingsCategoryHeading icon={KeyRound} title={p.connectAccount} />
         <Button
           className="text-[length:var(--conversation-caption-font-size)]"
-          onClick={onWantApiKey}
+          onClick={() => onWantApiKey()}
           size="inline"
           type="button"
           variant="textStrong"
@@ -211,6 +212,7 @@ function OAuthPicker({
         {p.intro}
       </p>
       {featured && <FeaturedProviderRow onSelect={select} provider={featured} />}
+      <DirectKeyProviderRows onSelect={onWantApiKey} />
       {/* Slot #2 — the no-account path, matching onboarding. Behind the
           --local launch flag like every local-models surface. */}
       {$localModelsEnabled.get() && <LocalModelsProviderRow onClick={onWantLocalModels} />}
@@ -609,7 +611,11 @@ export function ProvidersSettings({
         disconnecting={disconnecting}
         onDisconnect={provider => void handleDisconnect(provider)}
         onTerminalDisconnect={provider => void handleTerminalDisconnect(provider)}
-        onWantApiKey={() => onViewChange('keys')}
+        onWantApiKey={envKey => {
+          setKeyQuery(envKey ?? '')
+          setOpenProvider(envKey ? (keyGroupByEnv.get(envKey) ?? null) : null)
+          onViewChange('keys')
+        }}
         onWantLocalModels={() => onViewChange('local')}
         profile={scopeProfile}
         providers={oauthProviders}

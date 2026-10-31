@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ProfileInfo } from '@/types/hermes'
 
+import { HYDRATION_SYNC_BADGE_TIMEOUT_MS } from './hydration-sync'
+
 vi.mock('@/app/chat/session-view', async () => {
   const { atom } = await import('nanostores')
 
@@ -137,7 +139,7 @@ vi.mock('@/store/gateway', async () => {
   }
 })
 
-const { HYDRATION_SYNC_BADGE_TIMEOUT_MS, host } = await import('./index')
+const { host } = await import('./index')
 
 const { openSession: openSessionCore } = await import('@/app/open-session')
 const { deleteProfile, hermesApi } = await import('@/hermes')

@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 
 import { buildDesktopBackendEnv } from './backend-env'
-import { execProbe, PROBE_TIMEOUT_MS } from './backend-probes'
-import { resolveInstallationLauncher } from './updater-process'
+import { resolveSourcePython } from './source-python'
+import { launcherInstallDirectoryAsync, resolveInstallationLauncher } from './updater-process'
 
 export interface SourceBackend {
   kind: 'command' | 'python'
@@ -20,6 +20,37 @@ export interface SourceBackend {
 interface SourceOptions {
   isWindows?: boolean
   env?: NodeJS.ProcessEnv
+}
+
+/** Resolve the explicitly selected checkout used by Desktop development. */
+export async function resolveDevelopmentSourceBackend(
+  root: string,
+  args: string[],
+  options: SourceOptions & { hermesHome?: string } = {}
+): Promise<SourceBackend | null> {
+  const env = options.env ?? process.env
+  const override = env.HERMES_DESKTOP_PYTHON
+
+  if (override && existsSync(override)) {
+    return createSourcePythonBackend(root, override, args, options)
+  }
+
+  // A committed PM runtime owns the ABI. A leftover venv may predate that Python.
+  if (resolveInstallationLauncher(root, options.isWindows, options.hermesHome ?? env.HERMES_HOME)) {
+    const backend = await resolveSourceInstallationBackend(root, args, {
+      ...options, hermesHome: options.hermesHome ?? env.HERMES_HOME
+    })
+
+    if (!backend) {
+      throw new Error(`仓库运行时启动器不可用或指向其他目录：${root}。请在该仓库执行 source ./activate 后重试。`)
+    }
+
+    return backend
+  }
+
+  return createSourcePythonBackend(root, resolveSourcePython(root, {
+    isWindows: options.isWindows
+  }), args, options)
 }
 
 /** Keep the validated command. PM owns interpreter and generation selection. */
@@ -43,16 +74,11 @@ export async function resolveSourceInstallationBackend(
   const command: string = shell ? `"${launcher}"` : launcher
   const env: NodeJS.ProcessEnv = buildDesktopBackendEnv({ currentEnv: options.env ?? process.env })
 
-  try {
-    await execProbe(command, ['--version'], {
-      cwd: root,
-      env: { ...process.env, ...options.env, ...env },
-      shell,
-      stdio: 'ignore',
-      timeout: PROBE_TIMEOUT_MS,
-      windowsHide: true
-    })
-  } catch {
+  const reportedRoot = await launcherInstallDirectoryAsync(launcher, root, {
+    ...process.env, ...options.env, ...env
+  })
+
+  if (reportedRoot !== realpathSync(root)) {
     return null
   }
 

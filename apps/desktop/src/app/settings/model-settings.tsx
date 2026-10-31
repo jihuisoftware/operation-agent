@@ -149,7 +149,7 @@ function refreshEmptyProviderModels(
     return
   }
 
-  getGlobalModelOptions({ refresh: true }, scopeProfile)
+  getGlobalModelOptions({ includeUnconfigured: true, explicitOnly: false, refresh: true }, scopeProfile)
     .then(options => {
       if (isCurrentEpoch()) {
         apply(options.providers || [])
@@ -447,7 +447,8 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
         // config-file reads — behind a single all-or-nothing Promise.all.
         const [modelInfoResult, modelOptionsResult, auxiliaryModelsResult, moaModelsResult] = await Promise.allSettled([
           getGlobalModelInfo(scopeProfile),
-          getGlobalModelOptions(undefined, scopeProfile),
+          // Settings is a setup surface; chat pickers intentionally list configured providers only.
+          getGlobalModelOptions({ includeUnconfigured: true, explicitOnly: false }, scopeProfile),
           getAuxiliaryModels(scopeProfile),
           getMoaModels(scopeProfile)
         ])
@@ -834,7 +835,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
         nextModel = ''
       }
 
-      const options = await getGlobalModelOptions(undefined, scopeProfile)
+      const options = await getGlobalModelOptions({ includeUnconfigured: true, explicitOnly: false }, scopeProfile)
 
       if (profileEpoch.current !== epoch) {
         return
@@ -1120,7 +1121,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
                             void activateApiKeyProvider()
                           }
                         }}
-                        placeholder={`Paste ${selectedProviderRow?.key_env ?? 'API key'}`}
+                        placeholder={t.onboarding.pasteApiKey}
                         type="password"
                         value={apiKeyDraft}
                       />
@@ -1130,7 +1131,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
                         size="sm"
                       >
                         {activating && <Loader2 className="size-3.5 animate-spin" />}
-                        {activating ? 'Activating...' : 'Activate'}
+                        {activating ? t.onboarding.connecting : t.common.connect}
                       </Button>
                     </div>
                   ) : (

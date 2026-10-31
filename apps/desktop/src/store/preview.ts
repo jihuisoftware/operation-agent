@@ -875,6 +875,13 @@ function browserTabId(tabs: readonly PreviewTab[]): RightRailTabId {
   return browserTabFor(tabs)?.id ?? mintBrowserTabId()
 }
 
+/** The same session-owned page used by desktop_preview and drive_preview. */
+export const $browserPaneId = computed([$visiblePreviewTabs, $rightRailActiveTabId], tabs => {
+  const tab = browserTabFor(tabs)
+
+  return tab ? `${PREVIEW_TILE_PREFIX}:${tab.id}` : ''
+})
+
 /** HTML files open rendered unless the caller asks for a mode. A re-open keeps
  *  the mode the tab is already in, so refreshing the target never undoes a
  *  user's Source pick. */

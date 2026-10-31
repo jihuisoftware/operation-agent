@@ -10,21 +10,38 @@
 
 Desktop 提供流式对话、工具执行展示、内容预览、文件浏览、模型与凭证配置、技能、记忆和定时任务。语音、图像和视频相关能力取决于所配置的模型与服务。
 
+右上角的地球图标「显示浏览实时画面」直接显示右侧内嵌网页。地址栏、登录和网页交互都在面板内完成；智能体通过 `desktop_preview` 与 `drive_preview` 操作同一页面。再次切换按钮会隐藏或恢复当前页面，不重新打开系统浏览器。独立浏览器与云端页面不共享这里的登录状态；更新后新会话采用面板浏览指引，旧会话可明确要求使用上述工具。
+
 Bot Mode、Kanban／Radio 界面及旧的 agents、starmap、webhooks、session-import 页面已移除。多 Agent 协作工具、Kanban 工具与自动派单、MCP 服务及公共 API／Webhook 当前关闭。素材台账、内容审批、发布回填和增长报表仍待开发，生成草稿不代表已经发布。
 
 ## 本地开发
 
-在仓库根目录使用独立开发数据目录并激活 PM 环境：
+Server 与 Desktop 分别在两个终端启动，均从仓库根目录运行，使用相同的开发数据目录。
+
+终端一启动 Server（Gateway）：
 
 ```bash
 export HERMES_HOME="$HOME/hermes-operations-dev"
 export HERMES_RUNTIME_DIR="$HERMES_HOME/tools"
 source ./activate
-npm ci
+hermes gateway run -v
+```
+
+等 Server 启动完成后，在终端二启动 Desktop：
+
+```bash
+export HERMES_HOME="$HOME/hermes-operations-dev"
+export HERMES_RUNTIME_DIR="$HERMES_HOME/tools"
+source ./activate
+npm ci # 首次运行或依赖变更后执行
 HERMES_DESKTOP_HERMES_ROOT="$PWD" npm run dev --workspace apps/desktop
 ```
 
+Desktop 自动发现现有 Gateway，无需手动填写后端端口；`5174` 是 Vite 开发服务端口。当前连接逻辑在 Gateway 不存在时仍会自动启动后端。若已有后台 Gateway，先退出 Desktop，再在相同开发环境执行 `hermes gateway stop`，然后启动前台 Server。结束调试时先退出 Desktop，再在 Server 终端按 `Ctrl+C`。
+
 macOS 源码构建需要 Git 和 Xcode Command Line Tools。Node/npm 版本以根目录 `package.json` 的 `engines` 为准；依赖从仓库根目录安装，关联 Desktop、共享组件与 TUI 等工作区。
+
+源码启动优先使用所选仓库的 PM 启动器，由 PM 配对 Python 与依赖环境；显式设置 `HERMES_DESKTOP_PYTHON` 时保留该解释器选择。启动器不可用或指向其他工作副本时，启动会报告错误，需在当前仓库重新执行 `source ./activate`。不要用残留的旧 `venv` 搭配另一 Python 版本的依赖目录。
 
 已准备好本分支运行时的开发环境也可执行 `hermes desktop`。不要把上游安装器或上游公开安装包当成本运营分支的发行物。
 

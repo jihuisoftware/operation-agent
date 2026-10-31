@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { registry } from '@/contrib/registry'
 import { I18nProvider } from '@/i18n'
+import { setInterfaceMode } from '@/store/interface-mode'
 import { setTitlebarAppActionsSide } from '@/store/titlebar-app-actions'
 
 import { ROUTES_AREA } from '../routes'
@@ -189,11 +190,13 @@ describe('TitlebarControls fixed clusters', () => {
 
 describe('titlebar app-action cluster', () => {
   afterEach(() => {
-    setTitlebarAppActionsSide('right')
     cleanup()
+    setTitlebarAppActionsSide('right')
+    setInterfaceMode('simple')
   })
 
   it('moves settings, layout, and HUD to the left when the appearance setting says left', () => {
+    setInterfaceMode('advanced')
     setTitlebarAppActionsSide('left')
     renderControls('/')
 

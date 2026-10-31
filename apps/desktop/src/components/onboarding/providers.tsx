@@ -107,6 +107,37 @@ export function KeyProviderRow({ onClick, pitch, title }: { onClick: () => void;
   )
 }
 
+// Shared by first-run setup and Settings so direct providers stay discoverable.
+export const DIRECT_API_KEY_OPTIONS = [
+  {
+    id: 'kimi-coding-cn',
+    name: 'Kimi（中国区）',
+    envKey: 'KIMI_CN_API_KEY',
+    docsUrl: 'https://platform.kimi.com/docs/api/overview',
+    description: '使用 Kimi 中国区开放平台的 API 密钥连接模型。',
+    short: '月之暗面 · 中国区'
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    envKey: 'DEEPSEEK_API_KEY',
+    docsUrl: 'https://platform.deepseek.com/api_keys',
+    description: '使用 DeepSeek 开放平台的 API 密钥直连模型。',
+    short: '深度求索 · 官方 API'
+  }
+]
+
+export function DirectKeyProviderRows({ onSelect }: { onSelect: (envKey: string) => void }) {
+  return DIRECT_API_KEY_OPTIONS.map(option => (
+    <KeyProviderRow
+      key={option.id}
+      onClick={() => onSelect(option.envKey)}
+      pitch={option.description}
+      title={option.name}
+    />
+  ))
+}
+
 export function FireworksProviderRow({ onClick }: { onClick: () => void }) {
   const { t } = useI18n()
 

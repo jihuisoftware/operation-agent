@@ -115,6 +115,27 @@ async function renderProvidersSettings() {
 }
 
 describe('ProvidersSettings', () => {
+  it.each([
+    ['Kimi（中国区）', 'KIMI_CN_API_KEY'],
+    ['DeepSeek', 'DEEPSEEK_API_KEY']
+  ])('opens the %s key form from the accounts page', async (name, key) => {
+    listOAuthProviders.mockResolvedValue({ providers: [provider('nous', false)] })
+    getEnvVars.mockResolvedValue({
+      [key]: keyVar({ provider: name, provider_label: name }),
+      OTHER_API_KEY: keyVar({ provider: 'other', provider_label: 'Other provider' })
+    })
+    const onViewChange = vi.fn()
+
+    const { rerender } = render(<ProvidersSettings onClose={vi.fn()} onViewChange={onViewChange} view="accounts" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${name}`) }))
+    expect(onViewChange).toHaveBeenCalledWith('keys')
+    rerender(<ProvidersSettings onClose={vi.fn()} onViewChange={onViewChange} view="keys" />)
+    expect(screen.getByRole('textbox', { name: '搜索提供方…' })).toHaveProperty('value', key)
+    expect(screen.getByText(name)).toBeTruthy()
+    expect(screen.queryByText('Other provider')).toBeNull()
+  })
+
   it('reads and saves API keys for the shared Settings target and reloads when it changes', async () => {
     $activeGatewayProfile.set('profile-a')
     $settingsScopeOverride.set('profile-b')
@@ -135,11 +156,11 @@ describe('ProvidersSettings', () => {
       const { container } = render(<ProvidersSettings onClose={vi.fn()} onViewChange={vi.fn()} view="keys" />)
       await screen.findByText('Widget')
       expect(getEnvVars).toHaveBeenLastCalledWith('profile-b')
-      expect(screen.getByText('Applies to')).toBeTruthy()
+      expect(screen.getByText('应用于')).toBeTruthy()
       const input = container.querySelector('input[type="password"]')!
       fireEvent.focus(input)
       fireEvent.change(input, { target: { value: 'fixture-key' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      fireEvent.click(screen.getByRole('button', { name: '保存' }))
       await waitFor(() => expect(setEnvVar).toHaveBeenCalledWith('WIDGET_API_KEY', 'fixture-key', 'profile-b'))
       fireEvent.click(screen.getByRole('button', { name: 'profile-a' }))
       // Back onto the app's active profile: no override is stored, but the
@@ -162,8 +183,8 @@ describe('ProvidersSettings', () => {
       expect(listOAuthProviders).toHaveBeenCalledWith('beta')
       fireEvent.click(await screen.findByText('Nous Portal'))
       expect(startManualProviderOAuth).toHaveBeenCalledWith('nous', 'beta')
-      fireEvent.click(await screen.findByRole('button', { name: 'Remove Nous Portal' }))
-      fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }))
+      fireEvent.click(await screen.findByRole('button', { name: '移除 Nous Portal' }))
+      fireEvent.click(await screen.findByRole('button', { name: '断开连接' }))
       await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalledWith('nous', 'beta'))
     } finally {
       $settingsScopeOverride.set(null)
@@ -173,7 +194,7 @@ describe('ProvidersSettings', () => {
   it('disconnects a connected provider account and refreshes the accounts list', async () => {
     await renderProvidersSettings()
 
-    const remove = await screen.findByRole('button', { name: 'Remove Nous Portal' })
+    const remove = await screen.findByRole('button', { name: '移除 Nous Portal' })
     await act(async () => {
       fireEvent.click(remove)
     })
@@ -183,7 +204,7 @@ describe('ProvidersSettings', () => {
     expect(disconnectOAuthProvider).not.toHaveBeenCalled()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }))
+      fireEvent.click(screen.getByRole('button', { name: '断开连接' }))
     })
 
     await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalledWith('nous', 'default'))
@@ -194,11 +215,11 @@ describe('ProvidersSettings', () => {
     await renderProvidersSettings()
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Remove Nous Portal' }))
+      fireEvent.click(await screen.findByRole('button', { name: '移除 Nous Portal' }))
     })
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+      fireEvent.click(await screen.findByRole('button', { name: '取消' }))
     })
 
     expect(disconnectOAuthProvider).not.toHaveBeenCalled()
@@ -220,7 +241,7 @@ describe('ProvidersSettings', () => {
     await renderProvidersSettings()
 
     expect(await screen.findByText('Qwen Code')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Remove Qwen Code' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '移除 Qwen Code' })).toBeNull()
   })
 
   it('renders a Keys card for a backend-tagged provider with no PROVIDER_GROUPS prefix', async () => {
@@ -274,7 +295,7 @@ describe('ProvidersSettings', () => {
 
     expect(await screen.findByText('Qwen Cloud')).toBeTruthy()
     expect(screen.getByText('Alibaba Cloud DashScope (China)')).toBeTruthy()
-    const inputs = screen.getAllByPlaceholderText(/Paste .* key/)
+    const inputs = screen.getAllByPlaceholderText(/粘贴 .* 密钥/)
     expect(inputs).toHaveLength(2)
 
     fireEvent.focus(inputs[0])
@@ -331,7 +352,7 @@ describe('ProvidersSettings', () => {
     // Exactly one primary "Paste … key" input per card; the CN card's must edit
     // ALIBABA_CODING_PLAN_CN_API_KEY, never the shared DASHSCOPE_API_KEY.
     const inputs = container.querySelectorAll('input[type="password"]')
-    const pasteInputs = await screen.findAllByPlaceholderText(/Paste .* key/)
+    const pasteInputs = await screen.findAllByPlaceholderText(/粘贴 .* 密钥/)
     expect(pasteInputs).toHaveLength(2) // Qwen Cloud card + the CN Coding Plan card
 
     const cnCard = screen
@@ -344,7 +365,7 @@ describe('ProvidersSettings', () => {
 
     fireEvent.focus(cnInput)
     fireEvent.change(cnInput, { target: { value: 'cn-tier-secret' } })
-    fireEvent.click(within(cnCard as HTMLElement).getByRole('button', { name: 'Save' }))
+    fireEvent.click(within(cnCard as HTMLElement).getByRole('button', { name: '保存' }))
 
     // The write names the CN-specific var — never the shared DASHSCOPE_API_KEY.
     await waitFor(() => {
@@ -412,7 +433,7 @@ describe('ProvidersSettings', () => {
     expect(labels).toEqual(['Acme', 'Middle', 'Zebra'])
 
     // Typing narrows the list to matching providers only.
-    const search = screen.getByPlaceholderText('Search providers…')
+    const search = screen.getByPlaceholderText('搜索提供方…')
     await act(async () => {
       fireEvent.change(search, { target: { value: 'mid' } })
     })
@@ -425,7 +446,7 @@ describe('ProvidersSettings', () => {
     await act(async () => {
       fireEvent.change(search, { target: { value: 'nonesuch-xyz' } })
     })
-    expect(await screen.findByText('No providers match your search.')).toBeTruthy()
+    expect(await screen.findByText('没有匹配的提供方。')).toBeTruthy()
   })
 
   it('expands and scrolls to the provider named by a ?key= deep link', async () => {
@@ -457,7 +478,7 @@ describe('ProvidersSettings', () => {
 
     render(<ProvidersSettings onClose={vi.fn()} onViewChange={vi.fn()} view="keys" />)
 
-    const row = await screen.findByText('Local / custom endpoint')
+    const row = await screen.findByText('本地 / 自定义端点')
 
     fireEvent.click(row)
 

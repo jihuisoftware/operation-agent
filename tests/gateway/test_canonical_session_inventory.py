@@ -158,3 +158,49 @@ async def test_cli_surface_counts_kanban_skills_like_main_cli_without_leaking(tm
     tui = (await call('session.create', request_id='tui', source='tui', cwd=str(repo)))['info']
     assert tui['skills']['devops'] == ['arxiv'], tui['skills']
     assert [s['name'] for s in find_all_skills()] == ['arxiv']
+
+
+@pytest.mark.asyncio
+async def test_desktop_session_inventory_never_installs_optional_image_dependencies(tmp_path, monkeypatch, repo):
+    """A configured image route must not prompt for SDK installation during create/resume."""
+    import pm
+    from gateway import run
+    from gateway.config import GatewayConfig
+    from gateway.session import SessionStore
+    from gateway.session_authority import initialize_session_authority
+    from gateway.session_controls import AuthorityConnection
+    from tools import image_generation_tool
+
+    home = tmp_path / 'home'
+    home.mkdir()
+    (home / 'config.yaml').write_text(
+        'model: {default: test-model, provider: custom, context_length: 8192, '
+        'base_url: "http://127.0.0.1:9/v1"}\n')
+    monkeypatch.setenv('HERMES_HOME', str(home))
+    monkeypatch.setattr(run, '_hermes_home', home)
+    monkeypatch.setattr(image_generation_tool, 'check_fal_api_key', lambda: True)
+    monkeypatch.setattr(image_generation_tool, 'fal_client', None)
+    installs = []
+
+    def missing_optional_dependency(extra):
+        installs.append(extra)
+        raise RuntimeError('SDK installation would wait for terminal input')
+
+    monkeypatch.setattr(pm, 'ensure_import', missing_optional_dependency)
+    store = SessionStore(tmp_path / 'sessions', GatewayConfig())
+    runner = SimpleNamespace(session_store=store, _session_db=store._db, adapters={}, _draining=False,
+                             _cached_agent_for=lambda route: None)
+    runner._adapter_for_source = lambda source: runner.adapters.get(source.platform)
+    authority = await initialize_session_authority(runner, profile_id=str(home), instance_id='first')
+    connection = AuthorityConnection(authority, object(), {'user_id': 'human'})
+
+    params = dict(request_id='image-inventory', source='gui', cwd=str(repo), toolsets=['image_gen'])
+    for method in ('session.create', 'session.resume'):
+        reply = await connection.dispatch({'id': 1, 'method': method, 'params': params})
+        assert 'result' in reply, reply
+        assert installs == [], 'Session inventory must not trigger dependency installation'
+        result = reply['result']
+        assert result['info']['lazy'] is True
+        params = {'session_id': result['session_id']}
+    assert image_generation_tool.check_image_generation_requirements() is True
+    assert installs == []

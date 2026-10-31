@@ -210,10 +210,16 @@ export function launcherInstallDirectory(launcher: string, root?: string): strin
 }
 
 /** launcherInstallDirectory without blocking the caller's event loop. */
-function launcherInstallDirectoryAsync(launcher: string): Promise<string | null> {
-  const probe: LauncherVersionProbe | null = launcherVersionProbe(launcher)
+export function launcherInstallDirectoryAsync(
+  launcher: string,
+  root?: string,
+  env?: NodeJS.ProcessEnv
+): Promise<string | null> {
+  const probe: LauncherVersionProbe | null = launcherVersionProbe(launcher, root)
 
   if (!probe) {return Promise.resolve(null)}
+
+  if (env) {probe.options.env = { ...probe.options.env, ...env }}
 
   return new Promise(resolve => {
     try {

@@ -3,7 +3,7 @@ import { isStableOpen, reconnectBackoffDelayMs } from '@hermes/shared'
 import type { HermesConnection } from '@/global'
 import { RECONNECT_ATTEMPT_TIMEOUT_MS, withTimeout } from '@/lib/with-timeout'
 
-import { $apiRequestScope, getApiRequestConnection, getApiRequestProfile, hermesApi, profileScoped } from './client'
+import { $apiRequestScope, getApiRequestConnection, getApiRequestProfile, hermesApi, hermesApiAs, profileScoped } from './client'
 
 /** Resolve the ACTIVE backend's connection descriptor, (connectionId,
  *  profile)-scoped — mirroring how store/profile resolves $connection: a
@@ -42,6 +42,8 @@ export async function activeConnection(): Promise<HermesConnection> {
 /** Options for a plugin REST call — mirrors the app's own `hermesDesktop.api`
  *  shape, minus the path (which is namespace-derived). */
 export interface PluginRestOptions {
+  /** Pin a background operation to the connection/profile that accepted it. */
+  owner?: { connectionId: string | null; profile: string | null }
   method?: string
   body?: unknown
   /** Single-file multipart upload (see HermesApiRequest.upload). */
@@ -76,14 +78,16 @@ export async function pluginRest<T>(pluginId: string, path: string, opts: Plugin
 
   const suffix = pluginPathSuffix('pluginRest', path)
 
-  return hermesApi<T>({
+  const request = {
     path: `/api/plugins/${pluginId}${suffix}`,
     method: opts.method,
     body: opts.body,
     upload: opts.upload,
     timeoutMs: opts.timeoutMs,
-    ...profileScoped()
-  })
+    ...(opts.owner ? {} : profileScoped())
+  }
+
+  return opts.owner ? hermesApiAs<T>(opts.owner, request) : hermesApi<T>(request)
 }
 
 /** Refusals in a row that do not clear by themselves before the socket stops for its current

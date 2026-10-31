@@ -48,22 +48,22 @@ afterEach(() => {
 })
 
 describe('onboarding Picker', () => {
-  it('features Nous Portal and hides other providers behind a disclosure', () => {
+  it('shows direct providers beside Nous and keeps other options behind a disclosure', () => {
     setProviders([makeOAuthProvider('anthropic', 'Anthropic Claude'), makeOAuthProvider('nous', 'Nous Portal')])
     render(<Picker ctx={ctx} />)
 
     expect(screen.getByText('Nous Portal')).toBeTruthy()
-    expect(screen.getByText('Recommended')).toBeTruthy()
+    expect(screen.getByText('推荐')).toBeTruthy()
     // Fireworks stays behind the disclosure with the other alternatives; only
-    // Nous Portal is visible before the user expands the list.
+    // Nous and the direct-provider shortcuts are visible before expansion.
     expect(screen.queryByText('Fireworks AI')).toBeNull()
     expect(screen.queryByText('Anthropic Account')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
+    fireEvent.click(screen.getByRole('button', { name: '其他提供方' }))
 
     expect(screen.getByText('Fireworks AI')).toBeTruthy()
     expect(screen.getByText('Anthropic Account')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Collapse' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '收起' })).toBeTruthy()
   })
 
   it('shows every provider directly when Nous Portal is absent', () => {
@@ -76,15 +76,15 @@ describe('onboarding Picker', () => {
     expect(screen.getByText('Fireworks AI')).toBeTruthy()
     expect(screen.getByText('Anthropic Account')).toBeTruthy()
     expect(screen.getByText('ChatGPT or Codex Subscription')).toBeTruthy()
-    expect(screen.queryByText('Other sign-in options')).toBeNull()
-    expect(screen.queryByText('Recommended')).toBeNull()
+    expect(screen.queryByText('其他登录选项')).toBeNull()
+    expect(screen.queryByText('推荐')).toBeNull()
   })
 
   it('offers "choose later" on first run and persists the skip', () => {
     setProviders([makeOAuthProvider('nous', 'Nous Portal')])
     render(<Picker ctx={ctx} />)
 
-    const skip = screen.getByRole('button', { name: "I'll choose a provider later" })
+    const skip = screen.getByRole('button', { name: '稍后再选择提供方' })
 
     fireEvent.click(skip)
 
@@ -97,7 +97,7 @@ describe('onboarding Picker', () => {
     $desktopOnboarding.set({ ...$desktopOnboarding.get(), manual: true })
     render(<Picker ctx={ctx} />)
 
-    expect(screen.queryByRole('button', { name: "I'll choose a provider later" })).toBeNull()
+    expect(screen.queryByRole('button', { name: '稍后再选择提供方' })).toBeNull()
   })
 })
 
@@ -130,18 +130,18 @@ describe('ApiKeyForm manual local-model fallback', () => {
     })
 
     // Hidden on the happy path — discovery hasn't failed yet.
-    expect(screen.queryByPlaceholderText('Model name (e.g. command-a-plus-05-2026)')).toBeNull()
+    expect(screen.queryByPlaceholderText('模型名称（例如 command-a-plus-05-2026）')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    fireEvent.click(screen.getByRole('button', { name: '连接' }))
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Model name (e.g. command-a-plus-05-2026)')).toBeTruthy()
+      expect(screen.getByPlaceholderText('模型名称（例如 command-a-plus-05-2026）')).toBeTruthy()
     })
 
-    fireEvent.change(screen.getByPlaceholderText('Model name (e.g. command-a-plus-05-2026)'), {
+    fireEvent.change(screen.getByPlaceholderText('模型名称（例如 command-a-plus-05-2026）'), {
       target: { value: 'command-a-plus-05-2026' }
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    fireEvent.click(screen.getByRole('button', { name: '连接' }))
 
     await waitFor(() => {
       // apiKey is the (empty) local-key field, forwarded as-is for the local option.

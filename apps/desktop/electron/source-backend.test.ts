@@ -8,7 +8,7 @@ import { test, vi } from 'vitest'
 import WebSocket from 'ws'
 
 import { waitForDashboardPort } from './backend-ready'
-import { createSourcePythonBackend, resolveSourceInstallationBackend, type SourceBackend } from './source-backend'
+import { createSourcePythonBackend, resolveDevelopmentSourceBackend, resolveSourceInstallationBackend, type SourceBackend } from './source-backend'
 
 const SERVE_ARGS = ['serve', '--host', '127.0.0.1', '--port', '0']
 
@@ -134,7 +134,7 @@ test.skipIf(process.platform === 'win32')(
           }
         }
 
-        const backend: SourceBackend | null = await resolveSourceInstallationBackend(fixture.root, SERVE_ARGS, {
+        const backend: SourceBackend | null = await resolveDevelopmentSourceBackend(fixture.root, SERVE_ARGS, {
           hermesHome: env.HERMES_HOME,
           env
         })

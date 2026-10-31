@@ -1203,7 +1203,8 @@ export async function saveOnboardingApiKey(
   // Cohere's OpenAI-compatible endpoint, which serves no OpenAI-shaped model
   // catalog). Mirrors the runtime's `discover_models: false` + explicit
   // `models:` config path. Ignored for plain API-key providers.
-  modelName?: string
+  modelName?: string,
+  providerId?: string
 ) {
   ctx = captureContext(ctx)
   const generation = flowGeneration
@@ -1234,13 +1235,9 @@ export async function saveOnboardingApiKey(
       return { ok: false }
     }
 
-    // For API-key flows we don't have a definitive provider id (the
-    // user picked which API key they're entering, but the corresponding
-    // backend slug — e.g. OPENROUTER_API_KEY → "openrouter" — is the
-    // env-key prefix stripped). Pass a couple of likely candidates;
-    // fetchProviderDefaultModel falls back to the first authenticated
-    // provider returned by /api/model/options if none match.
-    const slugCandidates = [envKey.replace(/_API_KEY$/, '').toLowerCase(), label.toLowerCase()]
+    // Catalog ids are authoritative: KIMI_CN_API_KEY maps to kimi-coding-cn,
+    // not kimi_cn. Keep inference only for callers without a catalog row.
+    const slugCandidates = [providerId || envKey.replace(/_API_KEY$/, '').toLowerCase(), label.toLowerCase()]
     // ignoreRuntimeGate=true: never block onboarding on the runtime check.
     await completeWithModelConfirm(ctx, label, slugCandidates, () => undefined, true)
 

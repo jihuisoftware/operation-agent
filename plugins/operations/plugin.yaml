@@ -1,0 +1,8 @@
+name: operations
+version: "0.1.0"
+description: "每日目标、信息来源、运营规则、执行记录与日报。"
+author: "dm + Hermes Agent"
+provides_tools:
+  - operations_status
+provides_cli:
+  - ops

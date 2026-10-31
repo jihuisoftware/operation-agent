@@ -121,7 +121,7 @@ describe('ModelSettings profile scope', () => {
     renderModelSettings()
 
     await waitFor(() => expect(getGlobalModelInfo).toHaveBeenCalledWith(undefined))
-    expect(getGlobalModelOptions).toHaveBeenCalledWith(undefined, undefined)
+    expect(getGlobalModelOptions).toHaveBeenCalledWith({ includeUnconfigured: true, explicitOnly: false }, undefined)
     expect(getAuxiliaryModels).toHaveBeenCalledWith(undefined)
     expect(getMoaModels).toHaveBeenCalledWith(undefined)
   })
@@ -130,13 +130,68 @@ describe('ModelSettings profile scope', () => {
     renderModelSettings('research')
 
     await waitFor(() => expect(getGlobalModelInfo).toHaveBeenCalledWith('research'))
-    expect(getGlobalModelOptions).toHaveBeenCalledWith(undefined, 'research')
+    expect(getGlobalModelOptions).toHaveBeenCalledWith({ includeUnconfigured: true, explicitOnly: false }, 'research')
     expect(getAuxiliaryModels).toHaveBeenCalledWith('research')
     expect(getMoaModels).toHaveBeenCalledWith('research')
   })
 })
 
 describe('ModelSettings', () => {
+  it.each([
+    ['Kimi China', 'kimi-coding-cn', 'KIMI_CN_API_KEY'],
+    ['Kimi International', 'kimi-coding', 'KIMI_API_KEY'],
+    ['DeepSeek', 'deepseek', 'DEEPSEEK_API_KEY']
+  ])('offers unconfigured %s and keeps setup choices after saving its key', async (name, slug, keyEnv) => {
+    let configured = false
+    getGlobalModelOptions.mockImplementation(
+      async (opts?: { includeUnconfigured?: boolean; explicitOnly?: boolean }) => ({
+        providers: [
+          { name: 'Nous', slug: 'nous', models: ['hermes-4'], authenticated: true },
+          ...(opts?.includeUnconfigured && opts.explicitOnly === false
+            ? [
+                {
+                  name,
+                  slug,
+                  models: configured ? ['direct-model'] : [],
+                  authenticated: configured,
+                  auth_type: 'api_key',
+                  key_env: keyEnv
+                },
+                {
+                  name: 'Another provider',
+                  slug: 'other',
+                  models: [],
+                  authenticated: false,
+                  auth_type: 'api_key',
+                  key_env: 'OTHER_API_KEY'
+                }
+              ]
+            : [])
+        ]
+      })
+    )
+    setEnvVar.mockImplementation(async () => {
+      configured = true
+
+      return { ok: true }
+    })
+    getRecommendedDefaultModel.mockResolvedValue({ provider: slug, model: 'direct-model' })
+
+    renderModelSettings('writing')
+    fireEvent.click(await screen.findByRole('combobox', { name: '提供方' }))
+    expect(screen.getByRole('option', { name })).toBeTruthy()
+    fireEvent.click(screen.getByRole('option', { name }))
+    fireEvent.change(screen.getByPlaceholderText('粘贴 API 密钥'), { target: { value: 'fixture-key' } })
+    fireEvent.click(screen.getByRole('button', { name: '连接' }))
+
+    await waitFor(() => expect(setEnvVar).toHaveBeenCalledWith(keyEnv, 'fixture-key'))
+    expect(await screen.findByRole('combobox', { name: '模型' })).toHaveProperty('textContent', 'direct-model')
+    expect(screen.getByRole('combobox', { name: '提供方' }).textContent).toBe(name)
+    fireEvent.click(screen.getByRole('combobox', { name: '提供方' }))
+    expect(screen.getByRole('option', { name: 'Another provider' })).toBeTruthy()
+    expect(setModelAssignment).not.toHaveBeenCalled()
+  })
+
   it('labels the main provider, model and default controls independently', async () => {
     renderModelSettings()
 
@@ -743,7 +798,10 @@ describe('ModelSettings provider switch', () => {
 
     await waitFor(() => {
       // refresh-scoped, not the plain read the mount effect already made
-      expect(getGlobalModelOptions).toHaveBeenCalledWith({ refresh: true }, undefined)
+      expect(getGlobalModelOptions).toHaveBeenCalledWith(
+        { includeUnconfigured: true, explicitOnly: false, refresh: true },
+        undefined
+      )
     })
 
     // The refreshed catalog repopulates the empty provider's models: open the

@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router'
 
 import { hudTargetSessionId } from '@/app/hud/handoff'
 import { toggleLayoutEditMode } from '@/components/pane-shell/edit-mode'
-import { resetLayoutTree } from '@/components/pane-shell/tree/store'
+import { $paneVisible, resetLayoutTree } from '@/components/pane-shell/tree/store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
@@ -26,6 +26,7 @@ import {
   togglePanesFlipped,
   toggleRightSide
 } from '@/store/layout'
+import { $browserPaneId, toggleBrowserTab } from '@/store/preview'
 import { $unreadSessionCount } from '@/store/session-dot-state'
 import { $titlebarAppActionsSide, TITLEBAR_FIXED_TOOLS } from '@/store/titlebar-app-actions'
 
@@ -140,6 +141,8 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
   const location = useLocation()
   const modHeld = useModifierHeld()
   const fileBrowserOpen = useStore($fileBrowserOpen)
+  const browserPaneId = useStore($browserPaneId)
+  const browserObservationOpen = useStore($paneVisible(browserPaneId))
   const leftSideOpen = useStore($leftSideOpen)
   const panesFlipped = useStore($panesFlipped)
   const unreadCount = useStore($unreadSessionCount)
@@ -313,7 +316,17 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
 
   const visibleSystemTools = appActionsSide === 'right' ? systemTools.filter(visibleTool) : []
   const visiblePaneTools = tools.filter(visibleTool)
-  const visibleRightFixedTools = [flipTool, rightSidebarTool].filter(visibleTool)
+
+  const browserObservationTool: TitlebarTool = {
+    ...TITLEBAR_FIXED_TOOLS['browser-observation'],
+    id: 'browser-observation',
+    icon: <TitlebarIcon name="globe" />,
+    active: browserObservationOpen,
+    label: browserObservationOpen ? '隐藏浏览实时画面' : '显示浏览实时画面',
+    onSelect: toggleBrowserTab
+  }
+
+  const visibleRightFixedTools = [browserObservationTool, flipTool, rightSidebarTool].filter(visibleTool)
 
   return (
     <>

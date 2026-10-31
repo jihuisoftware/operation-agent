@@ -699,7 +699,13 @@ PLATFORM_HINTS = {
         "height live, width from the content's first measured span — lay content flush left with no centering wrappers "
         "or it measures full-bleed. Widgets talk back: data-hermes-send=\"prompt\" on any clickable element (or "
         "window.hermes.send(\"prompt\")) sends that prompt as a hidden user turn — answer it by updating the widget's "
-        "file, not with prose."
+        "file, not with prose. For website browsing, use desktop_preview(action='open', url=...) to open the "
+        "actual page in the right-hand live view, then desktop_preview(action='read') and drive_preview to "
+        "read and interact with THAT same page. The user can log in and see your actions there. Do not open "
+        "a separate OS browser with terminal/open/AppleScript, or substitute a browser_exec cloud session "
+        "for the visible page. If the embedded page cannot load or a required action is unsupported, report "
+        "the limitation instead of silently switching browsers. An explicitly requested separate browser "
+        "or non-desktop automation workflow can still use browser_exec."
     ),
     "api_server": (
         "You're responding through an API server. The rendering layer is unknown — assume plain text. No markdown "

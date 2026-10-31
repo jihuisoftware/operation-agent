@@ -3829,7 +3829,7 @@ const zhBase = {
     loadingIntoMemory: '正在载入内存',
     downloading: '下载中',
     localDownloadsHeading: '本地',
-    noAuthenticatedProviders: '没有已认证的提供方。',
+    noAuthenticatedProviders: '当前配置尚无可用的模型提供方。点击“添加提供方”，完成登录或填写 API Key 后再选择模型。',
     pro: 'Pro',
     proNeedsSubscription: 'Pro 模型需要付费 Nous 订阅。',
     free: '免费',
@@ -3864,7 +3864,7 @@ const zhBase = {
   modelVisibility: {
     title: '模型',
     search: '搜索模型',
-    noAuthenticatedProviders: '没有已认证的提供方。',
+    noAuthenticatedProviders: '当前配置尚无可用的模型提供方。点击“添加提供方”，完成登录或填写 API Key 后再选择模型。',
     addProvider: '添加提供方…',
     addCustomModel: '添加自定义模型',
     removeCustomModel: '移除自定义模型',

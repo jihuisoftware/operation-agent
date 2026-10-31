@@ -560,7 +560,7 @@ import {
 } from './session-windows'
 import { ensureLoginShellPath } from './shell-path'
 import { removeStaleSingletonLock } from './singleton-lock'
-import { createSourcePythonBackend, resolveSourceInstallationBackend, type SourceBackend } from './source-backend'
+import { resolveDevelopmentSourceBackend, resolveSourceInstallationBackend, type SourceBackend } from './source-backend'
 import { resolveSourcePython } from './source-python'
 import { registerSpellcheckDictionaryIpc } from './spellcheck-dictionary-ipc'
 import { resolveSshBinary } from './ssh-binary'
@@ -4907,10 +4907,10 @@ async function resolveHermesBackend(backendArgs: string[]): Promise<ResolvedHerm
     process.env.HERMES_DESKTOP_HERMES_ROOT && path.resolve(process.env.HERMES_DESKTOP_HERMES_ROOT)
 
   if (overrideRoot && isHermesSourceRoot(overrideRoot)) {
-    const backend: SourceBackend | null = createSourcePythonBackend(
+    const backend: SourceBackend | null = await resolveDevelopmentSourceBackend(
       overrideRoot,
-      await findPythonForRoot(overrideRoot),
-      backendArgs
+      backendArgs,
+      { hermesHome: HERMES_HOME }
     )
 
     if (backend) {
@@ -4923,10 +4923,10 @@ async function resolveHermesBackend(backendArgs: string[]): Promise<ResolvedHerm
   //    installed `hermes` on PATH so local Python edits are actually exercised.
   //    (In dev with no checkout, SOURCE_REPO_ROOT won't pass isHermesSourceRoot.)
   if (!IS_PACKAGED && isHermesSourceRoot(SOURCE_REPO_ROOT)) {
-    const backend: SourceBackend | null = createSourcePythonBackend(
+    const backend: SourceBackend | null = await resolveDevelopmentSourceBackend(
       SOURCE_REPO_ROOT,
-      await findPythonForRoot(SOURCE_REPO_ROOT),
-      backendArgs
+      backendArgs,
+      { hermesHome: HERMES_HOME }
     )
 
     if (backend) {

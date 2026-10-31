@@ -583,13 +583,10 @@ def _get_plugin_provider(name: str, *, force: bool = False):
 
 def check_image_generation_requirements() -> bool:
     """True if FAL or the explicitly configured image backend is available."""
-    try:
-        if check_fal_api_key():
-            # Lazy import doubles as the SDK presence check: ImportError falls through to plugins.
-            _load_fal_client()
-            return True
-    except ImportError:
-        pass
+    # Inventory runs during session creation: SDK installation can prompt on stdin and block it.
+    # Keep dependency loading in _submit_fal_request, when the tool is actually invoked.
+    if check_fal_api_key():
+        return True
     configured = _plugin_provider_name()
     if configured is None:
         return False
