@@ -6,7 +6,8 @@ from .policy import now_iso
 
 
 def daily_report(store, day, delayed=False):
-    existing = store.objects("report", day)
+    identity = f"report:{day}" + (f":manual:{store.manual_run_id}" if store.manual_run_id else "")
+    existing = [r for r in store.objects("report", day) if r["id"] == identity]
     if existing:
         return existing[0]
     with store.connection() as db:
@@ -33,7 +34,8 @@ def daily_report(store, day, delayed=False):
     lines.extend(["", "## 发布与互动", ""])
     for action in actions:
         result = json.loads(action["result"])
-        lines.append(f"- {action['kind']} · {action['state']} · {action['target']} · {action['created']} · "
+        target = json.loads(action["data"])["target"]
+        lines.append(f"- {action['kind']} · {action['state']} · {target} · {action['created']} · "
                      f"{result.get('evidence') or result.get('error') or '暂无结果证据'} · {result.get('url', '')}")
     completed = sum(a["state"] in {"published", "confirmed"} for a in actions)
     lines.append(f"\n已核对成功 {completed} 次；待审核或结果不明不计入成功。")
@@ -50,7 +52,7 @@ def daily_report(store, day, delayed=False):
     lines.append("- 优先处理未完成任务，结合已收集来源继续验证选题；不自动扩大权限或额度。")
     markdown = "\n".join(lines) + "\n"
     data = {"day": day, "markdown": markdown, "delayed": delayed, "created": now_iso()}
-    identity = store.put("report", data, f"report:{day}")
+    identity = store.put("report", data, identity)
     return {"id": identity, **data}
 
 

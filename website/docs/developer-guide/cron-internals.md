@@ -204,7 +204,14 @@ that runs its own gateway is skipped per tick, so the two processes never race
 its store and its deliveries always leave through its own live adapters.
 
 **Fire-claim lease during a run.** A firing run holds `fire_claim = {at, by}` and
-a heartbeat thread refreshes `at` every 60 s (the lease is 300 s). A heartbeat
+a due scan defers while that lease is live, before stamping or advancing another
+occurrence. In-process registration also checks direct fire owners, so manual
+runs cannot acquire a second periodic dispatch. Job views expose `active_execution`
+separately from the latest historical attempt; a newer rejected fire does not
+hide a still-live owner or enable another Desktop trigger. Expired leases retain
+the ordinary recovery path.
+
+The heartbeat thread refreshes `at` every 60 s (the lease is 300 s). A heartbeat
 sample that reads the claim as someone else's is re-sampled once before it
 counts: only a confirmed loss cancels the in-flight run. Even then the run's
 outcome is decided against the store at completion, not against that latch —

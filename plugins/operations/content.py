@@ -4,6 +4,7 @@ import json
 from .model import generate
 from .policy import now_iso
 from .research import distinct_sources
+from .outcomes import StageSkipped
 
 
 def content_digest(content):
@@ -36,7 +37,7 @@ def check_content(store, policy, day, version, content, sources):
 def produce_content(store, policy, day, version):
     sources = distinct_sources(store, day)
     if not sources:
-        return "缺少可追溯来源，暂不生成内容"
+        raise StageSkipped("缺少可追溯来源，暂不生成内容")
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
     content = generate(store, policy, day,
         '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":""}。'
@@ -45,11 +46,12 @@ def produce_content(store, policy, day, version):
         {"policy": policy, "sources": sources, "assets": assets, "tasks": store.objects("task", day),
          "recent_content": store.objects("content")[:15], "performance_review": store.objects("review")[:3]})
     if not content.get("title"):
-        return content.get("reason", "无合适选题")
+        raise StageSkipped(content.get("reason", "无合适选题"))
     validate_content(content, sources, assets)
     quality = check_content(store, policy, day, version, content, sources)
     ready = quality.get("pass") is True and bool(content.get("asset_ids"))
+    missing = ([] if content.get("asset_ids") else ["缺少获授权图片"]) + ([] if quality.get("pass") is True else ["自动质量检查未通过"])
     identity = store.put("content", {**content, "day": day, "version": version, "ready": ready,
                                     "state": "ready" if ready else "needs_material" if not content.get("asset_ids") else "needs_review",
                                     "quality": quality, "created": now_iso()})
-    return {"content_id": identity, "ready": ready, "reason": quality.get("reason")}
+    return {"content_id": identity, "ready": ready, "missing": missing, "reason": quality.get("reason")}

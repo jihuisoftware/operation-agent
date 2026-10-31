@@ -1,3 +1,4 @@
+import { inspectLoginPage } from './login-page'
 import { xhsPage } from './page'
 import type { Api, BrowserCommand, Guest, OperationsState } from './types'
 
@@ -25,7 +26,11 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
       throw new Error('任务过期、规则变更或已暂停')
     }
 
-    if (current.policy.account_id !== payload.account_id) {
+    if (command.kind !== 'account' && !payload.account_id) {
+      throw new Error('任务尚未识别登录账号，请重新执行')
+    }
+
+    if (current.policy.account_id && payload.account_id && current.policy.account_id !== payload.account_id) {
       throw new Error('账号配置与任务不匹配')
     }
   }
@@ -36,6 +41,10 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
 
     if (url.protocol !== 'https:' || !['www.xiaohongshu.com', 'creator.xiaohongshu.com'].includes(url.hostname)) {
       throw new Error('当前网页不是任务目标平台')
+    }
+
+    if (operation === 'account') {
+      return guest.executeJavaScript(`(${inspectLoginPage.toString()})(${JSON.stringify('xiaohongshu')})`)
     }
 
     return guest.executeJavaScript(`(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })})`)
@@ -56,6 +65,14 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
   try {
     await navigate(`${HOME}/explore`)
     const identity = await page('account')
+
+    if (identity.state !== 'logged_in' || !identity.account_id) {
+      throw new Error('未识别到登录账号，请在内嵌网页扫码登录后重新执行')
+    }
+
+    if (command.kind === 'account') {
+      return identity
+    }
 
     if (identity.account_id !== payload.account_id) {
       throw new Error('当前登录账号不匹配，已停止执行')
@@ -129,6 +146,9 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
 
     return await page('interaction-result')
   } catch (error) {
-    return { state: submitted ? 'unknown' : 'blocked', error: error instanceof Error ? error.message : String(error) }
+    return {
+      state: submitted ? 'unknown' : command.kind === 'account' ? 'waiting_login' : 'blocked',
+      error: error instanceof Error ? error.message : String(error)
+    }
   }
 }

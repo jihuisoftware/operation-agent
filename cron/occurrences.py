@@ -75,6 +75,18 @@ def pending_slot_stamp(next_run, now):
     return {"scheduled_at": next_run, "at": now.isoformat(), "by": _machine_id()}
 
 
+def has_live_fire_claim(job, now):
+    """Defer a due scan while a manual or external firer owns the job's lease.
+
+    Check before stamping/advancing a slot: a busy job is not a failed execution.
+    Expired claims retain the ordinary recovery and catch-up behavior.
+    """
+    from cron.constants import FIRE_CLAIM_TTL_SECONDS
+    from cron.jobs import _claim_is_live
+
+    return _claim_is_live(job.get("fire_claim"), now, FIRE_CLAIM_TTL_SECONDS)
+
+
 def unclaimed_pending_slot(job, now):
     """Stored instant of a slot the dispatcher never claimed, or None.
 

@@ -473,6 +473,7 @@ export interface SessionCreateResponse {
 }
 
 export interface SessionInfo {
+  output_file?: string
   archived?: boolean
   cwd?: null | string
   /** Git branch checked out in {@link cwd} when the session started/resumed.
@@ -947,6 +948,8 @@ export interface AnalyticsTotals {
 }
 
 export interface CronJob {
+  profile?: string
+  active_execution?: null | { id: string; status: string }
   deliver?: null | string
   enabled: boolean
   id: string

@@ -4,10 +4,12 @@ import time
 
 from .model import generate
 from .research import collect, distinct_sources
+from .outcomes import StageSkipped
 
 
 def browser(store, kind, payload, action_id=None):
     store.renew()
+    store.progress("等待桌面网页执行", {"operation": kind, "action_id": action_id, "target": payload.get("target")})
     command_id = store.enqueue(kind, payload, action_id)
     deadline = time.monotonic() + 125
     while time.monotonic() < deadline:
@@ -17,6 +19,7 @@ def browser(store, kind, payload, action_id=None):
             result = command["result"]
             if result.get("error"):
                 raise ValueError(result["error"])
+            store.progress("已收到桌面执行回执", {"operation": kind, "action_id": action_id, "result": result})
             return result
         if command["state"] in {"cancelled", "unknown"}:
             raise ValueError("桌面执行中断或结果不明，请核对后处理")
@@ -25,14 +28,19 @@ def browser(store, kind, payload, action_id=None):
 
 
 def research(store, policy, day, version):
+    before = len(store.objects("source", day))
     collect(store, policy, day)
+    added = len(store.objects("source", day)) - before
     sources = distinct_sources(store, day)
+    if not sources:
+        raise StageSkipped("未取得可用来源，请查看来源失败记录及检索配置")
     result = generate(store, policy, day,
         '整理信息并提出选题。返回 {"facts": [{"text":"", "source_ids":[]}], "opinions":[], "unknowns":[], "topics":[] }。'
         '只引用提供的来源 ID。另返回 summaries:[{source_id,summary,topics}]，逐条概括实际读到的来源。', {"goal": policy["goal"], "topic": policy["topic"], "sources": sources,
          "tasks": store.objects("task", day), "recent_content": store.objects("content")[:10]})
     from .research import save_brief
     save_brief(store, day, result, sources)
+    return f"本次新增 {added} 条来源记录；已整理 {len(sources)} 条当日可用去重来源并保存选题依据"
 
 
 def produce(store, policy, day, version):
@@ -40,33 +48,50 @@ def produce(store, policy, day, version):
     return produce_content(store, policy, day, version)
 
 
+def resolve_account(store, policy):
+    if policy["account_id"]:
+        return policy["account_id"]
+    identity = browser(store, "account", {})
+    account = identity.get("account_id")
+    if not isinstance(account, str) or not account.strip():
+        raise ValueError("未识别到登录账号，请在内嵌网页扫码登录后重新执行")
+    store.event("account_selected", {"account_id": account, "source": "live_page"})
+    return account
+
+
 def publish(store, policy, day, version):
     from .content import check_content, validate_content, content_digest
     if not policy["allowed"]["publish"]:
-        return "自动发布未开启"
+        raise StageSkipped("自动发布未开启")
     drafts = [c for c in store.objects("content", day) if c.get("ready")]
     if not drafts:
-        return "没有选定的有效内容版本，未发布；请先生产或选择草稿"
+        raise StageSkipped("没有选定的有效内容版本，未发布；请先生产或选择草稿")
     content = drafts[0]
     sources = [s for s in store.objects("source") if s["id"] in content.get("source_ids", []) and s.get("text")]
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
     validate_content(content, sources, assets, require_assets=True)
     quality = check_content(store, policy, day, version, content, sources)
     if quality.get("pass") is not True:
-        return "草稿未通过自动检查：" + str(quality.get("reason", "依据不足"))
-    action = {"kind": "publish", "account_id": policy["account_id"], "target": content_digest(content), "content": content}
+        raise StageSkipped("草稿未通过自动检查：" + str(quality.get("reason", "依据不足")))
+    account = resolve_account(store, policy)
+    action = {"kind": "publish", "account_id": account, "target": content_digest(content), "content": content}
     identity = store.reserve_action(action, version, day)
-    return browser(store, "publish", action, identity) if identity else "相同内容已有执行记录"
+    if not identity:
+        raise StageSkipped("相同内容已有执行记录")
+    return browser(store, "publish", action, identity)
 
 
 def interact(store, policy, day, version, *, kinds=("comment", "reply", "dm", "follow")):
     kinds = [kind for kind in kinds if policy["allowed"][kind]]
+    account = resolve_account(store, policy) if kinds else ""
     results = []
+    errors = []
     for kind in kinds:
         try:
-            items = browser(store, "inbox", {"kind": kind, "account_id": policy["account_id"], "keywords": policy["keywords"]})
+            items = browser(store, "inbox", {"kind": kind, "account_id": account, "keywords": policy["keywords"]})
         except ValueError as exc:
             store.event("interaction_error", {"day": day, "kind": kind, "error": str(exc)})
+            errors.append(str(exc))
             continue
         if items.get("evidence"):
             store.event("inventory", {"day": day, "kind": kind, "evidence": items["evidence"]})
@@ -75,7 +100,7 @@ def interact(store, policy, day, version, *, kinds=("comment", "reply", "dm", "f
             continue
         if kind == "follow" and not policy["follow_terms"]:
             for item in candidates:
-                store.put("inbox", {**item, "day": day, "kind": kind, "state": "needs_review", "reason": "未设置回关条件"}, f"{kind}:{item['id']}")
+                store.put("inbox", {**item, "account_id": account, "day": day, "kind": kind, "state": "needs_review", "reason": "未设置回关条件"}, f"{account}:{kind}:{item['id']}")
             continue
         proposals = generate(store, policy, day,
             '仅根据提供的候选项决定互动。返回 {"actions":[{"id":"候选ID","text":"回复文本",'
@@ -86,17 +111,22 @@ def interact(store, policy, day, version, *, kinds=("comment", "reply", "dm", "f
         by_id = {item["id"]: item for item in candidates}
         chosen = {p.get("id") for p in proposals.get("actions", [])}
         for item in candidates:
-            store.put("inbox", {**item, "day": day, "kind": kind, "state": "proposed" if item["id"] in chosen else "needs_review"}, f"{kind}:{item['id']}")
+            store.put("inbox", {**item, "account_id": account, "day": day, "kind": kind, "state": "proposed" if item["id"] in chosen else "needs_review"}, f"{account}:{kind}:{item['id']}")
         for proposal in proposals.get("actions", [])[:policy["limits"][kind]]:
             try:
-                outcome = _interaction(store, policy, day, version, kind, proposal, by_id)
+                outcome = _interaction(store, policy, day, version, kind, proposal, by_id, account)
                 results.append(outcome)
             except ValueError as exc:
                 store.event("interaction_error", {"day": day, "error": str(exc), "kind": kind})
+                errors.append(str(exc))
+    if errors:
+        raise ValueError(f"互动存在异常（已记录 {len(results)} 条结果）：" + "；".join(dict.fromkeys(errors)))
+    if not results:
+        raise StageSkipped("没有可执行的互动；已检查候选，需人工处理的项目见待处理记录" if kinds else "互动动作未授权")
     return results
 
 
-def _interaction(store, policy, day, version, kind, proposal, candidates):
+def _interaction(store, policy, day, version, kind, proposal, candidates, account):
     item = candidates.get(proposal.get("id"))
     if not item:
         raise ValueError("互动对象不在当前网页候选列表")
@@ -108,14 +138,14 @@ def _interaction(store, policy, day, version, kind, proposal, candidates):
         raise ValueError("不满足回关条件")
     if kind == "dm" and any(term in item.get("text", "") for term in
                             ("价格", "优惠", "保证", "承诺", "投诉", "退款", "争议", "赔偿", "身份证", "手机号", "住址", "银行卡", "密码")):
-        store.put("inbox", {**item, "day": day, "kind": kind, "state": "needs_review", "reason": "交易承诺、争议或敏感资料需人工处理"})
+        store.put("inbox", {**item, "account_id": account, "day": day, "kind": kind, "state": "needs_review", "reason": "交易承诺、争议或敏感资料需人工处理"})
         raise ValueError("该私信需要人工处理")
     text = proposal.get("text", "")
     if kind == "dm" and text not in [policy["knowledge"][i] for i in knowledge]:
         raise ValueError("私信回复超出已确认知识，转人工处理")
     if kind != "follow" and (not isinstance(text, str) or not 1 <= len(text) <= 500):
         raise ValueError("互动文本为空或过长")
-    action = {"kind": kind, "account_id": policy["account_id"], "target": item["id"],
+    action = {"kind": kind, "account_id": account, "target": item["id"],
               "item": item, "text": text, "inbound": item.get("inbound", False),
               "knowledge_ids": knowledge, "reason": proposal.get("reason", "")}
     identity = store.reserve_action(action, version, day)

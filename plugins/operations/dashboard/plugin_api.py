@@ -21,6 +21,18 @@ def state():
     return Store().snapshot()
 
 
+@router.get('/upcoming')
+def upcoming_steps():
+    from plugins.operations.upcoming import upcoming
+    return upcoming(Store())
+
+
+@router.post('/upcoming/cancel')
+def cancel_step(body: dict):
+    from plugins.operations.upcoming import cancel
+    return checked(lambda: cancel(Store(), body))
+
+
 @router.get("/policy")
 def read_policy():
     version, policy = Store().policy()

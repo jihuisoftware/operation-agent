@@ -229,6 +229,8 @@ def create_execution(
              _process_start_time(pid), now, canonical_instant(scheduled_instant)),
         )
         record = _fetch(conn, execution_id)
+    from cron.task_history import capture
+    capture(execution_id, job_id)
     _emit_execution_state(record)
     return record  # type: ignore[return-value]
 
@@ -615,19 +617,45 @@ def latest_execution(job_id: str) -> Optional[dict[str, Any]]:
     return rows[0] if rows else None
 
 
+def attach_execution_status(jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Enrich job views without changing the persisted scheduling state."""
+    ids = [job.get("id", "") for job in jobs]
+    try:
+        latest = latest_executions(ids)
+        active = live_inflight_executions(ids)
+    except (sqlite3.Error, OSError):
+        logger.warning("Cron execution status unavailable", exc_info=True)
+        latest, active = {}, {}
+    return [{**job, "latest_execution": latest.get(job.get("id", "")),
+             "active_execution": active.get(job.get("id", ""))} for job in jobs]
+
+
 def live_inflight_execution(job_id: str) -> Optional[dict[str, Any]]:
-    """The job's latest attempt while it is still claimed/running under a LIVE owner, else ``None``.
+    """The job's newest claimed/running attempt under a LIVE owner, else ``None``.
 
     This is scheduler OWNERSHIP, not recent activity: a run inside a long tool call writes no
     heartbeat yet stays owned, while a run whose process died (watchdog kill, crash) does not.
     Read-only — unlike ``recover_interrupted_executions`` it never rewrites a row.
     """
-    record = latest_execution(job_id)
-    if not record or record.get("status") not in ("claimed", "running"):
-        return None
-    if not _owner_is_live(int(record["pid"]), record.get("process_started_at")):
-        return None
-    return record
+    return live_inflight_executions([job_id]).get(job_id)
+
+
+def live_inflight_executions(job_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Batch liveness lookup; a later refused fire cannot hide the actual owner."""
+    clean = [str(job_id) for job_id in dict.fromkeys(job_ids) if job_id]
+    if not clean:
+        return {}
+    placeholders = ",".join("?" for _ in clean)
+    with _transaction() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM executions WHERE job_id IN ({placeholders}) AND status IN ('claimed','running') "
+            "ORDER BY julianday(claimed_at) DESC, claimed_at DESC, id DESC", clean,
+        ).fetchall()
+    active = {}
+    for row in rows:
+        if row["job_id"] not in active and _owner_is_live(int(row["pid"]), row["process_started_at"]):
+            active[row["job_id"]] = dict(row)
+    return active
 
 
 def latest_executions(job_ids: list[str]) -> dict[str, dict[str, Any]]:

@@ -2611,6 +2611,25 @@ export interface Translations extends NoticeTranslations {
     showRuns: string
     hideRuns: string
     runHistory: string
+    taskDetails: {
+      title: string
+      refreshHint: string
+      stale: string
+      plan: string
+      snapshot: string
+      attempt: string
+      latest: string
+      status: string
+      updated: string
+      legacy: string
+      noSteps: string
+      result: string
+      noResult: string
+      states: Record<string, string>
+    }
+    fullRunOutput: string
+    openRunSession: string
+    outputUnavailable: string
     actionsTitle: string
     resume: string
     pause: string

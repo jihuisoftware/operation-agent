@@ -1,9 +1,9 @@
 import { type CronBlueprintOwner, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { AccountSelection } from './account-selection'
 import { moduleLabels } from './blueprint-types'
 import { ActionManager, ContentEditor } from './management'
-import { PlatformLoginsPanel } from './platform-logins'
 import { $showOperationsBrowser } from './state'
 import type { OperationsState, Policy, RecordRow } from './types'
 
@@ -45,22 +45,11 @@ export function Workbench({
       ctx={owned}
       initialTab={initialTab}
       key={JSON.stringify(scope)}
-      owner={scope}
     />
   )
 }
 
-function OwnedWorkbench({
-  ctx,
-  initialTab,
-  canView,
-  owner
-}: {
-  ctx: PluginContext
-  initialTab?: string
-  canView: boolean
-  owner: CronBlueprintOwner
-}) {
+function OwnedWorkbench({ ctx, initialTab, canView }: { ctx: PluginContext; initialTab?: string; canView: boolean }) {
   const [state, setState] = useState<OperationsState | null>(null)
   const [draft, setDraft] = useState<Policy | null>(null)
   const [version, setVersion] = useState(0)
@@ -128,7 +117,7 @@ function OwnedWorkbench({
         <h1 className="text-xl font-semibold">每日自动运营</h1>
         <span>{state.online ? '桌面执行器在线' : '等待桌面执行器'}</span>
         <button disabled={!canView} onClick={() => $showOperationsBrowser.set(true)}>
-          查看执行网页／登录
+          查看执行网页
         </button>
         <button
           onClick={() =>
@@ -147,7 +136,6 @@ function OwnedWorkbench({
           立即暂停
         </button>
       </header>
-      <PlatformLoginsPanel compact ctx={ctx} owner={owner} />
       <nav className="mb-4 flex flex-wrap gap-3">
         {tabs.map(name => (
           <button aria-pressed={tab === name} key={name} onClick={() => setTab(name)}>
@@ -162,7 +150,8 @@ function OwnedWorkbench({
       )}
       {tab === tabs[0] && (
         <div className="grid max-w-4xl gap-3">
-          <p>启用后按以下规则自动执行；Mac 和 Desktop 需保持运行。请先登录并填写个人主页链接中的账号 ID。</p>
+          <p>启用后按以下规则自动执行；Mac 和 Desktop 需保持运行。</p>
+          <AccountSelection onChange={next => field('account_id', next.account_id)} policy={draft} />
           {(
             [
               ['topic', '运营主题'],
@@ -170,7 +159,6 @@ function OwnedWorkbench({
               ['goal', '运营目标'],
               ['audience', '目标受众'],
               ['style', '内容风格'],
-              ['account_id', '小红书账号 ID'],
               ['timezone', '时区'],
               ['deadline', '截止日期（可空）']
             ] as const

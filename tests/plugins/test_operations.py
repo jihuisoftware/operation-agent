@@ -63,7 +63,10 @@ def test_pause_revokes_queued_commands_and_stale_policy(store):
 def test_limits_are_atomic_and_reset_by_local_date(store):
     limits = {**DEFAULT["limits"], "comment": 1}
     version, policy = enable(store, limits=limits)
-    store.reserve_action(action(), version, "2026-10-31")
+    identity = store.reserve_action(action(), version, "2026-10-31")
+    command = store.enqueue("interact", action(), identity)
+    store.claim("mock-desktop")
+    store.acknowledge(command, "mock-desktop", {"state": "confirmed", "evidence": "模拟回执"})
     with pytest.raises(ValueError, match="额度"):
         store.reserve_action(action(target="note:2"), version, "2026-10-31")
     assert store.reserve_action(action(target="note:2"), version, "2026-11-01")

@@ -14,9 +14,8 @@ import {
 } from '@hermes/plugin-sdk'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 
-import { type BlueprintCatalog, type BlueprintTemplate } from './blueprint-types'
+import { type BlueprintCatalog, type BlueprintTemplate, moduleLabels } from './blueprint-types'
 import { BlueprintWizard } from './blueprint-wizard'
-import { PlatformLoginsPanel } from './platform-logins'
 import { $showOperationsBrowser } from './state'
 import type { Policy } from './types'
 import { Workbench } from './workbench'
@@ -134,14 +133,16 @@ function OwnedLibrary({ ctx, owner, view }: LibraryProps) {
   }
 
   const template = catalog.templates.find(t => t.id === selected) || catalog.templates[0]
-  const categories = ['全部', ...new Set(catalog.templates.filter(t => t.id !== 'daily').map(t => t.category))]
+  const businesses = catalog.templates.filter(t => t.kind === 'business')
+  const scenarios = catalog.templates.filter(t => t.kind === 'scenario')
+  const modules = catalog.templates.filter(t => t.id !== 'daily' && !t.kind)
+  const categories = ['全部', ...new Set(modules.map(t => t.category))]
 
   return (
     <div className="space-y-4 p-4 text-sm">
       <PlanHeader catalog={catalog} owner={owner}>
         {resources}
       </PlanHeader>
-      <PlatformLoginsPanel compact={view === 'summary'} ctx={ctx} owner={owner} />
       {error && (
         <p className="text-destructive" role="alert">
           {error}
@@ -150,6 +151,12 @@ function OwnedLibrary({ ctx, owner, view }: LibraryProps) {
       {notice && <p role="status">{notice}</p>}
       {view === 'blueprints' && (
         <>
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold">按场景选择定时任务</h2>
+            <p className="text-muted-foreground">
+              先选业务主题或执行场景，调整定位、任务和时间，再保存草稿或应用启用。已有计划的时间、权限和额度会保留。
+            </p>
+          </div>
           {catalog.draft && (
             <div className="flex flex-wrap items-center gap-2">
               <span>有一份未应用的蓝图草稿。</span>
@@ -172,11 +179,28 @@ function OwnedLibrary({ ctx, owner, view }: LibraryProps) {
           )}
           <div className="grid gap-6 lg:grid-cols-[minmax(230px,2fr)_minmax(320px,3fr)]">
             <div className="space-y-4">
+              {businesses.length > 0 && (
+                <section aria-label="业务主题" className="space-y-2">
+                  <h3 className="font-medium">按业务选择默认配置</h3>
+                  {businesses.map(t => (
+                    <TemplateRow key={t.id} onSelect={() => choose(t)} selected={t.id === selected} template={t} />
+                  ))}
+                </section>
+              )}
               <TemplateRow
                 onSelect={() => choose(catalog.templates[0])}
                 selected={selected === 'daily'}
                 template={catalog.templates[0]}
               />
+              {scenarios.length > 0 && (
+                <section aria-label="推荐场景" className="space-y-2">
+                  <h3 className="font-medium">推荐场景</h3>
+                  {scenarios.map(t => (
+                    <TemplateRow key={t.id} onSelect={() => choose(t)} selected={t.id === selected} template={t} />
+                  ))}
+                </section>
+              )}
+              <h3 className="font-medium">按模块自定义</h3>
               <div className="overflow-x-auto">
                 <SegmentedControl
                   onChange={setCategory}
@@ -186,8 +210,8 @@ function OwnedLibrary({ ctx, owner, view }: LibraryProps) {
                 />
               </div>
               <div>
-                {catalog.templates
-                  .filter(t => t.id !== 'daily' && (category === '全部' || t.category === category))
+                {modules
+                  .filter(t => category === '全部' || t.category === category)
                   .map(t => (
                     <TemplateRow key={t.id} onSelect={() => choose(t)} selected={t.id === selected} template={t} />
                   ))}
@@ -269,6 +293,8 @@ function PlanHeader({
   owner: CronBlueprintOwner
   children: ReactNode
 }) {
+  const business = catalog.templates.find(t => t.kind === 'business' && t.id === catalog.policy.business_theme)
+
   const state = !catalog.policy.enabled
     ? '未启用'
     : catalog.policy.paused
@@ -282,6 +308,12 @@ function PlanHeader({
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-semibold">{catalog.policy.topic || '先为运营计划设置主题'}</h2>
         <Badge variant="muted">{state}</Badge>
+        {business && (
+          <Badge variant="muted">
+            {business.title}
+            {catalog.policy.business_subtype ? ` · ${catalog.policy.business_subtype}` : ''}
+          </Badge>
+        )}
         <span className="text-xs text-muted-foreground">
           配置：{owner.profile || 'default'} · {catalog.online ? '桌面执行器在线' : '桌面执行器离线'}
         </span>
@@ -306,6 +338,28 @@ function TemplateDetail({ template, onConfigure }: { template: BlueprintTemplate
       <h2 className="text-lg font-semibold">{template.title}</h2>
       <p>{template.description}</p>
       <p className="text-muted-foreground">产出：{template.output}</p>
+      {template.kind === 'business' && (
+        <div className="space-y-2">
+          <p>可选子类：{template.subtypes?.join('、')}</p>
+          <p>目标受众：{template.defaults?.audience}</p>
+          <p>内容方向：{template.content_directions?.join('、')}</p>
+          <p>推荐先运行信息采集、草稿生产和日报；发布与互动可在下一步按需选择授权。</p>
+        </div>
+      )}
+      {template.defaults && (
+        <p className="text-muted-foreground">
+          建议目标：{template.defaults.goal} 建议风格：{template.defaults.style}
+          。已填写的目标和风格会保留，可在配置时修改。
+        </p>
+      )}
+      <div className="space-y-1">
+        <h3 className="font-medium">执行安排（可修改）</h3>
+        {Object.entries(template.times).map(([module, times]) => (
+          <p key={module}>
+            {moduleLabels[module] || module}：{times.join('、')}
+          </p>
+        ))}
+      </div>
       <p>
         运行条件：
         {template.modules.some(m => ['publish', 'comments', 'dm', 'follow'].includes(m))
@@ -313,7 +367,15 @@ function TemplateDetail({ template, onConfigure }: { template: BlueprintTemplate
           : '主题与目标已填写，Server 保持运行。内容生产需要可追溯来源。'}
       </p>
       {template.missing.length > 0 && <p>需要完善：{template.missing.join('；')}</p>}
-      <Button onClick={onConfigure}>{template.status === '未加入' ? '配置并加入计划' : '调整当前计划'}</Button>
+      <Button onClick={onConfigure}>
+        {template.kind === 'business'
+          ? '使用此业务主题'
+          : template.kind === 'scenario'
+            ? '使用场景并调整'
+            : template.status === '未加入'
+              ? '配置并加入计划'
+              : '调整当前计划'}
+      </Button>
     </>
   )
 }

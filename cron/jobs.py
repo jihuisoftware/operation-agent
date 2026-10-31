@@ -1959,15 +1959,8 @@ def list_jobs(include_disabled: bool = False) -> list[dict[str, Any]]:
     jobs = [_normalize_job_record(j) for j in load_jobs()]
     if not include_disabled:
         jobs = [j for j in jobs if j.get("enabled", True)]
-    try:
-        from cron.executions import latest_executions
-
-        latest = latest_executions([job.get("id", "") for job in jobs])
-    except Exception:
-        latest = {}
-    for job in jobs:
-        job["latest_execution"] = latest.get(job.get("id", ""))
-    return jobs
+    from cron.executions import attach_execution_status
+    return attach_execution_status(jobs)
 
 
 def _reject_terminal_activation(job: dict[str, Any], updated: dict[str, Any], job_id: str) -> None:
@@ -3220,6 +3213,9 @@ def _evaluate_due_job(job: dict[str, Any], scan: _DueScan, run_claim_ttl: float)
     recurring jobs; then once due: re-anchor stale cron instants, fast-forward missed recurring
     runs, retire/guard one-shots, and finally stamp the run claim / dispatch record."""
     now = scan.now
+    from cron.occurrences import has_live_fire_claim
+    if has_live_fire_claim(job, now):
+        return False
     # Cross-process guard: another process's live one-shot run_claim (younger than TTL) — do NOT
     # re-dispatch. Malformed/future-dated claims (clock/TZ skew) count as stale, never eternally
     # fresh.
@@ -3383,6 +3379,8 @@ def _prune_job_output(job_output_dir: Path, keep: int) -> int:
 
 def save_job_output(job_id: str, output: str):
     """Save job output to file."""
+    from cron.task_history import save_current_output
+    save_current_output(job_id, output)
     ensure_dirs()
     job_output_dir = _job_output_dir(job_id)
     _ensure_cron_dir(job_output_dir)

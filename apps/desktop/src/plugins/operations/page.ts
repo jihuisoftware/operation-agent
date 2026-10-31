@@ -81,12 +81,6 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
     )
 
   const handlers: Record<string, () => unknown> = {
-    account: () => {
-      const me = all('a[href*="/user/profile/"]').filter(e => /^(我|我的主页)$/.test(text(e)))
-      const link = unique(me, '当前账号入口').getAttribute('href') || ''
-
-      return { account_id: link.match(/\/user\/profile\/([^/?]+)/)?.[1] || '', url: location.href }
-    },
     inventory: () => {
       const list = items()
         .map(element => ({

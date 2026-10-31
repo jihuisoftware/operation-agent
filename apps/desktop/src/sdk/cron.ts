@@ -8,4 +8,5 @@ export interface CronBlueprintOwner {
 }
 export interface CronBlueprintContribution {
   render: (props: { owner: CronBlueprintOwner; view: 'blueprints' | 'summary' }) => ReactNode
+  renderUpcoming?: (props: { owner: CronBlueprintOwner }) => ReactNode
 }

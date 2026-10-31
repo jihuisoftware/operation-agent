@@ -5,7 +5,7 @@ from .store import Store
 
 
 def configure(parser):
-    parser.add_argument("action", choices=["status", "tick", "configure", "pause", "resume", "report"])
+    parser.add_argument("action", choices=["status", "tick", "run", "configure", "pause", "resume", "report"])
     parser.add_argument("--file")
     parser.add_argument("--day")
 
@@ -32,11 +32,13 @@ def _report(store, args):
 
 
 def main(args):
+    import uuid
     from .runtime import tick
     store = Store()
     handlers = {
         "configure": _configure, "pause": _pause, "resume": _pause,
         "tick": lambda store, args: tick(store), "report": _report,
+        "run": lambda store, args: tick(store, request_id=uuid.uuid4().hex),
         "status": lambda store, args: json.dumps(store.snapshot(), ensure_ascii=False, indent=2),
     }
     result = handlers[args.action](store, args)

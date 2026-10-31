@@ -2507,3 +2507,15 @@ polling fallback. Otherwise verify the backend exposes the matching
 
 **Colors look wrong after a theme switch.** You hardcoded a color. Replace it with
 a `var(--ui-*)` theme variable.
+
+
+### Scheduled task plan and upcoming-step contributions
+
+`CRON_BLUEPRINTS_AREA` (`cron.blueprints`) accepts `CronBlueprintContribution`. The required
+`render({owner, view})` displays templates or the plan summary; optional
+`renderUpcoming({owner})` displays upcoming business steps on `/upcoming`. The owner contains the
+connection ID and Profile. Bind every read and cancellation to that owner and discard local state
+when it changes. A missing callback adds no upcoming UI. The operations plugin implements this
+callback using its existing private API; Cron core never imports operations business modules.
+Cancellation must be durable and compete atomically with execution admission; started work cannot
+be presented as a successfully cancelled pending step.

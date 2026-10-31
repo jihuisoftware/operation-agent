@@ -12,9 +12,17 @@ export const STATE_DOT: Record<string, string> = {
   scheduled: 'bg-primary'
 }
 
-// Effective state: explicit state wins; otherwise infer from the enabled flag.
+export function isJobRunning(job: CronJob): boolean {
+  return ['claimed', 'running'].includes(job.active_execution?.status ?? '') || job.state?.trim() === 'running'
+}
+
+// A live attempt is independent of the latest result and the saved schedule state.
 export function jobState(job: CronJob): string {
   const state = typeof job.state === 'string' ? job.state.trim() : ''
+
+  if (state !== 'paused' && isJobRunning(job)) {
+    return 'running'
+  }
 
   return state || (job.enabled === false ? 'disabled' : 'scheduled')
 }

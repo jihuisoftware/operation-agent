@@ -1,0 +1,17 @@
+"""Expected no-op outcomes are distinct from successful work and execution errors."""
+
+
+class StageSkipped(Exception):
+    """A stage cannot produce an output under the current conditions."""
+
+
+def describe(stage, result):
+    if stage == "content" and isinstance(result, dict) and result.get("content_id"):
+        state = "completed" if result.get("ready") else "needs_attention"
+        detail = f"草稿已保存，版本 {result['content_id']}；" + ("可供发布" if result.get("ready") else "待完善，尚不可发布")
+        if result.get("missing"):
+            detail += "；" + "；".join(result["missing"])
+        if result.get("reason"):
+            detail += "\n自动检查：" + str(result["reason"])
+        return state, detail
+    return "completed", str(result or "完成")

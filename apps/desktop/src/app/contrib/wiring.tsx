@@ -188,7 +188,6 @@ import {
 // The workspace-route full-page views (skills/messaging/artifacts) are the
 // ChatRoutesSurface's and live in ./surfaces.
 const CommandCenterView = lazy(async () => ({ default: (await import('../command-center')).CommandCenterView }))
-const CronView = lazy(async () => ({ default: (await import('../cron')).CronView }))
 const ProfilesView = lazy(async () => ({ default: (await import('../profiles')).ProfilesView }))
 const SettingsView = lazy(async () => ({ default: (await import('../settings')).SettingsView }))
 
@@ -293,7 +292,7 @@ function useRecoveryRequestToasts(): void {
     cronReviewSeenRef.current = cronReviewRequest
 
     if (cronReviewRequest > 0) {
-      navigate(CRON_ROUTE)
+      navigateToWorkspacePage(navigate, CRON_ROUTE)
     }
   }, [cronReviewRequest, navigate])
 }
@@ -358,7 +357,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     closeOverlayToPreviousRoute,
     commandCenterInitialSection,
     commandCenterOpen,
-    cronOpen,
     currentView,
     openCommandCenterSection,
     profilesOpen,
@@ -1104,7 +1102,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     onRetrySessions: () => refreshSessions().catch(() => undefined),
     onManageCronJob: jobId => {
       setCronFocusJobId(jobId)
-      navigate(CRON_ROUTE)
+      navigateToWorkspacePage(navigate, CRON_ROUTE)
     },
     onNavigate: selectSidebarItem,
     onNewSessionInWorkspace: path => startSessionInWorkspace(path, { openTab: true }),
@@ -1349,12 +1347,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
             onNavigateRoute={path => navigateToWorkspacePage(navigate, path)}
             onOpenSession={openStoredSession}
           />
-        </Suspense>
-      )}
-
-      {cronOpen && (
-        <Suspense fallback={null}>
-          <CronView onClose={closeOverlayToPreviousRoute} onOpenSession={openStoredSession} />
         </Suspense>
       )}
 

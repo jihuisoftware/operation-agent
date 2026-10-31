@@ -16,7 +16,7 @@ const command: BrowserCommand = {
   }
 }
 
-function fixture() {
+function fixture(account = 'me', configured = 'me') {
   let url = 'about:blank'
 
   const guest = {
@@ -27,8 +27,8 @@ function fixture() {
     executeJavaScript: vi.fn(async (code: string) => {
       const request = JSON.parse(code.slice(code.lastIndexOf(')(') + 2, -1))
 
-      if (request.operation === 'account') {
-        return { account_id: 'me' }
+      if (request === 'xiaohongshu') {
+        return { state: account ? 'logged_in' : 'unknown', account_id: account }
       }
 
       if (request.operation === 'post-result') {
@@ -41,7 +41,7 @@ function fixture() {
 
   const api = vi.fn(async (path: string) =>
     path === '/policy'
-      ? { version: 3, policy: { enabled: true, paused: false, account_id: 'me', topic: '主题' } }
+      ? { version: 3, policy: { enabled: true, paused: false, account_id: configured, topic: '主题' } }
       : { name: 'image.png', data: '' }
   )
 
@@ -68,4 +68,37 @@ it('records uncertainty after submission and never retries the publishing click'
     .mock.calls.map(([code]) => JSON.parse(code.slice(code.lastIndexOf(')(') + 2, -1)))
 
   expect(requests.filter(request => request.operation === 'commit-post')).toHaveLength(1)
+})
+
+
+it.each(['first', 'second'])('resolves the live login %s without a configured account or external action', async account => {
+  vi.useFakeTimers()
+  const { guest, api } = fixture(account, '')
+  const result = executeBrowser({ ...command, kind: 'account', payload: { policy_version: 3 } }, guest, api)
+  await vi.runAllTimersAsync()
+  expect(await result).toMatchObject({ account_id: account })
+  expect(guest.executeJavaScript).toHaveBeenCalledTimes(1)
+})
+
+it('requires login when identity is empty instead of returning an executable account', async () => {
+  vi.useFakeTimers()
+  const { guest, api } = fixture('', '')
+  const result = executeBrowser({ ...command, kind: 'account', payload: { policy_version: 3 } }, guest, api)
+  await vi.runAllTimersAsync()
+  expect(await result).toMatchObject({ state: 'waiting_login', error: expect.stringContaining('扫码登录') })
+})
+
+it.each(['me', 'another'])('checks the captured action account against live login %s in automatic mode', async account => {
+  vi.useFakeTimers()
+  const { guest, api } = fixture(account, '')
+  const result = executeBrowser(command, guest, api)
+  await vi.runAllTimersAsync()
+  expect(await result).toMatchObject(account === 'me'
+    ? { state: 'unknown', error: '连接中断' }
+    : { state: 'blocked', error: expect.stringContaining('当前登录账号不匹配') })
+
+  const requests = vi.mocked(guest.executeJavaScript).mock.calls
+    .map(([code]) => JSON.parse(code.slice(code.lastIndexOf(')(') + 2, -1)))
+
+  expect(requests.filter(request => request.operation === 'commit-post')).toHaveLength(account === 'me' ? 1 : 0)
 })

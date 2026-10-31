@@ -229,6 +229,8 @@ def _cron_output_run_preview(path: Path, max_chars: int = 180) -> str:
         raw = path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return ""
+    if raw.startswith("# Cron Job:") and "\n---\n" in raw:
+        raw = raw.split("\n---\n", 1)[1]
     preview = re.sub(r"\s+", " ", raw).strip()
     if len(preview) <= max_chars:
         return preview
@@ -390,6 +392,8 @@ def _list_cron_output_runs(
         preview = _cron_output_run_preview(path)
         docs.append({
             "id": f"cron_output:{canonical_job_id}:{path.stem}",
+            "output_file": path.name,
+            "profile": profile,
             **_cron_output_run_row(started_at, preview or "Script-only run", preview),
         })
 
@@ -711,6 +715,30 @@ async def get_cron_job(job_id: str, profile: Optional[str] = None):
 @router.get("/api/cron/jobs/{job_id}/runs")
 async def list_cron_job_runs(job_id: str, profile: Optional[str] = None, limit: int = 20):
     return await _run_cron_dashboard_io(_list_cron_job_runs_sync, job_id, profile, limit)
+
+
+@router.get("/api/cron/jobs/{job_id}/output")
+async def get_cron_run_output(job_id: str, filename: str, profile: Optional[str] = None):
+    from .cron_run_output import read_output
+    return await _run_cron_dashboard_io(read_output, job_id, filename, profile)
+
+
+@router.get("/api/cron/jobs/{job_id}/details")
+async def get_cron_task_details(job_id: str, profile: Optional[str] = None, execution_id: Optional[str] = None):
+    from .cron_task_detail import read_detail
+    return await _run_cron_dashboard_io(read_detail, job_id, profile, execution_id)
+
+
+@router.get('/api/cron/upcoming')
+async def get_upcoming_steps(profile: Optional[str] = None):
+    from .cron_upcoming import read_upcoming
+    return await _run_cron_dashboard_io(read_upcoming, profile)
+
+
+@router.post('/api/cron/jobs/{job_id}/cancel-next')
+async def cancel_upcoming_step(job_id: str, body: dict, profile: Optional[str] = None):
+    from .cron_upcoming import cancel_upcoming
+    return await _run_cron_dashboard_io(cancel_upcoming, job_id, body, profile)
 
 
 @router.post("/api/cron/jobs")

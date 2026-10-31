@@ -10,14 +10,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it('identifies the signed-in account rather than authors of visible notes', () => {
-  document.body.innerHTML = '<a href="/user/profile/author">作者</a><a href="/user/profile/mine">我</a>'
-  expect(xhsPage({ operation: 'account', payload: {} })).toMatchObject({ account_id: 'mine' })
-})
-
-it('refuses an ambiguous account and does not treat missing identifiers as candidates', () => {
-  document.body.innerHTML = '<a href="/user/profile/a">我</a><a href="/user/profile/b">我</a>'
-  expect(() => xhsPage({ operation: 'account', payload: {} })).toThrow('2 个元素')
+it('does not treat missing identifiers as candidates', () => {
   document.body.innerHTML = '<div class="comment-item">没有稳定标识</div>'
   expect(() => xhsPage({ operation: 'inventory', payload: { kind: 'reply' } })).toThrow('页面结构')
 })

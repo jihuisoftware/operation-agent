@@ -7,7 +7,7 @@ import { ContribBoundary, ContribRender } from '@/contrib/react/boundary'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { CRON_BLUEPRINTS_AREA, type CronBlueprintContribution } from '@/sdk/cron'
 
-export function ContributedBlueprints({ profile, view }: { profile: string; view: 'blueprints' | 'summary' }) {
+export function ContributedBlueprints({ profile, view }: { profile: string; view: 'blueprints' | 'summary' | 'upcoming' }) {
   const scope = useStore($apiRequestScope)
   const owner = useMemo(() => ({ connectionId: scope.connectionId, profile }), [scope.connectionId, profile])
   const contributions = useContributions(CRON_BLUEPRINTS_AREA)
@@ -53,9 +53,9 @@ function ContributionEntry({
   id: string
   data: CronBlueprintContribution
   owner: { connectionId: string | null; profile: string }
-  view: 'blueprints' | 'summary'
+  view: 'blueprints' | 'summary' | 'upcoming'
 }) {
-  const render = useCallback(() => data.render({ owner, view }), [data, owner, view])
+  const render = useCallback(() => view === 'upcoming' ? data.renderUpcoming?.({ owner }) : data.render({ owner, view }), [data, owner, view])
 
   return (
     <ContribBoundary id={id}>

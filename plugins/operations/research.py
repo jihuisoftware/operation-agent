@@ -27,6 +27,7 @@ def collect(store, policy, day):
         if store.policy()[1] != policy or policy["paused"] or not policy["enabled"]:
             raise ValueError("运营规则变更或已暂停，停止采集")
         query = " ".join([*keywords[:3], domain]).strip()
+        store.progress("正在检索信息来源", {"query": query})
         found = json.loads(web_search_tool(query, limit=5))
         candidates.extend(found.get("data", {}).get("web", []))
         if found.get("error"):
@@ -45,6 +46,7 @@ def collect(store, policy, day):
         store.renew()
         if store.policy()[1] != policy or policy["paused"] or not policy["enabled"]:
             raise ValueError("运营规则变更或已暂停，停止采集")
+        store.progress("正在读取来源正文", {"url": url, "title": candidate.get("title", url)})
         extracted = json.loads(asyncio.run(web_extract_tool([url], char_limit=10000)))
         pages = extracted.get("results", [])
         page = pages[0] if pages else {}

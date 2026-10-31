@@ -76,7 +76,13 @@ def test_blueprint_preview_apply_and_drafts_follow_host_profile_scope(tmp_path, 
         assert client.get(path).status_code in (401, 403)
         client.headers[web_server._SESSION_HEADER_NAME] = web_server._SESSION_TOKEN
         catalog = client.get(path + "?profile=work").json()
-        assert len(catalog["templates"]) == 8
+        publishing = next(t for t in catalog["templates"] if t["id"] == "xiaohongshu-daily")
+        assert publishing["kind"] == "scenario"
+        assert "publish" in publishing["modules"]
+        assert publishing["times"]["publish"] == ["10:00"]
+        assert catalog["policy"]["allowed"]["publish"] is True
+        assert not catalog["policy"]["enabled"]
+        assert not any(catalog["policy"]["modules"].values())
         policy = catalog["policy"]
         policy.update(topic="次级配置主题", goal="只生成日报")
         policy["modules"]["report"] = True

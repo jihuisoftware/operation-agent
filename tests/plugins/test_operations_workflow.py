@@ -37,7 +37,9 @@ def fake_model(**kwargs):
     return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(result)))], usage=SimpleNamespace(model_dump=lambda: {"total_tokens": 20}))
 
 
-def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, monkeypatch):
+@pytest.mark.parametrize("manual", [False, True])
+@pytest.mark.parametrize("automatic_account", [False, True])
+def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, monkeypatch, manual, automatic_account):
     from agent import auxiliary_client
     from tools import web_tools
     monkeypatch.setattr(auxiliary_client, "call_llm", fake_model)
@@ -48,6 +50,10 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
     store.put("asset", {"authorized": True, "name": "自有图片.png"}, "image")
     from plugins.operations.blueprints import apply, preview
     version, policy = store.policy()
+    if automatic_account:
+        policy["account_id"] = ""
+    if manual:
+        policy["limits"]["publish"] = 2
     request = {"version": version, "policy": policy, "mode": "enable", "request_id": "full-day"}
     assert not preview(store, request)["missing"]
     assert apply(store, request)["job_id"]
@@ -57,28 +63,37 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
         command = store.claim("simulated-desktop")
         assert command["id"] == identity
         payload = command["payload"]
-        if command["kind"] == "verify":
+        if command["kind"] == "account":
+            result = {"account_id": "me"}
+        elif command["kind"] == "verify":
             result = {"state": "unknown", "evidence": "平台仍在审核"}
         elif command["kind"] == "inbox":
             result = {"items": [{"id": payload["kind"] + ":1", "text": "步行，开放时间？", "inbound": True, "follows_me": True}], "evidence": "模拟网页可见条目"}
         else:
             submissions.append(payload["kind"])
-            result = {"state": "submitted" if payload["kind"] == "publish" else "confirmed", "evidence": "模拟平台回执", "url": "https://example.org/result"}
+            result = {"state": "submitted" if payload["kind"] == "publish" and not manual else "confirmed", "evidence": "模拟平台回执", "url": "https://example.org/result"}
         store.acknowledge(identity, "simulated-desktop", result)
         return original(identity)
     monkeypatch.setattr(store, "command", consume)
-    for hour, minute in ((1, 5), (1, 45), (2, 5), (3, 5), (13, 5)):
-        store.claim("simulated-desktop", busy=True)
-        tick(store, datetime(2026, 10, 31, hour, minute, tzinfo=UTC))
-        tick(store, datetime(2026, 10, 31, hour, minute + 1, tzinfo=UTC))
+    if manual:
+        for batch in ("first-click", "first-click", "second-click"):
+            store.claim("simulated-desktop", busy=True)
+            tick(store, datetime(2026, 10, 31, 9, 45, tzinfo=UTC), request_id=batch)
+        assert len(store.objects("content")) == 2
+        assert len(store.objects("report")) == 2
+    else:
+        for hour, minute in ((1, 5), (1, 45), (2, 5), (3, 5), (13, 5)):
+            store.claim("simulated-desktop", busy=True)
+            tick(store, datetime(2026, 10, 31, hour, minute, tzinfo=UTC))
+            tick(store, datetime(2026, 10, 31, hour, minute + 1, tzinfo=UTC))
     from plugins.operations.research import distinct_sources
     assert len(store.objects("source")) == 3
     assert len(distinct_sources(store, "2026-10-31")) == 1
-    assert sorted(submissions) == ["comment", "dm", "follow", "publish", "reply"]
+    assert sorted(submissions) == sorted(["comment", "dm", "follow", "publish", "reply"] * (2 if manual else 1))
     report = store.objects("report")[0]["markdown"]
-    assert "已核对成功 4 次" in report
-    assert "submitted" in report and "https://example.org/result" in report
-    assert "不可访问" in report and "模型调用 8 次" in report
+    assert f"已核对成功 {10 if manual else 4} 次" in report
+    assert ("confirmed" if manual else "submitted") in report and "https://example.org/result" in report
+    assert "不可访问" in report and f"模型调用 {16 if manual else 8} 次" in report
     assert "20" in report and "费用未知" in report
 
 

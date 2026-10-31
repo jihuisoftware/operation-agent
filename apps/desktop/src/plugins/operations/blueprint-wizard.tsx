@@ -6,9 +6,11 @@ import {
   type BlueprintCatalog,
   type BlueprintPreview,
   type BlueprintTemplate,
+  enableDefaultOperations,
   moduleLabels,
   seedBlueprint
 } from './blueprint-types'
+import { BusinessFields } from './business-fields'
 import type { Policy } from './types'
 
 interface WizardProps {
@@ -21,6 +23,8 @@ interface WizardProps {
 }
 
 const fieldLabels: Record<string, string> = {
+  business_theme: '业务主题',
+  business_subtype: '业务子类',
   modules: '执行模块',
   allowed: '动作授权',
   times: '执行时间',
@@ -42,6 +46,14 @@ const fieldLabels: Record<string, string> = {
   model_calls: '模型调用上限'
 }
 
+function changeValue(catalog: BlueprintCatalog, field: string, value: unknown) {
+  if (field === 'business_theme') {
+    return catalog.templates.find(t => t.id === value)?.title || (value ? String(value) : '未选择')
+  }
+
+  return JSON.stringify(value)
+}
+
 export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAssets }: WizardProps) {
   const [baseVersion] = useState(catalog.version)
   const [policy, setPolicy] = useState(() => draft || seedBlueprint(catalog, template))
@@ -50,6 +62,7 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [requestId, setRequestId] = useState(() => crypto.randomUUID())
+  const business = catalog.templates.find(t => t.kind === 'business' && t.id === policy.business_theme)
 
   const change = (value: Policy) => {
     setPolicy(value)
@@ -78,6 +91,20 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
   }
 
   const save = async (mode: 'draft' | 'enable') => {
+    if (mode === 'enable') {
+      if (!preview) {
+        await review()
+
+        return
+      }
+
+      if (Object.keys(preview.missing).length > 0) {
+        setError('暂不能启用，请先完善以下条件，或保存草稿稍后继续。')
+
+        return
+      }
+    }
+
     setPending(true)
     setError('')
 
@@ -117,7 +144,20 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
         value={step}
       />
       <fieldset className="contents" disabled={pending}>
-        {step === 'goal' && <GoalFields onChange={change} policy={policy} />}
+        {step === 'goal' && (
+          <>
+            <div className="space-y-2">
+              <p className="text-muted-foreground">
+                默认流程包含采集、内容生产、发布、评论、收到私信回复和日报。可按需关闭；回关单独开启。
+              </p>
+              <Button onClick={() => change(enableDefaultOperations(policy))} variant="outline">
+                启用默认运营模块与授权
+              </Button>
+            </div>
+            {business && <BusinessFields onChange={change} policy={policy} template={business} />}
+            <GoalFields onChange={change} policy={policy} />
+          </>
+        )}
         {step === 'rules' && (
           <>
             <ScheduleFields onChange={change} policy={policy} />
@@ -140,7 +180,9 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
                   {row.time} · {row.label}
                 </p>
               ))}
-              <p className="mt-2 text-muted-foreground">过期时段不会集中补发；启用后按保存的规则执行。</p>
+              <p className="mt-2 text-muted-foreground">
+                自动调度不集中补发过期时段；“立即执行”忽略排期，并重新执行已完成模块。每日额度仍生效。
+              </p>
             </div>
             <div>
               <h3 className="font-medium">预期产出</h3>
@@ -152,16 +194,6 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
                   </p>
                 ))}
             </div>
-            {Object.keys(preview.missing).length > 0 && (
-              <div role="alert">
-                <h3 className="font-medium">需要完善</h3>
-                {Object.entries(preview.missing).map(([module, items]) => (
-                  <p key={module}>
-                    {moduleLabels[module] || '运营计划'}：{items.join('；')}
-                  </p>
-                ))}
-              </div>
-            )}
             <div>
               <h3 className="font-medium">本次变更</h3>
               {preview.changes.length ? (
@@ -169,7 +201,8 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
                   <details className="mt-2" key={row.field}>
                     <summary>{fieldLabels[row.field] || row.field}</summary>
                     <p className="break-words text-muted-foreground">
-                      原值：{JSON.stringify(row.before)} → 新值：{JSON.stringify(row.after)}
+                      原值：{changeValue(catalog, row.field, row.before)} → 新值：
+                      {changeValue(catalog, row.field, row.after)}
                     </p>
                   </details>
                 ))
@@ -188,6 +221,39 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
           {error}
         </p>
       )}
+      {step === 'review' && preview && Object.keys(preview.missing).length > 0 && (
+        <div className="space-y-2" role="alert">
+          <h3 className="font-medium">启用前需要完善</h3>
+          {Object.entries(preview.missing).map(([module, items]) => (
+            <p key={module}>
+              {moduleLabels[module] || '运营计划'}：{items.join('；')}
+            </p>
+          ))}
+          <p className="text-muted-foreground">补全条件后重新检查，也可返回取消暂不执行的模块。</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={pending}
+              onClick={() => {
+                setError('')
+                setStep('goal')
+              }}
+              variant="outline"
+            >
+              修改目标与模块
+            </Button>
+            <Button
+              disabled={pending}
+              onClick={() => {
+                setError('')
+                setStep('rules')
+              }}
+              variant="outline"
+            >
+              完善时间与规则
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button disabled={pending} onClick={() => void save('draft')} variant="outline">
           保存草稿
@@ -203,10 +269,7 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
           </Button>
         )}
         {step === 'review' && (
-          <Button
-            disabled={pending || !preview || Object.keys(preview.missing).length > 0}
-            onClick={() => void save('enable')}
-          >
+          <Button disabled={pending} onClick={() => void save('enable')}>
             {pending ? '正在应用…' : '应用并启用'}
           </Button>
         )}

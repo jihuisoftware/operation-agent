@@ -56,7 +56,6 @@ import { $profileScope, ALL_PROFILES } from '@/store/profile'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import {
-  Panel,
   PanelAction,
   PanelAddButton,
   PanelBlock,
@@ -88,8 +87,10 @@ import {
   toggleCronDeliveryTarget,
   validateCronEditor
 } from './cron-job-model'
-import { jobState, jobTitle, nextRunOverdueMs, STATE_DOT, truncateText } from './job-state'
-import { isCronRunRow, openCronRun, reconcileCronRunVerdicts } from './open-cron-run'
+import { isJobRunning, jobState, jobTitle, nextRunOverdueMs, STATE_DOT, truncateText } from './job-state'
+import { reconcileCronRunVerdicts } from './open-cron-run'
+import { RunRecord } from './run-record'
+import { TaskDetails } from './task-details'
 
 const DEFAULT_DELIVER = 'local'
 
@@ -304,16 +305,15 @@ function matchesQuery(job: CronJob, q: string): boolean {
 }
 
 interface CronViewProps extends React.ComponentProps<'section'> {
-  onClose: () => void
   onOpenSession?: (sessionId: string, session?: SessionInfo) => void
   setStatusbarItemGroup?: SetStatusbarItemGroup
 }
 
-export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setStatusbarItemGroup }: CronViewProps) {
+export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarItemGroup }: CronViewProps) {
   const { t } = useI18n()
   const c = t.cron
   // Source of truth is the shared atom (also fed by the controller poll), so the
-  // sidebar and this overlay never drift — a delete here clears the sidebar row
+  // sidebar and this page never drift — a delete here clears the sidebar row
   // immediately. `loading` only gates the first paint before the atom is filled.
   const jobs = useStore($cronJobs)
   const [loading, setLoading] = useState(jobs.length === 0)
@@ -518,6 +518,10 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
   }, [])
 
   async function handleTrigger(job: CronJob) {
+    if (isJobRunning(job) || busyJobTokens.has(job.id)) {
+      return
+    }
+
     const viewProfile = profile
     const key = `${viewProfile}:${job.id}`
     const controller = triggerControllerRef.current
@@ -668,15 +672,28 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
   }
 
   return (
-    <Panel closeLabel={c.close} onClose={onClose}>
-      <PanelHeader subtitle={c.count(totalCount)} title={c.title} />
+    <section aria-label={c.title} className="flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5">
+      <PanelHeader
+        actions={
+          <>
+            <Button onClick={() => setSection('blueprints')} size="sm">
+              选择场景
+            </Button>
+            <Button onClick={() => setEditor({ mode: 'create' })} size="sm" variant="outline">
+              {c.newCron}
+            </Button>
+          </>
+        }
+        subtitle={`${c.count(totalCount)} · 按计划自动运行，也可选择任务立即执行`}
+        title={c.title}
+      />
 
       <div className="px-4 py-2">
         <SegmentedControl
           onChange={setSection}
           options={[
             { id: 'jobs', label: '任务与执行' },
-            { id: 'blueprints', label: '运营蓝图' }
+            { id: 'blueprints', label: '场景模板' }
           ]}
           value={section}
         />
@@ -718,6 +735,15 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
                 job={job}
                 key={job.id}
                 menuItems={[
+                  {
+                    icon: 'play',
+                    label: c.triggerNow,
+                    disabled:
+                      isJobRunning(job) ||
+                      busyJobTokens.has(job.id) ||
+                      triggeringJobKeys.has(`${profile}:${job.id}`),
+                    onSelect: () => void handleTrigger(job)
+                  },
                   { icon: 'edit', label: c.edit, onSelect: () => setEditor({ mode: 'edit', job }) },
                   { icon: 'trash', label: t.common.delete, onSelect: () => setPendingDelete(job), tone: 'danger' }
                 ]}
@@ -794,7 +820,7 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
         open={pendingDelete !== null}
         title={c.deleteTitle}
       />
-    </Panel>
+    </section>
   )
 }
 
@@ -873,7 +899,7 @@ function CronJobDetail({
               {isPaused ? c.resumeTitle : c.pauseTitle}
             </PanelAction>
             <PanelAction
-              disabled={busy}
+              disabled={busy || isJobRunning(job)}
               icon={pendingRunAt === undefined ? 'zap' : 'loading'}
               onClick={onTrigger}
               primary
@@ -924,6 +950,7 @@ function CronJobDetail({
         </section>
       ) : null}
 
+      <TaskDetails jobId={job.id} key={pendingJobKey} profile={job.profile} />
       <CronJobRuns
         c={c}
         jobId={job.id}
@@ -1096,36 +1123,15 @@ function CronJobRuns({
               </span>
             </div>
           )}
-          {(runs ?? []).map(run =>
-            !isCronRunRow(run) ? (
-              // Output-doc rows have no backing session to open; show the
-              // recorded output preview without a chat-navigation affordance.
-              <div className="flex items-center justify-between gap-3 rounded-md px-2 py-1 text-xs" key={run.id}>
-                <span className="truncate text-foreground/85">
-                  {run.title?.trim() || run.preview?.trim() || run.id}
-                </span>
-                <span className="shrink-0 text-[0.62rem] text-muted-foreground/55 tabular-nums">
-                  {formatRunTime(run.last_active || run.started_at)}
-                </span>
-              </div>
-            ) : (
-              // One click to the run's transcript; a run the scheduler never
-              // closed opens view-only (see `openCronRun`, #88443).
-              <button
-                className="row-hover flex items-center justify-between gap-3 rounded-md px-2 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                key={run.id}
-                onClick={onOpenSession ? () => openCronRun(run, onOpenSession) : undefined}
-                type="button"
-              >
-                <span className="truncate text-foreground/85">
-                  {run.title?.trim() || run.preview?.trim() || run.id}
-                </span>
-                <span className="shrink-0 text-[0.62rem] text-muted-foreground/55 tabular-nums">
-                  {formatRunTime(run.last_active || run.started_at)}
-                </span>
-              </button>
-            )
-          )}
+          {(runs ?? []).map(run => (
+            <RunRecord
+              jobId={jobId}
+              key={`${run.connection_id || ''}:${run.profile || ''}:${run.id}`}
+              onOpenSession={onOpenSession}
+              run={run}
+              time={formatRunTime(run.last_active || run.started_at)}
+            />
+          ))}
         </div>
       )}
     </div>

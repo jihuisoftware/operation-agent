@@ -1,3 +1,4 @@
+import { seedTemplateDefaults } from './business-config'
 import type { Policy } from './types'
 
 export interface BlueprintTemplate {
@@ -10,6 +11,11 @@ export interface BlueprintTemplate {
   status: string
   missing: string[]
   times: Record<string, string[]>
+  kind?: 'scenario' | 'business'
+  defaults?: Partial<Pick<Policy, 'topic' | 'goal' | 'audience' | 'style' | 'keywords'>>
+  subtypes?: string[]
+  content_directions?: string[]
+  questions?: string[]
 }
 export interface PlanTime {
   module: string
@@ -61,13 +67,35 @@ export const actionLabels: Record<string, string> = {
 }
 
 export function seedBlueprint(catalog: BlueprintCatalog, template: BlueprintTemplate): Policy {
-  const policy = structuredClone(catalog.policy)
-  const initial = !Object.values(policy.modules).some(Boolean)
+  const initial = !Object.values(catalog.policy.modules).some(Boolean)
+  const policy = seedTemplateDefaults(catalog.policy, template, initial && catalog.version === 0)
 
   if (template.id !== 'daily' || initial) {
     for (const module of template.modules) {
+      if (!policy.modules[module]) {
+        for (const [action, owner] of Object.entries(actionModules)) {
+          if (owner === module && action !== 'follow') {
+            policy.allowed[action] = true
+          }
+        }
+      }
+
       policy.modules[module] = true
     }
+  }
+
+  return policy
+}
+
+export function enableDefaultOperations(current: Policy): Policy {
+  const policy = structuredClone(current)
+
+  for (const module of ['research', 'content', 'publish', 'comments', 'dm', 'report']) {
+    policy.modules[module] = true
+  }
+
+  for (const action of ['publish', 'comment', 'reply', 'dm']) {
+    policy.allowed[action] = true
   }
 
   return policy

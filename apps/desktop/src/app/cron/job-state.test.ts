@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import { truncateText } from './job-state'
+import { isJobRunning, jobState, truncateText } from './job-state'
+
+it('keeps a live attempt visible and blocks another trigger even when its schedule is paused', () => {
+  const job = { id: 'one', enabled: true, state: 'scheduled', active_execution: { id: 'manual', status: 'running' } }
+
+  expect(jobState(job)).toBe('running')
+  expect(isJobRunning(job)).toBe(true)
+  expect(jobState({ ...job, state: 'paused' })).toBe('paused')
+  expect(isJobRunning({ ...job, state: 'paused' })).toBe(true)
+  expect(jobState({ ...job, active_execution: null })).toBe('scheduled')
+  expect(isJobRunning({ ...job, active_execution: null })).toBe(false)
+})
 
 describe('truncateText', () => {
   it('truncates on Unicode code-point boundaries', () => {

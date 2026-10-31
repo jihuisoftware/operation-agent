@@ -3,12 +3,16 @@ import {
   type CronBlueprintContribution,
   type HermesPlugin,
   ROUTES_AREA,
+  SIDEBAR_NAV_AREA,
+  type SidebarNavContribution,
   TITLEBAR_AREAS
 } from '@hermes/plugin-sdk'
 import { createRoot } from 'react-dom/client'
 
+import { AccountsPage } from './accounts'
 import { BlueprintLibrary } from './blueprint-library'
 import { $showOperationsBrowser } from './state'
+import { UpcomingOperations } from './upcoming'
 import { Workbench } from './workbench'
 import { OperationsWorker } from './worker'
 
@@ -18,11 +22,24 @@ export default {
   description: '目标、信息来源、规则执行与每日总结',
   register(ctx) {
     ctx.register({
+      id: 'accounts',
+      area: ROUTES_AREA,
+      title: '账号登录',
+      data: { path: '/accounts' },
+      render: () => <AccountsPage ctx={ctx} />
+    })
+    ctx.register({
+      id: 'accounts-nav',
+      area: SIDEBAR_NAV_AREA,
+      data: { path: '/accounts', label: '账号登录', codicon: 'account' } satisfies SidebarNavContribution
+    })
+    ctx.register({
       id: 'blueprints',
       area: CRON_BLUEPRINTS_AREA,
       title: '运营蓝图',
       data: {
-        render: ({ owner, view }) => <BlueprintLibrary ctx={ctx} owner={owner} view={view} />
+        render: ({ owner, view }) => <BlueprintLibrary ctx={ctx} owner={owner} view={view} />,
+        renderUpcoming: ({ owner }) => <UpcomingOperations ctx={ctx} key={JSON.stringify(owner)} owner={owner} />
       } satisfies CronBlueprintContribution
     })
     ctx.register({

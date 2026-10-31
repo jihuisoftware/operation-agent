@@ -38,6 +38,9 @@ import type { SidebarActions, WiringActions } from './types'
 // (agents/settings/…) are the controller's and stay in wiring.tsx.
 const ArtifactsView = lazy(async () => ({ default: (await import('../artifacts')).ArtifactsView }))
 const CapabilitiesView = lazy(async () => ({ default: (await import('../capabilities')).CapabilitiesView }))
+const CronView = lazy(async () => ({ default: (await import('../cron')).CronView }))
+const ActivityView = lazy(async () => ({ default: (await import('../activity')).ActivityView }))
+const UpcomingView = lazy(async () => ({ default: (await import('../upcoming')).UpcomingView }))
 
 export function LegacySessionRedirect() {
   const { sessionId } = useParams()
@@ -187,7 +190,9 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
       <Route element={page(<ArtifactsView setStatusbarItemGroup={setStatusbarItemGroup} />)} path="artifacts" />
       <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="agents" />
       <Route element={null} path="command-center" />
-      <Route element={null} path="cron" />
+      <Route element={page(<CronView onOpenSession={(...args) => actions.onResumeSession(...args)} />)} path="cron" />
+      <Route element={page(<ActivityView />)} path="activity" />
+      <Route element={page(<UpcomingView />)} path="upcoming" />
       <Route element={null} path="profiles" />
       <Route element={null} path="settings" />
       <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="starmap" />

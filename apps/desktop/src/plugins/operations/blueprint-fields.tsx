@@ -1,5 +1,6 @@
 import { Checkbox, Input, Textarea } from '@hermes/plugin-sdk'
 
+import { AccountSelection } from './account-selection'
 import { actionLabels, actionModules, moduleLabels } from './blueprint-types'
 import type { Policy } from './types'
 
@@ -73,12 +74,7 @@ export function ScheduleFields({ policy, onChange }: PolicyFieldsProps) {
             />
           </label>
         ))}
-      {external && (
-        <label className="grid gap-2">
-          小红书账号 ID
-          <Input onChange={e => update('account_id', e.target.value)} value={policy.account_id} />
-        </label>
-      )}
+      {external && <AccountSelection onChange={onChange} policy={policy} />}
       {lists.map(([key, label]) => (
         <label className="grid gap-2" key={key}>
           {label}（每行一条）

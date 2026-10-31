@@ -16,9 +16,13 @@ export const COMMAND_CENTER_ROUTE = '/command-center'
 export const CAPABILITIES_ROUTE = '/capabilities'
 export const ARTIFACTS_ROUTE = '/artifacts'
 export const CRON_ROUTE = '/cron'
+export const ACTIVITY_ROUTE = '/activity'
+export const UPCOMING_ROUTE = '/upcoming'
 export const PROFILES_ROUTE = '/profiles'
 
 export type AppView =
+  | 'activity'
+  | 'upcoming'
   | 'artifacts'
   | 'capabilities'
   | 'chat'
@@ -32,7 +36,7 @@ export type AppView =
   | 'profiles'
   | 'settings'
 
-export type AppRouteId = 'artifacts' | 'capabilities' | 'command-center' | 'cron' | 'new' | 'profiles' | 'settings'
+export type AppRouteId = 'activity' | 'upcoming' | 'artifacts' | 'capabilities' | 'command-center' | 'cron' | 'new' | 'profiles' | 'settings'
 
 export interface AppRoute {
   id: AppRouteId
@@ -47,6 +51,8 @@ const ALL_APP_ROUTES = [
   { id: 'capabilities', path: CAPABILITIES_ROUTE, view: 'capabilities' },
   { id: 'artifacts', path: ARTIFACTS_ROUTE, view: 'artifacts' },
   { id: 'cron', path: CRON_ROUTE, view: 'cron' },
+  { id: 'activity', path: ACTIVITY_ROUTE, view: 'activity' },
+  { id: 'upcoming', path: UPCOMING_ROUTE, view: 'upcoming' },
   { id: 'profiles', path: PROFILES_ROUTE, view: 'profiles' }
 ] as const satisfies readonly AppRoute[]
 
@@ -142,7 +148,7 @@ export interface ProfileGroupHeaderContribution {
 // Views that render as a full-screen modal card (OverlayView) over the shell.
 // While one is open the app's titlebar control clusters must hide so they don't
 // bleed over the overlay (they sit at a higher z-index than the overlay card).
-export const OVERLAY_VIEWS: ReadonlySet<AppView> = new Set(['command-center', 'cron', 'profiles', 'settings'])
+export const OVERLAY_VIEWS: ReadonlySet<AppView> = new Set(['command-center', 'profiles', 'settings'])
 
 export function isOverlayView(view: AppView): boolean {
   return OVERLAY_VIEWS.has(view)

@@ -3,14 +3,16 @@ from copy import deepcopy
 from datetime import datetime, UTC
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
-from .modules import TIMES, ACTION_MODULE, EXTERNAL, upgrade
+from .modules import TIMES, ACTION_MODULE, upgrade
+from .business_themes import validate_business_selection
 
 LIMITS = {"source": 30, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "follow": 5}
 DEFAULT = {"schema_version": 2, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
            "style": "真实、清楚、具体", "brand": "", "account_id": "", "timezone": "Asia/Shanghai",
            "sources": [], "rss_sources": [], "keywords": [], "knowledge": [], "follow_terms": [],
-           "allowed": {k: False for k in LIMITS if k != "source"}, "limits": LIMITS,
-           "times": TIMES, "deadline": "", "priority": 1, "model_calls": 50}
+           "allowed": {k: k != "follow" for k in LIMITS if k != "source"}, "limits": LIMITS,
+           "times": TIMES, "deadline": "", "priority": 1, "model_calls": 50,
+           "business_theme": "", "business_subtype": ""}
 
 
 def now_iso():
@@ -36,9 +38,10 @@ def validate_policy(value):
     for key in ("enabled", "paused"):
         if not isinstance(result[key], bool):
             raise ValueError(f"{key} 必须是布尔值")
-    for key in ("topic", "audience", "goal", "style", "account_id", "deadline", "brand"):
+    for key in ("topic", "audience", "goal", "style", "account_id", "deadline", "brand", "business_theme", "business_subtype"):
         if not isinstance(result[key], str) or len(result[key]) > 8000:
             raise ValueError(f"{key} 格式错误")
+    validate_business_selection(result["business_theme"], result["business_subtype"])
     if type(result["priority"]) is not int or not 1 <= result["priority"] <= 5:
         raise ValueError("优先级必须是 1 到 5 的整数")
     ZoneInfo(result["timezone"])
@@ -49,8 +52,6 @@ def validate_policy(value):
         raise ValueError("启用前至少选择一个运营模块")
     if result["enabled"] and not all(result[k].strip() for k in ("topic", "goal")):
         raise ValueError("启用前请填写主题和目标")
-    if result["enabled"] and any(result["modules"][k] for k in EXTERNAL) and not result["account_id"].strip():
-        raise ValueError("外部账号动作需要填写小红书账号 ID")
     if result["deadline"]:
         datetime.fromisoformat(result["deadline"])
     return result
@@ -86,7 +87,9 @@ def permitted(policy, action):
         return "运营计划未启用或已暂停"
     if not policy["modules"].get(ACTION_MODULE.get(action["kind"]), False) or not policy["allowed"].get(action["kind"], False):
         return "该动作未授权"
-    if action.get("account_id") != policy["account_id"]:
+    if not isinstance(action.get("account_id"), str) or not action["account_id"].strip():
+        return "尚未识别实际登录账号"
+    if policy["account_id"] and action.get("account_id") != policy["account_id"]:
         return "目标账号不匹配"
     handlers = {"dm": _permit_dm, "follow": _permit_follow}
     check = handlers.get(action["kind"])

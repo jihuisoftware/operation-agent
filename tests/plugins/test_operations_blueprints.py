@@ -40,6 +40,33 @@ def test_draft_does_not_mutate_live_policy_and_offline_modules_need_no_account(s
     assert store.objects("blueprint_draft")[0]["policy"]["topic"] == "尚未确定的方向"
 
 
+def test_scenario_choice_can_be_customized_without_scheduling_on_catalog_read(store):
+    from cron.jobs import list_jobs
+
+    before = store.policy()
+    catalog = blueprints.catalog(store)
+    scenario = next(t for t in catalog["templates"] if t["id"] == "industry-watch")
+    assert store.policy() == before
+    assert list_jobs() == []
+    policy = deepcopy(catalog["policy"])
+    policy.update(scenario["defaults"], topic="城市步行", goal="跟进无障碍路线的新信息")
+    policy["modules"] = {key: key in scenario["modules"] for key in policy["modules"]}
+    policy["times"]["research"] = ["08:30"]
+    policy["times"]["report"] = ["20:30"]
+    policy["limits"]["source"] = 2
+    body = {"version": catalog["version"], "policy": policy, "request_id": "scenario", "mode": "enable"}
+    preview = blueprints.preview(store, body)
+    assert preview["missing"] == {}
+    assert [r["time"] for r in preview["timeline"]] == ["08:30", "20:30"]
+    blueprints.apply(store, body)
+    blueprints.apply(store, body)
+    saved = store.policy()[1]
+    assert saved["goal"] == "跟进无障碍路线的新信息"
+    assert saved["limits"]["source"] == 2
+    assert not any(saved["allowed"].values())
+    assert len(list_jobs()) == 1
+
+
 def test_repeat_and_concurrent_application_keep_one_plan_and_one_schedule(store):
     from cron.jobs import list_jobs
     body = request(store)
@@ -132,7 +159,9 @@ def test_production_without_images_is_a_draft_and_publishing_never_generates_a_n
     assert store.objects("content")[0]["state"] == "needs_material"
     assert not store.snapshot()["actions"]
     policy["allowed"]["publish"] = True
-    assert "没有选定" in workflow.publish(store, policy, "2026-10-31", version)
+    from plugins.operations.outcomes import StageSkipped
+    with pytest.raises(StageSkipped, match="没有选定"):
+        workflow.publish(store, policy, "2026-10-31", version)
     assert len(calls) == 2
 
 

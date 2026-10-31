@@ -4,12 +4,16 @@ from datetime import datetime, timedelta, UTC
 import hashlib
 from zoneinfo import ZoneInfo
 
-from .modules import TIMES, ACTION_MODULE, EXTERNAL
+from .modules import TIMES, ACTION_MODULE
 from .policy import validate_policy, now_iso
 from .store import encoded
+from .scenarios import SCENARIOS
+from .business_themes import BUSINESS_THEMES
 
 TEMPLATES = [
-    {"id": "daily", "title": "每日自动运营", "category": "完整流程", "description": "围绕一个目标组合每日流程，共享账号、额度与执行记录。", "output": "可追溯的运营成果与日报", "modules": ["research", "content", "report"]},
+    {"id": "daily", "title": "每日自动运营", "category": "完整流程", "description": "围绕一个目标组合每日流程，共享账号、额度与执行记录。", "output": "可追溯的运营成果与日报", "modules": ["research", "content", "publish", "comments", "dm", "report"]},
+    *BUSINESS_THEMES,
+    *SCENARIOS,
     {"id": "research", "title": "信息采集与选题", "category": "信息来源", "description": "读取网页与 RSS，去重并区分事实、观点和待核实信息。", "output": "来源档案、摘要与选题依据", "modules": ["research"]},
     {"id": "content", "title": "图文内容生产", "category": "内容与发布", "description": "结合来源和授权素材生成草稿；缺图片时保留待完善版本。", "output": "内容版本与自动质量检查", "modules": ["content"]},
     {"id": "publish", "title": "小红书图文发布", "category": "内容与发布", "description": "使用已选定的内容版本，提交前核对账号、素材和规则。", "output": "发布回执、外部链接与异常记录", "modules": ["publish"]},
@@ -27,8 +31,6 @@ def requirements(policy, module, assets):
         missing.append("填写运营主题")
     if not policy["goal"].strip():
         missing.append("填写运营目标")
-    if module in EXTERNAL and not policy["account_id"].strip():
-        missing.append("填写小红书账号 ID")
     actions = [a for a, m in ACTION_MODULE.items() if m == module]
     if actions and not any(policy["allowed"][a] for a in actions):
         missing.append("选择并授权至少一个对应动作")
@@ -64,6 +66,8 @@ def catalog(store):
     for template in TEMPLATES:
         modules = template["modules"] if template["id"] != "daily" else [m for m in TIMES if policy["modules"][m]]
         selected = bool(modules) and all(policy["modules"][m] for m in modules)
+        if template.get("kind") == "business":
+            selected = policy["business_theme"] == template["id"]
         missing = list(dict.fromkeys(item for m in modules for item in requirements(policy, m, assets)))
         status = "未加入" if not selected else "待完善" if missing else "已暂停" if not policy["enabled"] or policy["paused"] else "已加入"
         templates.append({**template, "status": status, "missing": missing, "times": {m: policy["times"][m] for m in template["modules"]}})

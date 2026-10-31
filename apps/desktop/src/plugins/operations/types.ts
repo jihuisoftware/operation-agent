@@ -1,4 +1,6 @@
 export interface Policy {
+  business_theme?: string
+  business_subtype?: string
   schema_version: number
   modules: Record<string, boolean>
   enabled: boolean
@@ -47,7 +49,7 @@ export interface OperationsState {
 
 export interface BrowserCommand {
   id: string
-  kind: 'inbox' | 'publish' | 'interact' | 'verify'
+  kind: 'account' | 'inbox' | 'publish' | 'interact' | 'verify'
   payload: Record<string, any>
   expires: number
 }

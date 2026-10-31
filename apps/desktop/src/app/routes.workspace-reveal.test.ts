@@ -19,6 +19,7 @@ import {
   appViewForPath,
   ARTIFACTS_ROUTE,
   CAPABILITIES_ROUTE,
+  CRON_ROUTE,
   navigateToWorkspacePage,
   NEW_CHAT_ROUTE,
   routePathname,
@@ -64,6 +65,14 @@ afterEach(() => {
 })
 
 describe('routePathname', () => {
+  it('treats status and upcoming tasks as workspace pages, never session ids', () => {
+    for (const path of ['/activity', '/upcoming']) {
+      expect(routeSessionId(path)).toBeNull()
+      syncWorkspaceRoute(path)
+      expect($workspaceIsPage.get()).toBe(true)
+      expect(fronted()).toBe(true)
+    }
+  })
   it('keeps a bare path and drops a query or hash', () => {
     expect(routePathname(CAPABILITIES_ROUTE)).toBe('/capabilities')
     expect(routePathname('/capabilities?tab=connectors')).toBe('/capabilities')
@@ -94,8 +103,8 @@ describe('classification of targets carrying a query', () => {
 })
 
 describe('syncWorkspaceRoute', () => {
-  it('publishes and fronts on a page route', () => {
-    syncWorkspaceRoute(CAPABILITIES_ROUTE)
+  it.each([CAPABILITIES_ROUTE, CRON_ROUTE])('publishes and fronts on page %s', route => {
+    syncWorkspaceRoute(route)
 
     expect($workspaceIsPage.get()).toBe(true)
     expect(fronted()).toBe(true)
@@ -146,12 +155,12 @@ describe('syncWorkspaceRoute', () => {
 })
 
 describe('navigateToWorkspacePage', () => {
-  it('navigates and fronts, so a re-click on the page you are already on still shows it', () => {
+  it.each([CAPABILITIES_ROUTE, CRON_ROUTE])('fronts %s even when re-clicking the same route', route => {
     const navigate = vi.fn()
 
-    navigateToWorkspacePage(navigate, CAPABILITIES_ROUTE)
+    navigateToWorkspacePage(navigate, route)
 
-    expect(navigate).toHaveBeenCalledWith(CAPABILITIES_ROUTE, undefined)
+    expect(navigate).toHaveBeenCalledWith(route, undefined)
     expect(fronted()).toBe(true)
   })
 

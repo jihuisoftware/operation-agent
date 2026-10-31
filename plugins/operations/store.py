@@ -40,12 +40,17 @@ class Store:
     def __init__(self, path=None):
         self.path = path
         self.lease_token = None
+        self.manual_run_id = None
+        self.execution_id = None
+        self.current_run_id = None
         with self.connection() as db:
             db.executescript(SCHEMA)
             db.execute("INSERT OR IGNORE INTO settings VALUES (1,0,?)", (encoded(DEFAULT),))
         from .migration import migrate
         with self.connection() as db:
             migrate(db)
+        from .progress import sync_plan
+        sync_plan(self)
 
     @contextmanager
     def connection(self):
@@ -87,6 +92,8 @@ class Store:
             if request_id:
                 db.execute("INSERT INTO objects VALUES (?, 'application', ?, ?)",
                            ("apply:" + request_id, encoded({"version": version, "hash": request_hash}), now_iso()))
+        from .progress import sync_plan
+        sync_plan(self)
         return version
 
     def event(self, kind, data):
@@ -96,7 +103,10 @@ class Store:
     def put(self, kind, data, identity=None):
         identity = identity or uuid.uuid4().hex
         with self.connection() as db:
-            db.execute("INSERT OR IGNORE INTO objects VALUES (?,?,?,?)", (identity, kind, encoded(data), now_iso()))
+            changed = db.execute("INSERT OR IGNORE INTO objects VALUES (?,?,?,?)", (identity, kind, encoded(data), now_iso())).rowcount
+        if changed and self.current_run_id:
+            from .progress import saved
+            saved(self, kind, identity, data)
         return identity
 
     def objects(self, kind, day=None):
@@ -110,11 +120,22 @@ class Store:
         with self.connection() as db:
             changed = db.execute("INSERT OR IGNORE INTO runs VALUES (?,?,?,?,?,'running','',?,NULL)",
                                  (identity, day, stage, slot, version, now_iso())).rowcount
+        if changed:
+            self.current_run_id = identity
+            self.progress("开始执行")
         return identity if changed else None
 
     def finish_run(self, identity, state, detail=""):
         with self.connection() as db:
             db.execute("UPDATE runs SET state=?,detail=?,ended=? WHERE id=?", (state, detail, now_iso(), identity))
+        from .progress import update
+        update(self, identity, state, detail)
+        self.current_run_id = None
+
+    def progress(self, detail, data=None):
+        if self.current_run_id:
+            from .progress import update
+            update(self, self.current_run_id, "running", detail, data)
 
     def lease(self, token, ttl=1800):
         with self.connection() as db:
@@ -150,18 +171,27 @@ class Store:
             if error or row["version"] != version:
                 raise ValueError(error or "运营规则已变更")
             day = day or local_day(policy)
-            identity = hashlib.sha256(f"{action['kind']}:{action['target']}".encode()).hexdigest()
-            if db.execute("SELECT 1 FROM actions WHERE id=?", (identity,)).fetchone():
+            target = action["target"]
+            if self.manual_run_id:
+                target = f"manual:{self.manual_run_id}:{target}"
+                action = {**action, "manual_run_id": self.manual_run_id}
+            elif db.execute("SELECT 1 FROM actions WHERE kind=? AND json_extract(data,'$.target')=? AND json_extract(data,'$.account_id')=?",
+                            (action["kind"], target, action["account_id"])).fetchone():
                 return None
-            if db.execute("SELECT 1 FROM actions WHERE kind=? AND state IN ('unknown','submitted','executing')", (action["kind"],)).fetchone():
+            scoped_target = encoded([action["account_id"], target])
+            identity = hashlib.sha256(encoded([action["kind"], action["account_id"], target]).encode()).hexdigest()
+            # Match the durable target too, so pre-account-scoped IDs stay idempotent.
+            if db.execute("SELECT 1 FROM actions WHERE kind=? AND target IN (?,?) AND json_extract(data,'$.account_id')=?",
+                          (action["kind"], target, scoped_target, action["account_id"])).fetchone():
+                return None
+            if db.execute("SELECT 1 FROM actions WHERE kind=? AND state IN ('unknown','submitted','executing','queued')", (action["kind"],)).fetchone():
                 raise ValueError("同类动作仍有未核对结果，请先处理异常")
             count = db.execute("SELECT count(*) FROM actions WHERE day=? AND kind=? AND state!='cancelled'",
                                (day, action["kind"])).fetchone()[0]
             if count >= policy["limits"][action["kind"]]:
                 raise ValueError("达到每日动作额度")
-            identity = hashlib.sha256(f"{action['kind']}:{action['target']}".encode()).hexdigest()
             changed = db.execute("INSERT OR IGNORE INTO actions VALUES (?,?,?,?,?,'queued',?,'{}',?)",
-                (identity, day, version, action["kind"], action["target"], encoded(action), now_iso())).rowcount
+                (identity, day, version, action["kind"], scoped_target, encoded(action), now_iso())).rowcount
             return identity if changed else None
 
     def blocked(self, kind, version):
@@ -239,6 +269,7 @@ class Store:
             tables = {name: [dict(r) for r in db.execute(f"SELECT * FROM {name} ORDER BY rowid DESC LIMIT 100")]
                       for name in ("runs", "actions", "events")}
             online = bool(db.execute("SELECT 1 FROM workers WHERE seen>?", (time.time() - 15,)).fetchone())
+        tables["actions"] = [{**a, "target": json.loads(a["data"])["target"]} for a in tables["actions"]]
         return {"version": version, "policy": policy, "online": online, **tables,
                 **{kind: self.objects(kind)[:100] for kind in ("source", "asset", "content", "metric", "report", "task", "inbox", "brief", "block", "review")}}
 

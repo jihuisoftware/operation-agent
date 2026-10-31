@@ -14,10 +14,9 @@ import {
 interface PlatformLoginsProps {
   ctx: PluginContext
   owner: CronBlueprintOwner
-  compact?: boolean
 }
 
-export function PlatformLoginsPanel({ ctx, owner, compact = false }: PlatformLoginsProps) {
+export function PlatformLoginsPanel({ ctx, owner }: PlatformLoginsProps) {
   const current = useValue($loginWorker)
   const navigating = useValue($loginNavigation)
   const revision = useValue($loginStatusRevision)
@@ -66,10 +65,10 @@ export function PlatformLoginsPanel({ ctx, owner, compact = false }: PlatformLog
   ).length
 
   return (
-    <details className="space-y-3 text-sm" open={!compact}>
-      <summary className="cursor-pointer font-medium">
+    <section className="space-y-3 text-sm">
+      <h2 className="font-medium">
         平台登录状态{data ? ` · ${attention} 个待检查或处理` : ''}
-      </summary>
+      </h2>
       <p className="text-xs text-muted-foreground">
         状态来自运营内嵌网页，按连接与 Profile
         隔离。已确认登录后持续保留，只有明确退出或失效才改为需要登录；任务执行前仍核对实际账号与权限。
@@ -122,6 +121,6 @@ export function PlatformLoginsPanel({ ctx, owner, compact = false }: PlatformLog
         </Button>
         <span className="text-xs text-muted-foreground">检查／登录会暂停自动动作；处理完成后到运营工作台恢复。</span>
       </div>
-    </details>
+    </section>
   )
 }

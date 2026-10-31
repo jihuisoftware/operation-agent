@@ -47,11 +47,15 @@ one-off at the call site.
 
 - **Chat is the home surface.** The transcript and composer stay primary; tools,
   previews, files, review, and terminal complement the conversation.
-- **Pages are durable destinations.** Chat, Skills, and Artifacts
+- **Pages are durable destinations.** Chat, Scheduled Tasks, Live Status, Upcoming Tasks, Skills, Artifacts, and Account Login
   remain in shell chrome. Do not hide a distinct product noun inside an
   unrelated page.
-- **Route overlays are short tasks.** Settings, Command Center, Cron, Profiles,
-  Agents, and Starmap render as `OverlayView` cards and return to the previous
+- Live Status and Upcoming Tasks sit next to Scheduled Tasks in the sidebar. Live Status uses the
+  current connection/Profile and existing session events; Upcoming Tasks shows actual scheduled
+  occurrences and independently cancellable plugin steps. A successful cancellation receipt stops
+  that pending occurrence only. A started step is visibly refused, never displayed as undone.
+- **Route overlays are short tasks.** Settings, Command Center, and Profiles
+  render as `OverlayView` cards and return to the previous
   route on close. Model/session pickers and dialogs layer above the current
   surface; they are not navigation stacks.
 - **Panes are working context.** Preview, files, review, and terminal remain
@@ -273,7 +277,7 @@ blurred backdrop.
   padding; `PAGE_INSET_NEG_X` to bleed a child to the edge. Don't hardcode
   `px-6`/`px-8` on pages.
 - **Master/detail overlays:** `OverlaySplitLayout` + `OverlaySidebar` /
-  `OverlayMain`. Cron, profiles, etc. ride this — don't rebuild a titlebar
+  `OverlayMain`. Profiles and other modal destinations ride this — don't rebuild a titlebar
   shell.
 - **Settings subpages:** `OverlayNav` keeps navigation and disclosure separate:
   labels navigate; the shared `DisclosureCaret` button opens a branch without

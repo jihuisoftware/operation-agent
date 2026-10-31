@@ -831,7 +831,7 @@ def try_register_running_job(job_id: str, *, owner=None, future=_FUTURE_PENDING)
 
     key = _inflight_key(job_id, _remember_inflight_home(_get_hermes_home()))
     with retirement.work() as admitted, _running_lock:
-        if not admitted or key in _running_job_ids:
+        if not admitted or key in _running_job_ids or key in _running_fire_owners:
             return False
         _running_job_ids.add(key)
         # Same critical section as the add: no window where an in-flight id lacks an age the sweep
@@ -3369,7 +3369,8 @@ def _run_one_job_body(
         if fence.cancel_event is not None:
             _run_kwargs["cancel_event"] = fence.cancel_event
         try:
-            success, output, final_response, error = run_job(job, **_run_kwargs)
+            from cron.upcoming import run_planned_job
+            success, output, final_response, error = run_planned_job(job, run_job, **_run_kwargs)
         except BaseException:
             # run_job hands back the agent even when raising; tear down so a failed run never leaks.
             # BaseException so KeyboardInterrupt/SystemExit mid-run still trigger teardown.

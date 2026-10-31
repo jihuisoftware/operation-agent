@@ -36,6 +36,8 @@ def ensure_schedule(store):
             job = resume_job(job["id"])
         db.execute("INSERT OR REPLACE INTO objects VALUES ('schedule', 'schedule', ?, ?)",
                    (encoded({"job_id": job["id"]}), now_iso()))
+    from .progress import sync_plan
+    sync_plan(store, job['id'])
     return job["id"]
 
 
@@ -48,15 +50,22 @@ def schedule_state(store):
     return "ready" if job.get("enabled", True) else "paused"
 
 
-def tick(store=None, now=None):
+def tick(store=None, now=None, *, request_id=None):
+    from .manual import cron_request_id, run
     store = store or Store()
     now = now or datetime.now(UTC)
+    request_id = request_id or cron_request_id(store)
     token = uuid.uuid4().hex
     if not store.lease(token):
         return "已有运营任务执行中"
     try:
+        from .progress import bind
+        bind(store, now, request_id)
+        if request_id:
+            return run(store, now, request_id)
         return _tick(store, now)
     finally:
+        store.execution_id = None
         store.release(token)
 
 
@@ -96,6 +105,7 @@ def _tick(store, now):
 
 
 def _execute(store, policy, day, version, stage, identity):
+    from .outcomes import StageSkipped, describe
     try:
         current_version, current = store.policy()
         if current_version != version or (current["paused"] and stage != "report") or not current["enabled"]:
@@ -113,7 +123,10 @@ def _execute(store, policy, day, version, stage, identity):
             result = "日报已生成"
         else:
             result = handlers[stage](store, policy, day, version)
-        store.finish_run(identity, "completed", str(result or "完成"))
+        state, detail = describe(stage, result)
+        store.finish_run(identity, state, detail)
+    except StageSkipped as exc:
+        store.finish_run(identity, "skipped", str(exc))
     except Exception as exc:
         # A stage failure is durable and does not prevent the independent daily report.
         logging.getLogger(__name__).exception("Operations stage failed: %s", stage)
@@ -122,8 +135,10 @@ def _execute(store, policy, day, version, stage, identity):
 
 
 def _recover_reports(store, today):
+    from .upcoming import CANCEL_REASON
     with store.connection() as db:
         first = db.execute("SELECT min(at) FROM events WHERE kind='policy'").fetchone()[0]
+        cancelled = {(r[0], r[1]) for r in db.execute("SELECT day,slot FROM runs WHERE stage='report' AND state='cancelled' AND detail=?", (CANCEL_REASON,))}
     if not first:
         return
     _, policy = store.policy()
@@ -132,5 +147,5 @@ def _recover_reports(store, today):
     reports = {r["day"] for r in store.objects("report")}
     for offset in range(min((end - start).days, 3660)):
         day = (start + timedelta(days=offset)).isoformat()
-        if day not in reports:
+        if day not in reports and not all((day, slot) in cancelled for slot in policy['times']['report']):
             daily_report(store, day, delayed=True)

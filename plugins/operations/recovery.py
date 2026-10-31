@@ -13,7 +13,7 @@ def reconcile_pending(store, policy, day):
         if any(r["id"] == identity for r in store.objects("reconciliation", day)):
             continue
         action, previous = json.loads(row["data"]), json.loads(row["result"])
-        if action["account_id"] != policy["account_id"]:
+        if policy["account_id"] and action["account_id"] != policy["account_id"]:
             continue
         store.put("reconciliation", {"day": day, "action_id": row["id"], "started": now_iso()}, identity)
         try:
