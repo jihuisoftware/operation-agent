@@ -1,0 +1,55 @@
+"""Content production and quality checks, independent of external publishing."""
+import hashlib
+import json
+from .model import generate
+from .policy import now_iso
+from .research import distinct_sources
+
+
+def content_digest(content):
+    return hashlib.sha256(json.dumps([content["title"], content["body"]], ensure_ascii=False).encode()).hexdigest()
+
+
+def validate_content(content, sources, assets, *, require_assets=False):
+    if not isinstance(content.get("title"), str) or not isinstance(content.get("body"), str) or not 0 < len(content["title"]) <= 20 or not 0 < len(content["body"]) <= 900:
+        raise ValueError("内容长度或格式不符合要求")
+    if not content.get("source_ids") or not set(content["source_ids"]) <= {s["id"] for s in sources}:
+        raise ValueError("内容引用来源不匹配")
+    ids = content.get("asset_ids", [])
+    if not isinstance(ids, list) or not set(ids) <= {a["id"] for a in assets}:
+        raise ValueError("内容引用素材不匹配")
+    if require_assets and not ids:
+        raise ValueError("缺少获授权图片，请完善内容版本后发布")
+
+
+def check_content(store, policy, day, version, content, sources):
+    digest = content_digest(content)
+    result = generate(store, policy, day,
+        '核对图文是否符合主题、受众、风格，事实是否有来源，是否复制原文或编造经历，是否重复历史内容。'
+        '返回 {"pass":true或false,"reason":"具体依据"}，不确定时 pass 为 false。此为自动检查，不是人工审核。',
+        {"policy": policy, "content": content, "sources": sources,
+         "history": [c for c in store.objects("content") if c["id"] not in {digest, content.get("id")} and content_digest(c) != digest][:15]})
+    store.put("check", {"day": day, "content_id": content.get("id", digest), "version": version, "automatic": True, "result": result})
+    return result
+
+
+def produce_content(store, policy, day, version):
+    sources = distinct_sources(store, day)
+    if not sources:
+        return "缺少可追溯来源，暂不生成内容"
+    assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
+    content = generate(store, policy, day,
+        '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":""}。'
+        '标题不超过20字，正文不超过900字。只能使用提供的来源和素材，缺少图片时保留文本草稿。'
+        '不适合生产时返回空标题和原因。不要执行发布。',
+        {"policy": policy, "sources": sources, "assets": assets, "tasks": store.objects("task", day),
+         "recent_content": store.objects("content")[:15], "performance_review": store.objects("review")[:3]})
+    if not content.get("title"):
+        return content.get("reason", "无合适选题")
+    validate_content(content, sources, assets)
+    quality = check_content(store, policy, day, version, content, sources)
+    ready = quality.get("pass") is True and bool(content.get("asset_ids"))
+    identity = store.put("content", {**content, "day": day, "version": version, "ready": ready,
+                                    "state": "ready" if ready else "needs_material" if not content.get("asset_ids") else "needs_review",
+                                    "quality": quality, "created": now_iso()})
+    return {"content_id": identity, "ready": ready, "reason": quality.get("reason")}

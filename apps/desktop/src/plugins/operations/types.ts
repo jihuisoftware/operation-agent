@@ -1,4 +1,6 @@
 export interface Policy {
+  schema_version: number
+  modules: Record<string, boolean>
   enabled: boolean
   paused: boolean
   topic: string

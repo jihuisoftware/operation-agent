@@ -18,6 +18,7 @@ def store(tmp_path, monkeypatch):
     policy = deepcopy(DEFAULT)
     policy.update(enabled=True, topic="步行", goal="路线信息", account_id="me", sources=["https://example.org/a", "https://example.org/b", "https://example.org/offline"], knowledge=["开放时间为九点。"], follow_terms=["步行"])
     policy["allowed"] = {k: True for k in policy["allowed"]}
+    policy["modules"] = {k: True for k in policy["modules"]}
     store.configure(policy, 0)
     return store
 
@@ -45,6 +46,11 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
         return json.dumps({"results": [{"content": "同一份真实路线资料"} if "offline" not in urls[0] else {"error": "不可访问"}]})
     monkeypatch.setattr(web_tools, "web_extract_tool", extract)
     store.put("asset", {"authorized": True, "name": "自有图片.png"}, "image")
+    from plugins.operations.blueprints import apply, preview
+    version, policy = store.policy()
+    request = {"version": version, "policy": policy, "mode": "enable", "request_id": "full-day"}
+    assert not preview(store, request)["missing"]
+    assert apply(store, request)["job_id"]
     original = store.command
     submissions = []
     def consume(identity):
@@ -61,10 +67,10 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
         store.acknowledge(identity, "simulated-desktop", result)
         return original(identity)
     monkeypatch.setattr(store, "command", consume)
-    for hour in (1, 2, 3, 13):
+    for hour, minute in ((1, 5), (1, 45), (2, 5), (3, 5), (13, 5)):
         store.claim("simulated-desktop", busy=True)
-        tick(store, datetime(2026, 10, 31, hour, 5, tzinfo=UTC))
-        tick(store, datetime(2026, 10, 31, hour, 6, tzinfo=UTC))
+        tick(store, datetime(2026, 10, 31, hour, minute, tzinfo=UTC))
+        tick(store, datetime(2026, 10, 31, hour, minute + 1, tzinfo=UTC))
     from plugins.operations.research import distinct_sources
     assert len(store.objects("source")) == 3
     assert len(distinct_sources(store, "2026-10-31")) == 1
@@ -72,7 +78,7 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
     report = store.objects("report")[0]["markdown"]
     assert "已核对成功 4 次" in report
     assert "submitted" in report and "https://example.org/result" in report
-    assert "不可访问" in report and "模型调用 7 次" in report
+    assert "不可访问" in report and "模型调用 8 次" in report
     assert "20" in report and "费用未知" in report
 
 

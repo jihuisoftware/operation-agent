@@ -3,7 +3,9 @@ import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { executeBrowser } from './browser'
+import { $loginRequest } from './login-state'
 import { $showOperationsBrowser } from './state'
+import type { Guest } from './types'
 import { OperationsWorker } from './worker'
 
 vi.mock('@hermes/plugin-sdk', async () => {
@@ -85,4 +87,57 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
     expect.objectContaining({ body: { id: 'task', worker: 'worker', result: { state: 'unknown', error: '提交超时' } } })
   )
   expect(host.notify).not.toHaveBeenCalled()
+})
+
+it('pauses the owning policy before opening a common-platform login in the existing guest', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  const order: string[] = []
+
+  const rest = vi.fn(async (path: string, options?: { method?: string; body?: any }) => {
+    if (path === '/worker/poll') {
+      return { command: null }
+    }
+
+    if (path === '/policy' && options?.method === 'PUT') {
+      expect(options.body.policy.paused).toBe(true)
+      order.push('pause')
+
+      return { version: 2 }
+    }
+
+    if (path === '/policy') {
+      return { version: 1, policy: { enabled: false, paused: false } }
+    }
+
+    return { ok: true }
+  })
+
+  const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000)
+  })
+  const guest = container.querySelector('webview') as Guest
+  guest.loadURL = vi.fn(async () => {
+    order.push('load')
+  })
+  await act(async () => {
+    $loginRequest.set({
+      owner: { connectionId: 'local', profile: 'one' },
+      platform: 'zhihu',
+      url: 'https://www.zhihu.com/',
+      id: 'login'
+    })
+  })
+  expect(order).toEqual(['pause', 'load'])
+  expect(container.querySelector('webview')).toBe(guest)
+  expect(guest.loadURL).toHaveBeenCalledWith('https://www.zhihu.com/')
+  expect(rest).toHaveBeenCalledWith(
+    '/platforms/observe',
+    expect.objectContaining({
+      owner: { connectionId: 'local', profile: 'one' },
+      body: { worker: 'worker', platform: 'zhihu', state: 'unknown', account_id: '' }
+    })
+  )
+  expect(executeBrowser).not.toHaveBeenCalled()
 })

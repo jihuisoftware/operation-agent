@@ -81,8 +81,8 @@ def add_record(store, kind, body):
             raise ValueError("指标值必须是数值或 null，缺失不能填零")
         return store.put(kind, body, "metric:" + body["id"])
     if kind == "content":
-        from .workflow import _validate_content
-        _validate_content(body, store.objects("source"), [a for a in store.objects("asset") if not a.get("revoked")])
+        from .content import validate_content
+        validate_content(body, store.objects("source"), [a for a in store.objects("asset") if not a.get("revoked")])
         digest = hashlib.sha256(encoded(body).encode()).hexdigest()
         return store.put(kind, {**body, "manual": True, "day": local_day(store.policy()[1]), "created": now_iso()}, digest)
     if kind == "task":

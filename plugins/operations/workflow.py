@@ -1,11 +1,8 @@
 """Business stages, with irreversible actions going through the durable Desktop queue."""
-import hashlib
-import json
 import threading
 import time
 
 from .model import generate
-from .policy import now_iso
 from .research import collect, distinct_sources
 
 
@@ -38,50 +35,32 @@ def research(store, policy, day, version):
     save_brief(store, day, result, sources)
 
 
+def produce(store, policy, day, version):
+    from .content import produce_content
+    return produce_content(store, policy, day, version)
+
+
 def publish(store, policy, day, version):
+    from .content import check_content, validate_content, content_digest
     if not policy["allowed"]["publish"]:
         return "自动发布未开启"
-    drafts = [c for c in store.objects("content", day) if c.get("manual") and c.get("ready")]
-    sources = distinct_sources(store, day)
-    if drafts:
-        sources = [s for s in store.objects("source") if s["id"] in drafts[0].get("source_ids", []) and s.get("text")]
+    drafts = [c for c in store.objects("content", day) if c.get("ready")]
+    if not drafts:
+        return "没有选定的有效内容版本，未发布；请先生产或选择草稿"
+    content = drafts[0]
+    sources = [s for s in store.objects("source") if s["id"] in content.get("source_ids", []) and s.get("text")]
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
-    if not sources or not assets:
-        return "缺少来源或获授权图片，未发布"
-    content = drafts[0] if drafts else generate(store, policy, day,
-        '生成小红书图文，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":""}。'
-        '标题不超过20个字符，正文不超过900个字符。只能选提供的素材和来源；不适合发布时返回空标题。',
-        {"policy": policy, "sources": sources, "assets": assets, "tasks": store.objects("task", day), "recent_content": store.objects("content")[:15], "performance_review": store.objects("review")[:3]})
-    if not content.get("title"):
-        return content.get("reason", "无合适内容")
-    _validate_content(content, sources, assets)
-    digest = hashlib.sha256(json.dumps([content["title"], content["body"]], ensure_ascii=False).encode()).hexdigest()
-    store.put("content", {**content, "day": day, "version": version, "created": now_iso()}, digest)
-    quality = generate(store, policy, day,
-        '核对图文是否符合主题、受众、风格，事实是否有来源，是否复制原文或编造经历，是否重复历史内容。'
-        '返回 {"pass":true或false,"reason":"具体依据"}，不确定时 pass 为 false。此为自动检查，不是人工审核。',
-        {"policy": policy, "content": content, "sources": sources, "history": [c for c in store.objects("content") if c["id"] not in {digest, content.get("id")}][:15]})
-    store.put("check", {"day": day, "content_id": digest, "version": version, "automatic": True, "result": quality})
+    validate_content(content, sources, assets, require_assets=True)
+    quality = check_content(store, policy, day, version, content, sources)
     if quality.get("pass") is not True:
         return "草稿未通过自动检查：" + str(quality.get("reason", "依据不足"))
-    action = {"kind": "publish", "account_id": policy["account_id"], "target": digest, "content": content}
+    action = {"kind": "publish", "account_id": policy["account_id"], "target": content_digest(content), "content": content}
     identity = store.reserve_action(action, version, day)
-    if not identity:
-        return "相同内容已有执行记录"
-    return browser(store, "publish", action, identity)
+    return browser(store, "publish", action, identity) if identity else "相同内容已有执行记录"
 
 
-def _validate_content(content, sources, assets):
-    if not isinstance(content.get("title"), str) or not isinstance(content.get("body"), str) or not 0 < len(content["title"]) <= 20 or not 0 < len(content["body"]) <= 900:
-        raise ValueError("内容长度或格式不符合要求")
-    if not content.get("source_ids") or not set(content["source_ids"]) <= {s["id"] for s in sources}:
-        raise ValueError("内容引用来源不匹配")
-    if not content.get("asset_ids") or not set(content["asset_ids"]) <= {a["id"] for a in assets}:
-        raise ValueError("内容引用素材不匹配")
-
-
-def interact(store, policy, day, version):
-    kinds = [kind for kind in ("comment", "reply", "dm", "follow") if policy["allowed"][kind]]
+def interact(store, policy, day, version, *, kinds=("comment", "reply", "dm", "follow")):
+    kinds = [kind for kind in kinds if policy["allowed"][kind]]
     results = []
     for kind in kinds:
         try:

@@ -125,6 +125,7 @@ import { $viewport, type ViewportRect } from './viewport'
 
 /** Pane, status bar and titlebar slots; see `./areas` for the mount rules. */
 export * from './areas'
+export { CRON_BLUEPRINTS_AREA, type CronBlueprintContribution, type CronBlueprintOwner } from './cron'
 /** The plugin authoring contract (`HermesPlugin`, `PluginContext`, `ctx.*` door types). */
 export type * from './plugin-contract'
 export type { PluginProfileRequestOptions, PluginProfileRoute } from './profile-request'
@@ -1659,7 +1660,7 @@ export type { TitlebarTool } from '@/app/shell/titlebar-controls'
  * core chat. Prefer this over raw Streamdown for transcript-style messages. */
 export { MessageTextContent } from '@/components/assistant-ui/markdown-text'
 /** The oversized Collapse lettering an empty chat is titled with — core writes
- *  "HERMES AGENT" with it, a `chat.empty` contribution writes its own name. */
+ *  the product name with it, a `chat.empty` contribution writes its own name. */
 export { Wordmark } from '@/components/chat/wordmark'
 /** Pane placement roles. `'floating'` is the one NON-tiling value: the pane is
  *  excluded from the layout tree and rendered as a fixed, draggable card above

@@ -59,7 +59,7 @@ async function renderCron() {
 async function renderLoadedCron() {
   const result = await renderCron()
 
-  await screen.findByText('No runs yet')
+  await screen.findByText('尚无运行')
 
   return result
 }
@@ -92,7 +92,7 @@ afterEach(() => {
 describe('CronView queued trigger feedback (#70826)', () => {
   it('paints the queued run row immediately and settles it when the run appears', async () => {
     const { container } = await renderLoadedCron()
-    const triggerButton = screen.getByRole('button', { name: 'Trigger now' })
+    const triggerButton = screen.getByRole('button', { name: '立即触发' })
 
     // The trigger request is still in flight — the queued row is pure
     // optimism from the click, not a backend response.
@@ -131,7 +131,7 @@ describe('CronView queued trigger feedback (#70826)', () => {
   it('reconciles the queued row immediately when cron.changed publishes the run', async () => {
     setChangeEventsAvailable(true)
     const { container } = await renderLoadedCron()
-    const triggerButton = screen.getByRole('button', { name: 'Trigger now' })
+    const triggerButton = screen.getByRole('button', { name: '立即触发' })
 
     getCronJobRuns.mockClear()
     await act(async () => {
@@ -173,7 +173,7 @@ describe('CronView queued trigger feedback (#70826)', () => {
     })
     expect(getCronJobRuns).not.toHaveBeenCalled()
 
-    const triggerButton = screen.getByRole('button', { name: 'Trigger now' })
+    const triggerButton = screen.getByRole('button', { name: '立即触发' })
 
     await act(async () => {
       triggerButton.click()
@@ -192,7 +192,7 @@ describe('CronView queued trigger feedback (#70826)', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     await renderLoadedCron()
 
-    const triggerButton = screen.getByRole('button', { name: 'Trigger now' })
+    const triggerButton = screen.getByRole('button', { name: '立即触发' })
 
     await act(async () => {
       triggerButton.click()
@@ -213,7 +213,7 @@ describe('CronView queued trigger feedback (#70826)', () => {
 
   it('removes the queued row when the trigger request fails', async () => {
     await renderLoadedCron()
-    const triggerButton = screen.getByRole('button', { name: 'Trigger now' })
+    const triggerButton = screen.getByRole('button', { name: '立即触发' })
 
     triggerCronJob.mockRejectedValue(new Error('scheduler unavailable'))
 
@@ -231,7 +231,7 @@ describe('CronView queued trigger feedback (#70826)', () => {
     const { container } = await renderLoadedCron()
 
     await act(async () => {
-      screen.getByRole('button', { name: 'Trigger now' }).click()
+      screen.getByRole('button', { name: '立即触发' }).click()
       await Promise.resolve()
     })
     expect(queuedRow()).toBeTruthy()
@@ -239,7 +239,7 @@ describe('CronView queued trigger feedback (#70826)', () => {
     // The trigger is accepted but the run has not appeared; pausing the job
     // persists enabled=false but never cancels an in-flight execution
     // (cron/jobs.py pause path), so the queued row must survive it.
-    const pauseButton = screen.getByRole('button', { name: 'Pause' })
+    const pauseButton = screen.getByRole('button', { name: '暂停' })
 
     await act(async () => {
       pauseButton.click()
@@ -259,7 +259,7 @@ describe('CronView trigger duplicate-click guard (regression for f9d64b9 contrac
     triggerCronJob.mockReturnValue(new Promise<CronJob>(resolve => (releaseTrigger = resolve)))
     await renderLoadedCron()
 
-    const triggerButton = screen.getByRole('button', { name: 'Trigger now' })
+    const triggerButton = screen.getByRole('button', { name: '立即触发' })
 
     await act(async () => {
       triggerButton.click()

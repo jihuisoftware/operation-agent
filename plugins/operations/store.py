@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, day TEXT NOT NULL, vers
  created TEXT NOT NULL, UNIQUE(kind, target));
 CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, action_id TEXT, kind TEXT NOT NULL, payload TEXT NOT NULL,
  state TEXT NOT NULL, worker TEXT, expires REAL NOT NULL, result TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS platform_logins (platform TEXT NOT NULL, worker TEXT NOT NULL, state TEXT NOT NULL,
+ account_id TEXT NOT NULL, checked REAL NOT NULL, PRIMARY KEY(platform, worker));
+CREATE TABLE IF NOT EXISTS platform_login_evidence (platform TEXT NOT NULL, worker TEXT NOT NULL, state TEXT NOT NULL,
+ account_id TEXT NOT NULL, checked REAL NOT NULL, PRIMARY KEY(platform, worker));
+INSERT OR IGNORE INTO platform_login_evidence SELECT * FROM platform_logins WHERE state IN ('logged_in','logged_out');
 CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, seen REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS leases (id TEXT PRIMARY KEY, token TEXT NOT NULL, expires REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, at TEXT NOT NULL, kind TEXT NOT NULL, data TEXT NOT NULL);
@@ -38,6 +43,9 @@ class Store:
         with self.connection() as db:
             db.executescript(SCHEMA)
             db.execute("INSERT OR IGNORE INTO settings VALUES (1,0,?)", (encoded(DEFAULT),))
+        from .migration import migrate
+        with self.connection() as db:
+            migrate(db)
 
     @contextmanager
     def connection(self):
@@ -54,20 +62,32 @@ class Store:
             row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
             return row["version"], {**DEFAULT, **json.loads(row["data"])}
 
-    def configure(self, value, expected_version):
+    def configure(self, value, expected_version, *, request_id=None, request_hash=None):
         policy = validate_policy(value)
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
+            if request_id:
+                saved = db.execute("SELECT data FROM objects WHERE id=?", ("apply:" + request_id,)).fetchone()
+                if saved:
+                    receipt = json.loads(saved[0])
+                    if receipt["hash"] != request_hash:
+                        raise ValueError("同一请求 ID 不能用于不同配置")
+                    return receipt["version"]
             row = db.execute("SELECT version FROM settings WHERE id=1").fetchone()
             if row[0] != expected_version:
                 raise ValueError("配置已变更，请刷新后重新保存")
-            db.execute("UPDATE settings SET version=version+1,data=? WHERE id=1", (encoded(policy),))
-            # Old authorization cannot start after any rule change.
+            version = expected_version + 1
+            db.execute("UPDATE settings SET version=?,data=? WHERE id=1", (version, encoded(policy)))
             db.execute("UPDATE actions SET state='cancelled' WHERE state='queued'")
-            db.execute("UPDATE commands SET state='cancelled' WHERE state='queued' AND action_id IS NOT NULL")
-        self.put("policy", {"version": expected_version + 1, "policy": policy}, f"policy:{expected_version + 1}")
-        self.event("policy", {"version": expected_version + 1, "enabled": policy["enabled"], "paused": policy["paused"]})
-        return expected_version + 1
+            db.execute("UPDATE commands SET state='cancelled' WHERE state='queued'")
+            db.execute("INSERT INTO objects VALUES (?, 'policy', ?, ?)",
+                       (f"policy:{version}", encoded({"version": version, "policy": policy}), now_iso()))
+            db.execute("INSERT INTO events(at,kind,data) VALUES (?, 'policy', ?)",
+                       (now_iso(), encoded({"version": version, "enabled": policy["enabled"], "paused": policy["paused"]})))
+            if request_id:
+                db.execute("INSERT INTO objects VALUES (?, 'application', ?, ?)",
+                           ("apply:" + request_id, encoded({"version": version, "hash": request_hash}), now_iso()))
+        return version
 
     def event(self, kind, data):
         with self.connection() as db:

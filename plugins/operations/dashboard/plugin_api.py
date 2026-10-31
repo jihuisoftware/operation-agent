@@ -129,3 +129,33 @@ def export_content(identity: str):
             row = assets[asset_id]
             archive.write(plugin_data_dir("operations") / "assets" / row["file"], f"images/{index + 1}-{row['file']}")
     return {"data": base64.b64encode(buffer.getvalue()).decode()}
+
+
+@router.get("/blueprints")
+def blueprints_catalog():
+    from plugins.operations.blueprints import catalog
+    return catalog(Store())
+
+
+@router.post("/blueprints/preview")
+def blueprints_preview(body: dict):
+    from plugins.operations.blueprints import preview
+    return checked(lambda: preview(Store(), body))
+
+
+@router.post("/blueprints/apply")
+def blueprints_apply(body: dict):
+    from plugins.operations.blueprints import apply
+    return checked(lambda: apply(Store(), body))
+
+
+@router.get("/platforms")
+def platforms(worker: str | None = None):
+    from plugins.operations.login_status import catalog
+    return catalog(Store(), worker)
+
+
+@router.post("/platforms/observe")
+def platform_observation(body: dict):
+    from plugins.operations.login_status import observe
+    return checked(lambda: observe(Store(), body))

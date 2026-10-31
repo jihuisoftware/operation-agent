@@ -3,9 +3,8 @@ import type { CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * The oversized display lettering of an empty chat — the Collapse face that
- * writes "HERMES AGENT" across a fresh draft, and a bot's name across its own
- * empty chat.
+ * The oversized display lettering of an empty chat. Collapse handles Latin
+ * lettering; the shared sans fallback supplies the Chinese product name.
  *
  * The doubled children are load-bearing, not a typo: `.fit-text` sizes the
  * visible span from a container query and needs the `aria-hidden` twin laid

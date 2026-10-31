@@ -22,6 +22,7 @@ def enable(store, **changes):
     policy = deepcopy(DEFAULT)
     policy.update(enabled=True, topic="城市步行", goal="整理真实路线", account_id="me", **changes)
     policy["allowed"] = {k: True for k in policy["allowed"]}
+    policy["modules"] = {k: True for k in policy["modules"]}
     store.configure(policy, version)
     return version + 1, policy
 

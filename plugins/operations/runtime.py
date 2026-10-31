@@ -5,26 +5,47 @@ import logging
 import uuid
 from zoneinfo import ZoneInfo
 
-from .policy import local_day
+from .policy import local_day, now_iso
+from .modules import TIMES, EXTERNAL
+from .store import encoded
 from .report import daily_report
 from .store import Store
 from . import workflow
 
 
 def ensure_schedule(store):
-    from cron.jobs import create_job, get_job
+    from cron.jobs import create_job, get_job, list_jobs, resume_job
     from hermes_constants import get_hermes_home
-    records = store.objects("schedule")
-    if records and get_job(records[0]["job_id"]):
-        return records[0]["job_id"]
-    script = get_hermes_home() / "scripts" / "operations_tick.py"
-    script.parent.mkdir(parents=True, exist_ok=True)
     import hermes_constants
-    root = str(Path(hermes_constants.__file__).resolve().parent)
-    script.write_text(f"import sys\nsys.path.insert(0, {root!r})\nimport hermes_bootstrap\nfrom plugins.operations.runtime import tick\nprint(tick())\n", encoding="utf-8")
-    job = create_job(None, "every 1m", name="每日运营调度", script=str(script), no_agent=True, deliver="local")
-    store.put("schedule", {"job_id": job["id"]})
+    script = get_hermes_home() / "scripts" / "operations_tick.py"
+    # The database lock serializes Desktop/CLI saves; matching the durable script recovers
+    # a crash between cron creation and writing the local receipt.
+    with store.connection() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT data FROM objects WHERE kind='schedule' ORDER BY created DESC LIMIT 1").fetchone()
+        import json
+        job = get_job(json.loads(row[0])["job_id"]) if row else None
+        if not job:
+            job = next((j for j in list_jobs(include_disabled=True) if j.get("script") == str(script) and j.get("no_agent")), None)
+        if not job:
+            script.parent.mkdir(parents=True, exist_ok=True)
+            root = str(Path(hermes_constants.__file__).resolve().parent)
+            script.write_text(f"import sys\nsys.path.insert(0, {root!r})\nimport hermes_bootstrap\nfrom plugins.operations.runtime import tick\nprint(tick())\n", encoding="utf-8")
+            job = create_job(None, "every 1m", name="每日运营调度", script=str(script), no_agent=True, deliver="local")
+        if not job.get("enabled", True):
+            job = resume_job(job["id"])
+        db.execute("INSERT OR REPLACE INTO objects VALUES ('schedule', 'schedule', ?, ?)",
+                   (encoded({"job_id": job["id"]}), now_iso()))
     return job["id"]
+
+
+def schedule_state(store):
+    from cron.jobs import get_job
+    schedules = store.objects("schedule")
+    job = get_job(schedules[0]["job_id"]) if schedules else None
+    if not job:
+        return "missing"
+    return "ready" if job.get("enabled", True) else "paused"
 
 
 def tick(store=None, now=None):
@@ -45,11 +66,15 @@ def _tick(store, now):
         return "运营已暂停"
     day = local_day(policy, now)
     local = now.astimezone(ZoneInfo(policy["timezone"]))
-    _recover_reports(store, day)
+    if policy["modules"]["report"]:
+        _recover_reports(store, day)
     if not policy["paused"] and store.snapshot()["online"]:
         from .recovery import reconcile_pending
         reconcile_pending(store, policy, day)
-    for stage, times in policy["times"].items():
+    for stage in TIMES:
+        if not policy["modules"][stage]:
+            continue
+        times = policy["times"][stage]
         if policy["paused"] and stage != "report":
             continue
         for slot in sorted(set(times)):
@@ -62,7 +87,7 @@ def _tick(store, now):
                 if identity:
                     store.finish_run(identity, "missed", "超过执行窗口，未集中补发")
                 continue
-            if stage in {"publish", "interact"} and not store.snapshot()["online"]:
+            if stage in EXTERNAL and not store.snapshot()["online"]:
                 continue
             identity = store.start_run(day, stage, slot, version)
             if identity:
@@ -79,7 +104,10 @@ def _execute(store, policy, day, version, stage, identity):
         if policy["deadline"] and day > policy["deadline"][:10] and stage != "report":
             store.finish_run(identity, "skipped", "目标已超过期限")
             return
-        handlers = {"research": workflow.research, "publish": workflow.publish, "interact": workflow.interact}
+        from functools import partial
+        handlers = {"research": workflow.research, "content": workflow.produce, "publish": workflow.publish,
+                    "comments": partial(workflow.interact, kinds=("comment", "reply")),
+                    "dm": partial(workflow.interact, kinds=("dm",)), "follow": partial(workflow.interact, kinds=("follow",))}
         if stage == "report":
             daily_report(store, day)
             result = "日报已生成"

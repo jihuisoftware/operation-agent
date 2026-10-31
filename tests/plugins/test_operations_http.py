@@ -59,3 +59,42 @@ def test_content_pack_and_revocation_share_real_profile_assets(tmp_path, monkeyp
             assert client.get(f"/api/plugins/operations/content/{identity}/export").status_code == 400
     finally:
         reset_hermes_home_override(token)
+
+
+def test_blueprint_preview_apply_and_drafts_follow_host_profile_scope(tmp_path, monkeypatch):
+    from pathlib import Path
+    home = tmp_path / "home"
+    work = home / "profiles" / "work"
+    work.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("HERMES_HOME", str(home))
+    for profile in (home, work):
+        (profile / "config.yaml").write_text("{}", encoding="utf-8")
+    from hermes_cli import web_server
+    with TestClient(web_server.app) as client:
+        path = "/api/plugins/operations/blueprints"
+        assert client.get(path).status_code in (401, 403)
+        client.headers[web_server._SESSION_HEADER_NAME] = web_server._SESSION_TOKEN
+        catalog = client.get(path + "?profile=work").json()
+        assert len(catalog["templates"]) == 8
+        policy = catalog["policy"]
+        policy.update(topic="次级配置主题", goal="只生成日报")
+        policy["modules"]["report"] = True
+        body = {"version": catalog["version"], "policy": policy, "request_id": "apply-work", "mode": "enable"}
+        preview = client.post(path + "/preview?profile=work", json=body)
+        assert preview.status_code == 200, preview.text
+        assert not preview.json()["missing"]
+        applied = client.post(path + "/apply?profile=work", json=body)
+        assert applied.status_code == 200, applied.text
+        assert client.post(path + "/apply?profile=work", json=body).json() == applied.json()
+        default = client.get(path).json()
+        assert default["policy"]["topic"] == ""
+        assert not default["policy"]["enabled"]
+        work_policy = client.get("/api/plugins/operations/state?profile=work").json()
+        assert work_policy["policy"]["topic"] == "次级配置主题"
+        assert work_policy["version"] == applied.json()["version"]
+        body.update(mode="draft", request_id="draft-work", version=work_policy["version"])
+        body["policy"]["topic"] = "仅保存草稿"
+        assert client.post(path + "/apply?profile=work", json=body).status_code == 200
+        assert client.get(path).json()["draft"] is None
+        assert client.get(path + "?profile=work").json()["draft"]["policy"]["topic"] == "仅保存草稿"

@@ -29,7 +29,7 @@ export function Intro({ personality, seed }: IntroProps) {
       data-slot="aui_intro"
     >
       <div className="w-full min-w-0">
-        <Wordmark className="mb-1" text="HERMES AGENT" />
+        <Wordmark className="mb-1" text="营运智能体" />
 
         <p className="m-0 text-center leading-normal tracking-tight">{body}</p>
       </div>

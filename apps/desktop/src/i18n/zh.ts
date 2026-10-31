@@ -3302,7 +3302,7 @@ const zhBase = {
       '/subscription': '查看你的 Nous 方案，并在浏览器中更改',
       '/topup': '显示你的 Nous 余额，并在 Portal 管理账务',
       '/platform': '暂停、恢复或列出故障的网关平台',
-      '/version': '显示 Hermes Agent 版本',
+      '/version': '显示营运智能体版本',
       '/debug': '上传调试报告（系统信息与日志），并获取可分享链接',
       '/model': '切换此会话的模型'
     },
@@ -3748,7 +3748,7 @@ const zhBase = {
     applyRemote: '应用并重新连接',
     backToSetup: '返回',
     failedTitle: '安装失败',
-    settingUpTitle: '正在设置 Hermes Agent',
+    settingUpTitle: '正在设置营运智能体',
     finishingTitle: '正在收尾',
     failedDesc:
       '某个安装步骤失败。在 Windows 上，如果另一个 Hermes CLI 或桌面实例正在运行，可能会出现这种情况。请停止正在运行的 Hermes 实例后重试。可查看下面的详情或 desktop 日志中的完整记录。',

@@ -3,10 +3,10 @@ from copy import deepcopy
 from datetime import datetime, UTC
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
+from .modules import TIMES, ACTION_MODULE, EXTERNAL, upgrade
 
 LIMITS = {"source": 30, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "follow": 5}
-TIMES = {"research": ["09:00"], "publish": ["10:00"], "interact": ["11:00", "15:00", "19:00"], "report": ["21:00"]}
-DEFAULT = {"enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
+DEFAULT = {"schema_version": 2, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
            "style": "真实、清楚、具体", "brand": "", "account_id": "", "timezone": "Asia/Shanghai",
            "sources": [], "rss_sources": [], "keywords": [], "knowledge": [], "follow_terms": [],
            "allowed": {k: False for k in LIMITS if k != "source"}, "limits": LIMITS,
@@ -32,7 +32,7 @@ def validate_policy(value):
     if not isinstance(value, dict) or set(value) - set(DEFAULT):
         raise ValueError("未知运营配置字段")
     result = deepcopy(DEFAULT)
-    result.update(value)
+    result.update(upgrade(value))
     for key in ("enabled", "paused"):
         if not isinstance(result[key], bool):
             raise ValueError(f"{key} 必须是布尔值")
@@ -43,8 +43,14 @@ def validate_policy(value):
         raise ValueError("优先级必须是 1 到 5 的整数")
     ZoneInfo(result["timezone"])
     _validate_collections(result)
-    if result["enabled"] and not all(result[k].strip() for k in ("topic", "goal", "account_id")):
-        raise ValueError("启用前请填写主题、目标和小红书账号 ID")
+    if result["schema_version"] != 2 or set(result["modules"]) != set(TIMES) or any(type(v) is not bool for v in result["modules"].values()):
+        raise ValueError("运营模块格式错误")
+    if result["enabled"] and not any(result["modules"].values()):
+        raise ValueError("启用前至少选择一个运营模块")
+    if result["enabled"] and not all(result[k].strip() for k in ("topic", "goal")):
+        raise ValueError("启用前请填写主题和目标")
+    if result["enabled"] and any(result["modules"][k] for k in EXTERNAL) and not result["account_id"].strip():
+        raise ValueError("外部账号动作需要填写小红书账号 ID")
     if result["deadline"]:
         datetime.fromisoformat(result["deadline"])
     return result
@@ -78,7 +84,7 @@ def _validate_collections(result):
 def permitted(policy, action):
     if not policy["enabled"] or policy["paused"]:
         return "运营计划未启用或已暂停"
-    if not policy["allowed"].get(action["kind"], False):
+    if not policy["modules"].get(ACTION_MODULE.get(action["kind"]), False) or not policy["allowed"].get(action["kind"], False):
         return "该动作未授权"
     if action.get("account_id") != policy["account_id"]:
         return "目标账号不匹配"

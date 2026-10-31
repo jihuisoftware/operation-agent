@@ -1,6 +1,13 @@
-import { type HermesPlugin, ROUTES_AREA, TITLEBAR_AREAS } from '@hermes/plugin-sdk'
+import {
+  CRON_BLUEPRINTS_AREA,
+  type CronBlueprintContribution,
+  type HermesPlugin,
+  ROUTES_AREA,
+  TITLEBAR_AREAS
+} from '@hermes/plugin-sdk'
 import { createRoot } from 'react-dom/client'
 
+import { BlueprintLibrary } from './blueprint-library'
 import { $showOperationsBrowser } from './state'
 import { Workbench } from './workbench'
 import { OperationsWorker } from './worker'
@@ -10,6 +17,14 @@ export default {
   name: '每日自动运营',
   description: '目标、信息来源、规则执行与每日总结',
   register(ctx) {
+    ctx.register({
+      id: 'blueprints',
+      area: CRON_BLUEPRINTS_AREA,
+      title: '运营蓝图',
+      data: {
+        render: ({ owner, view }) => <BlueprintLibrary ctx={ctx} owner={owner} view={view} />
+      } satisfies CronBlueprintContribution
+    })
     ctx.register({
       id: 'live-view',
       area: TITLEBAR_AREAS.right,

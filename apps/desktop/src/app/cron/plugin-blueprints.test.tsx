@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { atom } from 'nanostores'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,7 +14,7 @@ const hermes = vi.hoisted(() => ({
 vi.mock('@/hermes', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getAutomationBlueprints: hermes.getAutomationBlueprints,
-  getCronDeliveryTargets: vi.fn(async () => ({ targets: [] })),
+  getCronDeliveryTargets: vi.fn(async () => []),
   getCronJobs: hermes.getCronJobs,
   instantiateAutomationBlueprint: hermes.instantiateAutomationBlueprint
 }))
@@ -72,6 +72,7 @@ function renderView() {
 }
 
 beforeEach(() => {
+  HTMLElement.prototype.scrollIntoView ??= () => undefined
   hermes.getCronJobs.mockResolvedValue([])
   hermes.getAutomationBlueprints.mockResolvedValue({ blueprints: [builtinBlueprint, pluginBlueprint] })
   hermes.instantiateAutomationBlueprint.mockResolvedValue({
@@ -91,20 +92,15 @@ describe('plugin-registered automation blueprints', () => {
   it('lists the plugin blueprint with its plugin label and instantiates it into the scoped profile', async () => {
     renderView()
 
-    const title = await screen.findByText('Team standup digest')
-    const row = title.closest('button') as HTMLElement
-    // PanelListRow renders `meta` (the plugin name) beside the row's button.
-    expect(within(row.parentElement as HTMLElement).getByText('teamtools')).toBeTruthy()
-    const builtinRow = screen.getByText('Morning briefing').closest('button') as HTMLElement
-    expect(within(builtinRow.parentElement as HTMLElement).queryByText('teamtools')).toBeNull()
-    // The catalog is per profile (plugins load per profile): fetched for the job's target profile.
+    fireEvent.click((await screen.findAllByRole('button', { name: '新建定时任务' }))[0])
+    const selector = await screen.findByLabelText('从此开始')
+    fireEvent.click(selector)
+    fireEvent.keyDown(selector, { key: 'ArrowDown' })
+    const option = await screen.findByRole('option', { name: /Team standup digest/ })
+    expect(screen.queryByText('Morning briefing')).toBeNull()
     expect(hermes.getAutomationBlueprints).toHaveBeenCalledWith('work')
-
-    fireEvent.click(row)
-    // The dialog's "Start from" select names the plugin next to the title.
-    expect(await screen.findByText('· teamtools')).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Schedule it' }))
+    fireEvent.click(option)
+    fireEvent.click(screen.getByRole('button', { name: '安排任务' }))
 
     await waitFor(() =>
       expect(hermes.instantiateAutomationBlueprint).toHaveBeenCalledWith(

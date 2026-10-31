@@ -1,7 +1,9 @@
-import { host, type PluginContext, useValue } from '@hermes/plugin-sdk'
+import { type CronBlueprintOwner, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { moduleLabels } from './blueprint-types'
 import { ActionManager, ContentEditor } from './management'
+import { PlatformLoginsPanel } from './platform-logins'
 import { $showOperationsBrowser } from './state'
 import type { OperationsState, Policy, RecordRow } from './types'
 
@@ -14,31 +16,56 @@ const labels: Record<string, string> = {
   follow: '条件回关'
 }
 
-const stages: Record<string, string> = {
-  research: '信息搜集',
-  publish: '内容发布',
-  interact: '互动处理',
-  report: '日报'
-}
+const stages = moduleLabels
 
 const tabs = ['目标与规则', '素材与内容', '任务与执行', '来源与数据', '每日总结']
 
-export function Workbench({ ctx }: { ctx: PluginContext }) {
-  const scope = useValue(host.state.requestOwner)
+export function Workbench({
+  ctx,
+  owner,
+  initialTab
+}: {
+  ctx: PluginContext
+  owner?: CronBlueprintOwner
+  initialTab?: string
+}) {
+  const ambient = useValue(host.state.requestOwner)
+  const scope = owner || ambient
 
   const owned = useMemo<PluginContext>(
     () => ({ ...ctx, rest: (path, options) => ctx.rest(path, { ...options, owner: scope }) }),
     [ctx, scope]
   )
 
-  return <OwnedWorkbench ctx={owned} key={JSON.stringify(scope)} />
+  return (
+    <OwnedWorkbench
+      canView={
+        ambient.connectionId === scope.connectionId && (ambient.profile || 'default') === (scope.profile || 'default')
+      }
+      ctx={owned}
+      initialTab={initialTab}
+      key={JSON.stringify(scope)}
+      owner={scope}
+    />
+  )
 }
 
-function OwnedWorkbench({ ctx }: { ctx: PluginContext }) {
+function OwnedWorkbench({
+  ctx,
+  initialTab,
+  canView,
+  owner
+}: {
+  ctx: PluginContext
+  initialTab?: string
+  canView: boolean
+  owner: CronBlueprintOwner
+}) {
   const [state, setState] = useState<OperationsState | null>(null)
   const [draft, setDraft] = useState<Policy | null>(null)
   const [version, setVersion] = useState(0)
-  const [tab, setTab] = useState(tabs[0])
+  const [dirty, setDirty] = useState(false)
+  const [tab, setTab] = useState(initialTab || tabs[0])
   const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
@@ -66,12 +93,20 @@ function OwnedWorkbench({ ctx }: { ctx: PluginContext }) {
     }
   }, [refresh])
 
+  useEffect(() => {
+    if (state && !dirty) {
+      setDraft(state.policy)
+      setVersion(state.version)
+    }
+  }, [state, dirty])
+
   const save = async (policy: Policy) => {
     try {
       await ctx.rest('/policy', { method: 'PUT', body: { version, policy } })
       const next = await refresh()
       setDraft(next.policy)
       setVersion(next.version)
+      setDirty(false)
       setError('已保存')
     } catch (error) {
       setError(String(error))
@@ -82,14 +117,19 @@ function OwnedWorkbench({ ctx }: { ctx: PluginContext }) {
     return <div className="p-6">{error || '正在加载运营工作台…'}</div>
   }
 
-  const field = (key: keyof Policy, value: unknown) => setDraft({ ...draft, [key]: value })
+  const field = (key: keyof Policy, value: unknown) => {
+    setDirty(true)
+    setDraft({ ...draft, [key]: value })
+  }
 
   return (
     <div className="h-full overflow-auto p-5 text-sm">
       <header className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold">每日自动运营</h1>
         <span>{state.online ? '桌面执行器在线' : '等待桌面执行器'}</span>
-        <button onClick={() => $showOperationsBrowser.set(true)}>查看执行网页／登录</button>
+        <button disabled={!canView} onClick={() => $showOperationsBrowser.set(true)}>
+          查看执行网页／登录
+        </button>
         <button
           onClick={() =>
             void ctx
@@ -107,6 +147,7 @@ function OwnedWorkbench({ ctx }: { ctx: PluginContext }) {
           立即暂停
         </button>
       </header>
+      <PlatformLoginsPanel compact ctx={ctx} owner={owner} />
       <nav className="mb-4 flex flex-wrap gap-3">
         {tabs.map(name => (
           <button aria-pressed={tab === name} key={name} onClick={() => setTab(name)}>
@@ -156,7 +197,7 @@ function OwnedWorkbench({ ctx }: { ctx: PluginContext }) {
               {label}（每行一条）
               <textarea
                 className="rounded border bg-transparent p-2"
-                onChange={e => field(key, e.target.value.split('\n').filter(Boolean))}
+                onChange={e => field(key, e.target.value.split('\n'))}
                 rows={3}
                 value={draft[key].join('\n')}
               />
@@ -184,6 +225,18 @@ function OwnedWorkbench({ ctx }: { ctx: PluginContext }) {
               value={draft.model_calls}
             />
           </label>
+          <div className="flex flex-wrap gap-4">
+            {Object.entries(moduleLabels).map(([module, label]) => (
+              <label key={module}>
+                <input
+                  checked={draft.modules[module]}
+                  onChange={e => field('modules', { ...draft.modules, [module]: e.target.checked })}
+                  type="checkbox"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-4">
             {Object.keys(draft.allowed).map(kind => (
               <label key={kind}>

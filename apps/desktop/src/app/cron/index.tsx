@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldHint } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import {
   Select,
   SelectContent,
@@ -74,6 +75,7 @@ import {
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
 import { BlueprintSlotControl, blueprintSlotHelp, cleanBlueprintFieldError, initialBlueprintValues } from './blueprints'
+import { ContributedBlueprints } from './contributed-blueprints'
 import { mutateAndRefreshCronJobs, refreshCronJobs, triggerAndRefreshCronJobs } from './cron-actions'
 import {
   cronEditorUpdates,
@@ -316,6 +318,7 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
   const jobs = useStore($cronJobs)
   const [loading, setLoading] = useState(jobs.length === 0)
   const [query, setQuery] = useState('')
+  const [section, setSection] = useState<'jobs' | 'blueprints'>('jobs')
   const [busyJobTokens, setBusyJobTokens] = useState<ReadonlyMap<string, symbol>>(() => new Map())
   const [triggeringJobKeys, setTriggeringJobKeys] = useState<ReadonlySet<string>>(() => new Set())
   const triggerControllerRef = useRef<CronTriggerController | null>(null)
@@ -416,22 +419,8 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
     [jobs, query]
   )
 
-  // Blueprint recipes render in the same list rail, below the jobs — clicking
-  // one opens the create dialog pre-seeded to that recipe. Same query key as
-  // the dialog's "Start from" dropdown, so the catalog is fetched once.
+  // Contributions and manual plugin templates share the explicit writable owner.
   const blueprintProfile = blueprintProfileForScope(profileScope)
-
-  const blueprintsQuery = useQuery({
-    queryKey: ['cron-blueprints', blueprintProfile],
-    queryFn: async () => (await getAutomationBlueprints(blueprintProfile)).blueprints
-  })
-
-  const visibleBlueprints = useMemo(() => {
-    const list = blueprintsQuery.data ?? []
-    const needle = query.trim().toLowerCase()
-
-    return needle ? list.filter(item => `${item.title} ${item.description}`.toLowerCase().includes(needle)) : list
-  }, [blueprintsQuery.data, query])
 
   // Detail always reflects a concrete job: the explicitly selected one, else the
   // first visible row, so the right pane is never empty while jobs exist.
@@ -682,9 +671,24 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
     <Panel closeLabel={c.close} onClose={onClose}>
       <PanelHeader subtitle={c.count(totalCount)} title={c.title} />
 
-      {loading && jobs.length === 0 ? (
+      <div className="px-4 py-2">
+        <SegmentedControl
+          onChange={setSection}
+          options={[
+            { id: 'jobs', label: '任务与执行' },
+            { id: 'blueprints', label: '运营蓝图' }
+          ]}
+          value={section}
+        />
+      </div>
+      {section === 'jobs' && <ContributedBlueprints profile={blueprintProfile} view="summary" />}
+      {section === 'blueprints' ? (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <ContributedBlueprints profile={blueprintProfile} view="blueprints" />
+        </div>
+      ) : loading && jobs.length === 0 ? (
         <PageLoader label={c.loading} />
-      ) : totalCount === 0 && visibleBlueprints.length === 0 ? (
+      ) : totalCount === 0 ? (
         <PanelEmpty
           action={
             <Button onClick={() => setEditor({ mode: 'create' })} size="sm">
@@ -727,22 +731,6 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
               </p>
             )}
             <PanelAddButton label={c.newCron} onClick={() => setEditor({ mode: 'create' })} />
-            {visibleBlueprints.length > 0 && (
-              <>
-                <PanelSectionLabel className="mt-3 px-2">{c.blueprints.tab}</PanelSectionLabel>
-                {visibleBlueprints.map(item => (
-                  <PanelListRow
-                    active={false}
-                    icon="rocket"
-                    key={item.key}
-                    meta={item.plugin || undefined}
-                    onSelect={() => setEditor({ blueprintKey: item.key, mode: 'create' })}
-                    rowKey={`blueprint-${item.key}`}
-                    title={item.title}
-                  />
-                ))}
-              </>
-            )}
           </PanelList>
 
           {selectedJob ? (
@@ -1252,7 +1240,7 @@ function CronEditorDialog({
     enabled: open && !isEdit
   })
 
-  const blueprintList = blueprintsQuery.data ?? []
+  const blueprintList = (blueprintsQuery.data ?? []).filter(item => item.source === 'plugin' || Boolean(item.plugin))
 
   const blueprint =
     templateChoice === CUSTOM_TEMPLATE ? null : (blueprintList.find(item => item.key === templateChoice) ?? null)

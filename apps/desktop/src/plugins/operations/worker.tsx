@@ -1,15 +1,19 @@
 import { host, type PluginContext, useValue } from '@hermes/plugin-sdk'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { executeBrowser } from './browser'
+import { $loginNavigation } from './login-state'
 import { $operationsWorkerStatus, $showOperationsBrowser } from './state'
 import type { Api, BrowserCommand, Guest, OperationsState } from './types'
+import { usePlatformLogin } from './use-platform-login'
 
 function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwner.get>; ctx: PluginContext }) {
   const visible = useValue($showOperationsBrowser)
   const status = useValue($operationsWorkerStatus)
   const container = useRef<HTMLDivElement>(null)
   const execution = useRef<{ pending: Promise<unknown> | null }>({ pending: null })
+  const [worker] = useState(() => crypto.randomUUID())
+  const manual = useRef(false)
   const [guest] = useState(() => document.createElement('webview') as Guest)
 
   const api = useMemo<Api>(
@@ -29,7 +33,6 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
     let polling = false
     let reportSeen = ''
     let timer: ReturnType<typeof setInterval>
-    const worker = crypto.randomUUID()
     guest.setAttribute('webpreferences', 'contextIsolation=yes,sandbox=yes,nodeIntegration=no,backgroundThrottling=no')
     guest.style.cssText = 'width:100%;height:100%;display:flex'
     // Separate cookie jar for each connection/profile; no guest preload or OS-browser popup bridge.
@@ -55,7 +58,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
         // Poll also heartbeats during a command; the server serializes the account across windows.
         const result = await api<{ command: BrowserCommand | null; latest_report?: { id: string; day: string } }>(
           '/worker/poll',
-          { worker, busy: running }
+          { worker, busy: running || manual.current || $loginNavigation.get() !== null }
         )
 
         if (!disposed && result.latest_report && result.latest_report.id !== reportSeen) {
@@ -76,7 +79,10 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
         $operationsWorkerStatus.set('正在执行任务；可点击人工接管暂停')
 
         try {
-          const pending = executeBrowser(result.command, guest, api)
+          const pending = manual.current
+            ? Promise.resolve({ state: 'blocked', error: '已进入人工接管' })
+            : executeBrowser(result.command, guest, api)
+
           execution.current.pending = pending
           const answer = await pending
 
@@ -84,7 +90,9 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
             await api('/worker/ack', { id: result.command.id, worker, result: answer })
           }
 
-          $operationsWorkerStatus.set(answer.error || '本次网页任务完成')
+          if (!disposed) {
+            $operationsWorkerStatus.set(answer.error || '本次网页任务完成')
+          }
         } finally {
           running = false
           execution.current.pending = null
@@ -106,19 +114,27 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
       clearInterval(timer)
       guest.remove()
     }
-  }, [scope, api, guest])
+  }, [scope, api, guest, worker])
 
-  const takeOver = async () => {
-    const current = await api<OperationsState>('/policy')
-    await api('/policy', { version: current.version, policy: { ...current.policy, paused: true } }, 'PUT')
-    $operationsWorkerStatus.set('已暂停，等待当前网页操作退出…')
-    await execution.current.pending?.then(
-      () => undefined,
-      error => $operationsWorkerStatus.set(String(error))
-    )
-    guest.style.pointerEvents = 'auto'
-    $operationsWorkerStatus.set('已暂停自动动作，可人工操作网页；恢复请回运营工作台')
-  }
+  const takeOver = useCallback(async () => {
+    manual.current = true
+
+    try {
+      const current = await api<OperationsState>('/policy')
+      await api('/policy', { version: current.version, policy: { ...current.policy, paused: true } }, 'PUT')
+      $operationsWorkerStatus.set('已暂停，等待当前网页操作退出…')
+      await execution.current.pending?.then(
+        () => undefined,
+        error => $operationsWorkerStatus.set(String(error))
+      )
+      guest.style.pointerEvents = 'auto'
+      $operationsWorkerStatus.set('已暂停自动动作，可人工操作网页；恢复请回运营工作台')
+    } finally {
+      manual.current = false
+    }
+  }, [api, guest])
+
+  usePlatformLogin({ api, guest, owner: scope, worker, takeOver })
 
   return (
     <section

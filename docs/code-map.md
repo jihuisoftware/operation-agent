@@ -1,0 +1,36 @@
+# 按功能定位代码
+
+这是入口索引，不是完整文件清单。先选当前任务对应的一行，再按根 [AGENTS.md](../AGENTS.md) 的路由读取区域约束；不要一次加载表中的全部目录。移动入口时同步更新本表，路径和符号以工作树为准。
+
+| 功能或问题 | 首先定位 | 需要跨层时再查 | 验证入口 |
+| --- | --- | --- | --- |
+| 运营蓝图、三步配置 | [蓝图库](../apps/desktop/src/plugins/operations/blueprint-library.tsx)、同目录 `blueprint-wizard.tsx` / `blueprint-fields.tsx` | [目录、预览与应用](../plugins/operations/blueprints.py)、[定时任务贡献区](../apps/desktop/src/app/cron/contributed-blueprints.tsx) | `blueprint-library.test.tsx`、`tests/plugins/test_operations_blueprints.py` |
+| 运营规则、账号权限、额度 | [规则](../plugins/operations/policy.py)、[模块与旧规则转换](../plugins/operations/modules.py) | [事务台账](../plugins/operations/store.py)、`migration.py`、[工作台](../apps/desktop/src/plugins/operations/workbench.tsx) | `tests/plugins/test_operations.py`、`test_operations_blueprints.py` |
+| 每日执行、暂停、恢复 | [运营 tick](../plugins/operations/runtime.py)、[业务阶段](../plugins/operations/workflow.py) | 同目录 `recovery.py`；仅调度底层问题才进入 [Cron](../cron/AGENTS.md) | `tests/plugins/test_operations_workflow.py` |
+| 网页/RSS 来源与选题 | [采集](../plugins/operations/research.py)、同目录 `feeds.py` | [模型调用](../plugins/operations/model.py)、`tools/web_tools.py` | `tests/plugins/test_operations_workflow.py` |
+| 内容生产、版本、素材 | [内容生产与检查](../plugins/operations/content.py)、[人工管理服务](../plugins/operations/service.py) | [内容编辑](../apps/desktop/src/plugins/operations/management.tsx)、`workflow.py` 的 `publish` | `test_operations_blueprints.py`、`test_operations_http.py`（均在 `tests/plugins/`） |
+| 自动运营网页、发布和互动 | [后台执行器](../apps/desktop/src/plugins/operations/worker.tsx)、同目录 `browser.ts` / `page.ts` | [私有 API](../plugins/operations/dashboard/plugin_api.py)、`store.py` 队列 | 同目录 `worker.test.tsx` / `browser.test.ts` / `page.test.ts`；完整模拟日测试 |
+| 常用平台登录状态 | [登录状态界面](../apps/desktop/src/plugins/operations/platform-logins.tsx)、同目录 `use-platform-login.ts` / `login-page.ts` | [检查与登录确认](../plugins/operations/login_status.py)、私有 API；复用运营 worker 的内嵌页面 | `login-page.test.ts`、`platform-logins.test.tsx`、`use-platform-login.test.tsx`；`tests/plugins/test_operations_login_status.py` |
+| 日报、指标、复盘 | [日报](../plugins/operations/report.py)、同目录 `feedback.py` | `store.py` 的持久化记录；工作台导出入口 | `tests/plugins/test_operations_workflow.py` |
+| 普通定时任务管理 | [Cron 页面](../apps/desktop/src/app/cron/index.tsx)、同目录 `cron-actions.ts` | [HTTP 路由](../hermes_cli/web_routers/cron.py)、`cron/jobs.py` / `scheduler_*.py` | `apps/desktop/src/app/cron/` 同目录测试；`tests/cron/` |
+| 聊天中的实时网页 | [右侧预览](../apps/desktop/src/app/chat/right-rail/preview.tsx)、[预览归属](../apps/desktop/src/store/preview-ownership.ts) | [页面操作工具](../tools/drive_preview_tool.py)、[浏览 RPC](../tui_gateway/methods_browser.py) | `apps/desktop/src/store/preview-*.test.ts`、Electron `preview-*.test.ts` |
+| 模型列表、提供方、设置 | [模型设置](../apps/desktop/src/app/settings/model-settings.tsx)、同目录 `model-select.tsx` | [模型 API](../hermes_cli/web_routers/models.py)、[模型目录](../hermes_cli/model_catalog.py)、`tui_gateway/model_switch.py` | `model-settings.test.tsx`；在 `tests/hermes_cli/` 搜索对应符号 |
+| Desktop 启动、连接、会话 | [Electron 入口](../apps/desktop/electron/main.ts)（只搜索相关符号）、同目录 `backend-*.ts` / `local-gateway-*.ts` | [Gateway 运行时](../hermes_cli/gateway_runtime.py)及同前缀兄弟模块；[会话创建请求](../apps/desktop/src/app/session/hooks/use-session-actions/session-create-request.ts) | Electron 同目录测试、`session-create-request.test.ts`；Gateway 对应测试 |
+| 产品能力显示与裁剪 | [产品范围](../hermes_cli/data/operations-profile.json)、[Desktop 范围读取](../apps/desktop/src/lib/operations-profile.ts) | [产品状态与启动说明](../README.md)、[MVP 状态](operations-platform-mvp.md) | `apps/desktop/src/lib/operations-profile.test.ts` |
+
+聊天预览与运营执行器有不同的生命周期和归属；先确认用户指的是哪一个。运营业务修改优先留在插件里，定时任务核心只负责通用贡献入口；SDK 契约在 [cron.ts](../apps/desktop/src/sdk/cron.ts)。
+
+## 共享运行时的入口
+
+只有问题确实跨越业务边界时才继续：
+
+| 领域 | 定位方式与约束 |
+| --- | --- |
+| 模型执行、上下文、记忆 | `run_agent.py` 为入口，按主题找 `agent/turn_*.py`；规则见 [agent/AGENTS.md](../agent/AGENTS.md) |
+| CLI、配置、私有 HTTP 服务 | `cli.py` / `hermes_cli/cli_*_mixin.py`；`hermes_cli/web_server*.py`；规则见 [hermes_cli/AGENTS.md](../hermes_cli/AGENTS.md) |
+| Gateway、JSON-RPC、Profile | `gateway/run*.py`、`tui_gateway/`；规则分别见 [Gateway](../gateway/AGENTS.md)、[RPC](../tui_gateway/AGENTS.md) |
+| 会话存储、Profile 路径 | `hermes_state.py` / `hermes_state_*.py`；`hermes_constants.py` 的 `get_hermes_home()` |
+| 工具、技能、插件 | `model_tools.py` / `toolsets.py` / `tools/registry.py`；按根路由读取对应 AGENTS；不要为找一个工具读取全部注册表 |
+| 环境、依赖、机器事实 | `pm/`、`hermes_platform/`；按根路由读取对应约束，不直接修改托管环境 |
+
+定位示例和最小验证命令见 [开发工作流](development-workflow.md)。恢复上次工作时看 [任务交接记录](dev-handoff.md)，并先核对工作树。

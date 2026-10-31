@@ -1,7 +1,6 @@
 # apps/desktop/src/ — backend contract and slash palette
 
 Applies on top of `apps/desktop/AGENTS.md` (the judgment guide) and the root `AGENTS.md`.
-Root TypeScript style rules apply.
 
 This operations build shares its scope with `hermes_cli/data/operations-profile.json` through
 `lib/operations-profile.ts`. Bot Mode, Kanban, Radio and the retired agents/starmap/webhooks/session-import pages are removed.
@@ -65,6 +64,10 @@ user-activated extensions. If you tighten `desktop-slash-commands.ts`, keep
 `npx vitest run src/lib/desktop-slash-commands.test.ts` (workspace deps install at the repo root).
 
 ## Free tier surfaces (`src/store/free-tier*.ts`, Billing, statusbar chip, onboarding ready screen)
+
+`free_tier.status` / `free_tier.ack_notice` are authoritative. The ready screen and own-key strip
+share `notice_pending`; no localStorage latch. Branch on `free_tier_row` / `free_tier`, never provider
+names. Background and rationale: `../ENGINEERING.md` § Nous free tier.
 
 `$freeTierStatus` mirrors `free_tier.status` (pull; refreshed with the status snapshot and after a
 sign-in). `deriveBillingView` branches on `billing.free_tier_account` BEFORE `logged_in` (status
