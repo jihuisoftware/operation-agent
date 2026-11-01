@@ -92,7 +92,7 @@ _BUSINESSES = [
 ]
 
 BUSINESS_THEMES = [
-    {**item, "kind": "business", "category": "业务主题", "modules": ["research", "organize", "topics", "content", "publish", "comments", "dm", "report"],
+    {**item, "kind": "business", "category": "业务主题", "modules": ["research", "organize", "analytics", "industry", "topics", "content", "publish", "comments", "dm", "report"],
      "output": "主题相关的来源、图文草稿与运营日报",
      "defaults": {"topic": item["title"], **item["defaults"]}}
     for item in _BUSINESSES

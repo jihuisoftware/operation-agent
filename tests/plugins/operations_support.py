@@ -12,3 +12,8 @@ def prepare_materials(store, policy, day, monkeypatch):
     with monkeypatch.context() as scoped:
         scoped.setattr(organization, 'generate', lambda *args: organized_response(args[-1]))
         return organization.organize(store, policy, day, store.policy()[0])
+
+
+def industry_response(data):
+    return {'findings': [{'view': 'content', 'dimension': '需求', 'title': '关注具体使用需求', 'text': '样本提示可验证这一方向',
+                         'evidence_ids': [data['evidence'][0]['id']], 'scope': '本次样本', 'counter': '未找到反向证据', 'unknowns': '不能外推全行业'}]}

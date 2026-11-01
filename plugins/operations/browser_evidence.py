@@ -73,6 +73,8 @@ def record_step(store, command_id, worker, body):
             if phase == 'started' or not started or json.loads(started[0])['name'] != name:
                 raise ValueError('任务已结束或过期，不能追加网页操作')
             data['late_evidence'] = True
+        from .analysis_publication import check_step
+        check_step(db, command, phase)
         payload = json.loads(command['payload'])
         data.update(command_id=command_id, action_id=command['action_id'] or payload.get('verification_action_id'),
                     policy_version=payload['policy_version'], account_id=payload.get('account_id'),

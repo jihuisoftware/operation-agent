@@ -17,7 +17,10 @@ from tests.waiting import wait_until
 
 def model(**kwargs):
     data = json.loads(kwargs['messages'][1]['content'])
-    if data.get('task') == 'organize_sources':
+    if data.get('task') == 'industry_analysis':
+        from tests.plugins.operations_support import industry_response as finding
+        result = finding(data)
+    elif data.get('task') == 'organize_sources':
         result = organized_response(data)
     elif 'candidates' in data:
         result = {'actions': [{'id': data['candidates'][0]['id'], 'text': '开放时间为九点。', 'knowledge_ids': [0]}]}

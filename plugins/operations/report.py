@@ -44,6 +44,8 @@ def daily_report(store, day, delayed=False):
     lines.extend(["", "## 资料整理", ""])
     for batch in store.objects('organization', day):
         lines.append('资料整理：' + batch['detail'])
+    from .analysis_views import daily_lines
+    lines.extend(daily_lines(store, day))
     lines.extend(["", "## 发布与互动", ""])
     for action in actions:
         result = json.loads(action["result"])

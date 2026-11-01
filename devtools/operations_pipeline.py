@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from plugins.operations.policy import local_day, now_iso
 
 EXTERNAL = {"publish", "comment", "reply", "dm", "follow"}
-DEPENDENCIES = {"organize": "research", "topics": "organize", "content": "topics", "publish": "content"}
+DEPENDENCIES = {"organize": "research", "industry": "analytics", "topics": "organize", "content": "topics", "publish": "content"}
 
 
 def unavailable(store, data, step, policy):

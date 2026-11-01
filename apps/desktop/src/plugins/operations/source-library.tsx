@@ -123,7 +123,7 @@ export function SourceLibrary({ ctx }: { ctx: PluginContext }) {
   </section>
 }
 
-function SourceDetail({ ctx, identity, onClose }: { ctx: PluginContext; identity: string; onClose: () => void }) {
+export function SourceDetail({ ctx, identity, onClose }: { ctx: PluginContext; identity: string; onClose: () => void }) {
   const [source, setSource] = useState<Source | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {

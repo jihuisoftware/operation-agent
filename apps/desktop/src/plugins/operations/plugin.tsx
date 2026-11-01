@@ -12,6 +12,7 @@ import {
 import { createRoot } from 'react-dom/client'
 
 import { AccountsPage } from './accounts'
+import { AnalysisPage } from './analysis-page'
 import { BlueprintLibrary } from './blueprint-library'
 import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
@@ -36,13 +37,19 @@ export default {
       id: 'overview-nav', area: SIDEBAR_NAV_AREA,
       data: { path: '/overview', label: '运营总览', codicon: 'dashboard' } satisfies SidebarNavContribution
     })
+
+    for (const [stage, label, icon] of [['analytics', '数据分析', 'graph'], ['industry', '行业分析', 'globe']] as const) {
+      ctx.register({ id: stage, area: ROUTES_AREA, title: label, data: { path: `/${stage}` }, render: () => <AnalysisPage ctx={ctx} stage={stage} /> })
+      ctx.register({ id: `${stage}-nav`, area: SIDEBAR_NAV_AREA, data: { path: `/${stage}`, label, codicon: icon } satisfies SidebarNavContribution })
+    }
+
     ctx.register({
       id: 'workbench-nav', area: SIDEBAR_NAV_AREA,
       data: { path: '/operations', label: '运营管理', codicon: 'notebook' } satisfies SidebarNavContribution
     })
     ctx.register({
       id: 'navigation-order', area: SIDEBAR_NAV_PREFS_AREA,
-      data: { order: ['operations:overview-nav', 'cron', 'upcoming', 'activity', 'operations:workbench-nav',
+      data: { order: ['operations:overview-nav', 'cron', 'upcoming', 'activity', 'operations:workbench-nav', 'operations:analytics-nav', 'operations:industry-nav',
         'operations:accounts-nav', 'new-session', 'artifacts', 'capabilities', 'operations:debug-nav'] } satisfies SidebarNavPrefsContribution
     })
 

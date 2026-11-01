@@ -46,6 +46,8 @@ class Store:
         self.current_run_id = None
         with self.connection() as db:
             db.executescript(SCHEMA)
+            from .business_store import initialize
+            initialize(db)
             db.execute("INSERT OR IGNORE INTO settings VALUES (1,0,?)", (encoded(DEFAULT),))
         from .migration import migrate
         with self.connection() as db:
@@ -177,6 +179,8 @@ class Store:
                           (action["kind"], version)).fetchone():
                 raise ValueError("该能力已暂停，请处理异常并重新保存规则后恢复")
             day = day or local_day(policy)
+            from .analysis_publication import check
+            check(db, action, policy, day)
             target = action["target"]
             if self.manual_run_id:
                 target = f"manual:{self.manual_run_id}:{target}"

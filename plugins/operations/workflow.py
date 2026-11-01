@@ -40,6 +40,16 @@ def research(store, policy, day, version):
     return stats
 
 
+def analytics(store, policy, day, version):
+    from .analytics import analyze
+    return analyze(store, policy, day, version)
+
+
+def industry(store, policy, day, version):
+    from .industry import analyze
+    return analyze(store, policy, day, version)
+
+
 def topics(store, policy, day, version):
     from .topics import generate_topics
     return generate_topics(store, policy, day, version)

@@ -1,7 +1,7 @@
 """The ordered stages of one profile's operations plan."""
 from copy import deepcopy
 
-TIMES = {"research": ["09:00"], "organize": ["09:10"], "topics": ["09:20"], "content": ["09:40"], "publish": ["10:00"],
+TIMES = {"research": ["09:00"], "organize": ["09:10"], "analytics": ["09:12"], "industry": ["09:16"], "topics": ["09:20"], "content": ["09:40"], "publish": ["10:00"],
          "comments": ["11:00", "15:00", "19:00"], "dm": ["11:00", "15:00", "19:00"],
          "follow": ["11:00", "15:00", "19:00"], "report": ["21:00"]}
 ACTION_MODULE = {"publish": "publish", "comment": "comments", "reply": "comments", "dm": "dm", "follow": "follow"}
@@ -10,13 +10,16 @@ EXTERNAL = frozenset({"publish", "comments", "dm", "follow"})
 
 def upgrade(policy):
     result = deepcopy(policy)
-    if result.get("schema_version") == 4:
+    if result.get("schema_version") == 5:
         return result
-    result = _upgrade_topics(result)
-    result['modules']['organize'] = any(result['modules'].get(k, False) for k in ('research', 'topics', 'content'))
-    # Preserve custom times; ordered ticks prepare sources before planning topics.
-    result['times']['organize'] = list(result['times']['research'])
-    result['schema_version'] = 4
+    if result.get("schema_version") != 4:
+        result = _upgrade_topics(result)
+        result['modules']['organize'] = any(result['modules'].get(k, False) for k in ('research', 'topics', 'content'))
+        result['times']['organize'] = list(result['times']['research'])
+    for stage in ('analytics', 'industry'):
+        result['modules'][stage] = False
+        result['times'][stage] = list(TIMES[stage])
+    result['schema_version'] = 5
     return result
 
 

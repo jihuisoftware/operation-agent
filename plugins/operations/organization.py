@@ -108,7 +108,7 @@ def organize(store, policy, day, version):
     with store.connection() as db:
         used = db.execute("SELECT count(*) FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
     # Leave the configured downstream modules a chance to consume the partial collection.
-    reserved = sum(cost for stage, cost in (('topics', 1), ('content', 2), ('publish', 1)) if policy['modules'][stage])
+    reserved = sum(cost for stage, cost in (('industry', 2), ('topics', 1), ('content', 2), ('publish', 1)) if policy['modules'][stage])
     batches = max(0, policy['model_calls'] - used - reserved)
     added, budget_exhausted = _run_batches(store, policy, day, version, pairs, pending, batches)
     current = materials(store, policy, day, include_history=True)
@@ -122,8 +122,10 @@ def organize(store, policy, day, version):
     return result
 
 
-def production_evidence(store, policy, day):
-    selected = [(source, row) for source, row in materials(store, policy, day) if row and row['relevant']][:40]
+def production_evidence(store, policy, day, preferred_ids=()):
+    pairs = [(source, row) for source, row in materials(store, policy, day) if row and row['relevant']]
+    pairs.extend(_analysis_history(store, policy, preferred_ids, {s['id'] for s, _ in pairs}))
+    selected = sorted(pairs, key=lambda pair: pair[0]['id'] not in preferred_ids)[:40]
     if not selected:
         raise StageSkipped('没有当前主题可用的整理资料，请先执行“资料整理与归类”；不会直接用未整理原文生产')
     sources, evidence = [], []
@@ -133,3 +135,18 @@ def production_evidence(store, policy, day):
                          **{k: row[k] for k in ('summary', 'category', 'facts', 'opinions', 'uncertainties', 'keywords')},
                          'organization_id': row['id'], 'text_truncated': row['text_truncated']})
     return sources, evidence
+
+
+def _analysis_history(store, policy, preferred_ids, existing):
+    # An analysis explicitly scopes historical evidence; it need not be manually pinned again.
+    if not preferred_ids:
+        return []
+    cached = {r['id']: r for r in store.objects('organized_source') if r['scope_topic'] == policy['topic']}
+    pairs = []
+    for source in store.objects('source'):
+        if source['id'] not in preferred_ids or source['id'] in existing or source.get('scope_topic') != policy['topic'] or not source.get('text'):
+            continue
+        row = cached.get(material_id(policy, source))
+        if row and row['relevant']:
+            pairs.append((source, row))
+    return pairs

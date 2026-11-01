@@ -57,7 +57,9 @@ def test_scenario_choice_can_be_customized_without_scheduling_on_catalog_read(st
     body = {"version": catalog["version"], "policy": policy, "request_id": "scenario", "mode": "enable"}
     preview = blueprints.preview(store, body)
     assert preview["missing"] == {}
-    assert [r["time"] for r in preview["timeline"]] == ["08:30", "09:10", "09:20", "20:30"]
+    schedule = {r["module"]: r["time"] for r in preview["timeline"]}
+    assert schedule["research"] == "08:30" and schedule["report"] == "20:30"
+    assert schedule["organize"] < schedule["analytics"] < schedule["industry"] < schedule["topics"]
     blueprints.apply(store, body)
     blueprints.apply(store, body)
     saved = store.policy()[1]

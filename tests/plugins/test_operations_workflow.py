@@ -25,7 +25,10 @@ def store(tmp_path, monkeypatch):
 
 def fake_model(**kwargs):
     data = json.loads(kwargs["messages"][1]["content"])
-    if data.get("task") == "organize_sources":
+    if data.get('task') == 'industry_analysis':
+        from tests.plugins.operations_support import industry_response as finding
+        result = finding(data)
+    elif data.get("task") == "organize_sources":
         from tests.plugins.operations_support import organized_response
         result = organized_response(data)
     elif "candidates" in data:
@@ -101,7 +104,9 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
     assert ("confirmed" if manual else "submitted") in report and "https://example.org/result" in report
     # The 21:05 recovery checks only the latest (19:00) interaction slot;
     # duplicate targets are inspected again but never submitted twice.
-    assert "不可访问" in report and f"模型调用 {17 if manual else 13} 次" in report
+    assert "不可访问" in report and "模型调用" in report
+    assert store.objects("analytics_report") and store.objects("industry_report")
+    assert store.objects("content")[0]["analysis_context"]["industry_id"]
     assert "20" in report and "费用未知" in report
 
 

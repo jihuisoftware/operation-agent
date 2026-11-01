@@ -20,6 +20,7 @@ export interface OverviewData {
   publications: { id: string; created: string; state: string; title: string | null; account_id: string | null; url: string | null }[]
   report: { id: string; created: string; day: string } | null
   schedule: PlanTime[]
+  analysis?: { id: string; kind: string; created: string; detail: string }[]
   platforms: PlatformLogin[]
 }
 

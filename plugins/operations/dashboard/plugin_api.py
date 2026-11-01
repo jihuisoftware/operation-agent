@@ -9,7 +9,10 @@ from plugins.operations import service
 from plugins.operations.dashboard.source_api import router as source_router
 from plugins.operations.dashboard.browser_api import router as browser_router
 
+from plugins.operations.dashboard.analysis_api import router as analysis_router
+
 router = APIRouter()
+router.include_router(analysis_router)
 router.include_router(source_router)
 router.include_router(browser_router)
 

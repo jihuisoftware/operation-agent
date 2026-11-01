@@ -54,6 +54,10 @@ function OverviewContent({ data }: { data: OverviewData }) {
     </section>
     <Metrics data={data} />
     <div className="grid items-start gap-4 @[50rem]:grid-cols-2">
+      <Region icon="graph" title="数据与行业分析" to="/analytics">
+        {data.analysis?.length ? data.analysis.map(item => <div key={item.id}><p>{item.detail}</p><Time value={item.created} /></div>) : <Empty icon="graph">暂无分析报告</Empty>}
+        <Open to="/industry">查看行业结论</Open>
+      </Region>
       <Attention data={data} />
       <RecentRuns data={data} />
       <Schedule data={data} />

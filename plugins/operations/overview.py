@@ -32,6 +32,7 @@ def overview(store):
         "paused": policy["paused"], "online": online, "counts": counts, "pending": pending,
         "runs": runs, "publications": publications, "report": dict(report) if report else None,
         "schedule": sorted(scheduled, key=lambda row: row["next_at"])[:6],
+        "analysis": _analysis(store, policy),
         "platforms": login_catalog(store)["platforms"],
     }
 
@@ -71,3 +72,9 @@ def _pending(db, day):
         "inbox": db.execute("SELECT count(*) FROM objects WHERE kind='inbox' AND json_extract(data,'$.state')='needs_review'").fetchone()[0],
         "content": db.execute("SELECT count(*) FROM objects WHERE kind='content' AND json_extract(data,'$.state') IN ('needs_material','needs_review')").fetchone()[0],
     }
+
+
+def _analysis(store, policy):
+    with store.connection() as db:
+        return [dict(r) for r in db.execute("SELECT id,kind,json_extract(data,'$.created') AS created,json_extract(data,'$.detail') AS detail "
+                "FROM objects WHERE kind IN ('analytics_report','industry_report') AND json_extract(data,'$.scope_topic')=? ORDER BY created DESC LIMIT 2", (policy['topic'],))]

@@ -52,7 +52,10 @@ def environment(tmp_path, monkeypatch):
 
 def model(**kwargs):
     data = json.loads(kwargs["messages"][1]["content"])
-    if data.get("task") == "organize_sources":
+    if data.get('task') == 'industry_analysis':
+        from tests.plugins.operations_support import industry_response as finding
+        result = finding(data)
+    elif data.get("task") == "organize_sources":
         from tests.plugins.operations_support import organized_response
         result = organized_response(data)
     elif "candidates" in data:
@@ -116,7 +119,7 @@ def test_failed_topics_blocks_old_content_publish_but_independent_steps_and_repo
     from agent import auxiliary_client
     def fail_topics(**kwargs):
         data = json.loads(kwargs["messages"][1]["content"])
-        if "candidates" not in data and data.get('task') != 'organize_sources':
+        if "candidates" not in data and data.get('task') not in ('organize_sources', 'industry_analysis'):
             raise ValueError("选题模型不可用")
         return model(**kwargs)
     monkeypatch.setattr(auxiliary_client, "call_llm", fail_topics)

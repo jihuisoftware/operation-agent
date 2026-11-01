@@ -98,6 +98,7 @@ def _tick(store, now):
 
 def _execute(store, policy, day, version, stage, identity, *, delayed=False):
     from .outcomes import StageSkipped, describe
+    from .analysis_runs import AnalysisCancelled
     try:
         current_version, current = store.policy()
         if current_version != version or (current["paused"] and stage != "report") or not current["enabled"]:
@@ -107,7 +108,7 @@ def _execute(store, policy, day, version, stage, identity, *, delayed=False):
             store.finish_run(identity, "skipped", "目标已超过期限")
             return
         from functools import partial
-        handlers = {"research": workflow.research, "organize": workflow.organize, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
+        handlers = {"research": workflow.research, "organize": workflow.organize, "analytics": workflow.analytics, "industry": workflow.industry, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     "comments": partial(workflow.interact, kinds=("comment", "reply")),
                     "dm": partial(workflow.interact, kinds=("dm",)), "follow": partial(workflow.interact, kinds=("follow",))}
         if stage == "report":
@@ -117,10 +118,12 @@ def _execute(store, policy, day, version, stage, identity, *, delayed=False):
             result = handlers[stage](store, policy, day, version)
         state, detail = describe(stage, result)
         store.finish_run(identity, state, detail)
+    except AnalysisCancelled as exc:
+        store.finish_run(identity, "cancelled", str(exc))
     except StageSkipped as exc:
         store.finish_run(identity, "skipped", str(exc))
     except Exception as exc:
         # A stage failure is durable and does not prevent the independent daily report.
         logging.getLogger(__name__).exception("Operations stage failed: %s", stage)
         store.finish_run(identity, "failed", str(exc)[:1500])
-        store.event("stage_error", {"day": day, "stage": stage, "error": str(exc)[:1500]})
+        store.event("stage_error", {"day": day, "stage": stage, "run_id": identity, "error": str(exc)[:1500]})

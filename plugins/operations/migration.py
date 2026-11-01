@@ -10,7 +10,7 @@ def migrate(db):
     repair_orphan_actions(db)
     row = db.execute("SELECT version,data FROM settings WHERE id=1").fetchone()
     old = json.loads(row["data"])
-    if old.get("schema_version") == 4:
+    if old.get("schema_version") == 5:
         return
     new = upgrade(old)
     # Legacy briefs lacked a scope field. Bind them at migration so changing the topic
