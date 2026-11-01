@@ -115,7 +115,7 @@ def _execute(store, policy, day, version, stage, identity):
             store.finish_run(identity, "skipped", "目标已超过期限")
             return
         from functools import partial
-        handlers = {"research": workflow.research, "content": workflow.produce, "publish": workflow.publish,
+        handlers = {"research": workflow.research, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     "comments": partial(workflow.interact, kinds=("comment", "reply")),
                     "dm": partial(workflow.interact, kinds=("dm",)), "follow": partial(workflow.interact, kinds=("follow",))}
         if stage == "report":

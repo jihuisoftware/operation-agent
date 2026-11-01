@@ -26,7 +26,7 @@ def collect(store, policy, day):
         store.renew()
         if store.policy()[1] != policy or policy["paused"] or not policy["enabled"]:
             raise ValueError("运营规则变更或已暂停，停止采集")
-        query = " ".join([*keywords[:3], domain]).strip()
+        query = " ".join(dict.fromkeys([policy["topic"], *keywords[:3], domain])).strip()
         store.progress("正在检索信息来源", {"query": query})
         found = json.loads(web_search_tool(query, limit=5))
         candidates.extend(found.get("data", {}).get("web", []))
@@ -71,7 +71,7 @@ def distinct_sources(store, day):
     return records
 
 
-def save_brief(store, day, result, sources):
+def save_brief(store, day, result, sources, *, scope_topic=None, version=None):
     from .store import encoded
     known = {s["id"]: s for s in sources}
     for fact in result.get("facts", []):
@@ -83,4 +83,5 @@ def save_brief(store, day, result, sources):
                 continue
             source = {**known[summary["source_id"]], "summary": summary["summary"][:2000], "topics": summary.get("topics", [])}
             db.execute("UPDATE objects SET data=? WHERE id=? AND kind='source'", (encoded(source), source["id"]))
-    store.put("brief", {"day": day, "result": result, "source_ids": list(known)})
+    return store.put("brief", {"day": day, "result": result, "source_ids": list(known),
+                               "scope_topic": scope_topic, "version": version})

@@ -1,24 +1,14 @@
 import { type CronBlueprintOwner, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { AccountSelection } from './account-selection'
-import { moduleLabels } from './blueprint-types'
+import { withTopicDefaults } from './business-config'
 import { ActionManager, ContentEditor } from './management'
 import { $showOperationsBrowser } from './state'
+import { TopicsPanel } from './topics-panel'
 import type { OperationsState, Policy, RecordRow } from './types'
+import { WorkbenchRules } from './workbench-rules'
 
-const labels: Record<string, string> = {
-  source: '读取来源',
-  publish: '发布图文',
-  comment: '主动评论',
-  reply: '评论回复',
-  dm: '私信回复',
-  follow: '条件回关'
-}
-
-const stages = moduleLabels
-
-const tabs = ['目标与规则', '素材与内容', '任务与执行', '来源与数据', '每日总结']
+const tabs = ['目标与规则', '信息采集', '选题管理', '素材与内容', '任务与执行', '每日总结']
 
 export function Workbench({
   ctx,
@@ -43,7 +33,7 @@ export function Workbench({
         ambient.connectionId === scope.connectionId && (ambient.profile || 'default') === (scope.profile || 'default')
       }
       ctx={owned}
-      initialTab={initialTab}
+      initialTab={initialTab === '来源与数据' ? '信息采集' : initialTab}
       key={JSON.stringify(scope)}
     />
   )
@@ -106,10 +96,7 @@ function OwnedWorkbench({ ctx, initialTab, canView }: { ctx: PluginContext; init
     return <div className="p-6">{error || '正在加载运营工作台…'}</div>
   }
 
-  const field = (key: keyof Policy, value: unknown) => {
-    setDirty(true)
-    setDraft({ ...draft, [key]: value })
-  }
+
 
   return (
     <div className="h-full overflow-auto p-5 text-sm">
@@ -148,136 +135,9 @@ function OwnedWorkbench({ ctx, initialTab, canView }: { ctx: PluginContext; init
           {error}
         </p>
       )}
-      {tab === tabs[0] && (
-        <div className="grid max-w-4xl gap-3">
-          <p>启用后按以下规则自动执行；Mac 和 Desktop 需保持运行。</p>
-          <AccountSelection onChange={next => field('account_id', next.account_id)} policy={draft} />
-          {(
-            [
-              ['topic', '运营主题'],
-              ['brand', '项目／品牌档案'],
-              ['goal', '运营目标'],
-              ['audience', '目标受众'],
-              ['style', '内容风格'],
-              ['timezone', '时区'],
-              ['deadline', '截止日期（可空）']
-            ] as const
-          ).map(([key, label]) => (
-            <label className="grid gap-1" key={key}>
-              {label}
-              <input
-                className="rounded border bg-transparent p-2"
-                onChange={e => field(key, e.target.value)}
-                value={draft[key]}
-              />
-            </label>
-          ))}
-          {(
-            [
-              ['sources', '指定网页地址'],
-              ['rss_sources', 'RSS / Atom 订阅地址'],
-              ['keywords', '检索关键词'],
-              ['knowledge', '已确认的回复知识'],
-              ['follow_terms', '回关匹配词（空时不回关）']
-            ] as const
-          ).map(([key, label]) => (
-            <label className="grid gap-1" key={key}>
-              {label}（每行一条）
-              <textarea
-                className="rounded border bg-transparent p-2"
-                onChange={e => field(key, e.target.value.split('\n'))}
-                rows={3}
-                value={draft[key].join('\n')}
-              />
-            </label>
-          ))}
-          <label>
-            目标优先级（1 最高）{' '}
-            <input
-              className="w-16 border bg-transparent"
-              max={5}
-              min={1}
-              onChange={e => field('priority', Number(e.target.value))}
-              type="number"
-              value={draft.priority}
-            />
-          </label>
-          <label>
-            每日模型调用上限{' '}
-            <input
-              className="w-20 border bg-transparent"
-              max={1000}
-              min={0}
-              onChange={e => field('model_calls', Number(e.target.value))}
-              type="number"
-              value={draft.model_calls}
-            />
-          </label>
-          <div className="flex flex-wrap gap-4">
-            {Object.entries(moduleLabels).map(([module, label]) => (
-              <label key={module}>
-                <input
-                  checked={draft.modules[module]}
-                  onChange={e => field('modules', { ...draft.modules, [module]: e.target.checked })}
-                  type="checkbox"
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-4">
-            {Object.keys(draft.allowed).map(kind => (
-              <label key={kind}>
-                <input
-                  checked={draft.allowed[kind]}
-                  onChange={e => field('allowed', { ...draft.allowed, [kind]: e.target.checked })}
-                  type="checkbox"
-                />{' '}
-                {labels[kind]}
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {Object.entries(draft.limits).map(([kind, value]) => (
-              <label key={kind}>
-                {labels[kind]}／天{' '}
-                <input
-                  className="w-16 border bg-transparent"
-                  max={1000}
-                  min={0}
-                  onChange={e => field('limits', { ...draft.limits, [kind]: Number(e.target.value) })}
-                  type="number"
-                  value={value}
-                />
-              </label>
-            ))}
-          </div>
-          {Object.entries(draft.times).map(([stage, values]) => (
-            <label key={stage}>
-              {stages[stage]}时间{' '}
-              <input
-                className="border bg-transparent p-1"
-                onChange={e =>
-                  field('times', { ...draft.times, [stage]: e.target.value.split(',').map(v => v.trim()) })
-                }
-                value={values.join(',')}
-              />
-            </label>
-          ))}
-          <label>
-            <input checked={draft.enabled} onChange={e => field('enabled', e.target.checked)} type="checkbox" />{' '}
-            启用规则范围内的自动运营
-          </label>
-          <label>
-            <input checked={draft.paused} onChange={e => field('paused', e.target.checked)} type="checkbox" />{' '}
-            暂停执行（取消勾选后保存以恢复）
-          </label>
-          <button className="w-fit rounded border px-4 py-2" onClick={() => void save(draft)}>
-            保存规则与时间表
-          </button>
-        </div>
-      )}
-      {tab === tabs[1] && (
+      {tab === '目标与规则' && <WorkbenchRules onChange={next => { setDraft(next); setDirty(true) }} onSave={() => void save(withTopicDefaults(draft))} policy={draft} />}
+      {tab === '选题管理' && <><TopicsPanel ctx={ctx} /><details className="mt-5"><summary className="cursor-pointer">历史选题与整理记录</summary><Records rows={state.brief} /></details></>}
+      {tab === '素材与内容' && (
         <>
           <Assets content={state.content} ctx={ctx} onError={setError} refresh={refresh} rows={state.asset} />
           <ContentEditor
@@ -290,20 +150,20 @@ function OwnedWorkbench({ ctx, initialTab, canView }: { ctx: PluginContext; init
           />
         </>
       )}
-      {tab === tabs[2] && (
+      {tab === '任务与执行' && (
         <>
           <NewRecord ctx={ctx} kind="task" onError={setError} onSaved={refresh} />
           <Records rows={[...state.task, ...state.runs, ...state.inbox, ...state.block, ...state.events]} />
           <ActionManager ctx={ctx} onError={setError} refresh={refresh} rows={state.actions} />
         </>
       )}
-      {tab === tabs[3] && (
+      {tab === '信息采集' && (
         <>
           <NewRecord ctx={ctx} kind="metric" onError={setError} onSaved={refresh} />
-          <Records rows={[...state.source, ...state.brief, ...state.metric]} />
+          <Records rows={[...state.source, ...state.metric]} />
         </>
       )}
-      {tab === tabs[4] &&
+      {tab === '每日总结' &&
         state.report.map(report => (
           <article className="mb-5 rounded border p-3" key={report.id}>
             <button onClick={() => download(String(report.day), String(report.markdown))}>

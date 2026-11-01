@@ -95,16 +95,10 @@ def frames(path):
 
 
 def tile_color(image):
-    # The flavor background is the tile fill. Tiles carry an inward contrasting
-    # border (black or white) and the artwork sits above the centre, both of
-    # which LANCZOS smears across tiny frames — so read the most chromatic pixel
-    # of the tile's lower half instead of one fixed coordinate: on a flavored
-    # tile that is the fill colour, on a stable tile every candidate is grey.
+    # Read the clear bottom margin, outside the colored operations mark and
+    # the build badge. Chroma inside the mark no longer identifies the plate.
     x0, y0, x1, y1 = image.getchannel("A").point(lambda a: 255 if a >= 128 else 0).getbbox()
-    pixels = [rgba[:3] for rgba in image.crop((x0, (y0 + y1) // 2, x1, y1)).getdata() if rgba[3] >= 128]
-    # Saturation weighted by chroma: a near-black anti-aliased edge pixel has high HSV
-    # saturation but almost no colour, the fill has both.
-    return max(pixels, key=lambda rgb: max(rgb) - min(rgb))
+    return image.getpixel(((x0 + x1) // 2, y0 + int((y1 - y0) * 0.92)))[:3]
 
 
 def is_dark_tile(path):
@@ -162,8 +156,10 @@ def test_canary_changes_only_desktop_background_preserving_art_and_native_geomet
             # Compare art in direct renders. Tiny container frames use LANCZOS,
             # whose ringing legitimately depends on adjacent background colors.
             if path.suffix == ".png" and original.width >= 256:
-                ink = (255, 255, 255, 255) if is_dark_tile(path) else (0, 0, 0, 255)
-                assert [p == ink for p in original.get_flattened_data()] == [p == ink for p in yellow.get_flattened_data()]
+                for ink in ((244, 250, 251, 255), (100, 223, 196, 255)):
+                    original_mask = [p == ink for p in original.get_flattened_data()]
+                    assert any(original_mask)
+                    assert original_mask == [p == ink for p in yellow.get_flattened_data()]
     assert_unbranded_outputs(stable, canary)
 
 
@@ -272,10 +268,8 @@ def manifest_fills(package):
 
 
 def test_layered_macos_icon_mono_layer_and_flavor_stays_in_the_fill(generate, monkeypatch):
-    """macOS 26 masks the layers itself. The girl is dragged past the plate edge
-    so the mask crops her (no gap below), the mono layer is one image of two
-    materials — near-black frosted ink and white — so nothing stacks, and build
-    flavors recolour the fill in icon.json only; the layers never change."""
+    """macOS 26 masks the plate; the operations mark keeps a clear margin and
+    one monochrome material. Build flavors recolour only the plate."""
     module = load_generator(monkeypatch)
     stable = generate("v1.2.3") / "apps/desktop/assets" / LAYERED_ICON
     canary = generate("v1.2.3+canary.20260911T010203Z") / "apps/desktop/assets" / LAYERED_ICON
@@ -286,11 +280,12 @@ def test_layered_macos_icon_mono_layer_and_flavor_stays_in_the_fill(generate, mo
         layer = Image.open(stable / "Assets" / name).convert("RGBA")
         assert layer.size == (canvas, canvas)
         bottom_row = layer.crop((0, canvas - 1, canvas, canvas)).getchannel("A").getbbox()
-        assert bottom_row is not None, f"{name}: the girl must reach the plate edge"
+        assert bottom_row is None, f"{name}: the mark must stay inside the system mask"
+        assert layer.getchannel("A").getbbox() is not None
     mono = Image.open(stable / "Assets" / "mono.png").convert("RGBA")
     ink_tone = round(module.MONO_INK[0] * 255)
     tones = {px[0] for px in mono.getdata() if px[3] > 127}
-    assert tones == {ink_tone, 255}, tones
+    assert tones == {255}, tones
     light_art = Image.open(stable / "Assets" / "art-light.png").convert("RGBA")
     dark_art = Image.open(stable / "Assets" / "art-dark.png").convert("RGBA")
     for x, y in ((canvas // 2, canvas // 2), (canvas // 3, canvas // 3), (2 * canvas // 3, canvas // 2)):
@@ -320,7 +315,10 @@ def test_layered_macos_icon_mono_layer_and_flavor_stays_in_the_fill(generate, mo
         assert changed is not None and changed[3] <= canvas * 0.25 + 3, (name, changed)
 
     light, dark = manifest_fills(stable)
-    assert light == (1.0, 1.0, 1.0) and max(dark) < 0.1
+    for name, fill in (("icon.png", light), ("icon-dark.png", dark)):
+        raster = Image.open(stable.parent / name).convert("RGBA")
+        assert tuple(round(channel * 255) for channel in fill) == tile_color(raster)
+    assert sum(dark) < sum(light)
     for package, low, high in ((canary, 0.10, 0.18), (commit, -0.05, 0.05)):
         light, dark = manifest_fills(package)
         for fill, dark_fill in ((light, False), (dark, True)):
@@ -377,7 +375,7 @@ def test_msix_logos_resolve_every_slot_windows_draws(generate, monkeypatch):
         dark = Image.open(appx / f"Square44x44Logo.targetsize-{size}_altform-unplated.png").convert("RGBA")
         light = Image.open(appx / f"Square44x44Logo.targetsize-{size}_altform-lightunplated.png").convert("RGBA")
         assert plain.size == dark.size == light.size == (size, size)
-        edge = (max(1, size // 24), size // 2)  # on the plate, left of the girl
-        assert light.getpixel(edge)[:3] == plain.getpixel(edge)[:3] == light_plate == (255, 255, 255), size
+        edge = (max(1, size // 24), size // 2)  # on the plate, left of the mark
+        assert light.getpixel(edge)[:3] == plain.getpixel(edge)[:3] == light_plate, size
         dark_plate = dark.getpixel(edge)
         assert dark_plate[3] == 255 and max(dark_plate[:3]) < 60, (size, dark_plate)

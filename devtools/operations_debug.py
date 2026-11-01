@@ -20,7 +20,7 @@ from plugins.operations.store import Store, encoded
 
 router = APIRouter(prefix="/debug")
 TASKS = {
-    "research": ("信息采集与选题", "research"), "content": ("内容生产", "content"),
+    "research": ("信息采集", "research"), "topics": ("选题策划", "topics"), "content": ("内容生产", "content"),
     "publish": ("图文发布", "publish"), "comment": ("主动评论", "comments"),
     "reply": ("评论回复", "comments"), "dm": ("收到私信处理", "dm"),
     "follow": ("条件回关", "follow"), "report": ("运营日报", "report"),
@@ -120,7 +120,7 @@ def run_task(store, identity, task, version):
     try:
         if task in {"publish", "comment", "reply", "dm", "follow"} and not store.snapshot()["online"]:
             raise StageSkipped("桌面执行器离线，请启动开发版 Desktop")
-        handlers = {"research": workflow.research, "content": workflow.produce, "publish": workflow.publish,
+        handlers = {"research": workflow.research, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     **{k: partial(workflow.interact, kinds=(k,)) for k in ("comment", "reply", "dm", "follow")}}
         if task == "report":
             result = daily_report(store, day)

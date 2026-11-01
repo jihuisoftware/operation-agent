@@ -55,7 +55,7 @@ def test_write_status_includes_every_target(tmp_path, monkeypatch, capsys, failu
     spec.loader.exec_module(module)
     source = tmp_path / "immutable source"
     source.mkdir()
-    monkeypatch.setattr(module, "IconArt", lambda root: root)
+    monkeypatch.setattr(module, "IconArt", lambda root, **options: root)
     monkeypatch.setattr(sys, "argv", [str(script), "--source", str(source), "--out", str(tmp_path)])
 
     image = io.BytesIO()
@@ -104,6 +104,7 @@ def test_icon_portrait_sits_on_the_plain_tile_inside_the_outer_silhouette(monkey
     spec.loader.exec_module(module)
     assert module.BORDER_ENABLED is False
     art = SimpleNamespace(
+        operations=False,
         backgrounds=source / "assets/backgrounds", colors=colors, commit="0123456",
         bboxes={girl: (0, 0, 100, 90)}, paths={girl: '<path d="M 0 0 L 100 0 L 100 90 L 0 90 z"/>'},
     )

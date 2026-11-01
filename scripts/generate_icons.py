@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Generate every app icon in the repo from the nous-girl art + platform backgrounds.
+"""Generate app icons from editable brand artwork and platform backgrounds.
+
+Desktop uses assets/operations-mark.svg (conversation + growth) on navy tiles.
+Other products retain the Nous artwork below. Both use the same renderer,
+native size containers and build-channel specialization.
 
 Usage (from repo root):
     node scripts/generate-icons.mjs           # write
@@ -294,10 +298,11 @@ TARGETS: list[tuple[str, str, object]] = [
 class IconArt:
     """One generation's rendering inputs and caches; never writes to source."""
 
-    def __init__(self, source: Path, *, colors: tuple[str, str] | None = None, commit: str = ""):
+    def __init__(self, source: Path, *, colors: tuple[str, str] | None = None, commit: str = "", operations: bool = False):
         assets = source / "assets"
         self.source = source
-        self.colors = colors
+        self.operations = operations
+        self.colors = colors or (("#153e50", "#102b38") if operations else None)
         self.commit = commit
         self.girls = {color: assets / f"nous-girl-{color}.svg" for color in ("black", "white")}
         self.backgrounds = assets / "backgrounds"
@@ -472,10 +477,29 @@ def portrait_layer(art: IconArt, girl: str, bg: str, join_bottom: float) -> ET.E
     return portrait
 
 
+def operations_layer(art: IconArt) -> str:
+    """The Desktop mark is authored once as editable vector artwork."""
+    if "operations" not in art.paths:
+        root = ET.fromstring((art.source / "assets/operations-mark.svg").read_text(encoding="utf-8-sig"))
+        art.paths["operations"] = "".join(ET.tostring(child, encoding="unicode") for child in root)
+    return art.paths["operations"]
+
+
+def compose_operations(art: IconArt, bg: str, badge: bool) -> str:
+    inner, w, h = background_inner(art, bg)
+    mac = "mac" in bg
+    transform = 'translate(100 100) scale(0.8046875)' if mac else ''
+    badge_svg = commit_layer(art.commit, bg) if art.commit and badge else ""
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}">'
+            f'{inner}<g transform="{transform}">{operations_layer(art)}</g>{badge_svg}</svg>')
+
+
 def compose_svg(art: IconArt, girl: str, bg: str, *, badge: bool = True) -> str:
     """Full svg text: background + girl layer, in the background's native
     coordinate space (resvg scales to whatever output size is requested, so
     the composition is size-agnostic — no manual box scaling)."""
+    if art.operations:
+        return compose_operations(art, bg, badge)
     inner, w, h = background_inner(art, bg)
     background = ET.fromstring(f"<g>{inner}</g>")
     tile = background.find("{http://www.w3.org/2000/svg}rect")
@@ -631,6 +655,9 @@ def icon_border_svg(ink: str) -> str:
 def icon_art_svg(art: IconArt, girl: str) -> str:
     """Art layer: the girl registered as on the canvas-filling squircle, joined
     to the border band; the commit badge rides along for commit builds."""
+    if art.operations:
+        badge = commit_layer(art.commit, "icon.icon") if art.commit else ""
+        return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">{operations_layer(art)}{badge}</svg>'
     bg = "icon.icon"  # the plate is the canvas; the system supplies the grid
     join_bottom = ICON_CANVAS - ICON_CANVAS * BORDER_FRACTION + 10 if BORDER_ENABLED else ICON_CANVAS * (1 + EDGE_OVERSHOOT)
     portrait = portrait_layer(art, girl, bg, join_bottom)
@@ -861,10 +888,10 @@ def build_art(source: Path) -> tuple[IconArt, IconArt]:
             raise ValueError("Commit builds cannot also select HERMES_PAYLOAD_TAG")
         if not re.fullmatch(r"[a-f0-9]{40}", commit):
             raise ValueError("HERMES_BUILD_COMMIT requires an exact full 40-character SHA")
-        return art, IconArt(source, colors=("#e34850", "#4a1117"), commit=commit)
+        return art, IconArt(source, colors=("#e34850", "#4a1117"), commit=commit, operations=True)
     if _CANARY_TAG_RE.match(tag.strip()):
-        return art, IconArt(source, colors=("#f5cc32", "#443808"))
-    return art, art
+        return art, IconArt(source, colors=("#f5cc32", "#443808"), operations=True)
+    return art, IconArt(source, operations=True)
 
 
 def cmd_write(source: Path, out: Path) -> int:

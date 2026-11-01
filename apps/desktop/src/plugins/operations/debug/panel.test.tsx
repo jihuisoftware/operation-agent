@@ -1,10 +1,11 @@
-import { type PluginContext } from '@hermes/plugin-sdk'
+import { formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { DebugPanel } from './panel'
 
 const owner = { connectionId: 'local', profile: 'dev' }
+const started = '2026-11-01T02:10:34.825964+00:00'
 afterEach(cleanup)
 
 it('runs only the selected task and shows its saved full trace with a new ID for each click', async () => {
@@ -14,7 +15,7 @@ it('runs only the selected task and shows its saved full trace with a new ID for
 
   const rest = vi.fn(async (path: string, options?: any) => {
     if (path === '/debug/run') {
-      const run = { id: `debug:${options.body.request_id}`, state: 'completed', title: '内容生产', started: '2026-10-31', detail: '已保存内容版本', duration_ms: 23 }
+      const run = { id: `debug:${options.body.request_id}`, state: 'completed', title: '内容生产', started, detail: '已保存内容版本', duration_ms: 23 }
       data.runs = [run, ...data.runs]
 
       return run
@@ -22,7 +23,7 @@ it('runs only the selected task and shows its saved full trace with a new ID for
 
     if (path === '/debug') { return { ...data } }
 
-    return { run: data.runs[0], events: [{ id: 1, at: '2026-10-31', kind: 'progress', data: { detail: '完整步骤及输出' } }], actions: [] }
+    return { run: data.runs[0], events: [{ id: 1, at: started, kind: 'progress', data: { detail: '完整步骤及输出' } }], actions: [] }
   })
 
   render(<DebugPanel ctx={{ rest } as unknown as PluginContext} owner={owner} />)
@@ -30,6 +31,13 @@ it('runs only the selected task and shows its saved full trace with a new ID for
   expect(await screen.findByText('已保存内容版本')).toBeTruthy()
   expect(screen.getByText(/完整步骤及输出/)).toBeTruthy()
   expect(screen.getByRole('button', { name: '复制完整记录' })).toBeTruthy()
+  expect(screen.getAllByTitle(started)).toHaveLength(2)
+
+  for (const time of screen.getAllByTitle(started)) {
+    expect(time.textContent).toBe(formatTimestamp(started))
+    expect(time.getAttribute('datetime')).toBe(started)
+  }
+
   await waitFor(() => expect((screen.getByRole('button', { name: '单独执行内容生产' }) as HTMLButtonElement).disabled).toBe(false))
   fireEvent.click(screen.getByRole('button', { name: '单独执行内容生产' }))
   await waitFor(() => expect(rest.mock.calls.filter(([path]) => path === '/debug/run')).toHaveLength(2))

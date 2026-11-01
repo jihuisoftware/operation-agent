@@ -10,9 +10,13 @@ def migrate(db):
     repair_orphan_actions(db)
     row = db.execute("SELECT version,data FROM settings WHERE id=1").fetchone()
     old = json.loads(row["data"])
-    if old.get("schema_version") == 2:
+    if old.get("schema_version") == 3:
         return
     new = upgrade(old)
+    # Legacy briefs lacked a scope field. Bind them at migration so changing the topic
+    # later cannot silently reuse an unscoped recommendation from the former plan.
+    db.execute("UPDATE objects SET data=json_set(data,'$.scope_topic',?,'$.scope_inherited',json('true')) "
+               "WHERE kind='brief' AND json_extract(data,'$.scope_topic') IS NULL", (old.get("topic", ""),))
     version = row["version"] + 1
     db.execute("UPDATE settings SET version=?,data=? WHERE id=1", (version, json.dumps(new, ensure_ascii=False)))
     for number, policy in ((row["version"], old), (version, new)):
@@ -21,10 +25,12 @@ def migrate(db):
     db.execute("UPDATE commands SET state='cancelled' WHERE state='queued'")
     db.execute("UPDATE actions SET state='cancelled' WHERE state='queued'")
     # Preserve at-most-once across the split, including interrupted old occurrences.
-    old_runs = list(db.execute("SELECT * FROM runs WHERE stage IN ('interact','publish')"))
+    stages = {"research": ("topics",)}
+    if old.get("schema_version", 1) < 2:
+        stages.update(interact=("comments", "dm", "follow"), publish=("content",))
+    old_runs = list(db.execute("SELECT * FROM runs"))
     for run in old_runs:
-        targets = ("comments", "dm", "follow") if run["stage"] == "interact" else ("content",)
-        for stage in targets:
+        for stage in stages.get(run["stage"], ()):
             db.execute("INSERT OR IGNORE INTO runs VALUES (?,?,?,?,?,?,?,?,?)", (
                 uuid.uuid4().hex, run["day"], stage, run["slot"], run["version"], "migrated",
                 f"旧阶段 {run['stage']} 已认领，本次不重放", run["started"], run["ended"]))

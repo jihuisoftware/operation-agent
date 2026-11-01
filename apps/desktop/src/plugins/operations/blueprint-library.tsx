@@ -14,7 +14,7 @@ import {
 } from '@hermes/plugin-sdk'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 
-import { type BlueprintCatalog, type BlueprintTemplate, moduleLabels } from './blueprint-types'
+import { type BlueprintCatalog, type BlueprintTemplate, moduleLabels, seedBlueprint } from './blueprint-types'
 import { BlueprintWizard } from './blueprint-wizard'
 import { $showOperationsBrowser } from './state'
 import type { Policy } from './types'
@@ -99,7 +99,7 @@ function OwnedLibrary({ ctx, owner, view }: LibraryProps) {
 
   const resources = (
     <div className="flex flex-wrap gap-2">
-      {['素材与内容', '任务与执行', '来源与数据', '每日总结'].map(label => (
+      {['信息采集', '选题管理', '素材与内容', '任务与执行', '每日总结'].map(label => (
         <Button key={label} onClick={() => setResource(label)} size="sm" variant="ghost">
           {label}
         </Button>
@@ -153,6 +153,12 @@ function OwnedLibrary({ ctx, owner, view }: LibraryProps) {
         <>
           <div className="space-y-2">
             <h2 className="text-lg font-semibold">按场景选择定时任务</h2>
+            <Button onClick={() => {
+              const daily = catalog.templates.find(t => t.id === 'daily')!
+              setSelected('daily')
+              setDraft({ ...seedBlueprint(catalog, daily), business_theme: '', business_subtype: '', topic: '', goal: '', keywords: [] })
+              setEditing(true)
+            }} variant="outline">选择或添加运营主题</Button>
             <p className="text-muted-foreground">
               先选业务主题或执行场景，调整定位、任务和时间，再保存草稿或应用启用。已有计划的时间、权限和额度会保留。
             </p>

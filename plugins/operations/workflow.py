@@ -34,13 +34,12 @@ def research(store, policy, day, version):
     sources = distinct_sources(store, day)
     if not sources:
         raise StageSkipped("未取得可用来源，请查看来源失败记录及检索配置")
-    result = generate(store, policy, day,
-        '整理信息并提出选题。返回 {"facts": [{"text":"", "source_ids":[]}], "opinions":[], "unknowns":[], "topics":[] }。'
-        '只引用提供的来源 ID。另返回 summaries:[{source_id,summary,topics}]，逐条概括实际读到的来源。', {"goal": policy["goal"], "topic": policy["topic"], "sources": sources,
-         "tasks": store.objects("task", day), "recent_content": store.objects("content")[:10]})
-    from .research import save_brief
-    save_brief(store, day, result, sources)
-    return f"本次新增 {added} 条来源记录；已整理 {len(sources)} 条当日可用去重来源并保存选题依据"
+    return f"采集新增 {added} 条来源记录；当日可用去重来源 {len(sources)} 条。选题为独立模块，未在本步骤执行"
+
+
+def topics(store, policy, day, version):
+    from .topics import generate_topics
+    return generate_topics(store, policy, day, version)
 
 
 def produce(store, policy, day, version):

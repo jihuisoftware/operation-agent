@@ -6,8 +6,8 @@ import { adoptBusinessDefaults, selectBusinessSubtype } from './business-config'
 
 export function BusinessFields({ policy, onChange, template }: PolicyFieldsProps & { template: BlueprintTemplate }) {
   return (
-    <section aria-label="业务默认配置" className="mb-4 space-y-3">
-      <p className="font-medium">业务主题：{template.title}</p>
+    <details aria-label="业务默认配置" className="mb-4 space-y-3">
+      <summary className="cursor-pointer text-muted-foreground">参考业务模板：{template.title}（可选）</summary>
       <label className="grid gap-2">
         业务子类
         <Select
@@ -43,6 +43,6 @@ export function BusinessFields({ policy, onChange, template }: PolicyFieldsProps
       <p className="text-xs text-muted-foreground">
         此按钮替换主题、目标、受众、风格与检索关键词；账号、素材、回复知识、授权、时间和额度保持原配置。
       </p>
-    </section>
+    </details>
   )
 }

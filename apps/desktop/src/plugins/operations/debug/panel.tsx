@@ -1,4 +1,4 @@
-import { Button, CopyButton, type CronBlueprintOwner, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
+import { Button, CopyButton, type CronBlueprintOwner, formatTimestamp, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useEffect, useMemo, useState } from 'react'
 
 interface Run {
@@ -114,9 +114,10 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
       </div>
       <section className="space-y-3">
         <h2 className="font-semibold">调试记录</h2>
+        <p className="text-xs text-muted-foreground">时间按当前电脑的本地时区显示，精确到秒。</p>
         {catalog?.runs.length === 0 && <p>尚无调试记录。</p>}
         {catalog?.runs.map(item => <Button key={item.id} onClick={() => { setSelected(item.id); setDetail(null) }} variant="ghost">
-          {item.title} · {states[item.state] || item.state} · {item.started}
+          {item.title} · {states[item.state] || item.state} · <time dateTime={item.started} title={item.started}>{formatTimestamp(item.started)}</time>
         </Button>)}
       </section>
       {detail && <section className="space-y-3">
@@ -124,7 +125,7 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
         <p className="whitespace-pre-wrap">{detail.run.detail}</p>
         {detail.run.duration_ms !== undefined && <p>执行耗时：{detail.run.duration_ms} 毫秒</p>}
         {detail.events.map(event => <details key={event.id} open={detail.run.state === 'running'}>
-          <summary>{event.at} · {event.kind}</summary>
+          <summary><time dateTime={event.at} title={event.at}>{formatTimestamp(event.at)}</time> · {event.kind}</summary>
           <pre className="whitespace-pre-wrap break-words text-xs">{JSON.stringify(event.data, null, 2)}</pre>
         </details>)}
         <details><summary>外部动作及结果（{detail.actions.length}）</summary><pre className="whitespace-pre-wrap break-words text-xs">{JSON.stringify(detail.actions, null, 2)}</pre></details>

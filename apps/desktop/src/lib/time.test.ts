@@ -8,6 +8,7 @@ import {
   fmtMonth,
   fmtMonthYear,
   formatAgo,
+  formatTimestamp,
   HOUR,
   MINUTE,
   nominalDayStart,
@@ -26,6 +27,16 @@ const labels = {
 
 const now = 1_000 * DAY
 const ago = (delta: number) => formatAgo(now - delta, labels, now)
+
+it('formats offset instants in the local calendar and clock without fractional seconds', () => {
+  const value = '2026-10-31T16:10:34.825964+00:00'
+  const date = new Date(value)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const local = `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  expect(formatTimestamp(value)).toBe(local)
+  expect(formatTimestamp('2026-11-01T00:10:34.825964+08:00')).toBe(local)
+  expect(formatTimestamp('invalid')).toBe('时间不可用')
+})
 
 it('keeps dates and relative time Chinese for legacy language preferences', () => {
   const date = new Date(2026, 9, 25)

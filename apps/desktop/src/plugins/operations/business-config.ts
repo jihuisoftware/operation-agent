@@ -3,6 +3,12 @@ import type { Policy } from './types'
 
 const contentFields = ['topic', 'goal', 'audience', 'style'] as const
 
+export function withTopicDefaults(policy: Policy): Policy {
+  const topic = policy.topic.trim()
+
+  return { ...policy, topic, goal: policy.goal.trim() || (topic ? `围绕「${topic}」收集可靠资料，制作有依据的内容并记录运营成果。` : '') }
+}
+
 function keywordsFor(template: BlueprintTemplate, subtype: string): string[] {
   return (template.defaults?.keywords ?? []).map(word => (subtype ? `${subtype} ${word}` : word))
 }

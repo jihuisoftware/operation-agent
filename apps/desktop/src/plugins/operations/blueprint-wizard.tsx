@@ -10,6 +10,7 @@ import {
   moduleLabels,
   seedBlueprint
 } from './blueprint-types'
+import { withTopicDefaults } from './business-config'
 import { BusinessFields } from './business-fields'
 import type { Policy } from './types'
 
@@ -76,9 +77,12 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
     setError('')
 
     try {
+      const prepared = withTopicDefaults(policy)
+      setPolicy(prepared)
+
       const result = await ctx.rest<BlueprintPreview>('/blueprints/preview', {
         method: 'POST',
-        body: { version: baseVersion, policy }
+        body: { version: baseVersion, policy: prepared }
       })
 
       setPreview(result)
@@ -111,7 +115,7 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
     try {
       await ctx.rest('/blueprints/apply', {
         method: 'POST',
-        body: { version: baseVersion, policy, request_id: `${requestId}:${mode}`, mode }
+        body: { version: baseVersion, policy: withTopicDefaults(policy), request_id: `${requestId}:${mode}`, mode }
       })
       await onSaved()
     } catch (error) {
@@ -146,16 +150,17 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
       <fieldset className="contents" disabled={pending}>
         {step === 'goal' && (
           <>
-            <div className="space-y-2">
+            <details className="space-y-2">
+              <summary className="cursor-pointer text-muted-foreground">使用默认完整流程</summary>
               <p className="text-muted-foreground">
-                默认流程包含采集、内容生产、发布、评论、收到私信回复和日报。可按需关闭；回关单独开启。
+                默认流程包含采集、选题、内容生产、发布、评论、收到私信回复和日报。可按需关闭；回关单独开启。
               </p>
               <Button onClick={() => change(enableDefaultOperations(policy))} variant="outline">
                 启用默认运营模块与授权
               </Button>
-            </div>
-            {business && <BusinessFields onChange={change} policy={policy} template={business} />}
+            </details>
             <GoalFields onChange={change} policy={policy} />
+            {business && <BusinessFields onChange={change} policy={policy} template={business} />}
           </>
         )}
         {step === 'rules' && (

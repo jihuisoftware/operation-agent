@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 from .modules import TIMES, ACTION_MODULE, upgrade
 from .business_themes import validate_business_selection
 
-LIMITS = {"source": 30, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "follow": 5}
-DEFAULT = {"schema_version": 2, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
+LIMITS = {"source": 10_000, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "follow": 5}
+DEFAULT = {"schema_version": 3, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
            "style": "真实、清楚、具体", "brand": "", "account_id": "", "timezone": "Asia/Shanghai",
            "sources": [], "rss_sources": [], "keywords": [], "knowledge": [], "follow_terms": [],
            "allowed": {k: k != "follow" for k in LIMITS if k != "source"}, "limits": LIMITS,
@@ -46,7 +46,7 @@ def validate_policy(value):
         raise ValueError("优先级必须是 1 到 5 的整数")
     ZoneInfo(result["timezone"])
     _validate_collections(result)
-    if result["schema_version"] != 2 or set(result["modules"]) != set(TIMES) or any(type(v) is not bool for v in result["modules"].values()):
+    if result["schema_version"] != 3 or set(result["modules"]) != set(TIMES) or any(type(v) is not bool for v in result["modules"].values()):
         raise ValueError("运营模块格式错误")
     if result["enabled"] and not any(result["modules"].values()):
         raise ValueError("启用前至少选择一个运营模块")
@@ -67,9 +67,10 @@ def _validate_collections(result):
         public_url(url)
     if set(result["limits"]) != set(LIMITS):
         raise ValueError("每日额度字段不完整")
-    for value in [*result["limits"].values(), result["model_calls"]]:
-        if type(value) is not int or not 0 <= value <= 1000:
-            raise ValueError("额度必须是 0 到 1000 的整数")
+    for kind, value in {**result["limits"], "model_calls": result["model_calls"]}.items():
+        maximum = 10_000 if kind == "source" else 1000
+        if type(value) is not int or not 0 <= value <= maximum:
+            raise ValueError(f"{kind} 额度必须是 0 到 {maximum} 的整数")
     if set(result["allowed"]) != set(DEFAULT["allowed"]) or any(type(v) is not bool for v in result["allowed"].values()):
         raise ValueError("动作开关格式错误")
     if set(result["times"]) != set(TIMES):

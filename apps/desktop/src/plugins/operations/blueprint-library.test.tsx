@@ -29,7 +29,7 @@ function catalog(topic = ''): BlueprintCatalog {
     assets: [],
     timeline: [],
     policy: {
-      schema_version: 2,
+      schema_version: 3,
       modules,
       topic,
       goal: '整理可追溯资料',
@@ -122,18 +122,18 @@ it('selects a business and subtype, then restores edited defaults from a saved d
   fireEvent.click(await screen.findByRole('button', { name: /工厂与制造企业/ }))
   fireEvent.click(screen.getByRole('button', { name: '使用此业务主题' }))
   expect(rest).toHaveBeenCalledTimes(1)
-  expect((screen.getByLabelText('目标受众') as HTMLInputElement).value).toBe('采购负责人')
-  expect((screen.getByLabelText('内容风格') as HTMLInputElement).value).toBe('专业务实')
+  expect((screen.getByLabelText('自定义目标受众') as HTMLInputElement).value).toBe('采购负责人')
+  expect(screen.getByRole('combobox', { name: '内容风格' }).textContent).toContain('专业务实')
   const selector = screen.getByRole('combobox', { name: '业务子类' })
   fireEvent.click(selector)
   fireEvent.keyDown(selector, { key: 'ArrowDown' })
   fireEvent.click(await screen.findByRole('option', { name: '加工定制' }))
-  expect((screen.getByLabelText('运营主题') as HTMLInputElement).value).toBe('工厂与制造企业 · 加工定制')
-  fireEvent.change(screen.getByLabelText('运营目标'), { target: { value: '面向服装品牌展示加工能力' } })
+  expect((screen.getByLabelText('自定义运营主题') as HTMLInputElement).value).toBe('工厂与制造企业 · 加工定制')
+  fireEvent.change(screen.getByLabelText('自定义运营目标'), { target: { value: '面向服装品牌展示加工能力' } })
   fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
   fireEvent.click(await screen.findByRole('button', { name: '继续配置' }))
   expect(screen.getByRole('combobox', { name: '业务子类' }).textContent).toContain('加工定制')
-  expect((screen.getByLabelText('运营目标') as HTMLInputElement).value).toBe('面向服装品牌展示加工能力')
+  expect((screen.getByLabelText('自定义运营目标') as HTMLInputElement).value).toBe('面向服装品牌展示加工能力')
   expect(initial.draft?.policy).toMatchObject({
     business_theme: business.id,
     business_subtype: '加工定制',
@@ -193,7 +193,7 @@ it('selecting a blueprint does not run it; draft and explicit enable retain cons
   const ctx = { rest } as unknown as PluginContext
   render(<BlueprintLibrary ctx={ctx} owner={{ connectionId: 'local', profile: 'one' }} view="blueprints" />)
   fireEvent.click(await screen.findByRole('button', { name: '配置并加入计划' }))
-  expect((screen.getByLabelText('运营主题') as HTMLInputElement).value).toBe('城市步行')
+  expect((screen.getByLabelText('自定义运营主题') as HTMLInputElement).value).toBe('城市步行')
 
   for (const [module, label] of Object.entries(moduleLabels)) {
     expect(screen.getByRole('checkbox', { name: label }).getAttribute('aria-checked')).toBe(
@@ -239,10 +239,10 @@ it('changing Profile discards an unsaved form and routes future submissions to i
   )
 
   fireEvent.click(await screen.findByRole('button', { name: '配置并加入计划' }))
-  fireEvent.change(screen.getByLabelText('运营主题'), { target: { value: '不可泄漏的草稿' } })
+  fireEvent.change(screen.getByLabelText('自定义运营主题'), { target: { value: '不可泄漏的草稿' } })
   rerender(<BlueprintLibrary ctx={ctx} owner={{ connectionId: 'remote', profile: 'two' }} view="blueprints" />)
   fireEvent.click(await screen.findByRole('button', { name: '配置并加入计划' }))
-  expect((screen.getByLabelText('运营主题') as HTMLInputElement).value).toBe('two')
+  expect((screen.getByLabelText('自定义运营主题') as HTMLInputElement).value).toBe('two')
   fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
   await waitFor(() =>
     expect(rest).toHaveBeenCalledWith(
@@ -335,14 +335,16 @@ it('prefills newly selected actions while preserving existing permissions, modul
   fireEvent.click(await screen.findByRole('button', { name: /小红书日更/ }))
   fireEvent.click(screen.getByRole('button', { name: '使用场景并调整' }))
   expect(rest).toHaveBeenCalledTimes(1)
-  expect((screen.getByLabelText('运营目标') as HTMLInputElement).value).toBe('根据来源生成可追溯的内容')
-  fireEvent.change(screen.getByLabelText('运营目标'), { target: { value: '我自己的内容目标' } })
+  expect((screen.getByLabelText('自定义运营目标') as HTMLInputElement).value).toBe('根据来源生成可追溯的内容')
+  fireEvent.change(screen.getByLabelText('自定义运营目标'), { target: { value: '我自己的内容目标' } })
   fireEvent.click(screen.getByRole('button', { name: '下一步：时间与规则' }))
   expect(screen.queryByLabelText('小红书账号 ID')).toBeNull()
   expect(screen.getByText(/无需预填账号/)).toBeTruthy()
-  const time = screen.getByLabelText('信息采集与选题时间（多个时间用逗号分隔）') as HTMLInputElement
+  const time = screen.getByLabelText('信息采集时间 1') as HTMLInputElement
   expect(time.value).toBe('08:30')
-  fireEvent.change(time, { target: { value: '08:45,16:00' } })
+  fireEvent.change(time, { target: { value: '08:45' } })
+  fireEvent.click(screen.getByRole('button', { name: '添加信息采集时间' }))
+  fireEvent.change(screen.getByLabelText('信息采集时间 2'), { target: { value: '16:00' } })
   expect(screen.getByRole('checkbox', { name: '允许发布图文' }).getAttribute('aria-checked')).toBe('true')
   fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
   await waitFor(() =>
@@ -394,11 +396,33 @@ it('applies default modules and authorization to an existing plan only when requ
   await waitFor(() =>
     expect(rest).toHaveBeenCalledWith('/blueprints/apply', expect.objectContaining({
       body: expect.objectContaining({ policy: expect.objectContaining({
-        modules: { research: true, content: true, publish: true, comments: true, dm: true, follow: false, report: true },
+        modules: { research: true, topics: true, content: true, publish: true, comments: true, dm: true, follow: false, report: true },
         allowed: { publish: true, comment: true, reply: true, dm: true, follow: false },
         limits: initial.policy.limits,
         times: initial.policy.times
       }) })
     }))
   )
+})
+
+it('accepts a custom theme with only one required text field and preserves existing limits', async () => {
+  const initial = catalog('原有主题')
+  initial.policy.business_theme = 'business-factory'
+  initial.policy.limits.source = 2
+  const rest = vi.fn(async () => initial)
+  render(<BlueprintLibrary ctx={{ rest } as unknown as PluginContext} owner={{ connectionId: 'local', profile: 'one' }} view="blueprints" />)
+  fireEvent.click(await screen.findByRole('button', { name: '选择或添加运营主题' }))
+  const selector = screen.getByRole('combobox', { name: '运营主题' })
+  fireEvent.keyDown(selector, { key: 'ArrowDown' })
+  fireEvent.click(await screen.findByRole('option', { name: '自定义／手动添加' }))
+  fireEvent.change(screen.getByLabelText('自定义运营主题'), { target: { value: '小户型厨房收纳' } })
+  expect(screen.getByRole('combobox', { name: '运营目标' }).textContent).toContain('请选择')
+  fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/blueprints/apply', expect.objectContaining({
+    body: expect.objectContaining({ mode: 'draft', policy: expect.objectContaining({
+      topic: '小户型厨房收纳', business_theme: '', business_subtype: '',
+      goal: '围绕「小户型厨房收纳」收集可靠资料，制作有依据的内容并记录运营成果。',
+      limits: expect.objectContaining({ source: 2 })
+    }) })
+  })))
 })

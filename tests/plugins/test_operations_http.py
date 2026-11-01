@@ -12,16 +12,27 @@ def test_private_plugin_api_requires_auth_and_scopes_profiles(tmp_path, monkeypa
     from hermes_cli import web_server
     with TestClient(web_server.app) as client:
         assert client.get("/api/plugins/operations/state").status_code in (401, 403)
+        assert client.get("/api/plugins/operations/overview").status_code in (401, 403)
         client.headers[web_server._SESSION_HEADER_NAME] = web_server._SESSION_TOKEN
         response = client.get("/api/plugins/operations/state")
         assert response.status_code == 200, response.text
         body = response.json()
         body["policy"]["topic"] = "只属于默认配置"
+        body["policy"]["limits"]["source"] = 10_000
         saved = client.put("/api/plugins/operations/policy", json={"version": body["version"], "policy": body["policy"]})
         assert saved.status_code == 200, saved.text
+        assert client.get("/api/plugins/operations/policy").json()["policy"]["limits"]["source"] == 10_000
         secondary = client.get("/api/plugins/operations/state?profile=work")
         assert secondary.status_code == 200, secondary.text
         assert secondary.json()["policy"]["topic"] == ""
+        assert secondary.json()["policy"]["limits"]["source"] == 10_000
+        assert client.get("/api/plugins/operations/overview").json()["topic"] == "只属于默认配置"
+        assert client.get("/api/plugins/operations/overview?profile=work").json()["topic"] == ""
+        version = client.get("/api/plugins/operations/topics").json()["version"]
+        selected = client.post("/api/plugins/operations/topics/select", json={"version": version, "title": "指定的测试选题"})
+        assert selected.status_code == 200, selected.text
+        assert client.get("/api/plugins/operations/topics").json()["selected"]["title"] == "指定的测试选题"
+        assert client.get("/api/plugins/operations/topics?profile=work").json()["selected"] is None
 
 
 def test_content_pack_and_revocation_share_real_profile_assets(tmp_path, monkeypatch):

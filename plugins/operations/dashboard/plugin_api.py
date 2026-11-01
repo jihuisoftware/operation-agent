@@ -28,10 +28,28 @@ def state():
     return Store().snapshot()
 
 
+@router.get("/overview")
+def read_overview():
+    from plugins.operations.overview import overview
+    return overview(Store())
+
+
 @router.get('/upcoming')
 def upcoming_steps():
     from plugins.operations.upcoming import upcoming
     return upcoming(Store())
+
+
+@router.get("/topics")
+def topics_catalog():
+    from plugins.operations.topics import catalog
+    return checked(lambda: catalog(Store()))
+
+
+@router.post("/topics/select")
+def select_topic(body: dict):
+    from plugins.operations.topics import select
+    return checked(lambda: select(Store(), body))
 
 
 @router.post('/upcoming/cancel')

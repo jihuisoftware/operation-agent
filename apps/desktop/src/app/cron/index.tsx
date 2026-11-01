@@ -90,6 +90,7 @@ import {
 import { isJobRunning, jobState, jobTitle, nextRunOverdueMs, STATE_DOT, truncateText } from './job-state'
 import { reconcileCronRunVerdicts } from './open-cron-run'
 import { RunRecord } from './run-record'
+import { SchedulePicker } from './schedule-picker'
 import { TaskDetails } from './task-details'
 
 const DEFAULT_DELIVER = 'local'
@@ -1568,10 +1569,8 @@ function CronEditorDialog({
               </Field>
             ) : (
               <div className="rounded-md bg-(--ui-bg-quinary) px-3 py-2">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-medium text-foreground">{scheduleHint}</span>
-                  <span className="font-mono text-muted-foreground">{schedule}</span>
-                </div>
+                <SchedulePicker expression={schedule} onChange={setSchedule} preset={schedulePreset} />
+                <p className="mt-2 text-xs text-muted-foreground">{scheduleHint}</p>
               </div>
             )}
 

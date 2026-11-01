@@ -43,6 +43,18 @@ export const fmtDayTime = localizedDateFormatter({
 // Medium date + short time (command center session detail).
 export const fmtDateTime = localizedDateFormatter({ dateStyle: 'medium', timeStyle: 'short' })
 
+const fmtTimestamp = localizedDateFormatter({
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+})
+
+/** Display persisted instants in the computer's timezone; retain raw values for export. */
+export function formatTimestamp(value: string): string {
+  const date = new Date(value)
+
+  return Number.isNaN(date.getTime()) ? '时间不可用' : fmtTimestamp.format(date)
+}
+
 // Weekday + full date + clock (message time tooltips).
 export const fmtFullDateTime = localizedDateFormatter({ dateStyle: 'full', timeStyle: 'short' })
 
