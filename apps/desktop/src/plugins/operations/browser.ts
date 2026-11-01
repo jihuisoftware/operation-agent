@@ -3,6 +3,7 @@ import { waitForRead } from './browser-wait'
 import { inspectLoginPage } from './login-page'
 import { xhsPage } from './page'
 import { xhsReady } from './page-ready'
+import { xhsPublishControl } from './publish-control'
 import type { Api, BrowserCommand, Guest, OperationsState } from './types'
 
 const HOME = 'https://www.xiaohongshu.com'
@@ -64,10 +65,10 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
     }
 
     if (operation === 'ready') {
-      return evaluateGuest(guest, `(${xhsReady.toString()})(${JSON.stringify(data)})`)
+      return evaluateGuest(guest, `(${xhsReady.toString()})(${JSON.stringify(data)}, (${xhsPublishControl.toString()}))`)
     }
 
-    return evaluateGuest(guest, `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })})`)
+    return evaluateGuest(guest, `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })}, (${xhsPublishControl.toString()}))`)
   }
 
   const navigate = async (url: string) => {
@@ -83,7 +84,7 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
 
   const ready = async (phase: string, data = payload) => {
     try {
-      return await waitForRead(() => page('ready', { phase, payload: data }), result => result.ready === true, 15000, false, sleep)
+      return await waitForRead(() => page('ready', { phase, payload: data }), result => result.ready === true, phase === 'post' ? 60000 : 15000, false, sleep)
     } catch (error) {
       throw new Error(`${phase}${data.label ? `「${data.label}」` : ''}：${error instanceof Error ? error.message : String(error)}`)
     }
@@ -159,6 +160,7 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
       await ready('post')
       await page('fill-post', payload.content)
       await page('validate-post', payload.content)
+      await ready('publish')
       await check()
       submitted = true
       await page('commit-post', payload.content)

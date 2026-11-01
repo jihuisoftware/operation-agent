@@ -6,6 +6,9 @@ class StageSkipped(Exception):
 
 
 def describe(stage, result):
+    if stage == 'research' and isinstance(result, dict):
+        partial = result['failed'] or result['search_errors'] or result['not_attempted'] or result.get('reason')
+        return ('needs_attention' if partial else 'completed'), result['detail']
     if stage == 'organize' and isinstance(result, dict):
         return ('needs_attention' if result['pending'] else 'completed'), result['detail']
     if stage in {"publish", "comments", "dm", "follow"}:

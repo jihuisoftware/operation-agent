@@ -2,6 +2,7 @@
 import hashlib
 import json
 
+from .collection_validation import fingerprint as content_fingerprint
 from .policy import now_iso
 from .store import encoded
 
@@ -21,7 +22,7 @@ def available_sources(store, policy, day, *, include_history=False):
     for row in sources:
         eligible = row["id"] in selected or (row.get("day") == day and row.get("scope_topic", policy["topic"]) == policy["topic"])
         eligible = eligible or (include_history and row.get('scope_topic') == policy['topic'])
-        fingerprint = row.get("fingerprint") or row["id"]
+        fingerprint = content_fingerprint(row.get("text", "")) or row["id"]
         if eligible and row.get("text") and fingerprint not in seen:
             seen.add(fingerprint)
             rows.append(row)
@@ -56,13 +57,15 @@ def catalog(store, query="", cursor=0):
         total = db.execute("SELECT count(*) FROM objects WHERE " + condition, (query, query)).fetchone()[0]
         rows = db.execute("SELECT rowid,id,data FROM objects WHERE " + condition +
                           " AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 25", (query, query, cursor, cursor)).fetchall()
+    with store.connection() as db:
+        latest = db.execute("SELECT data FROM objects WHERE kind='collection_run' AND json_extract(data,'$.scope_topic')=? ORDER BY created DESC LIMIT 1", (policy['topic'],)).fetchone()
     items = []
     for row in rows[:24]:
         item = json.loads(row["data"])
         items.append({**{k: item.get(k) for k in ("title", "url", "summary", "author", "published_at", "collected_at", "day", "state", "error", "scope_topic")},
                       "id": row["id"], "excerpt": item.get("text", "")[:500], "images": item.get("images", []), "selected": row["id"] in selected})
     return {"version": version, "topic": policy["topic"], "total": total, "selected_count": len(selected),
-            "items": items, "next_cursor": rows[23]["rowid"] if len(rows) > 24 else None}
+            "latest_collection": json.loads(latest[0]) if latest else None, "items": items, "next_cursor": rows[23]["rowid"] if len(rows) > 24 else None}
 
 
 def detail(store, identity):

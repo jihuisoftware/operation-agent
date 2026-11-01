@@ -389,7 +389,7 @@ def _memoized_search(provider, query: str, limit: int) -> dict:
     return slice_search_response(response_data, limit)
 
 
-async def web_extract_tool(urls: list[Any], format: str | None = None, char_limit: Optional[int] = None) -> str:
+async def web_extract_tool(urls: list[Any], format: str | None = None, char_limit: Optional[int] = None, *, include_metadata: bool = False) -> str:
     """Extract clean page content (no LLM) from URLs via the configured backend.
 
     Pages over ``char_limit`` (default web.extract_char_limit or 15000) are head+tail truncated with a footer
@@ -437,7 +437,7 @@ async def web_extract_tool(urls: list[Any], format: str | None = None, char_limi
         debug_call_data["original_response_size"] = len(json.dumps({"results": results}))
         debug_call_data["processing_applied"].append("truncate_and_store")
         _truncate_results(results, _effective_char_limit(char_limit), debug_call_data)
-        trimmed = _trim_results(results)
+        trimmed = _trim_results(results, include_metadata=include_metadata)
         result_json = (
             json.dumps({"results": trimmed}, indent=2, ensure_ascii=False) if trimmed
             else tool_error("Content was inaccessible or not found")

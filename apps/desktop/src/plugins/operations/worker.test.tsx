@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 
 import { executeBrowser } from './browser'
 import { $loginRequest } from './login-state'
-import { $showOperationsBrowser } from './state'
+import { $operationsBrowserActivity, $showOperationsBrowser } from './state'
 import type { Guest } from './types'
 import { OperationsWorker } from './worker'
 
@@ -84,6 +84,7 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
     })
   )
   expect(executeBrowser).toHaveBeenCalledTimes(1)
+  expect($operationsBrowserActivity.get()).toEqual({ owner: { connectionId: 'local', profile: 'one' }, kind: 'publish' })
   await act(async () => {
     finish({ state: 'unknown', error: '提交超时' })
   })
@@ -92,6 +93,7 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
     expect.objectContaining({ body: { id: 'task', worker: 'worker', result: { state: 'unknown', error: '提交超时' } } })
   )
   expect(host.notify).not.toHaveBeenCalled()
+  expect($operationsBrowserActivity.get()).toBeNull()
 })
 
 it('opens the operating homepage in the persistent login partition after mounting', async () => {

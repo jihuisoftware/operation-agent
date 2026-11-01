@@ -275,11 +275,13 @@ def extract_cache_get(url: str, format: Optional[str] = None, provider: str = ""
     except Exception:
         return None
     logger.info("web_extract cache hit: %s", url)
-    return {"url": url, "title": entry.get("title", ""), "content": content, "error": None, "cached": True}
+    from tools.web_document_metadata import document_metadata
+    return {"url": url, "title": entry.get("title", ""), "content": content, "error": None, "cached": True,
+            **document_metadata(entry.get('document_metadata') or {})}
 
 
 def extract_cache_put(
-    url: str, content: str, title: str = "", format: Optional[str] = None, provider: str = ""
+    url: str, content: str, title: str = "", format: Optional[str] = None, provider: str = "", *, metadata: Optional[dict] = None
 ) -> None:
     """Store one successful extraction's full clean text for TTL reuse; pages over the truncate-store
     ceiling are not cached (serving a capped copy back as if whole would silently lose the tail)."""
@@ -297,6 +299,20 @@ def extract_cache_put(
             index[_url_digest(url, format, provider)] = {
                 "url": url, "file": str(file_path), "title": title or "", "fetched_at": time.time(),
             }
+            if metadata is not None:
+                from tools.web_document_metadata import document_metadata
+                index[_url_digest(url, format, provider)]['document_metadata'] = document_metadata(metadata)
             _save_index(index)
     except Exception as exc:
         logger.debug("Failed to cache web extract for %s: %s", url, exc)
+
+
+def extract_cache_invalidate(url: str) -> None:
+    """Discard a consumer-rejected snapshot so a bounded retry can fetch fresh content."""
+    with _index_lock:
+        index = _load_index()
+        keys = [key for key, entry in index.items() if entry.get('url') == url]
+        for key in keys:
+            del index[key]
+        if keys:
+            _save_index(index)

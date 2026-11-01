@@ -26,9 +26,12 @@ def source(store, day):
 
 def test_collection_does_not_select_and_selection_does_not_collect(tmp_path, monkeypatch):
     store, policy, day = configured(tmp_path)
-    monkeypatch.setattr(workflow, "collect", lambda *_: source(store, day))
+    def collect(*_):
+        source(store, day)
+        return dict(succeeded=1, new=1, duplicate_content=0, failed=0, already_read=0, not_attempted=0)
+    monkeypatch.setattr(workflow, "collect", collect)
     monkeypatch.setattr(workflow, "generate", lambda *_: pytest.fail("采集不能调用选题模型"))
-    assert "未在本步骤执行" in workflow.research(store, policy, day, 1)
+    assert "未在本步骤执行" in workflow.research(store, policy, day, 1)["detail"]
     assert not store.objects("brief")
     monkeypatch.setattr(workflow, "collect", lambda *_: pytest.fail("选题不能采集"))
     inputs = []
@@ -118,7 +121,7 @@ def test_candidate_selection_rejects_stale_batch_and_carries_source_evidence(tmp
 
 def test_collection_queries_include_custom_scope_even_with_template_keywords(tmp_path, monkeypatch):
     from tools import web_tools
-    from plugins.operations.research import collect
+    from plugins.operations.collection import collect
     store, policy, day = configured(tmp_path)
     policy['keywords'] = ['领域新问题', '成长经验']
     store.configure(policy, 1)

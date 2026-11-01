@@ -2,22 +2,27 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeAll, expect, it, vi } from 'vitest'
 
-import { stubMenuDomApis } from '@/test/jsdom'
-
 import { ScheduleFields } from './blueprint-fields'
 import { ChoiceField, choices } from './configuration-choices'
 import type { Policy } from './types'
 
-beforeAll(stubMenuDomApis)
+beforeAll(() => {
+  Element.prototype.hasPointerCapture ??= () => false
+  Element.prototype.setPointerCapture ??= () => undefined
+  Element.prototype.releasePointerCapture ??= () => undefined
+  Element.prototype.scrollIntoView ??= () => undefined
+})
 afterEach(cleanup)
 
 it('preserves a saved custom value and allows choosing a preset then manually extending it', async () => {
   const changed = vi.fn()
+
   function Harness() {
     const [value, setValue] = useState('小户型厨房收纳')
 
-    return <ChoiceField label="运营主题" options={choices(['家居与收纳', '工厂获客'])} onChange={next => { changed(next); setValue(next) }} value={value} />
+    return <ChoiceField label="运营主题" onChange={next => { changed(next); setValue(next) }} options={choices(['家居与收纳', '工厂获客'])} value={value} />
   }
+
   render(<Harness />)
   expect((screen.getByLabelText('自定义运营主题') as HTMLInputElement).value).toBe('小户型厨房收纳')
   expect(changed).not.toHaveBeenCalled()
@@ -36,12 +41,15 @@ it('edits individual times and a date while retaining custom quotas and untouche
   const initial = { modules: { research: true }, times: { research: ['08:45', '16:10'] },
     limits: { source: 7 }, allowed: {}, timezone: 'Asia/Shanghai', deadline: '2026-12-01T18:30:00',
     priority: 2, model_calls: 17, sources: [], rss_sources: [], keywords: ['自有关键词'] } as unknown as Policy
+
   const changed = vi.fn()
+
   function Harness() {
     const [policy, setPolicy] = useState(initial)
 
-    return <ScheduleFields policy={policy} onChange={next => { changed(next); setPolicy(next) }} />
+    return <ScheduleFields onChange={next => { changed(next); setPolicy(next) }} policy={policy} />
   }
+
   render(<Harness />)
   expect(changed).not.toHaveBeenCalled()
   expect(screen.getByLabelText('信息采集时间 1').getAttribute('type')).toBe('time')

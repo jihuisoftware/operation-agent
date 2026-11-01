@@ -7,7 +7,7 @@ import httpx
 from PIL import Image
 import pytest
 
-from plugins.operations import content, research, source_library, source_media, topics
+from plugins.operations import collection, content, source_library, source_media, topics
 from plugins.operations.policy import DEFAULT
 from plugins.operations.store import Store
 
@@ -42,8 +42,8 @@ def test_collection_persists_images_text_and_provenance_and_can_reuse_across_day
             raise ValueError("图片不可用")
         return png()
     monkeypatch.setattr(source_media, "download", download)
-    research.collect(store, policy, "2026-10-31")
-    research.collect(store, policy, "2026-10-31")
+    collection.collect(store, policy, "2026-10-31")
+    collection.collect(store, policy, "2026-10-31")
     assert len(fetched) == 2
     source = store.objects("source")[0]
     assert source["author"] == "原作者" and "收纳原文" in source["text"]

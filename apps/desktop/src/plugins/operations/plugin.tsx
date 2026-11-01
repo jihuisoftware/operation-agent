@@ -13,9 +13,9 @@ import { createRoot } from 'react-dom/client'
 
 import { AccountsPage } from './accounts'
 import { BlueprintLibrary } from './blueprint-library'
+import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
-import { $showOperationsBrowser } from './state'
 import { UpcomingOperations } from './upcoming'
 import { Workbench } from './workbench'
 import { WorkbenchPage } from './workbench-page'
@@ -78,15 +78,7 @@ export default {
     ctx.register({
       id: 'live-view',
       area: TITLEBAR_AREAS.right,
-      render: () => (
-        <button
-          className="px-2 text-xs"
-          onClick={() => $showOperationsBrowser.set(!$showOperationsBrowser.get())}
-          title="显示或隐藏自动运营内嵌网页"
-        >
-          运营画面
-        </button>
-      )
+      render: () => <LiveViewButton />
     })
     ctx.register({
       id: 'workbench',

@@ -30,7 +30,7 @@ def unavailable(store, data, step, policy):
         return "该动作尚未授权"
     dependency = DEPENDENCIES.get(task)
     prior = next((s for s in data["steps"] if s["id"] == dependency), None)
-    usable_partial = prior and dependency == 'organize' and prior['state'] == 'needs_attention' and prior.get('result', {}).get('usable', 0) > 0
+    usable_partial = prior and dependency in {'research', 'organize'} and prior['state'] == 'needs_attention' and prior.get('result', {}).get('usable', 0) > 0
     if prior and prior["state"] != "completed" and not usable_partial:
         return f"依赖步骤「{prior['title']}」未完成，不使用旧产物替代本轮结果"
     if task == "publish" and not data.get("content_id"):

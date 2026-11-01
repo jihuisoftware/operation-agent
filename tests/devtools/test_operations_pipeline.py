@@ -163,3 +163,16 @@ def test_disabled_modules_are_not_enabled_and_interrupted_batch_cannot_replay(en
     assert debug.execute(body)["state"] == "interrupted"
     assert debug.detail(result["id"])["run"]["steps"][0]["state"] == "interrupted"
     assert store.policy()[1] == policy
+
+
+def test_partial_collection_preserves_usable_evidence_for_following_steps(environment, monkeypatch):
+    from tools import web_tools
+    store, _ = environment
+    monkeypatch.setattr(web_tools, 'web_search_tool', lambda *a, **k: '{"error":"搜索服务不可用"}')
+    result = debug.execute({'task': 'pipeline', 'version': 1, 'request_id': 'partial-research'})
+    steps = {step['id']: step for step in result['steps']}
+    assert steps['research']['state'] == 'needs_attention'
+    assert steps['research']['result']['usable'] == 1
+    assert steps['organize']['state'] == steps['topics']['state'] == 'completed'
+    assert result['state'] == 'needs_attention'
+    assert '搜索服务不可用' in store.objects('report')[0]['markdown']

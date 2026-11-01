@@ -15,7 +15,7 @@ beforeEach(() => {
 })
 afterEach(() => { document.body.innerHTML = ''; vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers() })
 
-function fixture(mode: 'success' | 'pause' | 'disconnect') {
+function fixture(mode: 'success' | 'custom' | 'disabled' | 'pause' | 'disconnect') {
   let url = 'about:blank'
   let paused = false
   let submissions = 0
@@ -37,12 +37,29 @@ function fixture(mode: 'success' | 'pause' | 'disconnect') {
         Object.defineProperty(upload, 'files', { writable: true, value: [] })
         upload.addEventListener('change', () => {
           setTimeout(() => {
-            document.querySelector('.image-list')!.innerHTML = '<img src="cover.png">'
+            document.querySelector('.image-list')!.innerHTML = '<div class="img-container"><img src="cover.png"><div class="uploading"></div></div>'
+            setTimeout(() => document.querySelector('.uploading')?.remove(), 4000)
 
             if (mode === 'pause') { paused = true }
           }, 4500)
         })
-        document.querySelector('#submit')!.addEventListener('click', () => {
+        let submit = document.querySelector('#submit')!
+        const custom = mode === 'custom' || mode === 'disabled'
+
+        if (custom) {
+          const host = document.createElement('xhs-publish-btn')
+          host.attachShadow({ mode: 'closed' }).innerHTML = '<button>发布</button>'
+
+          for (const [name, value] of Object.entries({ 'is-publish': 'true', 'submit-text': '发布', 'submit-disabled': String(mode === 'disabled'), 'submit-loading': 'false' })) {
+            host.setAttribute(name, value)
+          }
+
+          submit.replaceWith(host)
+          submit = host
+        }
+
+        submit.addEventListener(custom ? 'publish' : 'click', () => {
+          expect(document.querySelector('.uploading')).toBeNull()
           submissions += 1
           setTimeout(() => {
             document.body.innerHTML = '<p>发布成功</p><a href="https://www.xiaohongshu.com/explore/note">查看笔记</a>'
@@ -70,13 +87,13 @@ function fixture(mode: 'success' | 'pause' | 'disconnect') {
   return { guest, api, command, submissions: () => submissions }
 }
 
-it.each(['success', 'pause', 'disconnect'] as const)('executes the actual DOM adapter with delayed image and receipt: %s', async mode => {
+it.each(['success', 'custom', 'disabled', 'pause', 'disconnect'] as const)('executes the actual DOM adapter with delayed image and receipt: %s', async mode => {
   const test = fixture(mode)
   const pending = executeBrowser(test.command, test.guest, test.api)
   await vi.runAllTimersAsync()
   const result = await pending
-  expect(result.state).toBe({ success: 'published', pause: 'blocked', disconnect: 'unknown' }[mode])
-  expect(test.submissions()).toBe(mode === 'pause' ? 0 : 1)
+  expect(result.state).toBe({ success: 'published', custom: 'published', disabled: 'blocked', pause: 'blocked', disconnect: 'unknown' }[mode])
+  expect(test.submissions()).toBe(mode === 'pause' || mode === 'disabled' ? 0 : 1)
 
   if (mode === 'success') { expect(result.url).toBe('https://www.xiaohongshu.com/explore/note') }
 })

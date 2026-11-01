@@ -3,7 +3,7 @@ import threading
 import time
 
 from .model import generate
-from .research import collect
+from .collection import collect
 from .source_library import available_sources
 from .outcomes import StageSkipped
 
@@ -29,13 +29,15 @@ def browser(store, kind, payload, action_id=None):
 
 
 def research(store, policy, day, version):
-    before = len(store.objects("source", day))
-    collect(store, policy, day)
-    added = len(store.objects("source", day)) - before
+    stats = collect(store, policy, day)
     sources = available_sources(store, policy, day)
     if not sources:
         raise StageSkipped("未取得可用来源，请查看来源失败记录及检索配置")
-    return f"采集新增 {added} 条来源记录；可用去重素材 {len(sources)} 条（含已选历史来源）。选题为独立模块，未在本步骤执行"
+    stats['usable'] = len(sources)
+    stats['detail'] = (f"读取成功 {stats['succeeded']} 条（新资料 {stats['new']}、正文重复 {stats['duplicate_content']}）；"
+                       f"失败 {stats['failed']}、已采集跳过 {stats['already_read']}、未尝试 {stats['not_attempted']}；"
+                       f"可用去重素材 {len(sources)} 条。选题为独立模块，未在本步骤执行")
+    return stats
 
 
 def topics(store, policy, day, version):

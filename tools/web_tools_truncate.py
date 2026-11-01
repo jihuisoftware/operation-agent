@@ -171,6 +171,8 @@ def _truncate_results(results: list[dict], char_limit: int, debug_call_data: dic
         clean = convert_base64_images_to_links(raw_content)
         model_text, truncated = _truncate_with_footer(clean, url, char_limit)
         result["content"] = model_text
+        result['truncated'] = truncated
+        result['original_chars'] = len(clean)
         if truncated:
             debug_call_data["pages_truncated"] += 1
             debug_call_data["truncation_metrics"].append(
@@ -181,13 +183,15 @@ def _truncate_results(results: list[dict], char_limit: int, debug_call_data: dic
             logger.info("%s (%d chars, whole)", url, len(clean))
 
 
-def _trim_results(results: list[dict]) -> list[dict]:
+def _trim_results(results: list[dict], *, include_metadata=False) -> list[dict]:
     """Keep only url/title/content/error per entry (+ blocked_by_policy when present)."""
+    from tools.web_document_metadata import document_metadata
     return [
         {
             "url": r.get("url", ""), "title": r.get("title", ""), "content": r.get("content", ""),
             "error": r.get("error"),
             **({"blocked_by_policy": r["blocked_by_policy"]} if "blocked_by_policy" in r else {}),
+            **({**document_metadata(r), 'truncated': r.get('truncated', False), 'original_chars': r.get('original_chars', 0)} if include_metadata else {}),
         }
         for r in results
     ]

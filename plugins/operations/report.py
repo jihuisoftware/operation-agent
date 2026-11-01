@@ -30,6 +30,10 @@ def daily_report(store, day, delayed=False):
     lines.extend(f"- 临时任务：{t['text']} · {t.get('state', 'pending')}" for t in store.objects("task", day))
     lines.extend(["", "## 信息来源", ""])
     lines.append(f"当日采集 {len(sources)} 条；本日内容引用既有资料 {len(reused)} 条。")
+    for batch in store.objects('collection_run', day):
+        lines.append(f"- 采集批次 {batch['started']}：读取 {batch['attempted']}，成功 {batch['succeeded']}，"
+                     f"新资料 {batch['new']}，正文重复 {batch['duplicate_content']}，失败 {batch['failed']}，"
+                     f"已采集跳过 {batch['already_read']}，未尝试 {batch['not_attempted']}；{batch['state']}")
     for source in sources + reused:
         summary = source.get("summary") or ("原文已记录" if source.get("text") else source.get("error") or "未取得正文")
         origin = "既有资料 · " if source.get("day") != day else ""

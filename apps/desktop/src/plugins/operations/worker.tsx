@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { executeBrowser } from './browser'
 import { createExecutionClock } from './execution-clock'
 import { $loginNavigation } from './login-state'
-import { $operationsWorkerStatus, $showOperationsBrowser } from './state'
+import { $operationsWorkerStatus, $showOperationsBrowser, beginBrowserActivity } from './state'
 import type { Api, BrowserCommand, OperationsState } from './types'
 import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
@@ -34,6 +34,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
     let running = false
     let polling = false
     let reportSeen = ''
+    let finishActivity: (() => void) | undefined
 
     const poll = async () => {
       if (disposed || polling || !guest.isConnected) {
@@ -63,6 +64,8 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
 
         polling = false
         running = true
+        const endActivity = beginBrowserActivity(scope, result.command.kind)
+        finishActivity = endActivity
         guest.style.pointerEvents = 'none'
         $operationsWorkerStatus.set('正在执行任务；可点击人工接管暂停')
 
@@ -82,6 +85,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
             $operationsWorkerStatus.set(answer.error || '本次网页任务完成')
           }
         } finally {
+          endActivity()
           running = false
           execution.current.pending = null
         }
@@ -99,6 +103,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
 
     return () => {
       disposed = true
+      finishActivity?.()
       clock.dispose()
     }
   }, [scope, api, guest, worker])

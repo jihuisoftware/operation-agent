@@ -1,6 +1,8 @@
 import { Badge, Button, Codicon, CopyButton, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, formatTimestamp, Input, type PluginContext } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 
+import { CollectionSummary, type CollectionSummaryData } from './collection-summary'
+
 interface ReferenceImage { id?: string; url: string; state: string; error?: string }
 interface Source {
   id: string
@@ -13,13 +15,16 @@ interface Source {
   collected_at?: string
   published_at?: string
   scope_topic?: string
+  attempts?: number
+  truncated?: boolean
+  original_chars?: number
   state: string
   error?: string
   images?: ReferenceImage[]
   selected: boolean
   content_versions?: { id: string; title: string; day: string }[]
 }
-interface Catalog { version: number; topic: string; total: number; selected_count: number; items: Source[]; next_cursor: number | null }
+interface Catalog { latest_collection?: CollectionSummaryData | null; version: number; topic: string; total: number; selected_count: number; items: Source[]; next_cursor: number | null }
 
 export function ReferencePreview({ ctx, image }: { ctx: PluginContext; image?: ReferenceImage }) {
   const [url, setUrl] = useState('')
@@ -97,6 +102,7 @@ export function SourceLibrary({ ctx }: { ctx: PluginContext }) {
     </form>
     {error && <p className="text-destructive" role="alert">{error}</p>}
     {data ? <>
+      {data.latest_collection && <CollectionSummary data={data.latest_collection} />}
       <p className="text-xs text-muted-foreground">{data.topic || '尚未设置主题'} · 共 {data.total} 条资料 · 长期复用 {data.selected_count} 条</p>
       {!data.items.length && <p>暂无匹配的来源；信息采集完成后会自动显示。</p>}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
@@ -134,6 +140,8 @@ function SourceDetail({ ctx, identity, onClose }: { ctx: PluginContext; identity
     {source && <>
       <div className="flex flex-wrap items-center gap-2"><span className="break-all text-xs text-muted-foreground">{source.url}</span><CopyButton label="复制来源链接" text={source.url}>复制来源链接</CopyButton></div>
       <p className="text-xs text-muted-foreground">作者：{source.author || '未提供'} · 发布时间：{source.published_at || '未提供'} · 采集时间：{source.collected_at ? formatTimestamp(source.collected_at) : '未记录'}</p>
+      {source.truncated && <p className="text-sm text-muted-foreground">正文已截取，原提取结果约 {source.original_chars} 字符；分析仅依据当前保存的片段。</p>}
+      {source.attempts && <p className="text-xs text-muted-foreground">该来源当日读取尝试：{source.attempts} 次</p>}
       {source.images?.length ? <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">{source.images.map((image, index) => <figure className="space-y-2" key={`${image.url}:${index}`}>
         <ReferencePreview ctx={ctx} image={image} /><figcaption className="text-xs text-muted-foreground">{image.id ? '参考图片 · 尚未授权公开发布' : image.error || '仅保留原图链接'}<CopyButton label={`复制原图链接 ${index + 1}`} text={image.url}>复制原图链接</CopyButton></figcaption>
       </figure>)}</div> : <p className="text-xs text-muted-foreground">此来源没有采集到图片，已保留正文。</p>}

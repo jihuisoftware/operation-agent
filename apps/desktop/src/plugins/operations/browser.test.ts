@@ -8,7 +8,9 @@ afterEach(() => vi.useRealTimers())
 function requestFromScript(code: string) {
   const expression = code.slice(0, code.lastIndexOf('; } catch'))
 
-  return JSON.parse(expression.slice(expression.lastIndexOf(')(') + 2, -1))
+  const argumentsSource = expression.slice(expression.lastIndexOf(')(') + 2, -1)
+
+  return new Function(`return [${argumentsSource}][0]`)()
 }
 
 const command: BrowserCommand = {

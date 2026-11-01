@@ -1,5 +1,7 @@
+import { xhsPublishControl } from './publish-control'
+
 /** Runs in the isolated guest. Unknown DOM shapes fail closed and return evidence, never success. */
-export function xhsPage(command: { operation: string; payload: Record<string, any> }) {
+export function xhsPage(command: { operation: string; payload: Record<string, any> }, publishControl = xhsPublishControl) {
   const { operation, payload } = command
 
   const visible = (element: Element) => {
@@ -100,6 +102,8 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
     }
 
     if (/上传中|上传失败|正在上传/.test(document.body.innerText)) { throw new Error('图片尚未完成上传') }
+
+    if (all('.img-container .uploading,.img-container[aria-busy="true"]').length) { throw new Error('图片尚未完成上传或处理') }
     const previews = all('[class*="upload"] img,[class*="image-list"] img').filter(img => (img as HTMLImageElement).naturalWidth > 0)
 
     if (previews.length < payload.asset_ids.length) { throw new Error('尚未核对全部图片缩略图') }
@@ -172,7 +176,7 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
     'validate-post': validatePost,
     'commit-post': () => {
       validatePost()
-      button('发布').click()
+      publishControl(true)
 
       return { state: 'submitted' }
     },

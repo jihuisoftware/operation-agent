@@ -1,5 +1,7 @@
+import { xhsPublishControl } from './publish-control'
+
 /** Read-only readiness checks, serialized into the same isolated execution page. */
-export function xhsReady(request: { phase: string; payload: Record<string, any> }) {
+export function xhsReady(request: { phase: string; payload: Record<string, any> }, publishControl = xhsPublishControl) {
   const { phase, payload } = request
 
   const visible = (element: Element) => {
@@ -18,12 +20,14 @@ export function xhsReady(request: { phase: string; payload: Record<string, any> 
   const selectors: Record<string, string> = { comment: 'section.note-item', reply: '[data-comment-id],.comment-item', dm: '[data-message-id]', follow: '[data-user-id],.user-item' }
 
   const handlers: Record<string, () => boolean> = {
+    publish: () => publishControl().ready,
     label: () => all('button,[role="button"],a,span').some(element => element.textContent?.trim() === payload.label),
     upload: () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]')).some(input => /image|\.(png|jpe?g|webp)/i.test(input.accept)),
     post: () => {
       if (/上传失败/.test(body)) { throw new Error('图片上传失败') }
 
       return !/上传中|正在上传/.test(body) &&
+        all('.img-container .uploading,.img-container[aria-busy="true"]').length === 0 &&
         all('input[placeholder*="标题"],textarea[placeholder*="标题"]').length === 1 &&
         all('[contenteditable="true"],textarea[placeholder*="正文"]').length === 1 &&
         all('[class*="upload"] img,[class*="image-list"] img').filter(image => (image as HTMLImageElement).naturalWidth > 0).length >= payload.content.asset_ids.length
