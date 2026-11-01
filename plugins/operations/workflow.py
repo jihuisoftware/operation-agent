@@ -3,7 +3,8 @@ import threading
 import time
 
 from .model import generate
-from .research import collect, distinct_sources
+from .research import collect
+from .source_library import available_sources
 from .outcomes import StageSkipped
 
 
@@ -31,15 +32,20 @@ def research(store, policy, day, version):
     before = len(store.objects("source", day))
     collect(store, policy, day)
     added = len(store.objects("source", day)) - before
-    sources = distinct_sources(store, day)
+    sources = available_sources(store, policy, day)
     if not sources:
         raise StageSkipped("未取得可用来源，请查看来源失败记录及检索配置")
-    return f"采集新增 {added} 条来源记录；当日可用去重来源 {len(sources)} 条。选题为独立模块，未在本步骤执行"
+    return f"采集新增 {added} 条来源记录；可用去重素材 {len(sources)} 条（含已选历史来源）。选题为独立模块，未在本步骤执行"
 
 
 def topics(store, policy, day, version):
     from .topics import generate_topics
     return generate_topics(store, policy, day, version)
+
+
+def organize(store, policy, day, version):
+    from .organization import organize as organize_sources
+    return organize_sources(store, policy, day, version)
 
 
 def produce(store, policy, day, version):
@@ -58,11 +64,11 @@ def resolve_account(store, policy):
     return account
 
 
-def publish(store, policy, day, version):
+def publish(store, policy, day, version, *, content_id=None):
     from .content import check_content, validate_content, content_digest
     if not policy["allowed"]["publish"]:
         raise StageSkipped("自动发布未开启")
-    drafts = [c for c in store.objects("content", day) if c.get("ready")]
+    drafts = [c for c in store.objects("content", day) if c.get("ready") and (content_id is None or c["id"] == content_id)]
     if not drafts:
         raise StageSkipped("没有选定的有效内容版本，未发布；请先生产或选择草稿")
     content = drafts[0]

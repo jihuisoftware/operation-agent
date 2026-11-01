@@ -57,7 +57,7 @@ def test_scenario_choice_can_be_customized_without_scheduling_on_catalog_read(st
     body = {"version": catalog["version"], "policy": policy, "request_id": "scenario", "mode": "enable"}
     preview = blueprints.preview(store, body)
     assert preview["missing"] == {}
-    assert [r["time"] for r in preview["timeline"]] == ["08:30", "09:20", "20:30"]
+    assert [r["time"] for r in preview["timeline"]] == ["08:30", "09:10", "09:20", "20:30"]
     blueprints.apply(store, body)
     blueprints.apply(store, body)
     saved = store.policy()[1]
@@ -113,7 +113,13 @@ def test_removing_module_cancels_queued_action_and_preserves_history(store):
         store.reserve_action({**action, "target": "another"}, 2)
 
 
-def test_old_rules_and_claimed_occurrences_migrate_once_without_replay(store):
+def test_old_rules_and_claimed_occurrences_migrate_once_without_replay(store, monkeypatch):
+    from plugins.operations import workflow
+    from unittest.mock import Mock
+    for name in ('research', 'organize', 'topics', 'produce', 'publish'):
+        monkeypatch.setattr(workflow, name, lambda *args: None)
+    interactions = Mock()
+    monkeypatch.setattr(workflow, 'interact', interactions)
     old = deepcopy(DEFAULT)
     old.pop("modules")
     old.pop("schema_version")
@@ -136,6 +142,7 @@ def test_old_rules_and_claimed_occurrences_migrate_once_without_replay(store):
     assert Store(store.path).policy()[0] == 5
     migrated.claim("desktop", busy=True)
     tick(migrated, datetime(2026, 10, 31, 3, 21, tzinfo=UTC))
+    interactions.assert_not_called()
     assert not migrated.snapshot()["actions"]
     assert any(r["stage"] == "interact" for r in migrated.snapshot()["runs"])
     assert len([r for r in migrated.snapshot()["runs"] if r["state"] == "migrated"]) == 3
@@ -149,6 +156,8 @@ def test_production_without_images_is_a_draft_and_publishing_never_generates_a_n
     blueprints.apply(store, body)
     version, policy = store.policy()
     store.put("source", {"day": "2026-10-31", "url": "https://example.org", "text": "真实资料", "fingerprint": "source"}, "source")
+    from tests.plugins.operations_support import prepare_materials
+    prepare_materials(store, policy, "2026-10-31", monkeypatch)
     calls = []
     def generate(*args):
         calls.append(args[-1])

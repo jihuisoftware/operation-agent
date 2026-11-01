@@ -3,12 +3,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { withTopicDefaults } from './business-config'
 import { ActionManager, ContentEditor } from './management'
+import { OrganizedLibrary } from './organized-library'
+import { SourceLibrary } from './source-library'
 import { $showOperationsBrowser } from './state'
 import { TopicsPanel } from './topics-panel'
 import type { OperationsState, Policy, RecordRow } from './types'
 import { WorkbenchRules } from './workbench-rules'
 
-const tabs = ['目标与规则', '信息采集', '选题管理', '素材与内容', '任务与执行', '每日总结']
+const tabs = ['目标与规则', '信息采集', '资料整理', '选题管理', '素材与内容', '任务与执行', '每日总结']
 
 export function Workbench({
   ctx,
@@ -136,6 +138,7 @@ function OwnedWorkbench({ ctx, initialTab, canView }: { ctx: PluginContext; init
         </p>
       )}
       {tab === '目标与规则' && <WorkbenchRules onChange={next => { setDraft(next); setDirty(true) }} onSave={() => void save(withTopicDefaults(draft))} policy={draft} />}
+      {tab === '资料整理' && <OrganizedLibrary ctx={ctx} />}
       {tab === '选题管理' && <><TopicsPanel ctx={ctx} /><details className="mt-5"><summary className="cursor-pointer">历史选题与整理记录</summary><Records rows={state.brief} /></details></>}
       {tab === '素材与内容' && (
         <>
@@ -159,8 +162,8 @@ function OwnedWorkbench({ ctx, initialTab, canView }: { ctx: PluginContext; init
       )}
       {tab === '信息采集' && (
         <>
-          <NewRecord ctx={ctx} kind="metric" onError={setError} onSaved={refresh} />
-          <Records rows={[...state.source, ...state.metric]} />
+          <SourceLibrary ctx={ctx} />
+          <details className="mt-6"><summary className="cursor-pointer">指标导入与历史数据</summary><NewRecord ctx={ctx} kind="metric" onError={setError} onSaved={refresh} /><Records rows={state.metric} /></details>
         </>
       )}
       {tab === '每日总结' &&

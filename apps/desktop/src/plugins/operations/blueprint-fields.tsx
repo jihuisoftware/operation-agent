@@ -25,7 +25,7 @@ export function GoalFields({ policy, onChange }: PolicyFieldsProps) {
         <ChoiceField label="内容风格" onChange={style => onChange({ ...policy, style })} options={styleChoices} value={policy.style} />
       </details>
       <h3 className="font-medium">需要执行哪些模块</h3>
-      <p className="text-xs text-muted-foreground">采集只保存来源，选题使用已有来源；两者可以独立启停。</p>
+      <p className="text-xs text-muted-foreground">采集保存原文，整理模块分类并提炼依据，选题与内容使用整理资料；各环节可独立启停。</p>
       <div className="grid gap-3 sm:grid-cols-2">
       {Object.entries(moduleLabels).map(([module, label]) => (
         <label className="flex items-center gap-2" key={module}>

@@ -7,7 +7,7 @@ from .modules import TIMES, ACTION_MODULE, upgrade
 from .business_themes import validate_business_selection
 
 LIMITS = {"source": 10_000, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "follow": 5}
-DEFAULT = {"schema_version": 3, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
+DEFAULT = {"schema_version": 4, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
            "style": "真实、清楚、具体", "brand": "", "account_id": "", "timezone": "Asia/Shanghai",
            "sources": [], "rss_sources": [], "keywords": [], "knowledge": [], "follow_terms": [],
            "allowed": {k: k != "follow" for k in LIMITS if k != "source"}, "limits": LIMITS,
@@ -46,7 +46,7 @@ def validate_policy(value):
         raise ValueError("优先级必须是 1 到 5 的整数")
     ZoneInfo(result["timezone"])
     _validate_collections(result)
-    if result["schema_version"] != 3 or set(result["modules"]) != set(TIMES) or any(type(v) is not bool for v in result["modules"].values()):
+    if result["schema_version"] != 4 or set(result["modules"]) != set(TIMES) or any(type(v) is not bool for v in result["modules"].values()):
         raise ValueError("运营模块格式错误")
     if result["enabled"] and not any(result["modules"].values()):
         raise ValueError("启用前至少选择一个运营模块")

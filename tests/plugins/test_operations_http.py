@@ -13,6 +13,7 @@ def test_private_plugin_api_requires_auth_and_scopes_profiles(tmp_path, monkeypa
     with TestClient(web_server.app) as client:
         assert client.get("/api/plugins/operations/state").status_code in (401, 403)
         assert client.get("/api/plugins/operations/overview").status_code in (401, 403)
+        assert client.get('/api/plugins/operations/organized-sources').status_code in (401, 403)
         client.headers[web_server._SESSION_HEADER_NAME] = web_server._SESSION_TOKEN
         response = client.get("/api/plugins/operations/state")
         assert response.status_code == 200, response.text
@@ -28,6 +29,9 @@ def test_private_plugin_api_requires_auth_and_scopes_profiles(tmp_path, monkeypa
         assert secondary.json()["policy"]["limits"]["source"] == 10_000
         assert client.get("/api/plugins/operations/overview").json()["topic"] == "只属于默认配置"
         assert client.get("/api/plugins/operations/overview?profile=work").json()["topic"] == ""
+        assert client.get('/api/plugins/operations/organized-sources').json()['topic'] == '只属于默认配置'
+        assert client.get('/api/plugins/operations/organized-sources?profile=work').json()['topic'] == ''
+        assert client.get('/api/plugins/operations/organized-sources?cursor=-1').status_code == 400
         version = client.get("/api/plugins/operations/topics").json()["version"]
         selected = client.post("/api/plugins/operations/topics/select", json={"version": version, "title": "指定的测试选题"})
         assert selected.status_code == 200, selected.text

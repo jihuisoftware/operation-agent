@@ -4,7 +4,7 @@ import json
 import uuid
 from zoneinfo import ZoneInfo
 
-from .modules import TIMES
+from .occurrences import visible_occurrences
 from .policy import now_iso
 from .progress import STEPS
 
@@ -15,20 +15,17 @@ def upcoming(store, now=None):
     version, policy = store.policy()
     now = (now or datetime.now(UTC)).astimezone(ZoneInfo(policy['timezone']))
     with store.connection() as db:
-        existing = {(r['day'], r['stage'], r['slot']): dict(r) for r in db.execute('SELECT * FROM runs WHERE day>=?', (now.date().isoformat(),))}
+        existing = {(r['day'], r['stage'], r['slot']): dict(r) for r in db.execute('SELECT * FROM runs WHERE day>=?', ((now.date() - timedelta(days=1)).isoformat(),))}
     steps = []
     if policy['enabled']:
-        for offset in (0, 1):
-            day = (now + timedelta(days=offset)).date().isoformat()
-            for stage in TIMES:
-                if not policy['modules'][stage]:
-                    continue
-                for slot in policy['times'][stage]:
-                    due = datetime.fromisoformat(f'{day}T{slot}').replace(tzinfo=now.tzinfo)
-                    row = existing.get((day, stage, slot))
-                    if due < now - timedelta(minutes=30) or (row and row['state'] != 'cancelled'):
-                        continue
-                    steps.append(item(day, stage, slot, due.isoformat(), row['state'] if row else 'pending'))
+        for stage, due in visible_occurrences(store, policy, now):
+            day, slot = due.date().isoformat(), due.strftime('%H:%M')
+            row = existing.get((day, stage, slot))
+            if row and row['state'] != 'cancelled':
+                continue
+            if stage == 'report' and day < now.date().isoformat() and store.objects('report', day):
+                continue
+            steps.append(item(day, stage, slot, due.isoformat(), row['state'] if row else 'pending'))
     manual = pending_manual(store)
     return {'version': version, 'topic': policy['topic'], 'paused': policy['paused'],
             'timezone': policy['timezone'], 'steps': sorted(steps, key=lambda s: s['due']), 'manual': manual}

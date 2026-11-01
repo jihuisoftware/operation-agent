@@ -153,7 +153,7 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
             <details className="space-y-2">
               <summary className="cursor-pointer text-muted-foreground">使用默认完整流程</summary>
               <p className="text-muted-foreground">
-                默认流程包含采集、选题、内容生产、发布、评论、收到私信回复和日报。可按需关闭；回关单独开启。
+                默认流程包含采集、资料整理、选题、内容生产、发布、评论、收到私信回复和日报。可按需关闭；回关单独开启。
               </p>
               <Button onClick={() => change(enableDefaultOperations(policy))} variant="outline">
                 启用默认运营模块与授权
@@ -186,7 +186,7 @@ export function BlueprintWizard({ ctx, catalog, template, draft, onSaved, onAsse
                 </p>
               ))}
               <p className="mt-2 text-muted-foreground">
-                自动调度不集中补发过期时段；“立即执行”忽略排期，并重新执行已完成模块。每日额度仍生效。
+                每个模块只补最近一次到期任务，更早时段忽略且不记入历史；“立即执行”忽略排期，可重复执行。每日额度仍生效。
               </p>
             </div>
             <div>

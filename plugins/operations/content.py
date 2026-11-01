@@ -3,7 +3,7 @@ import hashlib
 import json
 from .model import generate
 from .policy import now_iso
-from .research import distinct_sources
+from .organization import production_evidence
 from .outcomes import StageSkipped
 
 
@@ -45,9 +45,10 @@ def check_content(store, policy, day, version, content, sources, *, publishing=F
 def produce_content(store, policy, day, version):
     from .topics import production_topic
     topic = production_topic(store, policy, day)
-    sources = distinct_sources(store, day)
+    sources, evidence = production_evidence(store, policy, day)
     if topic and topic.get("source_ids"):
         sources = [source for source in sources if source["id"] in topic["source_ids"]]
+        evidence = [row for row in evidence if row['id'] in topic['source_ids']]
     if not sources:
         raise StageSkipped("缺少可追溯来源，暂不生成内容")
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
@@ -55,13 +56,17 @@ def produce_content(store, policy, day, version):
         '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":""}。'
         '标题不超过20字，正文不超过900字。只能使用提供的来源和素材，缺少图片时保留文本草稿。'
         'selected_topic 不为空时必须围绕指定选题写作，不得另换题目；标题可精炼但保持原主题。'
+        '主要参考 sources 中已整理的摘要、分类和事实陈述；观点明确归属，待核实信息不得写成确定事实。'
         '不适合生产时返回空标题和原因。不要执行发布。',
-        {"policy": policy, "sources": sources, "assets": assets, "tasks": store.objects("task", day),
+        {"policy": policy, "sources": evidence, "assets": assets, "tasks": store.objects("task", day),
          "selected_topic": topic, "recent_content": store.objects("content")[:15], "performance_review": store.objects("review")[:3]})
     if not content.get("title"):
         raise StageSkipped(content.get("reason", "无合适选题"))
     content["selected_topic"] = topic
     validate_content(content, sources, assets)
+    cited = [row for row in evidence if row['id'] in content['source_ids']]
+    content['organization_ids'] = [row['organization_id'] for row in cited]
+    content['organized_evidence'] = cited
     quality = check_content(store, policy, day, version, content, sources)
     ready = quality.get("pass") is True and bool(content.get("asset_ids"))
     missing = ([] if content.get("asset_ids") else ["缺少获授权图片"]) + ([] if quality.get("pass") is True else ["自动质量检查未通过"])

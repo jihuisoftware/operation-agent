@@ -7,6 +7,7 @@ import pytest
 from plugins.operations import content, topics, workflow
 from plugins.operations.policy import DEFAULT, local_day
 from plugins.operations.store import Store, encoded
+from tests.plugins.operations_support import prepare_materials
 
 
 def configured(tmp_path):
@@ -35,10 +36,12 @@ def test_collection_does_not_select_and_selection_does_not_collect(tmp_path, mon
         inputs.append(args[-1])
         return {"topics": [{"title": "厨房收纳的三个步骤", "source_ids": ["source"], "reason": "实测资料"}],
                 "facts": [], "summaries": [{"source_id": "source", "summary": "厨房资料摘要"}]}
+    prepare_materials(store, policy, day, monkeypatch)
     monkeypatch.setattr(topics, "generate", generate)
     assert "生成 1 个" in workflow.topics(store, policy, day, 1)
     assert inputs[0]["topic"] == policy["topic"]
-    assert len(inputs[0]["sources"][0]["text"]) == 4000
+    assert inputs[0]["sources"][0]["summary"] == "来源方法摘要"
+    assert "text" not in inputs[0]["sources"][0]
     saved = store.objects("source")[0]
     assert saved["day"] == day and len(saved["text"]) == 8000
     assert saved["summary"] == "厨房资料摘要"
@@ -48,6 +51,7 @@ def test_collection_does_not_select_and_selection_does_not_collect(tmp_path, mon
 def test_manual_topic_is_used_in_production_without_auto_planning_or_publishing(tmp_path, monkeypatch):
     store, policy, day = configured(tmp_path)
     source(store, day)
+    prepare_materials(store, policy, day, monkeypatch)
     selected = topics.select(store, {"version": 1, "title": "300 元厨房收纳改造"})
     monkeypatch.setattr(topics, "generate", lambda *_: pytest.fail("手动选题不能调用模型"))
     seen = []
@@ -83,7 +87,7 @@ def test_v2_migration_splits_modules_without_replaying_claimed_topics(tmp_path):
     store.finish_run(run, "completed", "旧的采集与选题已完成")
     migrated = Store(store.path)
     version, policy = migrated.policy()
-    assert version == 5 and policy["schema_version"] == 3
+    assert version == 5 and policy["schema_version"] == DEFAULT["schema_version"]
     assert policy["modules"]["research"] and policy["modules"]["topics"]
     assert policy["times"]["topics"] == ["08:30", "17:00"]
     assert policy["limits"] == old["limits"] and policy["allowed"] == old["allowed"]
@@ -102,6 +106,7 @@ def test_v2_migration_splits_modules_without_replaying_claimed_topics(tmp_path):
 def test_candidate_selection_rejects_stale_batch_and_carries_source_evidence(tmp_path, monkeypatch):
     store, policy, day = configured(tmp_path)
     source(store, day)
+    prepare_materials(store, policy, day, monkeypatch)
     monkeypatch.setattr(topics, "generate", lambda *_: {"topics": [{"title": "选题", "source_ids": ["source"]}]})
     workflow.topics(store, policy, day, 1)
     data = topics.catalog(store)

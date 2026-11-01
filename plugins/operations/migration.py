@@ -10,7 +10,7 @@ def migrate(db):
     repair_orphan_actions(db)
     row = db.execute("SELECT version,data FROM settings WHERE id=1").fetchone()
     old = json.loads(row["data"])
-    if old.get("schema_version") == 3:
+    if old.get("schema_version") == 4:
         return
     new = upgrade(old)
     # Legacy briefs lacked a scope field. Bind them at migration so changing the topic
@@ -25,7 +25,7 @@ def migrate(db):
     db.execute("UPDATE commands SET state='cancelled' WHERE state='queued'")
     db.execute("UPDATE actions SET state='cancelled' WHERE state='queued'")
     # Preserve at-most-once across the split, including interrupted old occurrences.
-    stages = {"research": ("topics",)}
+    stages = {"research": ("topics",)} if old.get('schema_version', 1) < 3 else {}
     if old.get("schema_version", 1) < 2:
         stages.update(interact=("comments", "dm", "follow"), publish=("content",))
     old_runs = list(db.execute("SELECT * FROM runs"))

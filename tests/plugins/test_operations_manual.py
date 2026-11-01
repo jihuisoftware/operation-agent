@@ -33,22 +33,22 @@ def test_manual_repeats_completed_stages_but_not_same_batch_and_refreshes_report
             return "模拟完成"
         return execute
 
-    for name in ("research", "topics", "produce", "publish", "interact"):
+    for name in ("research", "organize", "topics", "produce", "publish", "interact"):
         monkeypatch.setattr(workflow, name, stage(name))
     store.claim("mock-desktop", busy=True)
     previous = store.start_run("2026-10-31", "content", "09:40", 1)
     store.finish_run(previous, "completed", "原定时任务已完成")
     daily_report(store, "2026-10-31")
     for batch in ("click-one", "click-one", "click-two"):
-        assert "完成 7" in tick(store, NOW, request_id=batch)
-    assert calls == ["research", "topics", "produce", "publish", "interact", "interact"] * 2
+        assert "完成 8" in tick(store, NOW, request_id=batch)
+    assert calls == ["research", "organize", "topics", "produce", "publish", "interact", "interact"] * 2
     assert len(store.objects("report")) == 3
     reports = {r["id"]: r["markdown"] for r in store.objects("report")}
-    assert reports["report:2026-10-31:manual:click-two"].count("模拟完成") == 12
+    assert reports["report:2026-10-31:manual:click-two"].count("模拟完成") == 14
     assert "模拟完成" not in reports["report:2026-10-31"]
     # A recovery of the same batch tomorrow still belongs to its original day.
     tick(Store(), datetime(2026, 11, 1, tzinfo=UTC), request_id="click-two")
-    assert len(calls) == 12
+    assert len(calls) == 14
 
 
 def test_manual_uses_queue_targets_and_retains_shared_limits_and_unknown_fence(store):
@@ -79,8 +79,8 @@ def test_manual_uses_queue_targets_and_retains_shared_limits_and_unknown_fence(s
 def test_manual_offline_no_source_and_failure_are_visible_and_pause_wins(store, monkeypatch):
     monkeypatch.setattr(workflow, "collect", lambda *args: None)
     summary = tick(store, NOW, request_id="offline")
-    assert "跳过 6" in summary and "完成 1" in summary
-    assert "桌面执行器离线" in summary and "没有可用来源" in summary
+    assert "跳过 7" in summary and "完成 1" in summary
+    assert "桌面执行器离线" in summary and "没有可整理的来源" in summary
     def fail(*args):
         raise ValueError("模拟模型不可用")
     monkeypatch.setattr(workflow, "research", fail)

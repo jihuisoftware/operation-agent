@@ -58,6 +58,8 @@ def collect(store, policy, day):
                   "fingerprint": hashlib.sha256(text.encode()).hexdigest() if text else None}
         previous = next((s for s in store.objects("source") if s.get("fingerprint") and s["fingerprint"] == record["fingerprint"]), None)
         record.update(is_new=previous is None, previous_source_id=previous["id"] if previous else None)
+        from .source_media import capture, image_urls
+        record.update(scope_topic=policy["topic"], images=capture(store, image_urls(page, candidate, url, text), url))
         store.put("source", record, hashlib.sha256(f"{day}:{url}".encode()).hexdigest())
 
 

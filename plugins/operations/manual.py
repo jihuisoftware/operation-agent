@@ -4,7 +4,7 @@ import os
 from .modules import TIMES, EXTERNAL
 from .policy import local_day
 
-LABELS = {"research": "信息采集", "topics": "选题策划", "content": "内容生产", "publish": "图文发布",
+LABELS = {"research": "信息采集", "organize": "资料整理与归类", "topics": "选题策划", "content": "内容生产", "publish": "图文发布",
           "comments": "评论互动", "dm": "私信回复", "follow": "条件回关", "report": "运营日报"}
 
 

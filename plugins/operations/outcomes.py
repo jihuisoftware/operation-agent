@@ -6,6 +6,8 @@ class StageSkipped(Exception):
 
 
 def describe(stage, result):
+    if stage == 'organize' and isinstance(result, dict):
+        return ('needs_attention' if result['pending'] else 'completed'), result['detail']
     if stage in {"publish", "comments", "dm", "follow"}:
         receipts = result if isinstance(result, list) else [result]
         pending = [r for r in receipts if isinstance(r, dict) and (

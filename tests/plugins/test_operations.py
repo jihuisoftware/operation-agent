@@ -106,7 +106,7 @@ def test_profile_storage_and_authorization_do_not_leak(tmp_path):
             reset_hermes_home_override(token)
 
 
-def test_cron_occurrences_do_not_repeat_and_missed_publications_are_not_replayed(store, monkeypatch):
+def test_cron_occurrences_do_not_repeat_and_offline_publications_stay_pending(store, monkeypatch):
     from plugins.operations import workflow
     enable(store)
     calls = []
@@ -116,7 +116,7 @@ def test_cron_occurrences_do_not_repeat_and_missed_publications_are_not_replayed
     assert calls == ["research"]
     tick(store, datetime(2026, 10, 31, 13, 5, tzinfo=UTC))
     runs = store.snapshot()["runs"]
-    assert any(r["stage"] == "publish" and r["state"] == "missed" for r in runs)
+    assert not any(r["stage"] == "publish" for r in runs)
     assert store.objects("report")[0]["day"] == "2026-10-31"
 
 

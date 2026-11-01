@@ -1,12 +1,13 @@
 """Operations step plans and progress projected into the shared Cron task journal."""
 from .modules import TIMES
 from .policy import local_day
-from zoneinfo import ZoneInfo
+from .occurrences import latest_due
 
 STEPS = {
     'research': ('信息采集', '检索网页与 RSS，读取正文并保存去重来源'),
-    'topics': ('选题策划', '读取已采集来源，整理结论、候选选题与依据'),
-    'content': ('内容生产', '依据来源与授权素材生成内容版本，检查事实和质量，缺图保留草稿'),
+    'organize': ('资料整理与归类', '分批归类来源，保存摘要、事实陈述、观点、待核实信息及出处'),
+    'topics': ('选题策划', '读取已整理分类资料，生成候选选题与依据'),
+    'content': ('内容生产', '依据整理资料与授权素材生成内容版本，原文核对事实，缺图保留草稿'),
     'publish': ('图文发布', '核对账号、素材、规则与额度，提交候选版本并核对发布结果'),
     'comments': ('评论互动', '读取相关笔记及收到的评论，依据上下文生成并核对评论或回复'),
     'dm': ('收到私信处理', '读取收到的消息，仅使用已确认知识回答，不确定事项转待处理'),
@@ -48,12 +49,13 @@ def bind(store, now, manual_id):
 
 def planned_steps(store, policy, now, manual_id):
     day = local_day(policy, now)
-    clock = now.astimezone(ZoneInfo(policy['timezone'])).strftime('%H:%M')
+    if not manual_id:
+        return scheduled_steps(store, policy, now)
     with store.connection() as db:
         previous = {(r['stage'], r['slot']): dict(r) for r in db.execute('SELECT * FROM runs WHERE day=?', (day,))}
     steps = []
     for stage in TIMES:
-        for slot in (['manual:' + manual_id] if manual_id else policy['times'][stage]):
+        for slot in ['manual:' + manual_id]:
             state, detail = 'pending', ''
             if not policy['modules'][stage]:
                 state = 'disabled'
@@ -63,10 +65,25 @@ def planned_steps(store, policy, now, manual_id):
                 old = previous[stage, slot]
                 state = 'cancelled' if old['state'] == 'cancelled' else 'already_done'
                 detail = '此时段已有执行记录，本轮不重复：' + old['detail']
-            elif not manual_id and slot > clock:
-                state = 'not_due'
             steps.append({'id': f'{stage}:{slot}', 'title': STEPS[stage][0] + ('' if manual_id else ' · ' + slot),
                           'intent': STEPS[stage][1], 'state': state, 'detail': detail})
+    return steps
+
+
+def scheduled_steps(store, policy, now):
+    if not policy['enabled']:
+        return []
+    steps = []
+    for stage, due in latest_due(store, policy, now).items():
+        day, slot = due.date().isoformat(), due.strftime('%H:%M')
+        with store.connection() as db:
+            previous = db.execute('SELECT 1 FROM runs WHERE day=? AND stage=? AND slot=?', (day, stage, slot)).fetchone()
+        if previous or (policy['paused'] and stage != 'report'):
+            continue
+        if stage == 'report' and day < local_day(policy, now) and store.objects('report', day):
+            continue
+        steps.append({'id': f'{stage}:{slot}', 'title': STEPS[stage][0] + ' · ' + slot,
+                      'intent': STEPS[stage][1], 'state': 'pending', 'detail': '', 'due': due.isoformat()})
     return steps
 
 
@@ -84,5 +101,5 @@ def update(store, identity, state, detail, data=None):
 def saved(store, kind, identity, data):
     # Keep the result as it was produced, even when its editable business version changes later.
     fields = ('title', 'url', 'state', 'ready', 'summary', 'reason', 'error', 'source_ids', 'asset_ids')
-    result = data if kind in {'content', 'brief', 'report', 'check', 'review'} else {k: data[k] for k in fields if k in data}
+    result = data if kind in {'content', 'brief', 'report', 'check', 'review', 'organized_source', 'organization'} else {k: data[k] for k in fields if k in data}
     store.progress('已保存执行产物', {'kind': kind, 'id': identity, 'result': result})

@@ -20,7 +20,7 @@ from plugins.operations.store import Store, encoded
 
 router = APIRouter(prefix="/debug")
 TASKS = {
-    "research": ("信息采集", "research"), "topics": ("选题策划", "topics"), "content": ("内容生产", "content"),
+    "research": ("信息采集", "research"), "organize": ("资料整理与归类", "organize"), "topics": ("选题策划", "topics"), "content": ("内容生产", "content"),
     "publish": ("图文发布", "publish"), "comment": ("主动评论", "comments"),
     "reply": ("评论回复", "comments"), "dm": ("收到私信处理", "dm"),
     "follow": ("条件回关", "follow"), "report": ("运营日报", "report"),
@@ -38,7 +38,7 @@ class DebugStore(Store):
         super().__init__(path)
 
     def event(self, kind, data):
-        super().event(kind, {**data, "debug_id": self.debug_id})
+        super().event(kind, {**data, "debug_id": self.debug_id, "step_id": getattr(self, "debug_step", None)})
 
 
 def record(store, identity):
@@ -62,8 +62,11 @@ def recover_interrupted(store, data):
         if alive and lease and lease[0] > time.time():
             return
         data.update(state="interrupted", ended=now_iso(), detail="执行进程退出或租约失效；外部结果需核对，不自动重发")
-        db.execute("UPDATE runs SET state='interrupted', detail=?, ended=? WHERE slot=? AND state='running'",
-                   (data["detail"], data["ended"], data["id"]))
+        db.execute("UPDATE runs SET state='interrupted', detail=?, ended=? WHERE (slot=? OR substr(slot,1,?)=?) AND state='running'",
+                   (data["detail"], data["ended"], data["id"], len(data["id"]) + 1, data["id"] + ":"))
+    for step in data.get("steps", []):
+        if step["state"] in {"running", "pending"}:
+            step.update(state="interrupted", detail=data["detail"], ended=data["ended"])
     update_record(store, data)
 
 
@@ -82,7 +85,7 @@ def update_record(store, data):
 def execute(body, path=None):
     require_enabled()
     task, request_id = body.get("task"), body.get("request_id")
-    if task not in TASKS or not isinstance(request_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", request_id):
+    if task not in {*TASKS, "pipeline"} or not isinstance(request_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", request_id):
         raise HTTPException(400, "任务或请求标识无效")
     identity = "debug:" + request_id
     store = DebugStore(identity, path)
@@ -92,7 +95,9 @@ def execute(body, path=None):
     if not store.lease(identity):
         raise HTTPException(409, "已有任务执行中，请等待结束或先处理当前任务")
     try:
-        return previous(store, identity, task, body.get("version")) or run_task(store, identity, task, body.get("version"))
+        from .operations_pipeline import run_pipeline
+        handler = run_pipeline if task == "pipeline" else run_task
+        return previous(store, identity, task, body.get("version")) or handler(store, identity, task, body.get("version"))
     finally:
         store.release(identity)
 
@@ -109,24 +114,39 @@ def run_task(store, identity, task, version):
         raise HTTPException(400, "运营目标已超过期限")
     if task in {"publish", "comment", "reply", "dm", "follow"} and not policy["allowed"][task]:
         raise HTTPException(400, "该动作尚未授权")
-    data = {"id": identity, "task": task, "title": TASKS[task][0], "version": version,
-            "day": day, "started": now_iso(), "ended": None, "state": "running", "detail": "开始执行",
-            "pid": os.getpid(), "process_started": psutil.Process().create_time()}
+    data = new_record(identity, task, TASKS[task][0], version, day)
     store.put("debug_run", data, identity)
     store.manual_run_id = identity
     run_id = store.start_run(day, module, identity, version)
     store.event("debug_start", {"task": task, "rule": policy, "run_id": run_id})
+    outcome = invoke(store, task, policy, day, version)
+    store.finish_run(run_id, outcome["state"], outcome["detail"])
+    data.update(**outcome, ended=now_iso())
+    update_record(store, data)
+    return data
+
+
+def new_record(identity, task, title, version, day):
+    return {"id": identity, "task": task, "title": title, "version": version,
+            "day": day, "started": now_iso(), "ended": None, "state": "running", "detail": "开始执行",
+            "pid": os.getpid(), "process_started": psutil.Process().create_time()}
+
+
+def invoke(store, task, policy, day, version, *, content_id=None):
     started = datetime.now(UTC)
+    result = None
     try:
         if task in {"publish", "comment", "reply", "dm", "follow"} and not store.snapshot()["online"]:
             raise StageSkipped("桌面执行器离线，请启动开发版 Desktop")
-        handlers = {"research": workflow.research, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
+        handlers = {"research": workflow.research, "organize": workflow.organize, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     **{k: partial(workflow.interact, kinds=(k,)) for k in ("comment", "reply", "dm", "follow")}}
         if task == "report":
             result = daily_report(store, day)
+        elif task == "publish" and content_id:
+            result = workflow.publish(store, policy, day, version, content_id=content_id)
         else:
             result = handlers[task](store, policy, day, version)
-        state, detail = describe(module, result)
+        state, detail = describe(TASKS[task][1], result)
         store.event("debug_result", {"result": result})
     except StageSkipped as exc:
         state, detail = "skipped", str(exc)
@@ -134,10 +154,8 @@ def run_task(store, identity, task, version):
         logging.getLogger(__name__).exception("Development task failed: %s", task)
         state, detail = "failed", str(exc)
         store.event("debug_exception", {"error": detail, "traceback": "".join(traceback.format_exception(*sys.exc_info()))})
-    store.finish_run(run_id, state, detail)
-    data.update(state=state, detail=detail, ended=now_iso(), duration_ms=int((datetime.now(UTC) - started).total_seconds() * 1000))
-    update_record(store, data)
-    return data
+    return {"state": state, "detail": detail, "result": result,
+            "duration_ms": int((datetime.now(UTC) - started).total_seconds() * 1000)}
 
 
 @router.get("")
@@ -145,12 +163,15 @@ def catalog():
     require_enabled()
     store = Store()
     version, policy = store.policy()
-    runs = store.objects("debug_run")[:30]
+    with store.connection() as db:
+        runs = [json.loads(row[0]) for row in db.execute(
+            "SELECT data FROM objects WHERE kind='debug_run' ORDER BY created DESC LIMIT 30")]
     for data in runs:
         recover_interrupted(store, data)
+    fields = ("id", "task", "title", "version", "day", "started", "ended", "state", "detail", "duration_ms")
     return {"version": version, "policy": policy,
             "tasks": [{"id": key, "title": value[0], "module": value[1]} for key, value in TASKS.items()],
-            "runs": runs}
+            "runs": [{key: value for key, value in run.items() if key in fields} for run in runs], "pipeline_available": True}
 
 
 @router.post("/run")
@@ -170,4 +191,5 @@ def detail(request_id: str):
             "SELECT id,at,kind,data FROM events WHERE json_extract(data,'$.debug_id')=? ORDER BY id", (request_id,))]
         actions = [dict(row) for row in db.execute(
             "SELECT * FROM actions WHERE json_extract(data,'$.manual_run_id')=? ORDER BY created", (request_id,))]
-    return {"run": data, "events": [{**row, "data": json.loads(row["data"])} for row in events], "actions": actions}
+    return {"run": data, "events": [{**row, "data": json.loads(row["data"])} for row in events],
+            "actions": [{**row, "data": json.loads(row["data"]), "result": json.loads(row["result"])} for row in actions]}

@@ -43,6 +43,7 @@ export interface BlueprintPreview {
 }
 export const moduleLabels: Record<string, string> = {
   research: '信息采集',
+  organize: '资料整理与归类',
   topics: '选题策划',
   content: '图文内容生产',
   publish: '小红书图文发布',
@@ -91,7 +92,7 @@ export function seedBlueprint(catalog: BlueprintCatalog, template: BlueprintTemp
 export function enableDefaultOperations(current: Policy): Policy {
   const policy = structuredClone(current)
 
-  for (const module of ['research', 'topics', 'content', 'publish', 'comments', 'dm', 'report']) {
+  for (const module of ['research', 'organize', 'topics', 'content', 'publish', 'comments', 'dm', 'report']) {
     policy.modules[module] = true
   }
 

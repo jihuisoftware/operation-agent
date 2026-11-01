@@ -29,7 +29,7 @@ function catalog(topic = ''): BlueprintCatalog {
     assets: [],
     timeline: [],
     policy: {
-      schema_version: 3,
+      schema_version: 4,
       modules,
       topic,
       goal: '整理可追溯资料',
@@ -396,7 +396,7 @@ it('applies default modules and authorization to an existing plan only when requ
   await waitFor(() =>
     expect(rest).toHaveBeenCalledWith('/blueprints/apply', expect.objectContaining({
       body: expect.objectContaining({ policy: expect.objectContaining({
-        modules: { research: true, topics: true, content: true, publish: true, comments: true, dm: true, follow: false, report: true },
+        modules: { research: true, organize: true, topics: true, content: true, publish: true, comments: true, dm: true, follow: false, report: true },
         allowed: { publish: true, comment: true, reply: true, dm: true, follow: false },
         limits: initial.policy.limits,
         times: initial.policy.times

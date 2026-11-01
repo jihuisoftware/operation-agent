@@ -6,8 +6,10 @@ from fastapi.responses import PlainTextResponse
 from plugins.operations.store import Store
 from plugins.operations.runtime import ensure_schedule
 from plugins.operations import service
+from plugins.operations.dashboard.source_api import router as source_router
 
 router = APIRouter()
+router.include_router(source_router)
 
 # Development tooling is absent from release payloads and wheels.
 _source_root = Path(__file__).resolve().parents[3]
@@ -44,6 +46,14 @@ def upcoming_steps():
 def topics_catalog():
     from plugins.operations.topics import catalog
     return checked(lambda: catalog(Store()))
+
+
+@router.get('/organized-sources')
+def organized_sources(q: str = '', category: str = '', cursor: int = 0):
+    from plugins.operations.organization_catalog import catalog
+    if len(q) > 200 or len(category) > 30 or cursor < 0:
+        raise HTTPException(400, '筛选条件无效')
+    return checked(lambda: catalog(Store(), q, category, cursor))
 
 
 @router.post("/topics/select")

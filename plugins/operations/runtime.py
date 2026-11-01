@@ -1,12 +1,12 @@
 """A cron-owned tick; no plugin polling thread or separate scheduling authority."""
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, UTC
 from pathlib import Path
 import logging
 import uuid
-from zoneinfo import ZoneInfo
 
 from .policy import local_day, now_iso
-from .modules import TIMES, EXTERNAL
+from .modules import EXTERNAL
+from .occurrences import latest_due
 from .store import encoded
 from .report import daily_report
 from .store import Store
@@ -74,37 +74,27 @@ def _tick(store, now):
     if not policy["enabled"]:
         return "运营已暂停"
     day = local_day(policy, now)
-    local = now.astimezone(ZoneInfo(policy["timezone"]))
-    if policy["modules"]["report"]:
-        _recover_reports(store, day)
     if not policy["paused"] and store.snapshot()["online"]:
         from .recovery import reconcile_pending
         reconcile_pending(store, policy, day)
-    for stage in TIMES:
-        if not policy["modules"][stage]:
-            continue
-        times = policy["times"][stage]
+    for stage, due in latest_due(store, policy, now).items():
         if policy["paused"] and stage != "report":
             continue
-        for slot in sorted(set(times)):
-            due = datetime.fromisoformat(f"{day}T{slot}").replace(tzinfo=local.tzinfo)
-            age = (local - due).total_seconds()
-            if age < 0:
-                continue
-            if stage != "report" and age > 1800:
-                identity = store.start_run(day, stage, slot, version)
-                if identity:
-                    store.finish_run(identity, "missed", "超过执行窗口，未集中补发")
-                continue
-            if stage in EXTERNAL and not store.snapshot()["online"]:
-                continue
-            identity = store.start_run(day, stage, slot, version)
-            if identity:
-                _execute(store, policy, day, version, stage, identity)
+        if stage in EXTERNAL and not store.snapshot()["online"]:
+            continue
+        scheduled_day, slot = due.date().isoformat(), due.strftime('%H:%M')
+        if stage == 'report' and scheduled_day < day and store.objects('report', scheduled_day):
+            continue
+        identity = store.start_run(scheduled_day, stage, slot, version)
+        if identity:
+            # Quotas and new work belong to the actual execution day; a delayed
+            # report alone summarizes its original day. The claim retains the due day.
+            work_day = scheduled_day if stage == 'report' else day
+            _execute(store, policy, work_day, version, stage, identity, delayed=scheduled_day < day)
     return "本轮运营检查完成"
 
 
-def _execute(store, policy, day, version, stage, identity):
+def _execute(store, policy, day, version, stage, identity, *, delayed=False):
     from .outcomes import StageSkipped, describe
     try:
         current_version, current = store.policy()
@@ -115,11 +105,11 @@ def _execute(store, policy, day, version, stage, identity):
             store.finish_run(identity, "skipped", "目标已超过期限")
             return
         from functools import partial
-        handlers = {"research": workflow.research, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
+        handlers = {"research": workflow.research, "organize": workflow.organize, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     "comments": partial(workflow.interact, kinds=("comment", "reply")),
                     "dm": partial(workflow.interact, kinds=("dm",)), "follow": partial(workflow.interact, kinds=("follow",))}
         if stage == "report":
-            daily_report(store, day)
+            daily_report(store, day, delayed=delayed)
             result = "日报已生成"
         else:
             result = handlers[stage](store, policy, day, version)
@@ -132,20 +122,3 @@ def _execute(store, policy, day, version, stage, identity):
         logging.getLogger(__name__).exception("Operations stage failed: %s", stage)
         store.finish_run(identity, "failed", str(exc)[:1500])
         store.event("stage_error", {"day": day, "stage": stage, "error": str(exc)[:1500]})
-
-
-def _recover_reports(store, today):
-    from .upcoming import CANCEL_REASON
-    with store.connection() as db:
-        first = db.execute("SELECT min(at) FROM events WHERE kind='policy'").fetchone()[0]
-        cancelled = {(r[0], r[1]) for r in db.execute("SELECT day,slot FROM runs WHERE stage='report' AND state='cancelled' AND detail=?", (CANCEL_REASON,))}
-    if not first:
-        return
-    _, policy = store.policy()
-    start = datetime.fromisoformat(first).astimezone(ZoneInfo(policy["timezone"])).date()
-    end = datetime.fromisoformat(today).date()
-    reports = {r["day"] for r in store.objects("report")}
-    for offset in range(min((end - start).days, 3660)):
-        day = (start + timedelta(days=offset)).isoformat()
-        if day not in reports and not all((day, slot) in cancelled for slot in policy['times']['report']):
-            daily_report(store, day, delayed=True)

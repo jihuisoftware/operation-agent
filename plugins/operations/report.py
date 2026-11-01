@@ -36,6 +36,9 @@ def daily_report(store, day, delayed=False):
         lines.append(f"- [{source['title']}]({source['url']}) · {origin}{source['state']} · {summary}")
     for brief in store.objects("brief", day):
         lines.append("\n结论与待核实信息（模型整理，来源 ID 可查）：\n" + json.dumps(brief["result"], ensure_ascii=False))
+    lines.extend(["", "## 资料整理", ""])
+    for batch in store.objects('organization', day):
+        lines.append('资料整理：' + batch['detail'])
     lines.extend(["", "## 发布与互动", ""])
     for action in actions:
         result = json.loads(action["result"])

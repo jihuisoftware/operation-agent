@@ -53,3 +53,18 @@ it('shows how to enable a disabled backend and never invokes a task automaticall
   expect(screen.getByText(/development.operations_debug/)).toBeTruthy()
   expect(rest.mock.calls.every(args => (args as unknown[])[0] === '/debug')).toBe(true)
 })
+
+it('starts a whole-chain batch with the current owner and version only on an explicit click', async () => {
+  const rest = vi.fn(async (path: string) => path === '/debug' ? {
+    version: 7, policy: { modules: {} }, tasks: [], runs: [], pipeline_available: true
+  } : {})
+
+  render(<DebugPanel ctx={{ rest } as unknown as PluginContext} owner={owner} />)
+  const button = screen.getByRole('button', { name: '开始整链路测试（真实执行）' })
+  await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+  expect(rest.mock.calls.some(([path]) => path === '/debug/run')).toBe(false)
+  fireEvent.click(button)
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/debug/run', expect.objectContaining({
+    owner, body: { task: 'pipeline', version: 7, request_id: expect.any(String) }
+  })))
+})

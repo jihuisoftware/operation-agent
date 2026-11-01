@@ -11,11 +11,12 @@ from .scenarios import SCENARIOS
 from .business_themes import BUSINESS_THEMES
 
 TEMPLATES = [
-    {"id": "daily", "title": "每日自动运营", "category": "完整流程", "description": "围绕一个目标组合每日流程，共享账号、额度与执行记录。", "output": "可追溯的运营成果与日报", "modules": ["research", "topics", "content", "publish", "comments", "dm", "report"]},
+    {"id": "daily", "title": "每日自动运营", "category": "完整流程", "description": "围绕一个目标组合每日流程，共享账号、额度与执行记录。", "output": "可追溯的运营成果与日报", "modules": ["research", "organize", "topics", "content", "publish", "comments", "dm", "report"]},
     *BUSINESS_THEMES,
     *SCENARIOS,
     {"id": "research", "title": "信息采集", "category": "信息来源", "description": "按主题检索网页与 RSS，读取正文、去重并保留原始链接。", "output": "可追溯来源与采集结果", "modules": ["research"]},
-    {"id": "topics", "title": "选题策划", "category": "内容与发布", "description": "使用已采集来源生成候选选题和依据，也可在选题管理中手动指定题目。", "output": "候选选题、事实结论与选题依据", "modules": ["topics"]},
+    {"id": "organize", "title": "资料整理与归类", "category": "信息来源", "description": "将采集资料归类，区分事实陈述、观点与待核实信息，增量保存可复用资料。", "output": "分类资料库、摘要与原始出处", "modules": ["organize"]},
+    {"id": "topics", "title": "选题策划", "category": "内容与发布", "description": "使用已整理资料生成候选选题和依据，也可在选题管理中手动指定题目。", "output": "候选选题、事实结论与选题依据", "modules": ["topics"]},
     {"id": "content", "title": "图文内容生产", "category": "内容与发布", "description": "结合来源和授权素材生成草稿；缺图片时保留待完善版本。", "output": "内容版本与自动质量检查", "modules": ["content"]},
     {"id": "publish", "title": "小红书图文发布", "category": "内容与发布", "description": "使用已选定的内容版本，提交前核对账号、素材和规则。", "output": "发布回执、外部链接与异常记录", "modules": ["publish"]},
     {"id": "comments", "title": "评论互动", "category": "账号互动", "description": "回复自己笔记的评论，或在相关笔记下发表有内容的评论。", "output": "评论与回复的执行证据", "modules": ["comments"]},

@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router'
 import { Workbench } from './workbench'
 
 const sections: Record<string, string> = {
-  rules: '目标与规则', content: '素材与内容', tasks: '任务与执行', sources: '信息采集', topics: '选题管理', reports: '每日总结'
+  rules: '目标与规则', content: '素材与内容', tasks: '任务与执行', sources: '信息采集', organized: '资料整理', topics: '选题管理', reports: '每日总结'
 }
 
 export function WorkbenchPage({ ctx }: { ctx: PluginContext }) {

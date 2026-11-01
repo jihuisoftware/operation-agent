@@ -37,14 +37,15 @@ def test_cancel_one_slot_persists_and_leaves_tomorrow_and_other_modules(store, m
     assert any(s['stage'] == 'report' and s['state'] == 'pending' for s in persisted['steps'])
 
 
-def test_cancelled_report_is_not_regenerated_as_offline_catchup(store):
-    from plugins.operations.runtime import _recover_reports
+def test_cancelled_report_is_not_regenerated_as_offline_catchup(store, monkeypatch):
+    from plugins.operations import workflow
+    monkeypatch.setattr(workflow, 'research', lambda *args: None)
     view = upcoming(store, NOW)
     report = next(s for s in view['steps'] if s['stage'] == 'report')
     cancel(store, {**report, 'version': view['version']}, NOW)
     with store.connection() as db:
         db.execute("UPDATE events SET at=? WHERE kind='policy'", (NOW.isoformat(),))
-    _recover_reports(Store(), '2026-11-01')
+    tick(Store(), datetime(2026, 11, 1, 0, tzinfo=UTC))
     assert not Store().objects('report', report['day'])
 
 
