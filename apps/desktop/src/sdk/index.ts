@@ -1750,11 +1750,11 @@ export type { GatewayEventListener } from '@/contrib/events'
  *  `ctx.register` stays the door for permanent contributions. Namespace the
  *  id with your plugin slug (`kanban:board-switcher`). */
 export { Contribute, type ContributeProps } from '@/contrib/react/contribute'
+/** Settings ▸ Plugins entries (`ctx.registerSettingsPage`); `pluginSettingsHref` deep-links one. */
+export { pluginSettingsHref, SETTINGS_PLUGINS_AREA } from '@/contrib/settings-pages'
 
 // -- contracts ----------------------------------------------------------------
 
-/** Settings ▸ Plugins entries (`ctx.registerSettingsPage`); `pluginSettingsHref` deep-links one. */
-export { pluginSettingsHref, SETTINGS_PLUGINS_AREA } from '@/contrib/settings-pages'
 export type { Contribution } from '@/contrib/types'
 /** The live gateway instance type — for typing the `gateway` prop `ConnectorsTab`
  *  takes; obtain the instance from `host.getGateway()`. */
@@ -1835,7 +1835,6 @@ export { PROFILE_SWATCHES, profileColor, profileColorSoft } from '@/lib/profile-
  *  `ctx.socket` frame invalidating a query). Inside components keep using
  *  `useQueryClient`. */
 export { queryClient } from '@/lib/query-client'
-
 /** Compact labels for the reasoning levels exported from @hermes/shared, so a
  *  plugin surfacing a thinking depth uses the same spelling as the app. */
 export { reasoningEffortLabel } from '@/lib/reasoning-effort'
@@ -1844,6 +1843,7 @@ export { reasoningEffortLabel } from '@/lib/reasoning-effort'
  *  setup.runtime_check, reconciled) — pass `host.request`. Don't hand-roll
  *  readiness from raw RPC shapes. */
 export { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
+
 /** Row-decoration slots: register a `data` contribution with a `render` for
  *  `SESSION_ROW_AREAS.leading` / `.trailing` to decorate sidebar session rows
  *  (the props carry the row's stored session id). */
@@ -1886,6 +1886,7 @@ export { ackStoredSessionId, forgetSessionUnread, markSessionUnreadFinished } fr
  *  contribution, not a `host.sidebar` verb, so it is attributed and dropped
  *  on disable. */
 export { SIDEBAR_NAV_PREFS_AREA, type SidebarNavPrefsContribution } from '@/store/sidebar-nav'
+export { createTaskActivity, type TaskActivity } from '@/store/task-activity'
 /** Live accent override — set a hex and the ACTIVE theme repaints with its
  *  accent family re-seeded from it (see `retintTheme`); `null` restores the
  *  authored palette. Deliberately not persisted: it is an authoring knob, not

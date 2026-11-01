@@ -10,9 +10,30 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+it('ignores offscreen measurement duplicates when selecting an upload tab', () => {
+  document.body.innerHTML = '<span id="measure">上传图文</span><div aria-hidden="true"><span>上传图文</span></div><span id="actual">上传图文</span>'
+  vi.spyOn(document.querySelector('#measure')!, 'getBoundingClientRect').mockReturnValue({ bottom: -9900, right: -9900 } as DOMRect)
+  const clicked = vi.fn()
+  document.querySelector('#actual')!.addEventListener('click', clicked)
+  xhsPage({ operation: 'click-label', payload: { label: '上传图文' } })
+  expect(clicked).toHaveBeenCalledOnce()
+})
+
 it('does not treat missing identifiers as candidates', () => {
   document.body.innerHTML = '<div class="comment-item">没有稳定标识</div>'
   expect(() => xhsPage({ operation: 'inventory', payload: { kind: 'reply' } })).toThrow('页面结构')
+})
+
+it('preserves rich-text paragraphs and checks words independently of layout whitespace', () => {
+  document.body.innerHTML = '<input placeholder="标题"><div contenteditable="true"></div>'
+  const payload = { title: '标题', body: '第一段\n\n第二段', asset_ids: [] }
+  xhsPage({ operation: 'fill-post', payload })
+  const editor = document.querySelector<HTMLElement>('[contenteditable]')!
+  expect(Array.from(editor.children, element => element.textContent)).toEqual(['第一段', '', '第二段'])
+  Object.defineProperty(editor, 'innerText', { configurable: true, value: '第一段\n第二段' })
+  expect(xhsPage({ operation: 'validate-post', payload })).toEqual({ ready: true })
+  Object.defineProperty(editor, 'innerText', { value: '第一段\n改过的第二段' })
+  expect(() => xhsPage({ operation: 'validate-post', payload })).toThrow('核对不一致')
 })
 
 it('does not send a reply when text changed after preparation', () => {

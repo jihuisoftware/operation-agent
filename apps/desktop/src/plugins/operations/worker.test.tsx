@@ -1,5 +1,5 @@
 import { host, type PluginContext } from '@hermes/plugin-sdk'
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { executeBrowser } from './browser'
@@ -18,6 +18,11 @@ vi.mock('@hermes/plugin-sdk', async () => {
   }
 })
 vi.mock('./browser', () => ({ executeBrowser: vi.fn() }))
+vi.mock('./execution-clock', () => ({ createExecutionClock: (tick: () => void) => {
+  const timer = setInterval(tick, 2000)
+
+  return { dispose: () => clearInterval(timer), sleep: (ms: number) => new Promise(resolve => setTimeout(resolve, ms)) }
+} }))
 
 afterEach(() => {
   cleanup()
@@ -87,6 +92,51 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
     expect.objectContaining({ body: { id: 'task', worker: 'worker', result: { state: 'unknown', error: '提交超时' } } })
   )
   expect(host.notify).not.toHaveBeenCalled()
+})
+
+it('opens the operating homepage in the persistent login partition after mounting', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  const rest = vi.fn(async () => ({ command: null }))
+  const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  const guest = container.querySelector('webview')!
+  expect(guest.getAttribute('src')).toBe('https://www.xiaohongshu.com/explore')
+  expect(guest.getAttribute('partition')).toBe('persist:operations-0102')
+})
+
+it('retains the page and login partition when the same owner receives a new API context', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  const rest = vi.fn(async () => ({ command: null }))
+  const { container, rerender } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  const guest = container.querySelector('webview')!
+  guest.setAttribute('src', 'https://www.zhihu.com/')
+  rerender(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(container.querySelector('webview')).toBe(guest)
+  expect(guest.getAttribute('src')).toBe('https://www.zhihu.com/')
+  expect(guest.getAttribute('partition')).toBe('persist:operations-0102')
+})
+
+it('shows navigation failure with a recovery action instead of an unexplained blank page', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  const rest = vi.fn(async () => ({ command: null }))
+  const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  const guest = container.querySelector('webview') as Guest
+  guest.loadURL = vi.fn(async () => {})
+  const error = Object.assign(new Event('did-fail-load'), { isMainFrame: true, errorCode: -105, errorDescription: '无法解析地址' })
+  act(() => { guest.dispatchEvent(error) })
+  expect(screen.getByRole('alert').textContent).toContain('无法解析地址')
+  fireEvent.click(screen.getByRole('button', { name: '重新打开网页' }))
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(guest.loadURL).toHaveBeenCalledWith('https://www.xiaohongshu.com/explore')
+  act(() => { guest.dispatchEvent(new Event('dom-ready')) })
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByText('正在加载网页，沿用已保存的登录状态…')).toBeNull()
 })
 
 it('pauses the owning policy before opening a common-platform login in the existing guest', async () => {

@@ -23,13 +23,21 @@ def validate_content(content, sources, assets, *, require_assets=False):
         raise ValueError("缺少获授权图片，请完善内容版本后发布")
 
 
-def check_content(store, policy, day, version, content, sources):
+def check_content(store, policy, day, version, content, sources, *, publishing=False):
     digest = content_digest(content)
+    history = store.objects("content")
+    if publishing:
+        with store.connection() as db:
+            history = [json.loads(row[0])["content"] for row in db.execute(
+                "SELECT data FROM actions WHERE kind='publish' AND state IN ('published','confirmed') ORDER BY created DESC")]
+    history = [c for c in history if c.get("id") not in {digest, content.get("id")} and content_digest(c) != digest][:15]
+    assets = [a for a in store.objects("asset") if a["id"] in content.get("asset_ids", [])]
     result = generate(store, policy, day,
-        '核对图文是否符合主题、受众、风格，事实是否有来源，是否复制原文或编造经历，是否重复历史内容。'
+        '核对文本是否符合主题、受众、风格，事实是否有来源，是否复制原文或编造经历，是否重复提供的历史内容。'
+        'assets 是素材元数据，只核对引用与授权，不宣称已看过图片或完成视觉一致性检查。'
         '返回 {"pass":true或false,"reason":"具体依据"}，不确定时 pass 为 false。此为自动检查，不是人工审核。',
-        {"policy": policy, "content": content, "sources": sources,
-         "history": [c for c in store.objects("content") if c["id"] not in {digest, content.get("id")} and content_digest(c) != digest][:15]})
+        {"policy": policy, "content": content, "sources": sources, "assets": assets, "history": history})
+    result.update(scope="text_and_asset_metadata", visual_review="not_performed")
     store.put("check", {"day": day, "content_id": content.get("id", digest), "version": version, "automatic": True, "result": result})
     return result
 

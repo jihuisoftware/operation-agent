@@ -7,6 +7,7 @@ from .policy import now_iso
 
 def migrate(db):
     db.execute("BEGIN IMMEDIATE")
+    repair_orphan_actions(db)
     row = db.execute("SELECT version,data FROM settings WHERE id=1").fetchone()
     old = json.loads(row["data"])
     if old.get("schema_version") == 2:
@@ -29,3 +30,13 @@ def migrate(db):
                 f"旧阶段 {run['stage']} 已认领，本次不重放", run["started"], run["ended"]))
     db.execute("INSERT INTO events(at,kind,data) VALUES (?, 'policy_migration', ?)",
                (now_iso(), json.dumps({"from_version": row["version"], "version": version})))
+
+
+def repair_orphan_actions(db):
+    rows = db.execute("SELECT id FROM actions WHERE state='queued' AND NOT EXISTS (SELECT 1 FROM commands WHERE commands.action_id=actions.id)").fetchall()
+    if not rows:
+        return
+    evidence = {"evidence": "旧动作未创建执行命令，已取消占位；未重发任何外部动作", "at": now_iso()}
+    db.executemany("UPDATE actions SET state='cancelled',result=? WHERE id=?", [(json.dumps(evidence, ensure_ascii=False), r[0]) for r in rows])
+    db.execute("INSERT INTO events(at,kind,data) VALUES (?, 'orphan_actions_cancelled', ?)",
+               (now_iso(), json.dumps({"action_ids": [r[0] for r in rows], **evidence}, ensure_ascii=False)))

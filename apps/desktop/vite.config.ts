@@ -133,6 +133,7 @@ const emojibaseAssets = () => ({
 })
 
 export default defineConfig(({ command }) => ({
+  define: { __OPERATIONS_DEBUG__: JSON.stringify(command === 'serve') },
   base: './',
   plugins: [react(), cachedCompilerPass(command), tailwindcss(), emojibaseAssets()],
   css: {

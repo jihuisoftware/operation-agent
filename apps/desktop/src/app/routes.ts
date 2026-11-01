@@ -1,4 +1,4 @@
-import { atom, onMount } from 'nanostores'
+import { atom, onMount, type ReadableAtom } from 'nanostores'
 import type { ReactNode } from 'react'
 
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
@@ -6,6 +6,7 @@ import { registry } from '@/contrib/registry'
 import type { Contribution } from '@/contrib/types'
 import { DISABLED_OPERATIONS_ROUTES, operationsRouteAllowed } from '@/lib/operations-profile'
 import type { InterfaceTier } from '@/store/interface-mode'
+import type { TaskActivity } from '@/store/task-activity'
 
 type NavigateLike = (to: string, options?: { replace?: boolean }) => void
 
@@ -117,6 +118,8 @@ export const SIDEBAR_NAV_AREA = 'sidebar.nav'
 
 /** Payload of a `sidebar.nav` data contribution. */
 export interface SidebarNavContribution {
+  /** Current-owner execution state; observed even while another page is open. */
+  activity?: ReadableAtom<TaskActivity>
   /** Codicon name, e.g. `'project'`. */
   codicon: string
   label: string

@@ -1,7 +1,24 @@
 import { Codicon } from '@/components/ui/codicon'
+import type { Contribution } from '@/contrib/types'
 
-import { type AppView, ARTIFACTS_ROUTE, CAPABILITIES_ROUTE, CRON_ROUTE } from '../../routes'
+import { type AppView, ARTIFACTS_ROUTE, CAPABILITIES_ROUTE, CRON_ROUTE, type SidebarNavContribution } from '../../routes'
 import type { SidebarNavItem } from '../../types'
+
+export function contributedSidebarNavItem(contribution: Contribution): SidebarNavItem[] {
+  const data = contribution.data as Partial<SidebarNavContribution> | undefined
+
+  if (!data?.path?.startsWith('/') || !data.label) { return [] }
+  const codicon = data.codicon || 'plug'
+
+  return [{
+    id: contribution.id,
+    label: data.label,
+    icon: props => <Codicon name={codicon} {...props} />,
+    route: data.path,
+    tier: data.tier,
+    activity: data.activity
+  }]
+}
 
 // A row's `tier` is the one mode it belongs to (Simple keeps the setup rows,
 // Advanced adds the readouts); the list filters once, nothing is passed down.

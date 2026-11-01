@@ -19,6 +19,9 @@ def daily_report(store, day, delayed=False):
     history = {p["version"]: p["policy"] for p in store.objects("policy")}
     goals = [history[v]["goal"] for v in versions if v in history] or [policy["goal"]]
     sources = store.objects("source", day)
+    referenced = {source_id for c in store.objects("content", day) for source_id in c.get("source_ids", [])}
+    referenced.update(source_id for a in actions for source_id in json.loads(a["data"]).get("content", {}).get("source_ids", []))
+    reused = [s for s in store.objects("source") if s["id"] in referenced and s.get("day") != day]
     lines = [f"# {day} 运营日报", "", f"目标：{'；'.join(dict.fromkeys(goals))}", f"生成时间：{now_iso()}",
              f"规则版本：{versions or [version]}", f"延迟补生成：{'是' if delayed else '否'}", "", "## 任务与执行", ""]
     lines.extend(f"- {r['stage']} · {r['state']} · {r['detail'] or '无补充说明'}" for r in runs)
@@ -26,9 +29,11 @@ def daily_report(store, day, delayed=False):
         lines.append("- 当日无执行记录；未据此推断任务已完成。")
     lines.extend(f"- 临时任务：{t['text']} · {t.get('state', 'pending')}" for t in store.objects("task", day))
     lines.extend(["", "## 信息来源", ""])
-    for source in sources:
+    lines.append(f"当日采集 {len(sources)} 条；本日内容引用既有资料 {len(reused)} 条。")
+    for source in sources + reused:
         summary = source.get("summary") or ("原文已记录" if source.get("text") else source.get("error") or "未取得正文")
-        lines.append(f"- [{source['title']}]({source['url']}) · {source['state']} · {summary}")
+        origin = "既有资料 · " if source.get("day") != day else ""
+        lines.append(f"- [{source['title']}]({source['url']}) · {origin}{source['state']} · {summary}")
     for brief in store.objects("brief", day):
         lines.append("\n结论与待核实信息（模型整理，来源 ID 可查）：\n" + json.dumps(brief["result"], ensure_ascii=False))
     lines.extend(["", "## 发布与互动", ""])

@@ -1,5 +1,6 @@
 """Private authenticated plugin API. Host middleware binds owning profile and secret scope."""
 import base64
+from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 from plugins.operations.store import Store
@@ -7,6 +8,12 @@ from plugins.operations.runtime import ensure_schedule
 from plugins.operations import service
 
 router = APIRouter()
+
+# Development tooling is absent from release payloads and wheels.
+_source_root = Path(__file__).resolve().parents[3]
+if (_source_root / ".git").exists() and (_source_root / "devtools/operations_debug.py").is_file():
+    from devtools.operations_debug import router as debug_router
+    router.include_router(debug_router)
 
 
 def checked(fn):

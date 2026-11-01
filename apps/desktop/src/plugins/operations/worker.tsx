@@ -2,9 +2,11 @@ import { host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { executeBrowser } from './browser'
+import { createExecutionClock } from './execution-clock'
 import { $loginNavigation } from './login-state'
 import { $operationsWorkerStatus, $showOperationsBrowser } from './state'
-import type { Api, BrowserCommand, Guest, OperationsState } from './types'
+import type { Api, BrowserCommand, OperationsState } from './types'
+import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
 
 function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwner.get>; ctx: PluginContext }) {
@@ -14,7 +16,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
   const execution = useRef<{ pending: Promise<unknown> | null }>({ pending: null })
   const [worker] = useState(() => crypto.randomUUID())
   const manual = useRef(false)
-  const [guest] = useState(() => document.createElement('webview') as Guest)
+  const { guest, loading, error, reopen } = useOperationsGuest(scope, container)
 
   const api = useMemo<Api>(
     () => (path, body, method) =>
@@ -32,20 +34,6 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
     let running = false
     let polling = false
     let reportSeen = ''
-    let timer: ReturnType<typeof setInterval>
-    guest.setAttribute('webpreferences', 'contextIsolation=yes,sandbox=yes,nodeIntegration=no,backgroundThrottling=no')
-    guest.style.cssText = 'width:100%;height:100%;display:flex'
-    // Separate cookie jar for each connection/profile; no guest preload or OS-browser popup bridge.
-    void crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(scope))).then(buffer => {
-      if (disposed) {
-        return
-      }
-
-      const key = Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, '0')).join('')
-      guest.setAttribute('partition', `persist:operations-${key}`)
-      guest.setAttribute('src', 'about:blank')
-      container.current?.append(guest)
-    })
 
     const poll = async () => {
       if (disposed || polling || !guest.isConnected) {
@@ -81,7 +69,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
         try {
           const pending = manual.current
             ? Promise.resolve({ state: 'blocked', error: '已进入人工接管' })
-            : executeBrowser(result.command, guest, api)
+            : executeBrowser(result.command, guest, api, clock.sleep)
 
           execution.current.pending = pending
           const answer = await pending
@@ -106,13 +94,12 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
       }
     }
 
-    timer = setInterval(() => void poll(), 2000)
+    const clock = createExecutionClock(() => void poll())
     void poll()
 
     return () => {
       disposed = true
-      clearInterval(timer)
-      guest.remove()
+      clock.dispose()
     }
   }, [scope, api, guest, worker])
 
@@ -166,15 +153,19 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
           打开小红书／登录
         </button>
         <button onClick={() => $showOperationsBrowser.set(false)}>隐藏画面</button>
+        <span className="text-muted-foreground">登录状态随当前连接与 Profile 保存</span>
         <span>{status}</span>
       </div>
+      {loading && <div className="p-3 text-sm text-muted-foreground" role="status">正在加载网页，沿用已保存的登录状态…</div>}
+      {error && <div className="p-3 text-sm" role="alert">{error}<button className="ml-2 underline" onClick={() => void takeOver().then(reopen).catch(reason => $operationsWorkerStatus.set(String(reason)))}>重新打开网页</button></div>}
       <div className="min-h-0 flex-1" ref={container} />
     </section>
   )
 }
 
 export function OperationsWorker({ ctx }: { ctx: PluginContext }) {
-  const scope = useValue(host.state.requestOwner)
+  const active = useValue(host.state.requestOwner)
+  const scope = useMemo(() => ({ profile: active.profile, connectionId: active.connectionId }), [active.profile, active.connectionId])
 
   return <Worker ctx={ctx} key={JSON.stringify(scope)} scope={scope} />
 }

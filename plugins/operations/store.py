@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, day TEXT NOT NULL, vers
  created TEXT NOT NULL, UNIQUE(kind, target));
 CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, action_id TEXT, kind TEXT NOT NULL, payload TEXT NOT NULL,
  state TEXT NOT NULL, worker TEXT, expires REAL NOT NULL, result TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS commands_action ON commands(action_id);
 CREATE TABLE IF NOT EXISTS platform_logins (platform TEXT NOT NULL, worker TEXT NOT NULL, state TEXT NOT NULL,
  account_id TEXT NOT NULL, checked REAL NOT NULL, PRIMARY KEY(platform, worker));
 CREATE TABLE IF NOT EXISTS platform_login_evidence (platform TEXT NOT NULL, worker TEXT NOT NULL, state TEXT NOT NULL,
@@ -170,6 +171,9 @@ class Store:
             error = permitted(policy, action)
             if error or row["version"] != version:
                 raise ValueError(error or "运营规则已变更")
+            if db.execute("SELECT 1 FROM objects WHERE kind='block' AND json_extract(data,'$.kind')=? AND json_extract(data,'$.version')=?",
+                          (action["kind"], version)).fetchone():
+                raise ValueError("该能力已暂停，请处理异常并重新保存规则后恢复")
             day = day or local_day(policy)
             target = action["target"]
             if self.manual_run_id:
@@ -192,12 +196,23 @@ class Store:
                 raise ValueError("达到每日动作额度")
             changed = db.execute("INSERT OR IGNORE INTO actions VALUES (?,?,?,?,?,'queued',?,'{}',?)",
                 (identity, day, version, action["kind"], scoped_target, encoded(action), now_iso())).rowcount
+            if changed:
+                kind = "publish" if action["kind"] == "publish" else "interact"
+                db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
+                           (uuid.uuid4().hex, identity, kind, encoded({**action, "policy_version": version}), time.time() + 120))
             return identity if changed else None
 
     def blocked(self, kind, version):
         return any(b["kind"] == kind and b["version"] == version for b in self.objects("block"))
 
     def enqueue(self, kind, payload, action_id=None):
+        if action_id:
+            with self.connection() as db:
+                row = db.execute("SELECT id FROM commands WHERE action_id=? AND kind=? ORDER BY rowid DESC LIMIT 1",
+                                 (action_id, kind)).fetchone()
+            if not row:
+                raise ValueError("动作缺少原子入队记录，请核对后重新发起")
+            return row["id"]
         identity = uuid.uuid4().hex
         version, _ = self.policy()
         if self.blocked(payload.get("kind", kind), version):
@@ -244,7 +259,7 @@ class Store:
             if not row:
                 raise ValueError("任务已过期或执行者不匹配，请核对执行结果")
             db.execute("UPDATE commands SET state='done',result=? WHERE id=?", (encoded(result), identity))
-            if result.get("state") == "blocked":
+            if result.get("state") == "blocked" and row["kind"] not in {"verify", "account"}:
                 payload = json.loads(row["payload"])
                 block = {"kind": payload.get("kind", row["kind"]), "version": payload["policy_version"], "error": result.get("error"), "day": local_day(self.policy()[1])}
                 db.execute("INSERT OR IGNORE INTO objects VALUES (?, 'block', ?, ?)",

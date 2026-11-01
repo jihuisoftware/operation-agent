@@ -11,16 +11,27 @@ import { createRoot } from 'react-dom/client'
 
 import { AccountsPage } from './accounts'
 import { BlueprintLibrary } from './blueprint-library'
+import { $loginActivity } from './login-activity'
 import { $showOperationsBrowser } from './state'
 import { UpcomingOperations } from './upcoming'
 import { Workbench } from './workbench'
 import { OperationsWorker } from './worker'
+
+declare const __OPERATIONS_DEBUG__: boolean
 
 export default {
   id: 'operations',
   name: '每日自动运营',
   description: '目标、信息来源、规则执行与每日总结',
   register(ctx) {
+    if (__OPERATIONS_DEBUG__) {
+      let disposed = false
+      ctx.onDispose(() => { disposed = true })
+      void import('./debug/entry').then(({ registerDebug }) => {
+        if (!disposed) { registerDebug(ctx) }
+      })
+    }
+
     ctx.register({
       id: 'accounts',
       area: ROUTES_AREA,
@@ -31,7 +42,7 @@ export default {
     ctx.register({
       id: 'accounts-nav',
       area: SIDEBAR_NAV_AREA,
-      data: { path: '/accounts', label: '账号登录', codicon: 'account' } satisfies SidebarNavContribution
+      data: { path: '/accounts', label: '账号登录', codicon: 'account', activity: $loginActivity } satisfies SidebarNavContribution
     })
     ctx.register({
       id: 'blueprints',

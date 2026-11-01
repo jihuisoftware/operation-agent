@@ -1,7 +1,9 @@
+import type { ReadableAtom } from 'nanostores'
 import type * as React from 'react'
 
 import type { ChatMessage } from '@/lib/chat-messages'
 import type { Tiered } from '@/store/interface-mode'
+import type { TaskActivity } from '@/store/task-activity'
 import type { SessionMessage, UsageStats } from '@/types/hermes'
 
 export interface ContextSuggestion {
@@ -129,6 +131,7 @@ export type SidebarNavId =
   'artifacts' | 'capabilities' | 'command-center' | 'cron' | 'new-session' | 'settings'
 
 export interface SidebarNavItem extends Tiered {
+  activity?: ReadableAtom<TaskActivity>
   /** Built-in view id, or a contributed row's namespaced contribution id. */
   id: SidebarNavId | (string & {})
   label: string

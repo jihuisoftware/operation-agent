@@ -5,6 +5,12 @@ import type { Api, BrowserCommand, Guest } from './types'
 
 afterEach(() => vi.useRealTimers())
 
+function requestFromScript(code: string) {
+  const expression = code.slice(0, code.lastIndexOf('; } catch'))
+
+  return JSON.parse(expression.slice(expression.lastIndexOf(')(') + 2, -1))
+}
+
 const command: BrowserCommand = {
   id: 'job',
   kind: 'publish',
@@ -18,14 +24,18 @@ const command: BrowserCommand = {
 
 function fixture(account = 'me', configured = 'me') {
   let url = 'about:blank'
+  const events = new EventTarget()
 
   const guest = {
+    addEventListener: events.addEventListener.bind(events),
+    removeEventListener: events.removeEventListener.bind(events),
     loadURL: vi.fn(async (next: string) => {
       url = next
+      events.dispatchEvent(new Event('did-stop-loading'))
     }),
     getURL: () => url,
     executeJavaScript: vi.fn(async (code: string) => {
-      const request = JSON.parse(code.slice(code.lastIndexOf(')(') + 2, -1))
+      const request = requestFromScript(code)
 
       if (request === 'xiaohongshu') {
         return { state: account ? 'logged_in' : 'unknown', account_id: account }
@@ -35,7 +45,7 @@ function fixture(account = 'me', configured = 'me') {
         throw new Error('连接中断')
       }
 
-      return { ok: true }
+      return { ok: true, ready: true }
     })
   } as unknown as Guest
 
@@ -65,7 +75,7 @@ it('records uncertainty after submission and never retries the publishing click'
 
   const requests = vi
     .mocked(guest.executeJavaScript)
-    .mock.calls.map(([code]) => JSON.parse(code.slice(code.lastIndexOf(')(') + 2, -1)))
+    .mock.calls.map(([code]) => requestFromScript(code))
 
   expect(requests.filter(request => request.operation === 'commit-post')).toHaveLength(1)
 })
@@ -98,7 +108,14 @@ it.each(['me', 'another'])('checks the captured action account against live logi
     : { state: 'blocked', error: expect.stringContaining('当前登录账号不匹配') })
 
   const requests = vi.mocked(guest.executeJavaScript).mock.calls
-    .map(([code]) => JSON.parse(code.slice(code.lastIndexOf(')(') + 2, -1)))
+    .map(([code]) => requestFromScript(code))
 
   expect(requests.filter(request => request.operation === 'commit-post')).toHaveLength(account === 'me' ? 1 : 0)
+})
+
+
+it.each([{ keywords: [] }, { keywords: ['   '] }])('uses the operating topic when keywords are empty: %j', async ({ keywords }) => {
+  const { guest, api } = fixture()
+  await executeBrowser({ ...command, kind: 'inbox', payload: { policy_version: 3, account_id: 'me', kind: 'comment', keywords } }, guest, api)
+  expect(guest.loadURL).toHaveBeenCalledWith('https://www.xiaohongshu.com/search_result?keyword=' + encodeURIComponent('主题'))
 })

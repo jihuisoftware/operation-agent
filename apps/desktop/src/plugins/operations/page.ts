@@ -2,10 +2,14 @@
 export function xhsPage(command: { operation: string; payload: Record<string, any> }) {
   const { operation, payload } = command
 
-  const visible = (element: Element) =>
-    Boolean(
+  const visible = (element: Element) => {
+    if (element.closest('[aria-hidden="true"],[hidden]')) { return false }
+    const rect = element.getBoundingClientRect()
+
+    return rect.bottom >= 0 && rect.right >= 0 && Boolean(
       (element as HTMLElement).offsetWidth || (element as HTMLElement).offsetHeight || element.getClientRects().length
     )
+  }
 
   const all = (selector: string, root: ParentNode = document) =>
     Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(visible)
@@ -41,7 +45,12 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
       const prototype = element instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype
       Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(element, value)
     } else {
-      element.textContent = value
+      element.replaceChildren(...value.split('\n').map(line => {
+        const paragraph = document.createElement('p')
+        paragraph.textContent = line
+
+        return paragraph
+      }))
     }
 
     element.dispatchEvent(new Event('input', { bubbles: true }))
@@ -79,6 +88,24 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
       items().filter(e => identifier(e) === payload.target),
       '互动对象'
     )
+
+  const validatePost = () => {
+    const title = unique(all('input[placeholder*="标题"],textarea[placeholder*="标题"]'), '标题') as HTMLInputElement
+    const body = unique(all('[contenteditable="true"],textarea[placeholder*="正文"]'), '正文')
+    const actualBody = body instanceof HTMLTextAreaElement ? body.value : body.innerText
+    const normalize = (value: string) => value.replace(/\s+/g, ' ').trim()
+
+    if (title.value !== payload.title || normalize(actualBody) !== normalize(payload.body)) {
+      throw new Error('发布前内容核对不一致')
+    }
+
+    if (/上传中|上传失败|正在上传/.test(document.body.innerText)) { throw new Error('图片尚未完成上传') }
+    const previews = all('[class*="upload"] img,[class*="image-list"] img').filter(img => (img as HTMLImageElement).naturalWidth > 0)
+
+    if (previews.length < payload.asset_ids.length) { throw new Error('尚未核对全部图片缩略图') }
+
+    return { ready: true }
+  }
 
   const handlers: Record<string, () => unknown> = {
     inventory: () => {
@@ -142,27 +169,9 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
 
       return { ok: true }
     },
+    'validate-post': validatePost,
     'commit-post': () => {
-      const title = unique(all('input[placeholder*="标题"],textarea[placeholder*="标题"]'), '标题') as HTMLInputElement
-      const body = unique(all('[contenteditable="true"],textarea[placeholder*="正文"]'), '正文')
-      const actualBody = body instanceof HTMLTextAreaElement ? body.value : text(body)
-
-      if (title.value !== payload.title || actualBody !== payload.body) {
-        throw new Error('发布前内容核对不一致')
-      }
-
-      if (/上传中|上传失败|正在上传/.test(document.body.innerText)) {
-        throw new Error('图片尚未完成上传')
-      }
-
-      const previews = all('[class*="upload"] img,[class*="image-list"] img').filter(
-        img => (img as HTMLImageElement).naturalWidth > 0
-      )
-
-      if (previews.length < payload.asset_ids.length) {
-        throw new Error('尚未核对全部图片缩略图')
-      }
-
+      validatePost()
       button('发布').click()
 
       return { state: 'submitted' }

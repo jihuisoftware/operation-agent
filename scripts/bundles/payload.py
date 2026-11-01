@@ -37,7 +37,7 @@ def snapshot(repo: Path, ref: str, destination: Path, exclude: tuple[str, ...] =
         raise ValueError("the snapshot destination must not contain the source checkout")
     with tempfile.TemporaryDirectory(prefix="hermes-archive-") as temp:
         archive = Path(temp) / "source.tar"
-        pathspecs = [f":(exclude){name}" for name in exclude]
+        pathspecs = [f":(exclude){name}" for name in (*exclude, "devtools")]
         subprocess.run(
             ["git", "archive", "--format=tar", "--output", str(archive), ref, "--", *pathspecs],
             cwd=repo, check=True)

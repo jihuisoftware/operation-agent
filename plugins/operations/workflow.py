@@ -70,7 +70,7 @@ def publish(store, policy, day, version):
     sources = [s for s in store.objects("source") if s["id"] in content.get("source_ids", []) and s.get("text")]
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
     validate_content(content, sources, assets, require_assets=True)
-    quality = check_content(store, policy, day, version, content, sources)
+    quality = check_content(store, policy, day, version, content, sources, publishing=True)
     if quality.get("pass") is not True:
         raise StageSkipped("草稿未通过自动检查：" + str(quality.get("reason", "依据不足")))
     account = resolve_account(store, policy)

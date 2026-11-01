@@ -138,11 +138,7 @@ import { $archivedSessions, loadArchivedSessions } from '@/store/sidebar-archive
 import { applySidebarNavPrefs, SIDEBAR_NAV_PREFS_AREA } from '@/store/sidebar-nav'
 import { $sidebarSessionRankIds } from '@/store/sidebar-sort'
 
-import {
-  type AppView,
-  SIDEBAR_NAV_AREA,
-  type SidebarNavContribution
-} from '../../routes'
+import { type AppView, SIDEBAR_NAV_AREA } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 import { type NewSessionSplitHandler, startNewSessionDrag } from '../new-session-drag'
 
@@ -151,7 +147,8 @@ import { SidebarCronJobsSection } from './cron-jobs-section'
 import { SidebarFilterMenu } from './filter-menu'
 import { buildGatewaySessionGroups, scopeGatewaySessionGroups, useGatewaySessionGroups } from './gateway-group-model'
 import { SidebarLoadMoreRow } from './load-more-row'
-import { isSidebarNavActive, SIDEBAR_NAV } from './navigation'
+import { contributedSidebarNavItem, isSidebarNavActive, SIDEBAR_NAV } from './navigation'
+import { NavigationTaskActivity } from './navigation-task-activity'
 import { orderByIds, reconcileOrderIds, resolveManualSessionOrderIds, sameIds } from './order'
 import { filterSessionsByProfileScope } from './profile-scope'
 import { ProfileRail } from './profile-switcher'
@@ -369,26 +366,7 @@ export function ChatSidebar({
   const navContributions = useContributions(SIDEBAR_NAV_AREA)
 
   const contributedNav = useMemo<SidebarNavItem[]>(
-    () =>
-      navContributions.flatMap(c => {
-        const data = c.data as Partial<SidebarNavContribution> | undefined
-
-        if (!data?.path?.startsWith('/') || !data.label) {
-          return []
-        }
-
-        const codicon = data.codicon || 'plug'
-
-        return [
-          {
-            id: c.id,
-            label: data.label,
-            icon: (props: { className?: string }) => <Codicon name={codicon} {...props} />,
-            route: data.path,
-            tier: data.tier
-          }
-        ]
-      }),
+    () => navContributions.flatMap(contributedSidebarNavItem),
     [navContributions]
   )
 
@@ -1615,6 +1593,7 @@ export function ChatSidebar({
                     <span className="min-w-0 truncate" data-tip-arrow-only="" data-tour={`sidebar-nav-${item.id}`}>
                       {s.nav[item.id] ?? item.label}
                     </span>
+                    <NavigationTaskActivity item={item} label={s.nav[item.id] ?? item.label} />
                     {isNewSession && (
                       <KbdGroup
                         className={cn('ml-auto opacity-55', newSessionKbdFlash && 'opacity-100!')}
