@@ -176,7 +176,7 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
     'validate-post': validatePost,
     'commit-post': () => {
       validatePost()
-      publishControl(true)
+      publishControl(true, payload.title)
 
       return { state: 'submitted' }
     },

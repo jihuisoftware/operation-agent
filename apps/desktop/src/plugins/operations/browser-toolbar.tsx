@@ -1,0 +1,29 @@
+import { Button, Codicon } from '@hermes/plugin-sdk'
+
+interface Props {
+  status: string
+  loading: boolean
+  error: string
+  takeOver: () => void
+  login: () => void
+  hide: () => void
+  reopen: () => void
+}
+
+export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen }: Props) {
+  return <>
+    <header className="shrink-0 border-b border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2"><Codicon name="browser" /><h2 className="truncate text-sm font-semibold">运营画面</h2><span className="text-xs text-muted-foreground">实时网页</span></div>
+        <Button aria-label="收起运营画面" onClick={hide} size="icon-sm" variant="ghost"><Codicon name="chevron-right" /></Button>
+      </div>
+      <div className="flex flex-wrap gap-2 px-3 pb-2">
+        <Button onClick={takeOver} size="sm" variant="outline">暂停并人工接管</Button>
+        <Button onClick={login} size="sm" variant="ghost">打开小红书／登录</Button>
+      </div>
+      <p className="border-t border-(--ui-stroke-tertiary) px-3 py-2 text-xs text-muted-foreground" role="status">{status}</p>
+    </header>
+    {loading && <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground" role="status"><Codicon name="loading" spinning />正在加载网页，沿用已保存的登录状态…</div>}
+    {error && <div className="px-3 py-2 text-sm" role="alert">{error}<Button onClick={reopen} size="sm" variant="link">重新打开网页</Button></div>}
+  </>
+}

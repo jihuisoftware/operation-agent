@@ -43,6 +43,8 @@ function fixture(account = 'me', configured = 'me') {
         return { state: account ? 'logged_in' : 'unknown', account_id: account }
       }
 
+      if (request.operation === 'notes') { return { ready: true, notes: [] } }
+
       if (request.operation === 'post-result') {
         throw new Error('连接中断')
       }

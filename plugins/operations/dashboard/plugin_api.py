@@ -7,9 +7,11 @@ from plugins.operations.store import Store
 from plugins.operations.runtime import ensure_schedule
 from plugins.operations import service
 from plugins.operations.dashboard.source_api import router as source_router
+from plugins.operations.dashboard.browser_api import router as browser_router
 
 router = APIRouter()
 router.include_router(source_router)
+router.include_router(browser_router)
 
 # Development tooling is absent from release payloads and wheels.
 _source_root = Path(__file__).resolve().parents[3]
@@ -91,7 +93,10 @@ def poll(body: dict):
     store = Store()
     with store.connection() as db:
         report = db.execute("SELECT id, json_extract(data,'$.day') AS day FROM objects WHERE kind='report' ORDER BY created DESC LIMIT 1").fetchone()
-    return {"command": store.claim(worker, busy=body.get("busy") is True), "latest_report": dict(report) if report else None}
+        notices = [dict(r) for r in db.execute("SELECT id,data FROM events WHERE kind='publication_notice' ORDER BY id DESC LIMIT 10")]
+    import json
+    return {"command": store.claim(worker, busy=body.get("busy") is True), "latest_report": dict(report) if report else None,
+            'publication_notices': [{**json.loads(n['data']), 'id': n['id']} for n in notices]}
 
 
 @router.post("/worker/ack")

@@ -2,6 +2,7 @@ import { type CronBlueprintOwner, host, type PluginContext, useValue } from '@he
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { withTopicDefaults } from './business-config'
+import { EvidenceStorage } from './evidence-storage'
 import { ActionManager, ContentEditor } from './management'
 import { OrganizedLibrary } from './organized-library'
 import { SourceLibrary } from './source-library'
@@ -158,6 +159,7 @@ function OwnedWorkbench({ ctx, initialTab, canView }: { ctx: PluginContext; init
           <NewRecord ctx={ctx} kind="task" onError={setError} onSaved={refresh} />
           <Records rows={[...state.task, ...state.runs, ...state.inbox, ...state.block, ...state.events]} />
           <ActionManager ctx={ctx} onError={setError} refresh={refresh} rows={state.actions} />
+          <EvidenceStorage ctx={ctx} />
         </>
       )}
       {tab === '信息采集' && (

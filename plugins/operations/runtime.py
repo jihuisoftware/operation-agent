@@ -70,6 +70,8 @@ def tick(store=None, now=None, *, request_id=None):
 
 
 def _tick(store, now):
+    from .evidence_storage import maybe_cleanup
+    maybe_cleanup(store, now)
     version, policy = store.policy()
     if not policy["enabled"]:
         return "运营已暂停"

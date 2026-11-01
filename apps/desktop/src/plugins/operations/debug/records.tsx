@@ -33,7 +33,7 @@ export function hasError(value: unknown): boolean {
   if (!value || typeof value !== 'object') { return false }
   const row = value as Record<string, unknown>
 
-  return Boolean(row.error || row.traceback || problemStates.has(String(row.state))) || Object.values(row).some(item => typeof item === 'object' && hasError(item))
+  return Boolean(row.error || row.traceback || row.error_code || row.phase === 'failed' || problemStates.has(String(row.state))) || Object.values(row).some(item => typeof item === 'object' && hasError(item))
 }
 
 export function errorLog(detail: Detail) {

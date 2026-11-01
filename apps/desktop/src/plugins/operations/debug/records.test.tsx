@@ -49,3 +49,9 @@ it('does not treat ordinary result text mentioning an error as an actual failure
 
   expect(errorLog(clean).events).toEqual([])
 })
+
+
+it('includes failed browser steps even when the failure is represented by a code rather than text', () => {
+  const run = { ...detail, events: [{ id: 4, at: '', kind: 'browser_step', data: { phase: 'failed', error_code: 'PAGE_RESULT_UNCONFIRMED', evidence_id: 'shot' } }] }
+  expect(errorLog(run).events).toEqual(run.events)
+})

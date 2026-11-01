@@ -33,6 +33,9 @@ def environment(tmp_path, monkeypatch):
     submitted = []
     def consume(self, identity):
         command = self.claim("simulated-desktop")
+        while command and command['kind'] == 'verify' and command['id'] != identity:
+            self.acknowledge(command['id'], 'simulated-desktop', {'state': 'unknown', 'evidence': '只读核对：平台仍在审核'})
+            command = self.claim('simulated-desktop')
         assert command["id"] == identity
         payload = command["payload"]
         if command["kind"] == "inbox":

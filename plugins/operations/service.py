@@ -10,17 +10,8 @@ from .store import encoded
 
 
 def resolve_action(store, identity, state, evidence):
-    allowed = {"published", "confirmed", "confirmed_not_published", "failed"}
-    if state not in allowed or not isinstance(evidence, str) or not evidence.strip():
-        raise ValueError("请选择核对结果并填写证据或说明")
-    with store.connection() as db:
-        db.execute("BEGIN IMMEDIATE")
-        row = db.execute("SELECT * FROM actions WHERE id=?", (identity,)).fetchone()
-        if not row or row["state"] not in {"unknown", "blocked", "submitted", "failed"}:
-            raise ValueError("该动作当前不能人工核对")
-        db.execute("UPDATE actions SET state=?,result=? WHERE id=?", (state,
-                   encoded({"evidence": evidence, "verified_by": "user", "at": now_iso()}), identity))
-    store.event("manual_resolution", {"action_id": identity, "state": state, "evidence": evidence})
+    from .action_history import resolve
+    return resolve(store, identity, state, evidence)
 
 
 def retry_action(store, identity):
@@ -39,6 +30,9 @@ def retry_action(store, identity):
                            (day, row["kind"], identity)).fetchone()[0]
         if count >= policy["limits"][row["kind"]]:
             raise ValueError("达到每日额度")
+        from .publication_snapshot import capture
+        action = capture(db, action, cfg['version'], policy)
+        db.execute('UPDATE actions SET data=? WHERE id=?', (encoded(action), identity))
         payload = {**action, "policy_version": cfg["version"]}
         db.execute("UPDATE actions SET state='queued',version=?,day=? WHERE id=?", (cfg["version"], day, identity))
         command = uuid.uuid4().hex

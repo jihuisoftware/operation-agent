@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from .feedback import review
 from .policy import now_iso
+from .publication_status import complete, display
 
 
 def daily_report(store, day, delayed=False):
@@ -48,8 +49,14 @@ def daily_report(store, day, delayed=False):
         result = json.loads(action["result"])
         target = json.loads(action["data"])["target"]
         lines.append(f"- {action['kind']} · {action['state']} · {target} · {action['created']} · "
-                     f"{result.get('evidence') or result.get('error') or '暂无结果证据'} · {result.get('url', '')}")
-    completed = sum(a["state"] in {"published", "confirmed"} for a in actions)
+                     f"{result.get('manual_verification', {}).get('evidence') or result.get('evidence') or result.get('error') or '暂无结果证据'} · {result.get('url', '')}")
+        if result.get('manual_verification'):
+            human = result['manual_verification']
+            lines.append(f"  人工结论：{human['state']}；{human['actor']}；{human['at']}；自动核对事实保留如下。")
+        if action['kind'] == 'publish':
+            status = display(action)
+            lines.append(f"  执行：{status['execution']}；平台审核：{status['platform']}；内容核对：{status['content']}。")
+    completed = sum(complete(a) for a in actions)
     lines.append(f"\n已核对成功 {completed} 次；待审核或结果不明不计入成功。")
     for item in store.objects("inbox", day):
         if item.get("state") == "needs_review":

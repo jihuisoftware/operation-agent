@@ -56,7 +56,7 @@ def directory(store):
     return (Path(store.path).parent if store.path else plugin_data_dir("operations")) / "reference-images"
 
 
-def download(url):
+def download(url, *, max_bytes=2 * 1024 * 1024):
     from tools.url_safety import create_ssrf_safe_client, is_safe_url
     with create_ssrf_safe_client(timeout=8, follow_redirects=False) as client:
         for _ in range(4):
@@ -70,8 +70,8 @@ def download(url):
                 chunks, size = [], 0
                 for chunk in response.iter_bytes():
                     size += len(chunk)
-                    if size > 2 * 1024 * 1024:
-                        raise ValueError("参考图片超过 2 MB")
+                    if size > max_bytes:
+                        raise ValueError("图片超过下载大小上限")
                     chunks.append(chunk)
                 return b"".join(chunks)
     raise ValueError("图片跳转次数过多")

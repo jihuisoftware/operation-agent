@@ -8,12 +8,15 @@ import { $operationsBrowserActivity, $showOperationsBrowser } from './state'
 import type { Guest } from './types'
 import { OperationsWorker } from './worker'
 
-vi.mock('@hermes/plugin-sdk', async () => {
+vi.mock('@hermes/plugin-sdk', async importOriginal => {
+  const sdk = await importOriginal<Record<string, unknown>>()
   const { atom } = await import('nanostores')
   const { useStore } = await import('@nanostores/react')
 
   return {
-    host: { state: { requestOwner: atom({ connectionId: 'local', profile: 'one' }) }, notify: vi.fn() },
+    ...sdk,
+    host: { state: { requestOwner: atom({ connectionId: 'local', profile: 'one' }) }, notify: vi.fn(),
+      openWorkspace: vi.fn(() => vi.fn()), paneVisibility: () => atom(true) },
     useValue: useStore
   }
 })
@@ -62,7 +65,9 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
 
   const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(2000)
+    await vi.advanceTimersByTimeAsync(1)
+    Object.assign(container.querySelector('webview')!, { getURL: () => 'https://www.xiaohongshu.com/explore' })
+    await vi.advanceTimersByTimeAsync(1999)
   })
   const guest = container.querySelector('webview')!
   expect(guest).toBeTruthy()
@@ -123,6 +128,7 @@ it('retains the page and login partition when the same owner receives a new API 
 })
 
 it('shows navigation failure with a recovery action instead of an unexplained blank page', async () => {
+  $showOperationsBrowser.set(true)
   vi.useFakeTimers()
   vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
   const rest = vi.fn(async () => ({ command: null }))

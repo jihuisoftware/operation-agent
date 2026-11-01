@@ -29,7 +29,13 @@ function fixture(mode: 'success' | 'custom' | 'disabled' | 'pause' | 'disconnect
       url = next
       vi.stubGlobal('location', new URL(next))
 
-      if (next.includes('/explore')) {
+      if (next.endsWith('/explore/note')) {
+        document.body.innerHTML = '<div class="author"><a href="https://www.xiaohongshu.com/user/profile/me">作者</a></div><div id="detail-title">测试图文</div><div id="detail-desc">来自可追溯资料的摘要</div><div class="swiper-slide"><img src="https://sns.xhscdn.com/cover.png"></div>'
+      } else if (next.includes('/user/profile/me')) {
+        document.body.innerHTML = '<p>暂无笔记</p>'
+      } else if (next.includes('/note-manager')) {
+        document.body.innerHTML = '<article class="note-card" data-note-id="note">已发布</article>'
+      } else if (next.includes('/explore')) {
         document.body.innerHTML = '<nav><a href="https://www.xiaohongshu.com/user/profile/me">我</a></nav>'
       } else {
         document.body.innerHTML = '<button>上传图文</button><input type="file" accept="image/png"><input placeholder="标题"><textarea placeholder="正文"></textarea><button id="submit">发布</button><div class="image-list"></div>'
@@ -56,10 +62,17 @@ function fixture(mode: 'success' | 'custom' | 'disabled' | 'pause' | 'disconnect
 
           submit.replaceWith(host)
           submit = host
+          document.body.insertAdjacentHTML('beforeend', '<div class="image-preview"><div class="scroll-container"><div class="title"></div></div></div>')
+          document.querySelector('input[placeholder="标题"]')!.addEventListener('input', event => {
+            const title = (event.target as HTMLInputElement).value
+            setTimeout(() => { document.querySelector('.image-preview .title')!.textContent = title }, 300)
+          })
         }
 
         submit.addEventListener(custom ? 'publish' : 'click', () => {
           expect(document.querySelector('.uploading')).toBeNull()
+
+          if (custom) { expect(document.querySelector('.image-preview .title')?.textContent).toBe('测试图文') }
           submissions += 1
           setTimeout(() => {
             document.body.innerHTML = '<p>发布成功</p><a href="https://www.xiaohongshu.com/explore/note">查看笔记</a>'
@@ -78,7 +91,7 @@ function fixture(mode: 'success' | 'custom' | 'disabled' | 'pause' | 'disconnect
 
   const api = (async (path: string) => path === '/policy'
     ? { version: 1, policy: { account_id: '', topic: '测试', enabled: true, paused } }
-    : { name: 'cover.png', data: '' }) as Api
+    : path === '/worker/verify-images' ? { state: 'matched' } : { name: 'cover.png', data: '' }) as Api
 
   const command: BrowserCommand = { id: 'simulated', kind: 'publish', expires: Date.now() / 1000 + 120, payload: {
     account_id: 'me', policy_version: 1, content: { title: '测试图文', body: '来自可追溯资料的摘要', asset_ids: ['cover'] }
@@ -92,7 +105,7 @@ it.each(['success', 'custom', 'disabled', 'pause', 'disconnect'] as const)('exec
   const pending = executeBrowser(test.command, test.guest, test.api)
   await vi.runAllTimersAsync()
   const result = await pending
-  expect(result.state).toBe({ success: 'published', custom: 'published', disabled: 'blocked', pause: 'blocked', disconnect: 'unknown' }[mode])
+  expect(result.state).toBe({ success: 'submitted', custom: 'submitted', disabled: 'blocked', pause: 'blocked', disconnect: 'unknown' }[mode])
   expect(test.submissions()).toBe(mode === 'pause' || mode === 'disabled' ? 0 : 1)
 
   if (mode === 'success') { expect(result.url).toBe('https://www.xiaohongshu.com/explore/note') }

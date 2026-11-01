@@ -1,5 +1,5 @@
 /** Serialized with the page adapter; uses the creator component's public event contract. */
-export function xhsPublishControl(submit = false) {
+export function xhsPublishControl(submit = false, expectedTitle?: string) {
   const visible = (element: HTMLElement) => {
     const rect = element.getBoundingClientRect()
 
@@ -18,7 +18,14 @@ export function xhsPublishControl(submit = false) {
   const controls = [...ordinary, ...custom]
   const element = controls[0]
 
-  const enabled = controls.length === 1 && (custom.length === 1
+  const previewMatches = () => {
+    if (!custom.length || expectedTitle === undefined) { return true }
+    const titles = document.querySelectorAll('.image-preview .scroll-container > .title')
+
+    return titles.length === 1 && titles[0].textContent?.trim() === expectedTitle
+  }
+
+  const enabled = previewMatches() && controls.length === 1 && (custom.length === 1
     ? element.getAttribute('is-publish') === 'true' && element.getAttribute('submit-text') === '发布' &&
       element.getAttribute('submit-disabled') === 'false' && element.getAttribute('submit-loading') === 'false'
     : !element.matches(':disabled,[disabled],[aria-disabled="true"]'))

@@ -64,6 +64,9 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
     submissions = []
     def consume(identity):
         command = store.claim("simulated-desktop")
+        while command and command['kind'] == 'verify' and command['id'] != identity:
+            store.acknowledge(command['id'], 'simulated-desktop', {'state': 'unknown', 'evidence': '只读核对：平台仍在审核'})
+            command = store.claim('simulated-desktop')
         assert command["id"] == identity
         payload = command["payload"]
         if command["kind"] == "account":

@@ -1,8 +1,11 @@
 import { navigateGuest } from './browser-navigation'
+import { type BrowserTrace, unrecordedTrace } from './browser-trace'
 import { waitForRead } from './browser-wait'
 import { inspectLoginPage } from './login-page'
 import { xhsPage } from './page'
 import { xhsReady } from './page-ready'
+import { publicationBaseline, resolvePublication, submissionReceipt } from './publication'
+import { publicationPage } from './publication-page'
 import { xhsPublishControl } from './publish-control'
 import type { Api, BrowserCommand, Guest, OperationsState } from './types'
 
@@ -22,9 +25,11 @@ async function evaluateGuest(guest: Guest, expression: string) {
   return result
 }
 
-export async function executeBrowser(command: BrowserCommand, guest: Guest, api: Api, sleep?: (ms: number) => Promise<unknown>) {
+export async function executeBrowser(command: BrowserCommand, guest: Guest, api: Api, sleep?: (ms: number) => Promise<unknown>, trace: BrowserTrace = unrecordedTrace, worker?: string) {
   let submitted = false
   const payload = command.payload
+  let baseline = payload.baseline
+  let receipt: Record<string, any> = {}
   const initial = await api<OperationsState>('/policy')
 
   if (initial.version !== payload.policy_version) {
@@ -68,6 +73,10 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
       return evaluateGuest(guest, `(${xhsReady.toString()})(${JSON.stringify(data)}, (${xhsPublishControl.toString()}))`)
     }
 
+    if (operation.startsWith('publication:')) {
+      return evaluateGuest(guest, `(${publicationPage.toString()})(${JSON.stringify({ operation: operation.slice(12), payload: data })})`)
+    }
+
     return evaluateGuest(guest, `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })}, (${xhsPublishControl.toString()}))`)
   }
 
@@ -95,9 +104,15 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
     await page('click-label', { label })
   }
 
+  const publication = { read: (operation: string, data: Record<string, any>) => page(`publication:${operation}`, data), navigate, trace, sleep,
+    images: (urls: string[]) => api<{ state: string; evidence: string }>('/worker/verify-images', { command_id: command.id, worker, urls }) }
+
   try {
-    await navigate(`${HOME}/explore`)
-    const identity = await waitForRead(() => page('account'), value => value.state !== 'unknown', 10000, true, sleep)
+    const identity = await trace.step('account', async () => {
+      await navigate(`${HOME}/explore`)
+
+      return waitForRead(() => page('account'), value => value.state !== 'unknown', 10000, true, sleep)
+    })
 
     if (identity.state !== 'logged_in' || !identity.account_id) {
       throw new Error('未识别到登录账号，请在内嵌网页扫码登录后重新执行')
@@ -119,10 +134,8 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
     }
 
     if (command.kind === 'verify') {
-      if (payload.kind === 'publish' && payload.result_url) {
-        await navigate(payload.result_url)
-
-        return await page('verify-post')
+      if (payload.kind === 'publish') {
+        return await resolvePublication(publication, payload, payload.previous_result || { state: 'unknown', url: payload.result_url }, baseline)
       }
 
       if (payload.kind === 'follow') {
@@ -136,36 +149,49 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
     }
 
     if (command.kind === 'inbox') {
-      await navigate(locations[payload.kind])
+      return await trace.step('inventory', async () => {
+        await navigate(locations[payload.kind])
 
-      if (payload.kind === 'follow') {
-        await clickLabel('粉丝')
-      }
+        if (payload.kind === 'follow') { await clickLabel('粉丝') }
+        await ready('inventory')
 
-      await ready('inventory')
-
-      return await page('inventory')
+        return page('inventory')
+      })
     }
 
     if (command.kind === 'publish') {
-      await navigate('https://creator.xiaohongshu.com/publish/publish?source=official')
-      await clickLabel('上传图文')
-      await ready('upload')
+      baseline = await publicationBaseline(publication, payload)
+      await trace.step('open_editor', async () => {
+        await navigate('https://creator.xiaohongshu.com/publish/publish?source=official')
+        await clickLabel('上传图文')
+        await ready('upload')
+      })
 
       const assets = await Promise.all(
         payload.content.asset_ids.map((id: string) => api(`/assets/${encodeURIComponent(id)}`))
       )
 
-      await page('upload', { assets })
-      await ready('post')
-      await page('fill-post', payload.content)
-      await page('validate-post', payload.content)
-      await ready('publish')
-      await check()
-      submitted = true
-      await page('commit-post', payload.content)
+      await trace.step('upload', async () => {
+        await page('upload', { assets })
+        await ready('post')
 
-      return await waitForRead(() => page('post-result'), result => result.state !== 'unknown', 15000, true, sleep)
+        return { image_count: assets.length }
+      })
+      await trace.step('fill', async () => {
+        await page('fill-post', payload.content)
+        await ready('publish', payload.content)
+
+        return page('validate-post', payload.content)
+      })
+      await trace.step('submit', async () => {
+        await check()
+        submitted = true
+
+        return page('commit-post', payload.content)
+      })
+      receipt = await trace.step('receipt', () => waitForRead(() => page('post-result'), result => result.state !== 'unknown', 15000, true, sleep))
+
+      return submissionReceipt(receipt, baseline)
     }
 
     await navigate(payload.kind === 'comment' ? payload.item.url : locations[payload.kind])
@@ -174,17 +200,25 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
       await clickLabel('粉丝')
     }
 
-    await ready('interaction')
-    const prepared = await page('prepare-interaction')
-    payload.before_count = prepared.before_count
-    await check()
-    submitted = true
-    await page('commit-interaction')
+    const prepared = await trace.step('prepare_interaction', async () => {
+      await ready('interaction')
 
-    return await waitForRead(() => page('interaction-result'), result => result.state === 'confirmed', 15000, true, sleep)
+      return page('prepare-interaction')
+    })
+
+    payload.before_count = prepared.before_count
+    await trace.step('submit_interaction', async () => {
+      await check()
+      submitted = true
+
+      return page('commit-interaction')
+    })
+
+    return await trace.step('verify_interaction', () => waitForRead(() => page('interaction-result'), result => result.state === 'confirmed', 15000, true, sleep))
   } catch (error) {
     return {
-      state: submitted ? 'unknown' : command.kind === 'account' ? 'waiting_login' : 'blocked',
+      ...receipt, baseline,
+      state: submitted ? (receipt.state && receipt.state !== 'unknown' ? 'submitted' : 'unknown') : command.kind === 'account' ? 'waiting_login' : 'blocked',
       error: error instanceof Error ? error.message : String(error)
     }
   }

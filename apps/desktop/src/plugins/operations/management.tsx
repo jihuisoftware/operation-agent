@@ -1,6 +1,8 @@
 import type { PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
+import { ActionEvidence, PublicationStatus } from './action-evidence'
+import { ActionInspector } from './action-inspector'
 import type { RecordRow } from './types'
 
 interface ManagementProps {
@@ -59,7 +61,10 @@ function ActionCard({ ctx, row, refresh, onError }: ManagementProps & { row: Rec
       <p className="break-all text-xs">
         动作 {row.id} · 规则 v{String(row.version)} · {String(row.day)}
       </p>
+      {row.kind === 'publish' && <PublicationStatus result={typeof row.result === 'string' ? JSON.parse(row.result) : row.result} />}
       <pre className="whitespace-pre-wrap text-xs">{String(row.result)}</pre>
+      <ActionInspector ctx={ctx} refresh={refresh} row={row} />
+      <ActionEvidence ctx={ctx} row={row} />
       {['unknown', 'blocked', 'submitted', 'failed'].includes(state) && (
         <>
           <p>查看网页并核实实际结果，再填写证据。结果不明时不要重复执行。</p>

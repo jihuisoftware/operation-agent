@@ -2,6 +2,9 @@ import { host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { executeBrowser } from './browser'
+import { browserDockStyle, useBrowserDock } from './browser-dock'
+import { BrowserToolbar } from './browser-toolbar'
+import { createBrowserTrace } from './browser-trace'
 import { createExecutionClock } from './execution-clock'
 import { $loginNavigation } from './login-state'
 import { $operationsWorkerStatus, $showOperationsBrowser, beginBrowserActivity } from './state'
@@ -9,14 +12,20 @@ import type { Api, BrowserCommand, OperationsState } from './types'
 import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
 
-function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwner.get>; ctx: PluginContext }) {
-  const visible = useValue($showOperationsBrowser)
+function Worker({ scope, ctx, visible }: { scope: ReturnType<typeof host.state.requestOwner.get>; ctx: PluginContext; visible: boolean }) {
   const status = useValue($operationsWorkerStatus)
   const container = useRef<HTMLDivElement>(null)
+  const surface = useRef<HTMLElement>(null)
   const execution = useRef<{ pending: Promise<unknown> | null }>({ pending: null })
   const [worker] = useState(() => crypto.randomUUID())
   const manual = useRef(false)
   const { guest, loading, error, reopen } = useOperationsGuest(scope, container)
+
+  useEffect(() => {
+    const active = document.activeElement
+
+    if (!visible && active instanceof HTMLElement && surface.current?.contains(active)) { active.blur() }
+  }, [visible])
 
   const api = useMemo<Api>(
     () => (path, body, method) =>
@@ -24,7 +33,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
         owner: scope,
         method: method || (body ? 'POST' : 'GET'),
         body,
-        timeoutMs: 15000
+        timeoutMs: path === '/worker/verify-images' ? 60000 : 15000
       }),
     [ctx, scope]
   )
@@ -34,6 +43,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
     let running = false
     let polling = false
     let reportSeen = ''
+    const noticeSeen = new Set<number>()
     let finishActivity: (() => void) | undefined
 
     const poll = async () => {
@@ -45,7 +55,7 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
 
       try {
         // Poll also heartbeats during a command; the server serializes the account across windows.
-        const result = await api<{ command: BrowserCommand | null; latest_report?: { id: string; day: string } }>(
+        const result = await api<{ command: BrowserCommand | null; latest_report?: { id: string; day: string }; publication_notices?: { id: number; platform: string; action_id: string }[] }>(
           '/worker/poll',
           { worker, busy: running || manual.current || $loginNavigation.get() !== null }
         )
@@ -57,6 +67,8 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
             message: `${result.latest_report.day} 运营日报已生成，请到自动运营 → 每日总结查看`
           })
         }
+
+        publishNotices(result.publication_notices, noticeSeen, disposed)
 
         if (!result.command || disposed || running) {
           return
@@ -70,9 +82,12 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
         $operationsWorkerStatus.set('正在执行任务；可点击人工接管暂停')
 
         try {
+          const command = result.command
+          const trace = createBrowserTrace(command, guest, api, worker)
+
           const pending = manual.current
             ? Promise.resolve({ state: 'blocked', error: '已进入人工接管' })
-            : executeBrowser(result.command, guest, api, clock.sleep)
+            : trace.step('execution', () => executeBrowser(command, guest, api, clock.sleep, trace, worker))
 
           execution.current.pending = pending
           const answer = await pending
@@ -128,41 +143,26 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
 
   usePlatformLogin({ api, guest, owner: scope, worker, takeOver })
 
+  const failed = (reason: unknown) => $operationsWorkerStatus.set(String(reason))
+
   return (
     <section
-      style={{
-        position: 'fixed',
-        top: visible ? 55 : -10000,
-        right: 8,
-        width: visible ? '55vw' : 1000,
-        height: visible ? 'calc(100vh - 65px)' : 800,
-        zIndex: 90,
-        background: 'var(--background)',
-        border: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column'
-      }}
+      aria-hidden={!visible || undefined}
+      aria-label="运营画面"
+      className="flex flex-col overflow-hidden border-2 border-(--ui-stroke-secondary) bg-(--ui-surface-background) text-foreground"
+      inert={!visible || undefined}
+      ref={surface}
+      style={browserDockStyle(visible)}
     >
-      <div className="flex flex-wrap items-center gap-2 border-b p-2 text-xs">
-        <strong>自动运营实时画面</strong>
-        <button onClick={() => void takeOver().catch(error => $operationsWorkerStatus.set(String(error)))}>
-          暂停并人工接管
-        </button>
-        <button
-          onClick={() =>
-            void takeOver()
-              .then(() => guest?.loadURL('https://www.xiaohongshu.com'))
-              .catch(error => $operationsWorkerStatus.set(String(error)))
-          }
-        >
-          打开小红书／登录
-        </button>
-        <button onClick={() => $showOperationsBrowser.set(false)}>隐藏画面</button>
-        <span className="text-muted-foreground">登录状态随当前连接与 Profile 保存</span>
-        <span>{status}</span>
-      </div>
-      {loading && <div className="p-3 text-sm text-muted-foreground" role="status">正在加载网页，沿用已保存的登录状态…</div>}
-      {error && <div className="p-3 text-sm" role="alert">{error}<button className="ml-2 underline" onClick={() => void takeOver().then(reopen).catch(reason => $operationsWorkerStatus.set(String(reason)))}>重新打开网页</button></div>}
+      <BrowserToolbar
+        error={error}
+        hide={() => $showOperationsBrowser.set(false)}
+        loading={loading}
+        login={() => void takeOver().then(() => guest.loadURL('https://www.xiaohongshu.com')).catch(failed)}
+        reopen={() => void takeOver().then(reopen).catch(failed)}
+        status={status}
+        takeOver={() => void takeOver().catch(failed)}
+      />
       <div className="min-h-0 flex-1" ref={container} />
     </section>
   )
@@ -170,7 +170,20 @@ function Worker({ scope, ctx }: { scope: ReturnType<typeof host.state.requestOwn
 
 export function OperationsWorker({ ctx }: { ctx: PluginContext }) {
   const active = useValue(host.state.requestOwner)
+  const shown = useValue($showOperationsBrowser)
+  const visible = useBrowserDock(shown)
   const scope = useMemo(() => ({ profile: active.profile, connectionId: active.connectionId }), [active.profile, active.connectionId])
 
-  return <Worker ctx={ctx} key={JSON.stringify(scope)} scope={scope} />
+  return <Worker ctx={ctx} key={JSON.stringify(scope)} scope={scope} visible={visible} />
+}
+
+
+function publishNotices(notices: { id: number; platform: string; action_id: string }[] | undefined, seen: Set<number>, disposed: boolean) {
+  if (disposed) { return }
+
+  for (const notice of notices || []) {
+    if (seen.has(notice.id)) { continue }
+    seen.add(notice.id)
+    host.notify({ kind: 'info', message: `发布审核${notice.platform === 'published' ? '已通过' : '未通过'}，请到运营管理查看对应记录（${notice.action_id.slice(0, 8)}）` })
+  }
 }

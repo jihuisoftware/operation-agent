@@ -23,6 +23,10 @@ function control() {
 
   document.body.append(element)
 
+  if (!document.querySelector('.image-preview')) {
+    document.body.insertAdjacentHTML('beforeend', `<div class="image-preview"><div class="scroll-container"><div class="title">${payload.title}</div></div></div>`)
+  }
+
   return element
 }
 
@@ -37,6 +41,19 @@ it('uses the publish event of the closed-shadow control after validating the exa
   expect(xhsPage({ operation: 'commit-post', payload })).toEqual({ state: 'submitted' })
   expect(published).toHaveBeenCalledOnce()
   expect(saved).not.toHaveBeenCalled()
+})
+
+it('waits for the form preview to reflect a debounced title before submitting', () => {
+  const element = control()
+  const published = vi.fn()
+  element.addEventListener('publish', published)
+  const preview = document.querySelector('.image-preview .title')!
+  preview.textContent = ''
+  expect(xhsReady({ phase: 'publish', payload })).toEqual({ ready: false })
+  expect(() => xhsPage({ operation: 'commit-post', payload })).toThrow()
+  expect(published).not.toHaveBeenCalled()
+  preview.textContent = payload.title
+  expect(xhsReady({ phase: 'publish', payload })).toEqual({ ready: true })
 })
 
 it.each(['disabled', 'loading', 'duplicate', 'changed'] as const)('refuses a custom submit when %s', condition => {

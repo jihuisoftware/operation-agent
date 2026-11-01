@@ -164,6 +164,8 @@ class Store:
         self.lease_token = None
 
     def reserve_action(self, action, version, day=None):
+        from .browser_evidence import command_context
+        action = {**action, **command_context(self)}
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
@@ -194,6 +196,8 @@ class Store:
                                (day, action["kind"])).fetchone()[0]
             if count >= policy["limits"][action["kind"]]:
                 raise ValueError("达到每日动作额度")
+            from .publication_snapshot import capture
+            action = capture(db, action, version, policy)
             changed = db.execute("INSERT OR IGNORE INTO actions VALUES (?,?,?,?,?,'queued',?,'{}',?)",
                 (identity, day, version, action["kind"], scoped_target, encoded(action), now_iso())).rowcount
             if changed:
@@ -206,6 +210,7 @@ class Store:
         return any(b["kind"] == kind and b["version"] == version for b in self.objects("block"))
 
     def enqueue(self, kind, payload, action_id=None):
+        from .browser_evidence import command_context
         if action_id:
             with self.connection() as db:
                 row = db.execute("SELECT id FROM commands WHERE action_id=? AND kind=? ORDER BY rowid DESC LIMIT 1",
@@ -217,7 +222,7 @@ class Store:
         version, _ = self.policy()
         if self.blocked(payload.get("kind", kind), version):
             raise ValueError("该能力已暂停，请处理异常并重新保存规则后恢复")
-        payload = {**payload, "policy_version": version}
+        payload = {**command_context(self), **payload, "policy_version": version}
         with self.connection() as db:
             db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
                        (identity, action_id, kind, encoded(payload), time.time() + 120))
@@ -244,19 +249,35 @@ class Store:
                     return None
                 db.execute("UPDATE actions SET state='executing' WHERE id=?", (row["action_id"],))
             db.execute("UPDATE commands SET state='running',worker=? WHERE id=?", (worker, row["id"]))
+            if row['kind'] == 'verify':
+                from .review_queue import mark_running
+                mark_running(db, row)
             return {"id": row["id"], "kind": row["kind"], "payload": json.loads(row["payload"]), "expires": row["expires"]}
 
     def _expire(self, db):
+        from .review_queue import accept
+        expired = db.execute("SELECT * FROM commands WHERE kind='verify' AND state IN ('queued','running') AND expires<?", (time.time(),)).fetchall()
+        for command in expired:
+            accept(db, command, {'state': 'unknown', 'error': '只读核对超时', 'evidence': '等待重新连接后核对'})
         db.execute("UPDATE actions SET state='blocked' WHERE id IN (SELECT action_id FROM commands WHERE state='queued' AND expires<?)", (time.time(),))
         db.execute("UPDATE actions SET state='unknown' WHERE id IN (SELECT action_id FROM commands WHERE state='running' AND expires<?)", (time.time(),))
         db.execute("UPDATE commands SET state='unknown' WHERE state IN ('running','queued') AND expires<?", (time.time(),))
 
     def acknowledge(self, identity, worker, result):
+        from .publication_status import normalize
+        result = normalize(result)
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             self._expire(db)
             row = db.execute("SELECT * FROM commands WHERE id=? AND worker=? AND state='running'", (identity, worker)).fetchone()
             if not row:
+                from .late_receipts import recover
+                row = recover(db, identity, worker, result)
+            if not row:
+                duplicate = db.execute("SELECT result FROM commands WHERE id=? AND worker=? AND state='done'", (identity, worker)).fetchone()
+                from .late_receipts import same
+                if duplicate and same(duplicate[0], result):
+                    return
                 raise ValueError("任务已过期或执行者不匹配，请核对执行结果")
             db.execute("UPDATE commands SET state='done',result=? WHERE id=?", (encoded(result), identity))
             if result.get("state") == "blocked" and row["kind"] not in {"verify", "account"}:
@@ -264,6 +285,9 @@ class Store:
                 block = {"kind": payload.get("kind", row["kind"]), "version": payload["policy_version"], "error": result.get("error"), "day": local_day(self.policy()[1])}
                 db.execute("INSERT OR IGNORE INTO objects VALUES (?, 'block', ?, ?)",
                            (f"block:{block['version']}:{block['kind']}", encoded(block), now_iso()))
+            if row['kind'] == 'verify':
+                from .review_queue import accept
+                accept(db, row, result)
             if row["action_id"]:
                 state = result.get("state", "unknown")
                 if state not in {"published", "submitted", "confirmed", "failed", "unknown", "blocked"}:
@@ -271,6 +295,12 @@ class Store:
                 if state in {"published", "confirmed"} and not result.get("evidence"):
                     state = "unknown"
                 db.execute("UPDATE actions SET state=?,result=? WHERE id=?", (state, encoded(result), row["action_id"]))
+                if state in {'submitted', 'unknown'}:
+                    from .review_queue import schedule, queue
+                    schedule(db, row['action_id'], result, initial=True)
+                    action = db.execute('SELECT * FROM actions WHERE id=?', (row['action_id'],)).fetchone()
+                    version = db.execute('SELECT version FROM settings WHERE id=1').fetchone()[0]
+                    queue(db, action, version)
 
     def command(self, identity):
         with self.connection() as db:

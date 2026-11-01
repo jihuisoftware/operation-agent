@@ -6,6 +6,9 @@ class StageSkipped(Exception):
 
 
 def describe(stage, result):
+    from .publication_status import normalize
+    if stage == 'publish' and isinstance(result, dict):
+        result = normalize(result)
     if stage == 'research' and isinstance(result, dict):
         partial = result['failed'] or result['search_errors'] or result['not_attempted'] or result.get('reason')
         return ('needs_attention' if partial else 'completed'), result['detail']

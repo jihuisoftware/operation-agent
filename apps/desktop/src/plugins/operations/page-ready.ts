@@ -20,7 +20,7 @@ export function xhsReady(request: { phase: string; payload: Record<string, any> 
   const selectors: Record<string, string> = { comment: 'section.note-item', reply: '[data-comment-id],.comment-item', dm: '[data-message-id]', follow: '[data-user-id],.user-item' }
 
   const handlers: Record<string, () => boolean> = {
-    publish: () => publishControl().ready,
+    publish: () => publishControl(false, payload.title).ready,
     label: () => all('button,[role="button"],a,span').some(element => element.textContent?.trim() === payload.label),
     upload: () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]')).some(input => /image|\.(png|jpe?g|webp)/i.test(input.accept)),
     post: () => {
