@@ -2,7 +2,7 @@
 import hashlib
 from collections import deque
 
-from .model import generate
+from .model import generate, model_limit
 from .outcomes import StageSkipped
 from .policy import now_iso
 from .source_library import available_sources
@@ -109,7 +109,7 @@ def organize(store, policy, day, version):
         used = db.execute("SELECT count(*) FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
     # Leave the configured downstream modules a chance to consume the partial collection.
     reserved = sum(cost for stage, cost in (('industry', 2), ('topics', 1), ('content', 2), ('publish', 1)) if policy['modules'][stage])
-    batches = max(0, policy['model_calls'] - used - reserved)
+    batches = max(0, model_limit(store, policy) - used - reserved)
     added, budget_exhausted = _run_batches(store, policy, day, version, pairs, pending, batches)
     current = materials(store, policy, day, include_history=True)
     result = {'total': len(current), 'added': added, 'organized': sum(row is not None for _, row in current),

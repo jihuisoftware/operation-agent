@@ -3,17 +3,26 @@ import json
 from .policy import now_iso
 
 
+def model_limit(store, policy):
+    override = (store.run_options or {}).get("model_calls")
+    return override if type(override) is int and override >= 0 else policy["model_calls"]
+
+
 def generate(store, policy, day, instruction, data):
     from agent.auxiliary_client import call_llm
     from .plan_controls import check_cancelled
     check_cancelled(store)
     store.renew()
-    if store.policy()[1] != policy or not policy["enabled"] or policy["paused"]:
+    persisted = store.policy()[1]
+    comparable = {**policy, "modules": persisted["modules"], "limits": persisted["limits"], "model_calls": persisted["model_calls"]}
+    transient_quick = bool((store.run_options or {}).get("quick"))
+    # Quick diagnostics may adjust transient module and limit scope; every standing-policy field stays exact.
+    if (persisted != policy and (not transient_quick or persisted != comparable)) or not policy["enabled"] or policy["paused"]:
         raise ValueError("运营规则变更或已暂停，取消模型调用")
     with store.connection() as db:
         db.execute("BEGIN IMMEDIATE")
         used = db.execute("SELECT count(*) FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
-        if used >= policy["model_calls"]:
+        if used >= model_limit(store, policy):
             raise ValueError("达到每日模型调用额度")
         from .workspace_execution import charge
         charge(store, db, day, 'model')

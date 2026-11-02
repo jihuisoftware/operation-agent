@@ -8,9 +8,10 @@ from plugins.operations.policy import local_day, now_iso
 
 EXTERNAL = {"publish", "comment", "reply", "dm", "follow"}
 DEPENDENCIES = {"organize": "research", "industry": "analytics", "topics": "organize", "content": "topics", "publish": "content"}
+QUICK_COVERAGE_MODEL_CALLS = 12
 
 
-def unavailable(store, data, step, policy):
+def unavailable(store, data, step, policy, *, coverage=False):
     task = step["id"]
     # A diagnostic report is always produced, even after a pause or failed prerequisite.
     if task == "report":
@@ -24,21 +25,27 @@ def unavailable(store, data, step, policy):
         return "已跨越运营日期，请发起新的测试；未沿用昨日额度"
     if policy["deadline"] and data["day"] > policy["deadline"][:10]:
         return "运营目标已超过期限"
-    if not policy["modules"][step["module"]]:
+    if not coverage and not policy["modules"][step["module"]]:
         return "模块未启用；未修改现有计划"
     if task in EXTERNAL and not policy["allowed"][task]:
-        return "该动作尚未授权"
+        return "快速测试仅检查外部动作：尚未授权，未提交" if coverage else "该动作尚未授权"
     dependency = DEPENDENCIES.get(task)
     prior = next((s for s in data["steps"] if s["id"] == dependency), None)
     usable_partial = prior and dependency in {'research', 'organize'} and prior['state'] == 'needs_attention' and prior.get('result', {}).get('usable', 0) > 0
     if prior and prior["state"] != "completed" and not usable_partial:
-        return f"依赖步骤「{prior['title']}」未完成，不使用旧产物替代本轮结果"
+        reason = f"依赖步骤「{prior['title']}」未完成，不使用旧产物替代本轮结果"
+        return f"快速测试仅检查外部动作：{reason}，未提交" if coverage and task in EXTERNAL else reason
     if task == "publish" and not data.get("content_id"):
-        return "本轮没有保存可发布的内容版本"
+        reason = "本轮没有保存可发布的内容版本"
+        return f"快速测试仅检查外部动作：{reason}，未提交" if coverage else reason
+    if task in EXTERNAL and coverage:
+        if not store.snapshot()["online"]:
+            return "快速测试仅检查外部动作：Desktop 离线，未提交"
+        return "快速测试仅检查外部动作：已满足就绪条件，未提交"
     return ""
 
 
-def run_step(store, data, step, policy, *, quick=False):
+def run_step(store, data, step, policy, *, quick=False, coverage=False):
     from .operations_debug import invoke, update_record
     store.debug_step = step["id"]
     store.renew()
@@ -47,7 +54,7 @@ def run_step(store, data, step, policy, *, quick=False):
     run_id = store.start_run(data["day"], step["module"], data["id"] + ":" + step["id"], data["version"])
     step["run_id"] = run_id
     store.event("pipeline_step_start", {"step": step, "version": data["version"], "content_id": data.get("content_id")})
-    reason = unavailable(store, data, step, policy)
+    reason = unavailable(store, data, step, policy, coverage=coverage)
     if reason:
         outcome = {"state": "skipped", "detail": reason, "duration_ms": 0}
     else:
@@ -72,29 +79,43 @@ def run_pipeline(store, identity, task, version, *, mode="normal"):
         for key, (title, module) in TASKS.items()])
     store.put("debug_run", data, identity)
     store.manual_run_id = identity
-    store.event("pipeline_start", {"day": day, "version": version, "policy": policy, "mode": "live"})
+    coverage = mode == "quick"
+    if coverage:
+        data["coverage"] = {"internal_modules": [key for key, (_, module) in TASKS.items()
+                              if module not in {"comments", "dm", "follow", "publish", "report"}],
+                             "external_actions": "readiness_only", "model_calls": QUICK_COVERAGE_MODEL_CALLS}
+        update_record(store, data)
+    store.event("pipeline_start", {"day": day, "version": version, "policy": policy, "mode": mode,
+                                    "coverage": coverage})
+    if coverage:
+        store.run_options = {"read_limit": 1, "query_limit": 1, "quick": True, "coverage": True,
+                             "model_calls": QUICK_COVERAGE_MODEL_CALLS}
     started = time.monotonic()
     try:
-        for step in data["steps"]:
-            run_step(store, data, step, policy, quick=mode == "quick")
-    except Exception as exc:
-        # Infrastructure/lease loss must stop the batch; never silently replay a submission.
-        import traceback
-        logging.getLogger(__name__).exception("Development pipeline interrupted: %s", identity)
-        data.update(state="interrupted", detail=str(exc))
-        store.event("pipeline_exception", {"error": str(exc), "traceback": traceback.format_exc()})
-        for step in data["steps"]:
-            if step["state"] in {"pending", "running"}:
-                step.update(state="interrupted", detail="批次中断：" + str(exc), ended=now_iso())
-                if step.get("run_id"):
-                    store.finish_run(step["run_id"], "interrupted", step["detail"])
-    else:
-        summarize(store, data)
-    data.update(ended=now_iso(), duration_ms=int((time.monotonic() - started) * 1000))
-    store.debug_step = None
-    store.event("pipeline_end", {"state": data["state"], "detail": data["detail"]})
-    update_record(store, data)
-    return data
+        try:
+            for step in data["steps"]:
+                run_step(store, data, step, policy, quick=mode == "quick", coverage=coverage)
+        except Exception as exc:
+            # Infrastructure/lease loss must stop the batch; never silently replay a submission.
+            import traceback
+            logging.getLogger(__name__).exception("Development pipeline interrupted: %s", identity)
+            data.update(state="interrupted", detail=str(exc))
+            store.event("pipeline_exception", {"error": str(exc), "traceback": traceback.format_exc()})
+            for step in data["steps"]:
+                if step["state"] in {"pending", "running"}:
+                    step.update(state="interrupted", detail="批次中断：" + str(exc), ended=now_iso())
+                    if step.get("run_id"):
+                        store.finish_run(step["run_id"], "interrupted", step["detail"])
+        else:
+            summarize(store, data)
+        data.update(ended=now_iso(), duration_ms=int((time.monotonic() - started) * 1000))
+        store.debug_step = None
+        store.event("pipeline_end", {"state": data["state"], "detail": data["detail"]})
+        update_record(store, data)
+        return data
+    finally:
+        if coverage:
+            store.run_options = None
 
 
 def summarize(store, data):

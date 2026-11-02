@@ -138,12 +138,21 @@ def new_record(identity, task, title, version, day):
 def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
     started = datetime.now(UTC)
     result = None
+    owns_run_options = False
     try:
         if task in {"publish", "comment", "reply", "dm", "follow"} and not store.snapshot()["online"]:
             raise StageSkipped("桌面执行器离线，请启动开发版 Desktop")
         if quick:
-            policy = {**policy, "limits": {**policy["limits"], "source": 1, "comment": 1, "reply": 1, "dm": 1, "follow": 1}, "model_calls": min(policy["model_calls"], 2)}
-            store.run_options = {"read_limit": 1, "query_limit": 1, "quick": True}
+            coverage = bool((store.run_options or {}).get("coverage"))
+            modules = ({**policy["modules"], **{key: True for key in
+                       ("research", "organize", "analytics", "industry", "topics", "content", "report")}}
+                       if coverage else policy["modules"])
+            policy = {**policy, "modules": modules,
+                      "limits": {**policy["limits"], "source": 1, "comment": 1, "reply": 1, "dm": 1, "follow": 1}}
+            if not coverage:
+                policy["model_calls"] = min(policy["model_calls"], 2)
+                store.run_options = {"read_limit": 1, "query_limit": 1, "quick": True}
+                owns_run_options = True
         handlers = {"research": workflow.research, "organize": workflow.organize, "analytics": workflow.analytics, "industry": workflow.industry, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     **{k: partial(workflow.interact, kinds=(k,)) for k in ("comment", "reply", "dm", "follow")}}
         if task == "report":
@@ -160,7 +169,7 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
         logging.getLogger(__name__).exception("Development task failed: %s", task)
         state, detail = "failed", str(exc)
         store.event("debug_exception", {"error": detail, "traceback": "".join(traceback.format_exception(*sys.exc_info()))})
-    if quick:
+    if owns_run_options:
         store.run_options = None
     return {"state": state, "detail": detail, "result": result,
             "duration_ms": int((datetime.now(UTC) - started).total_seconds() * 1000)}

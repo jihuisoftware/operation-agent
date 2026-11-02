@@ -88,7 +88,7 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
   return (
     <main className="space-y-6 overflow-auto p-6">
       <h1 className="text-xl font-semibold">任务调试 · 仅开发环境</h1>
-      <p>每次只执行所选任务，忽略原排期。每次点击是独立批次；仍遵守模块、授权、暂停和每日额度。</p>
+      <p>每次只执行所选任务，忽略原排期。每次点击是独立批次；详细执行遵守当前模块、授权、暂停和每日额度，快速整链路按下方覆盖规则运行。</p>
       <p className="text-muted-foreground">调试会调用真实业务流程。网页任务使用当前内嵌账号；可在实时画面中暂停并人工接管。</p>
       {(error || loadError) && <div><p className="text-destructive" role="alert">{error || loadError}</p><CopyButton label="复制请求错误" text={JSON.stringify({ owner, run_id: selected, error, loadError }, null, 2)}>复制请求错误</CopyButton></div>}
       {loadError && <Button onClick={() => setRevision(value => value + 1)} variant="outline">重新连接调试服务</Button>}
@@ -101,7 +101,7 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
           <Button disabled={Boolean(busy) || !catalog?.pipeline_available} onClick={() => void run('pipeline')}>开始整链路测试（真实执行）</Button>
           <Button disabled={Boolean(busy) || !catalog?.pipeline_available} onClick={() => void run('pipeline', 'quick')} variant="outline">快速调试整条链路</Button>
         </div>
-        <p className="text-xs text-muted-foreground">快速调试每个阶段最多执行一次，采集最多读取 1 条、检索 1 次，模型调用最多 2 次；仍遵守当前授权，外部动作可能真实提交。</p>
+        <p className="text-xs text-muted-foreground">快速调试会临时覆盖内部常用模块，采集最多读取 1 条、检索 1 次，共享最多 12 次模型调用；发布、评论、私信和回关只检查就绪，不会真实提交，也不会修改当前计划。</p>
         {catalog && !catalog.pipeline_available && <p className="text-sm text-muted-foreground">请重启源码 Server，加载整链路调试接口。</p>}
       </section>
       <div className="space-y-3">

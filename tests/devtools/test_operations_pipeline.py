@@ -171,6 +171,24 @@ def test_disabled_modules_are_not_enabled_and_interrupted_batch_cannot_replay(en
     assert store.policy()[1] == policy
 
 
+def test_quick_pipeline_covers_internal_modules_without_submitting_external_actions(environment):
+    store, submitted = environment
+    version, policy = store.policy()
+    policy["modules"] = {key: key == "report" for key in policy["modules"]}
+    store.configure(policy, version)
+
+    result = debug.execute({"task": "pipeline", "version": 2, "request_id": "quick-coverage", "mode": "quick"})
+
+    internal = {key for key, (_, module) in debug.TASKS.items() if module not in {"publish", "comments", "dm", "follow", "report"}}
+    steps = {step["id"]: step for step in result["steps"]}
+    assert all("模块未启用" not in steps[key]["detail"] for key in internal)
+    assert all("快速测试仅检查外部动作" in steps[key]["detail"] for key in {"publish", "comment", "reply", "dm", "follow"})
+    assert steps["report"]["state"] == "completed"
+    assert not submitted
+    assert store.run_options is None
+    assert store.policy()[1]["modules"] == policy["modules"]
+
+
 def test_partial_collection_preserves_usable_evidence_for_following_steps(environment, monkeypatch):
     from tools import web_tools
     store, _ = environment

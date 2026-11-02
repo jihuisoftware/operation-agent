@@ -2,7 +2,7 @@
 from .analysis_config import settings
 from .analytics import latest, valid
 from .analysis_data import business_summary
-from .model import generate
+from .model import generate, model_limit
 from .policy import now_iso
 from .outcomes import StageSkipped
 
@@ -35,7 +35,7 @@ def _budget(store, day, policy):
     with store.connection() as db:
         used = db.execute("SELECT count(*) FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
     reserve = sum(n for key, n in (('topics', 1), ('content', 2), ('publish', 1)) if policy['modules'][key])
-    return max(0, policy['model_calls'] - used - reserve)
+    return max(0, model_limit(store, policy) - used - reserve)
 
 
 def analyze(store, policy, day, version):
