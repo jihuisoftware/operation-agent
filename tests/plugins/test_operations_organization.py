@@ -6,7 +6,7 @@ import pytest
 from plugins.operations import organization, topics, content
 from plugins.operations.organization_catalog import catalog
 from plugins.operations.policy import DEFAULT, local_day
-from plugins.operations.store import Store, encoded
+from plugins.operations.store import Store
 from tests.plugins.operations_support import organized_response, prepare_materials
 
 
@@ -76,23 +76,6 @@ def test_invalid_references_fail_atomically_and_changed_source_or_topic_cannot_r
     assert Store(store.path.parent / 'other.db').objects('organized_source') == []
 
 
-def test_schema_upgrade_adds_preparation_without_replaying_actions(configured):
-    store, policy, day = configured
-    policy['schema_version'] = 3
-    policy['modules'].pop('organize')
-    policy['times'].pop('organize')
-    policy['times']['research'] = ['08:15']
-    with store.connection() as db:
-        db.execute('UPDATE settings SET data=?', (encoded(policy),))
-    identity = store.start_run(day, 'publish', '10:00', 1)
-    store.finish_run(identity, 'completed', '旧发布')
-    restored = Store(store.path)
-    version, current = restored.policy()
-    assert current['modules']['organize'] and current['times']['organize'] == ['08:15']
-    assert current['limits'] == policy['limits'] and current['allowed'] == policy['allowed']
-    assert restored.start_run(day, 'publish', '10:00', version) is None
-    assert len(restored.snapshot()['runs']) == 1
-    assert Store(store.path).policy()[0] == version
 
 
 def test_zero_budget_and_next_day_resume_keep_unfinished_sources_visible(configured, monkeypatch):

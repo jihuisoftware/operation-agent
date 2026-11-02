@@ -28,7 +28,7 @@ def pending(store):
             batch = db.execute('SELECT data FROM objects WHERE id=?', ('manual:' + request['id'],)).fetchone()
             day = json.loads(batch[0])['day'] if batch else local_day(policy)
             slot = 'manual:' + request['id']
-            done = {r[0]: r[1] for r in db.execute('SELECT stage,state FROM runs WHERE slot=?', (slot,))}
+            done = {r[0]: r[1] for r in db.execute('SELECT stage,state FROM runs WHERE day=? AND slot=?', (day, slot))}
             rows.extend(item(day, stage, slot, now_iso(), done.get(stage, 'pending')) for stage, enabled in policy['modules'].items()
                         if enabled and done.get(stage, 'pending') in {'pending', 'cancelled'})
     return rows

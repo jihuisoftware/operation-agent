@@ -6,7 +6,7 @@ import pytest
 
 from plugins.operations import content, topics, workflow
 from plugins.operations.policy import DEFAULT, local_day
-from plugins.operations.store import Store, encoded
+from plugins.operations.store import Store
 from tests.plugins.operations_support import prepare_materials
 
 
@@ -75,35 +75,6 @@ def test_manual_topic_is_used_in_production_without_auto_planning_or_publishing(
         topics.select(store, {"version": 1, "title": "过期页面提交"})
 
 
-def test_v2_migration_splits_modules_without_replaying_claimed_topics(tmp_path):
-    store, policy, day = configured(tmp_path)
-    old = deepcopy(policy)
-    old["schema_version"] = 2
-    old["modules"].pop("topics")
-    old["times"].pop("topics")
-    old["times"]["research"] = ["08:30", "17:00"]
-    old["limits"]["source"] = 7
-    store.put("brief", {"day": day, "source_ids": [], "result": {"topics": ["旧选题"]}})
-    with store.connection() as db:
-        db.execute("UPDATE settings SET version=4,data=?", (encoded(old),))
-    run = store.start_run(day, "research", "08:30", 4)
-    store.finish_run(run, "completed", "旧的采集与选题已完成")
-    migrated = Store(store.path)
-    version, policy = migrated.policy()
-    assert version == 5 and policy["schema_version"] == DEFAULT["schema_version"]
-    assert policy["modules"]["research"] and policy["modules"]["topics"]
-    assert policy["times"]["topics"] == ["08:30", "17:00"]
-    assert policy["limits"] == old["limits"] and policy["allowed"] == old["allowed"]
-    assert migrated.start_run(day, "topics", "08:30", version) is None
-    assert topics.catalog(migrated)["candidates"][0]["title"] == "旧选题"
-    with pytest.raises(workflow.StageSkipped, match="旧选题"):
-        topics.production_topic(migrated, policy, day)
-    assert Store(store.path).policy()[0] == version
-    with migrated.connection() as db:
-        history = json.loads(db.execute("SELECT data FROM objects WHERE id='policy:4'").fetchone()[0])
-    assert history["policy"]["schema_version"] == 2
-    migrated.configure({**policy, "topic": "另一个运营主题"}, version)
-    assert topics.catalog(migrated)["candidates"] == []
 
 
 def test_candidate_selection_rejects_stale_batch_and_carries_source_evidence(tmp_path, monkeypatch):

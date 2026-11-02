@@ -204,8 +204,7 @@ def test_permission_change_during_model_call_discards_result(configured, monkeyp
     assert not store.objects('industry_report')
 
 
-def test_replacement_retains_old_batches_and_legacy_migration_does_not_enable(configured):
-    from plugins.operations.store import encoded
+def test_replacement_retains_referenced_batches(configured):
     store, policy, day = configured
     body, _ = import_csv(store, f'日期,订单号,销售额\n{day},one,1\n')
     first = business.confirm(store, body)
@@ -217,16 +216,6 @@ def test_replacement_retains_old_batches_and_legacy_migration_does_not_enable(co
     assert business.datasets(store)[0]['batches'] == [second['id']]
     with store.connection() as db:
         assert db.execute('SELECT 1 FROM business_batches WHERE id=?', (first['id'],)).fetchone()
-        old = deepcopy(policy)
-        old['schema_version'] = 4
-        for key in ('analytics', 'industry'):
-            old['modules'].pop(key); old['times'].pop(key)
-        db.execute('UPDATE settings SET data=?', (encoded(old),))
-    restored = Store(store.path)
-    _, current = restored.policy()
-    assert not current['modules']['analytics'] and not current['modules']['industry']
-    assert current['allowed'] == old['allowed'] and current['limits'] == old['limits']
-    assert all(current['times'][k] == v for k, v in old['times'].items())
 
 
 def test_analysis_reuses_historical_evidence_for_next_topic(configured, monkeypatch):

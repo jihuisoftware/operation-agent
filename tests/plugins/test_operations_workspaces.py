@@ -7,6 +7,30 @@ from plugins.operations.workspaces import Workspaces
 from plugins.operations.policy import DEFAULT
 
 
+def test_fresh_profile_uses_topic_storage_and_never_imports_a_previous_database(tmp_path):
+    from plugins.operations.store import Store
+    previous = Store(tmp_path / 'data.db')
+    previous.put('source', {'title': '旧开发资料'}, 'old-source')
+    directory = Workspaces(tmp_path)
+    fresh = directory.store()
+    assert fresh.path.parent == tmp_path / 'topics'
+    assert fresh.policy()[0] == 0 and not fresh.policy()[1]['enabled']
+    assert fresh.objects('source') == []
+    directory.create('第二业务')
+    with pytest.raises(ValueError, match='请选择业务和主题'):
+        directory.store()
+
+
+def test_outdated_configuration_is_rejected_without_upgrading(tmp_path):
+    from plugins.operations.store import Store
+    store = Store(tmp_path / 'topic.db')
+    policy = deepcopy(DEFAULT)
+    policy['schema_version'] = 3
+    with pytest.raises(ValueError, match='旧运营规则'):
+        store.configure(policy, 0)
+    assert store.policy()[0] == 0
+
+
 def test_same_names_isolate_settings_records_and_profile(tmp_path):
     directory = Workspaces(tmp_path / 'first')
     left = directory.create('同名业务')
@@ -64,30 +88,6 @@ def test_account_shared_claim_and_pause_boundary(tmp_path):
         check_running(b)
 
 
-def test_legacy_migration_keeps_provenance_and_quarantines_unknown_rows(tmp_path):
-    from plugins.operations.store import Store
-    original = Store(tmp_path / 'data.db')
-    policy = deepcopy(DEFAULT)
-    policy.update(topic='历史主题', goal='研究')
-    original.configure(policy, 0)
-    original.put('source', {'scope_topic': '历史主题', 'day': '2026-11-02', 'text': '甲'}, 'historical')
-    policy['topic'] = '当前主题'
-    original.configure(policy, 1)
-    original.put('source', {'scope_topic': '当前主题', 'day': '2026-11-02', 'text': '乙'}, 'current')
-    original.put('source', {'text': '归属不明'}, 'unassigned')
-    directory = Workspaces(tmp_path)
-    current = directory.store()
-    assert {s['id'] for s in current.objects('source')} == {'current'}
-    topics = directory.catalog()['topics']
-    archive = next(t for t in topics if t['name'] == '历史主题')
-    unknown = next(t for t in topics if t['name'] == '历史待归属')
-    assert archive['archived'] and unknown['archived']
-    assert directory.store(archive['business_id'], archive['id']).objects('source')[0]['id'] == 'historical'
-    assert directory.store(unknown['business_id'], unknown['id']).objects('source')[0]['id'] == 'unassigned'
-    assert (tmp_path / 'before-workspaces.db').exists()
-    again = Workspaces(tmp_path)
-    assert len(again.catalog()['topics']) == len(topics)
-    assert again.store().objects('source')[0]['id'] == 'current'
 
 
 def test_topic_rename_keeps_organized_evidence_and_references(tmp_path):
@@ -145,24 +145,3 @@ def test_explicit_source_reference_preserves_picture_and_origin_only_inside_busi
     assert b.objects('source_image')[0]['path'] == 'reference-pictures/original.png'
     with pytest.raises(ValueError, match='不存在'):
         reference_source(directory.store(other['business_id'], other['topic_id']), first['topic_id'], 'source')
-
-
-def test_failed_migration_preserves_original_and_can_retry(tmp_path, monkeypatch):
-    from plugins.operations.store import Store
-    from plugins.operations import workspace_migration
-    original = Store(tmp_path / 'data.db')
-    original.configure({**deepcopy(DEFAULT), 'topic': '当前主题'}, 0)
-    original.put('source', {'scope_topic': '历史主题', 'text': '保留的来源'}, 'historical')
-    directory = Workspaces(tmp_path)
-    def fail_prune(*args):
-        raise RuntimeError('模拟迁移写入中断')
-    with monkeypatch.context() as patch:
-        patch.setattr(workspace_migration, 'prune', fail_prune)
-        with pytest.raises(RuntimeError, match='迁移写入中断'):
-            directory.store()
-        with directory.connection() as db:
-            assert not db.execute("SELECT 1 FROM preferences WHERE id='migration-complete'").fetchone()
-        assert original.objects('source')[0]['id'] == 'historical'
-    directory.store()
-    archive = next(topic for topic in directory.catalog()['topics'] if topic['name'] == '历史主题')
-    assert directory.store(archive['business_id'], archive['id']).objects('source')[0]['id'] == 'historical'

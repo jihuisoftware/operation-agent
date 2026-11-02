@@ -37,7 +37,7 @@ def read(store, action_id):
         saved = db.execute("SELECT data FROM objects WHERE id=? AND kind='publication_snapshot'", (identity,)).fetchone()
     if saved:
         return json.loads(saved[0])
-    return {'legacy': True, 'account_id': action['account_id'], 'content': action.get('content', {}), 'assets': [], 'sources': []}
+    raise ValueError('发布快照不存在')
 
 
 def asset_bytes(row):

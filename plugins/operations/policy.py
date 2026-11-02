@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime, UTC
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
-from .modules import TIMES, ACTION_MODULE, upgrade
+from .modules import TIMES, ACTION_MODULE
 from .business_themes import validate_business_selection
 
 LIMITS = {"source": 10_000, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "follow": 5}
@@ -34,7 +34,9 @@ def validate_policy(value):
     if not isinstance(value, dict) or set(value) - set(DEFAULT):
         raise ValueError("未知运营配置字段")
     result = deepcopy(DEFAULT)
-    result.update(upgrade(value))
+    if value.get('schema_version', 5) != 5:
+        raise ValueError('不支持旧运营规则，请重新配置')
+    result.update(value)
     for key in ("enabled", "paused"):
         if not isinstance(result[key], bool):
             raise ValueError(f"{key} 必须是布尔值")

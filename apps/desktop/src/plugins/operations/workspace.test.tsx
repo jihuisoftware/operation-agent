@@ -22,8 +22,8 @@ const first = { business_id: 'a', topic_id: 'one' }, second = { business_id: 'b'
 
 const catalog = {
   businesses: [{ id: 'a', name: '甲业务', category: '', archived: 0, paused: 0, account: 'aa' }, { id: 'b', name: '乙业务', category: '', archived: 0, paused: 0, account: 'bb' }],
-  topics: [{ id: 'one', business_id: 'a', name: '同名主题', archived: 0, legacy: 1 }, { id: 'two', business_id: 'b', name: '同名主题', archived: 0, legacy: 0 }],
-  accounts: [{ id: 'aa', legacy: 1, identity: '', conflict: '', held: 0 }, { id: 'bb', legacy: 0, identity: '', conflict: '', held: 0 }], paused: false
+  topics: [{ id: 'one', business_id: 'a', name: '同名主题', archived: 0 }, { id: 'two', business_id: 'b', name: '同名主题', archived: 0 }],
+  accounts: [{ id: 'aa', identity: '', conflict: '', held: 0 }, { id: 'bb', identity: '', conflict: '', held: 0 }], paused: false
 }
 
 afterEach(() => { cleanup(); $workspaces.set({}); $workspaceDirty.set({}); requestOwner.set(owner); vi.clearAllMocks() })
@@ -85,6 +85,24 @@ it('requires discarding unsaved configuration before changing business', async (
   expect($workspaces.get()[ownerKey(host.state.requestOwner.get())].selected).toEqual(first)
   fireEvent.click(screen.getByRole('button', { name: '放弃修改并切换' }))
   expect($workspaces.get()[ownerKey(owner)].selected).toEqual(second)
+})
+
+it('lets a reset workspace recover from a stale record URL without loading old data', async () => {
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/workspaces') { return catalog }
+
+    if (path.startsWith('/policy?business_id=deleted')) { throw new Error('业务或主题不存在') }
+
+    if (path.startsWith('/state')) { return { label: '新的空白业务' } }
+
+    return {}
+  })
+
+  const ctx = { rest } as unknown as PluginContext
+  render(<MemoryRouter initialEntries={['/?business_id=deleted&topic_id=deleted']}><WorkspacePage ctx={ctx}>{scoped => <Probe ctx={scoped} />}</WorkspacePage></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: '返回当前业务' }))
+  expect(await screen.findByText('新的空白业务')).toBeTruthy()
+  expect(rest.mock.calls.filter(([path]) => path.startsWith('/state')).every(([path]) => path.includes('business_id=a&topic_id=one'))).toBe(true)
 })
 
 it('drops the previous Profile URL scope when switching Profiles', async () => {

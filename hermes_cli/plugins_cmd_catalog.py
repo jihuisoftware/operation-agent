@@ -760,7 +760,8 @@ def _render_entries(entries: list[PluginCatalogEntry], console) -> None:
 def cmd_search(term: str = "", *, json_output: bool = False) -> None:
     """Search the curated catalog (name/description/declared tools); empty term = browse everything."""
     from hermes_cli.plugins_cmd import _console
-    matches = filter_entries(load_catalog_live(), term)
+    from hermes_cli.plugin_catalog_scope import browse_catalog
+    matches = filter_entries(browse_catalog(load_catalog_live()), term)
     if json_output:
         print(json.dumps({"query": term, "results": [
             {**e.to_dict(), "needs_newer_hermes": catalog_hermes_error(e)} for e in matches]}, indent=2))
@@ -862,6 +863,8 @@ def installed_catalog_state(installed: dict[str, dict[str, Any]]) -> dict[str, A
     and registry key) of a discovered plugin to ``{"dir", "runtime_status"}``. A catalog name rarely
     equals the manifest name (``hermes-plugin-x`` vs ``x``), so installs are matched through the
     sidecar's ``catalog_name`` first and by name only as a fallback."""
+    from hermes_cli.plugin_catalog_scope import catalog_entry_visible
+
     by_catalog_name: dict[str, dict[str, Any]] = {}
     for local in installed.values():
         sidecar = catalog_install_record(local["dir"])
@@ -870,6 +873,8 @@ def installed_catalog_state(installed: dict[str, dict[str, Any]]) -> dict[str, A
     entries = []
     for entry in load_catalog_live():
         local = by_catalog_name.get(entry.name) or installed.get(entry.name)
+        if local is None and not catalog_entry_visible(entry):
+            continue
         sidecar = local.get("sidecar") if local else None
         installed_sha = str(sidecar["sha"]) if sidecar and sidecar.get("sha") else None
         entries.append({

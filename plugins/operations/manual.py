@@ -10,12 +10,11 @@ LABELS = {"research": "信息采集", "organize": "资料整理与归类", "anal
 
 def cron_execution(store):
     from cron.executions import live_inflight_execution
-    schedules = store.objects("schedule")
-    if not schedules and store.workspace:
-        schedules = store.workspace.store().objects('schedule')
-    if not schedules:
+    from .scheduling import schedule_id
+    identity = schedule_id(store)
+    if not identity:
         return None
-    execution = live_inflight_execution(schedules[0]["job_id"])
+    execution = live_inflight_execution(identity)
     # The Python script is a direct child of the owning Cron worker. A CLI tick or
     # another process must not borrow an unrelated/manual execution's authority.
     if execution and execution["status"] == "running" and execution["pid"] == os.getppid():

@@ -14,10 +14,10 @@ ACTIVE_SCOPE = ContextVar('operations_scope', default=None)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS businesses(id TEXT PRIMARY KEY,name TEXT NOT NULL,category TEXT NOT NULL DEFAULT '',archived INTEGER NOT NULL DEFAULT 0,paused INTEGER NOT NULL DEFAULT 0,account TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS topics(id TEXT PRIMARY KEY,business_id TEXT NOT NULL REFERENCES businesses(id),name TEXT NOT NULL,file TEXT NOT NULL UNIQUE,archived INTEGER NOT NULL DEFAULT 0,legacy INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS topics(id TEXT PRIMARY KEY,business_id TEXT NOT NULL REFERENCES businesses(id),name TEXT NOT NULL,file TEXT NOT NULL UNIQUE,archived INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS topics_business ON topics(business_id,archived);
 CREATE TABLE IF NOT EXISTS preferences(id TEXT PRIMARY KEY,data TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY,legacy INTEGER NOT NULL DEFAULT 0,identity TEXT NOT NULL DEFAULT '',conflict TEXT NOT NULL DEFAULT '',held INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY,identity TEXT NOT NULL DEFAULT '',conflict TEXT NOT NULL DEFAULT '',held INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS charges(id TEXT PRIMARY KEY,day TEXT NOT NULL,kind TEXT NOT NULL,amount INTEGER NOT NULL,topic_id TEXT NOT NULL,account_id TEXT NOT NULL DEFAULT '');
 CREATE INDEX IF NOT EXISTS charges_day ON charges(day,kind,account_id);
 CREATE TABLE IF NOT EXISTS account_claims(account_id TEXT NOT NULL,kind TEXT NOT NULL,target TEXT NOT NULL,topic_id TEXT NOT NULL,action_id TEXT NOT NULL,PRIMARY KEY(account_id,kind,target));
@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS account_holds(account_id TEXT PRIMARY KEY,worker TEXT
 CREATE TABLE IF NOT EXISTS requests(id TEXT NOT NULL,topic_id TEXT NOT NULL,kind TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',detail TEXT NOT NULL DEFAULT '',PRIMARY KEY(topic_id,id));
 CREATE TABLE IF NOT EXISTS scheduled_queue(topic_id TEXT NOT NULL,stage TEXT NOT NULL,due TEXT NOT NULL,PRIMARY KEY(topic_id,stage));
 CREATE TABLE IF NOT EXISTS resources(business_id TEXT NOT NULL,kind TEXT NOT NULL,id TEXT NOT NULL,data TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(business_id,kind,id));
-CREATE TABLE IF NOT EXISTS history_assignments(source_topic TEXT NOT NULL,record_table TEXT NOT NULL,record_id TEXT NOT NULL,target_topic TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(source_topic,record_table,record_id));
 """
 
 
@@ -41,7 +40,10 @@ class Workspaces:
         self.root.mkdir(parents=True, exist_ok=True)
         self.path = self.root / 'workspaces.db'
         with self.connection() as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='topics'").fetchone() and db.execute('PRAGMA user_version').fetchone()[0] != 1:
+                raise ValueError('开发数据格式已变化，请清理运营数据后重新开始')
             db.executescript(SCHEMA)
+            db.execute('PRAGMA user_version=1')
             db.execute('BEGIN IMMEDIATE')
             if not db.execute('SELECT 1 FROM topics').fetchone():
                 self._bootstrap(db)
@@ -60,26 +62,17 @@ class Workspaces:
     def _bootstrap(self, db):
         from .policy import DEFAULT
         policy = DEFAULT
-        original = self.root / 'data.db'
-        if original.exists():
-            with sqlite3.connect(original) as source:
-                if source.execute("SELECT 1 FROM sqlite_master WHERE name='settings'").fetchone():
-                    row = source.execute('SELECT data FROM settings WHERE id=1').fetchone()
-                    policy = json.loads(row[0]) if row else DEFAULT
-                backup = self.root / 'before-workspaces.db'
-                if not backup.exists():
-                    with sqlite3.connect(backup) as target:
-                        source.backup(target)
-        db.execute("INSERT INTO accounts(id,legacy) VALUES ('original-account',1)")
-        db.execute("INSERT INTO businesses(id,name,category,account) VALUES ('original-business',?,?,'original-account')", ('原有业务' if original.exists() else '我的业务', policy.get('business_theme', '')))
-        db.execute("INSERT INTO topics(id,business_id,name,file,legacy) VALUES ('original-topic','original-business',?,'data.db',1)", (policy.get('topic') or '未设置主题',))
+        business, topic, account = (uuid.uuid4().hex for _ in range(3))
+        db.execute('INSERT INTO accounts(id) VALUES (?)', (account,))
+        db.execute('INSERT INTO businesses(id,name,category,account) VALUES (?,?,?,?)', (business, '我的业务', '', account))
+        db.execute('INSERT INTO topics(id,business_id,name,file) VALUES (?,?,?,?)', (topic, business, '未设置主题', f'topics/{topic}.db'))
         db.execute("INSERT INTO preferences VALUES ('limits',?)", (json.dumps({'source': policy['limits']['source'], 'model': policy['model_calls'], '_timezone': policy['timezone'], **{k: v for k, v in policy['limits'].items() if k != 'source'}}),))
 
     def catalog(self):
         with self.connection() as db:
             selection = db.execute("SELECT data FROM preferences WHERE id='selection'").fetchone()
             return {'businesses': [dict(r) for r in db.execute('SELECT * FROM businesses ORDER BY rowid')],
-                    'topics': [dict(r) for r in db.execute('SELECT id,business_id,name,archived,legacy FROM topics ORDER BY rowid')],
+                    'topics': [dict(r) for r in db.execute('SELECT id,business_id,name,archived FROM topics ORDER BY rowid')],
                     'accounts': [dict(r) for r in db.execute('SELECT * FROM accounts')],
                     'paused': bool(db.execute("SELECT 1 FROM preferences WHERE id='paused' AND data='true'").fetchone()),
                     'selection': json.loads(selection[0]) if selection else None}
@@ -88,8 +81,12 @@ class Workspaces:
         if bool(business) != bool(topic):
             raise ValueError('业务与主题必须同时指定')
         with self.connection() as db:
-            row = db.execute('SELECT t.*,b.account,b.paused,b.archived AS business_archived,b.name AS business_name FROM topics t JOIN businesses b ON b.id=t.business_id WHERE ' +
-                             ('t.id=? AND b.id=?' if topic else 't.legacy=1'), (topic, business) if topic else ()).fetchone()
+            if not topic:
+                choices = db.execute('SELECT id,business_id FROM topics WHERE archived=0').fetchall()
+                if len(choices) != 1:
+                    raise ValueError('请选择业务和主题，并同时传入 business_id 与 topic_id')
+                topic, business = choices[0]
+            row = db.execute('SELECT t.*,b.account,b.paused,b.archived AS business_archived,b.name AS business_name FROM topics t JOIN businesses b ON b.id=t.business_id WHERE t.id=? AND b.id=?', (topic, business)).fetchone()
         if not row:
             raise ValueError('业务或主题不存在于当前 Profile')
         return dict(row)

@@ -28,10 +28,10 @@ def check(store, policy):
 
 def budget(store, day):
     saved = load(store, 'collection-budget:' + day)
-    return saved['used'] if saved else len(store.objects('source', day))
+    return saved['used'] if saved else 0
 
 
-def reserve(store, policy, day, url, previous):
+def reserve(store, policy, day, url):
     """Charge before network I/O; a crash does not refund an attempted request."""
     check(store, policy)
     identity = 'collection-attempt:' + hashlib.sha256(f'{day}:{url}'.encode()).hexdigest()
@@ -41,13 +41,12 @@ def reserve(store, policy, day, url, previous):
         if current != policy:
             raise ValueError('运营规则变更，停止采集')
         row = db.execute('SELECT data FROM objects WHERE id=?', (identity,)).fetchone()
-        attempts = json.loads(row[0])['attempts'] if row else (previous or {}).get('attempts', 1 if previous else 0)
+        attempts = json.loads(row[0])['attempts'] if row else 0
         if attempts >= 3:
             return None
         key = 'collection-budget:' + day
         saved = db.execute('SELECT data FROM objects WHERE id=?', (key,)).fetchone()
-        used = json.loads(saved[0])['used'] if saved else db.execute(
-            "SELECT count(*) FROM objects WHERE kind='source' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
+        used = json.loads(saved[0])['used'] if saved else 0
         if used >= policy['limits']['source']:
             return None
         from .workspace_execution import charge

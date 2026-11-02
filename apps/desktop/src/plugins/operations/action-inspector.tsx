@@ -5,7 +5,6 @@ import type { RecordRow } from './types'
 
 interface FinalSnapshot {
   id?: string
-  legacy?: boolean
   account_id: string
   policy_version?: number
   created?: string
@@ -105,7 +104,6 @@ function SnapshotView({ ctx, owner, row, snapshot, result }: { ctx: PluginContex
         {showSnapshot && <div className="space-y-3 py-3">
           <p>账号：{snapshot.account_id} · 规则 v{snapshot.policy_version ?? '未知'}</p>
           {snapshot.created && <p>保存时间：{formatTimestamp(snapshot.created)}</p>}
-          {snapshot.legacy && <p>历史任务未保存完整快照，以下仅展示原动作中的内容。</p>}
           <h3 className="font-semibold">{snapshot.content.title}</h3>
           <p className="whitespace-pre-wrap">{snapshot.content.body}</p>
           <div className="grid grid-cols-2 gap-3">

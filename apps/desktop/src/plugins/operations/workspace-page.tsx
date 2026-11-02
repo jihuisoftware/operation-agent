@@ -2,7 +2,7 @@ import { Button, type CronBlueprintOwner, host, type PluginContext, useValue } f
 import { type ReactNode, useEffect, useMemo } from 'react'
 
 import { useWorkspaceRouting } from './workspace-routing'
-import { $workspaces, loadWorkspaces, ownerKey, scopedContext, scopeKey, type WorkspaceState } from './workspace-state'
+import { $workspaces, chooseScope, loadWorkspaces, ownerKey, scopedContext, scopeKey, type WorkspaceState } from './workspace-state'
 
 export function WorkspacePage({ ctx, children, owner: explicitOwner }: { ctx: PluginContext; children: (ctx: PluginContext) => ReactNode; owner?: CronBlueprintOwner }) {
   const active = useValue(host.state.requestOwner)
@@ -19,7 +19,7 @@ export function WorkspacePage({ ctx, children, owner: explicitOwner }: { ctx: Pl
 
   if (!route.ready) { return <p className="p-4">正在确认记录归属…</p> }
 
-  if (route.error) { return <div className="space-y-2 p-4" role="alert">{route.error}{route.choices.map(choice => <Button key={choice.topic_id} onClick={() => route.pick(choice)}>{state?.catalog?.businesses.find(b => b.id === choice.business_id)?.name} / {state?.catalog?.topics.find(t => t.id === choice.topic_id)?.name}</Button>)}</div> }
+  if (route.error) { return <div className="space-y-2 p-4" role="alert"><p>{route.error}</p><Button onClick={() => chooseScope(owner, selected)}>返回当前业务</Button></div> }
 
   return <div className="flex h-full min-h-0 flex-col" key={scopeKey(owner, selected)}><ScopeHeader state={state} /><div className="min-h-0 flex-1 overflow-auto">{children(scoped)}</div></div>
 }

@@ -57,13 +57,9 @@ The repo ships these bundled plugins under `plugins/`. All are opt-in — enable
 |---|---|---|
 | `disk-cleanup` | hooks + slash command | Auto-track ephemeral files and clean them on session end |
 | `security-guidance` | hooks | Pattern-match dangerous code on `write_file`/`patch` and append a security warning (or block) — 25 rules (Apache-2.0 fork of Anthropic's `claude-plugins-official` patterns) |
-| `teams_pipeline` | standalone | Microsoft Teams meeting pipeline — Graph-backed, transcript-first meeting summaries |
-| `google_meet` | standalone | Join Meet calls, live-caption transcription, optional realtime duplex audio |
 | `image_gen/openai` | image backend | OpenAI GPT Image 2 and 2.5 Flare/Sunburst generation and editing (API key) |
 | `image_gen/openai-codex` | image backend | OpenAI image generation via Codex OAuth |
 | `image_gen/xai` | image backend | xAI `grok-2-image` backend |
-| `hermes-achievements` | dashboard tab | Steam-style collectible badges generated from your real Hermes session history |
-| `kanban/dashboard` | dashboard tab | Kanban board UI for the multi-agent dispatcher — tasks, comments, fan-out, board switching. See [Kanban Multi-Agent](./kanban.md). |
 
 Memory providers (`plugins/memory/*`) and context engines (`plugins/context_engine/*`) are listed separately on [Memory Providers](./memory-providers.md) — they're managed through `hermes memory` and `hermes plugins` respectively. The full per-plugin detail for the two long-running hooks-based plugins follows.
 
@@ -220,90 +216,6 @@ gateway:
 | `max_turns` | `0` | Rotate after every N completed turns; `0` disables the cap. |
 
 Both defaults preserve one session scope for the full session. Rotated spans retain the same `session_id` and add `hermes.session.segment` plus `hermes.session.segment_reason` (`compaction` or `max_turns`).
-
-### google_meet
-
-Lets the agent **join, transcribe, and participate in Google Meet calls** — take notes on a meeting, summarize the back-and-forth after, follow up on specific points, and (optionally) speak replies back into the call via TTS.
-
-**What it adds:**
-
-- A headless virtual participant that joins a Meet URL using browser automation
-- Live transcription derived from Meet's own live captions (the bot never decodes the meeting audio, so no STT billing — and captions are lossy and English-biased)
-- A `meet_join` / `meet_status` / `meet_transcript` / `meet_leave` / `meet_say` toolset the agent invokes to join calls, poll the live transcript, and act on what it heard
-- Post-meeting artifacts (transcript, status) saved under `~/.hermes/workspace/meetings/<meeting_id>/`
-
-**Setup:**
-
-```bash
-hermes plugins enable google_meet
-hermes meet setup   # preflight: playwright, chromium, auth file
-hermes meet auth    # opens a browser to sign into Google and saves session state —
-                    # needs a Google account with Meet access. Host approval may be
-                    # required if the meeting enforces "only invited participants can join".
-```
-
-Usage from chat:
-
-> "Join meet.google.com/abc-defg-hij and take notes. After the call, send me a summary with action items."
-
-The agent kicks off the meeting join, streams the transcription back into its context as the call proceeds, and produces a structured summary when the meeting ends (or when you tell it to stop).
-
-**Realtime mode (`mode='realtime'`) is speak-only on the audio side.** The bot's replies are synthesized by OpenAI Realtime and played into the call through a virtual microphone; what it *hears* is still the caption stream, not the meeting audio — nothing from the call is sent to the Realtime session. `meet_status` reports `micState` (`unmuted`, `unmuted_clicked` when the bot had to unmute itself after admission, or `unknown` when Meet's toggle was not found) so a silent bot can be diagnosed.
-
-**When to use it:** recurring standups where you want a bot to transcribe + summarize for async attendees; deposition-style interviews where you want structured notes; any case where you'd otherwise need Fireflies / Otter / Grain. When you'd rather not have an AI listening in — don't enable it.
-
-**Disabling:** `hermes plugins disable google_meet`. Any saved transcripts stay in `~/.hermes/workspace/meetings/` until you remove them.
-
-### hermes-achievements
-
-Adds a **Steam-style achievements tab to the dashboard** — 60+ collectible, tiered badges generated from your real Hermes session history. Tool-chain feats, debugging patterns, vibe-coding streaks, skill/memory usage, model/provider variety, lifestyle quirks (weekend and night sessions). Originally authored by [@PCinkusz](https://github.com/PCinkusz) as an external plugin; brought in-tree so it stays in lockstep with Hermes feature changes.
-
-**How it works:**
-
-- Scans your entire `~/.hermes/state.db` session history on the dashboard backend
-- Per-session stats are cached by `(started_at, last_active)` fingerprint, so only new or changed sessions re-analyze on subsequent scans
-- First-ever scan runs in a background thread — the dashboard never blocks waiting for it, even on databases with thousands of sessions
-- Unlock state is persisted to `$HERMES_HOME/plugins/hermes-achievements/state.json`
-
-**Tier progression:** Copper → Silver → Gold → Diamond → Olympian. Each card exposes a "What counts" section listing the exact metric being tracked.
-
-**Achievement states:**
-
-| State | Meaning |
-|---|---|
-| Unlocked | At least one tier achieved |
-| Discovered | Known achievement, progress visible, not yet earned |
-| Secret | Hidden until Hermes detects the first related signal in your history |
-
-**API** — routes mount under `/api/plugins/hermes-achievements/`:
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /achievements` | Full catalog with per-badge unlock state (returns a pending placeholder while the first cold scan is running) |
-| `GET /scan-status` | State of the background scanner: `idle` / `running` / `failed`, last duration, run count |
-| `GET /recent-unlocks` | Twenty most recently unlocked badges, newest first |
-| `GET /sessions/{id}/badges` | Badges earned primarily in one specific session |
-| `POST /rescan` | Manual synchronous rescan (blocks; use when the user clicks the rescan button) |
-| `POST /reset-state` | Clear unlock history and cached snapshot |
-
-**State files** — live under `$HERMES_HOME/plugins/hermes-achievements/`:
-
-| File | Contents |
-|---|---|
-| `state.json` | Unlock history: which badges you've earned and when. Stable across Hermes updates. |
-| `scan_snapshot.json` | Last completed scan payload (served immediately on dashboard load) |
-| `scan_checkpoint.json` | Per-session stats cache keyed by fingerprint (makes warm rescans fast) |
-
-**Performance notes:**
-
-- Cold scan on ~8,000 sessions takes a few minutes. It runs in a background thread on first dashboard request; the UI sees a pending placeholder and polls `/scan-status`.
-- **Incremental results during a cold scan** — the scanner publishes a partial snapshot every ~250 sessions so each dashboard refresh shows more badges unlocked as the scan progresses. No minute-long stare at zeros.
-- Warm rescan reuses per-session stats for every session whose `started_at` + `last_active` fingerprint matches the checkpoint — completes in seconds even on large histories.
-- The in-memory snapshot TTL is 120s; stale requests serve the old snapshot immediately and kick a background refresh. You never wait on a spinner just because TTL expired.
-
-**Enabling:** Nothing to enable — `hermes-achievements` is a dashboard-only plugin (no lifecycle hooks, no model-visible tools). It auto-registers as a tab in `hermes dashboard` on first launch. The `plugins.enabled` config only gates lifecycle/tool plugins; dashboard plugins are discovered purely via their `dashboard/manifest.json`.
-
-**Opting out:** Delete or rename `plugins/hermes-achievements/dashboard/manifest.json`, or override it with a user plugin of the same name in `~/.hermes/plugins/hermes-achievements/` that ships no dashboard. The plugin's state files under `$HERMES_HOME/plugins/hermes-achievements/` survive — reinstalling preserves your unlock history.
 
 ## Adding a bundled plugin
 

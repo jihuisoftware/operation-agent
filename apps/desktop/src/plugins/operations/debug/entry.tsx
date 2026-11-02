@@ -5,9 +5,9 @@ import { DebugPage } from './panel'
 
 export function registerDebug(ctx: PluginContext, wrap: (page: (scoped: PluginContext) => ReactNode) => ReactNode) {
   const activity = createTaskActivity(host.state.requestOwner, async owner => {
-    const catalog = await ctx.rest<{ runs: { state: string }[] }>('/debug', { owner, timeoutMs: 10000 })
+    const catalog = await ctx.rest<{ items: { debug_running: number }[] }>('/workspaces/summary', { owner, timeoutMs: 10000 })
 
-    return { running: catalog.runs.filter(run => run.state === 'running').length }
+    return { running: catalog.items.reduce((total, item) => total + item.debug_running, 0) }
   })
 
   ctx.register({ id: 'debug', area: ROUTES_AREA, title: '任务调试', data: { path: '/operations-debug' }, render: () => wrap(scoped => <DebugPage ctx={scoped} />) })

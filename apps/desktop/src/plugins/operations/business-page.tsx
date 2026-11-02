@@ -43,7 +43,7 @@ export function BusinessPage({ ctx }: { ctx: PluginContext }) {
         !error && <p>正在读取业务数据…</p>
       )}
       <details className="mt-4">
-        <summary className="cursor-pointer">兼容指标 JSON 导入</summary>
+        <summary className="cursor-pointer">指标 JSON 导入</summary>
         <NewRecord ctx={ctx} kind="metric" onError={setError} onSaved={async () => setRevision(value => value + 1)} />
       </details>
     </section>

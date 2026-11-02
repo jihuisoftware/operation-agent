@@ -11,14 +11,17 @@ def dispatch(now=None):
     now = now or datetime.now(UTC)
     catalog = directory.catalog()
     from .manual import cron_request_id
-    original = directory.store()
-    legacy_request = cron_request_id(original)
-    if legacy_request:
+    topics = [t for t in catalog['topics'] if not t['archived']]
+    first = directory.store(topics[0]['business_id'], topics[0]['id']) if topics else None
+    fire = cron_request_id(first) if first else None
+    if fire:
         with directory.connection() as db:
             pending = db.execute("SELECT 1 FROM requests WHERE state IN ('pending','running')").fetchone()
         if not pending:
-            request_run(original, legacy_request)
-    topics = [t for t in catalog['topics'] if not t['archived']]
+            for topic in topics:
+                store = directory.store(topic['business_id'], topic['id'])
+                if store.policy()[1]['enabled']:
+                    request_run(store, fire)
     with directory.connection() as db:
         row = db.execute("SELECT data FROM preferences WHERE id='cursor'").fetchone()
         cursor = int(row[0]) if row else 0

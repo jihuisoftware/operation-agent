@@ -71,7 +71,6 @@ const states: Record<string, string> = {
   cancelled: '已取消',
   pending: '等待执行',
   blocked: '受阻',
-  migrated: '已迁移',
   needs_attention: '待处理',
   queued: '排队中',
   interrupted: '已中断',

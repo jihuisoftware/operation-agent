@@ -103,10 +103,9 @@ def test_parallel_reservations_share_quota_and_pause_stops_new_reads(tmp_path, m
     import pytest
     from plugins.operations.collection_ledger import reserve
     store, policy, _ = setup(tmp_path, monkeypatch, quota=2)
-    # Simulate an existing legacy source, before the attempt budget was introduced.
-    store.put('source', {'day': '2026-11-01', 'url': 'https://example.org/legacy', 'text': '旧资料'})
+    reserve(store, policy, '2026-11-01', 'https://example.org/first')
     def request(index):
-        return reserve(store, policy, '2026-11-01', f'https://example.org/{index}', None)
+        return reserve(store, policy, '2026-11-01', f'https://example.org/{index}')
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(request, range(4)))
     assert sum(result is not None for result in results) == 1

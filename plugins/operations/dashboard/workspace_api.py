@@ -11,12 +11,19 @@ async def scope_dependency(request: Request):
     business = request.query_params.get('business_id')
     topic = request.query_params.get('topic_id')
     try:
-        scope = Workspaces().resolve(business, topic)
+        directory = Workspaces()
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    if not business and not topic and request.url.path.endswith(('/workspaces', '/workspaces/summary', '/workspaces/worker/poll', '/workspaces/selection')):
+        yield
+        return
+    try:
+        scope = directory.resolve(business, topic)
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
-    if (scope['archived'] or scope['business_archived']) and request.method not in {'GET', 'HEAD'} and not request.url.path.endswith(('/workspaces', '/workspaces/locate', '/workspaces/worker/poll', '/workspaces/selection', '/resolve')):
-        raise HTTPException(409, '已归档内容为只读，请在业务管理中处理历史归属')
-    token = ACTIVE_SCOPE.set((business, topic))
+    if (scope['archived'] or scope['business_archived']) and request.method not in {'GET', 'HEAD'} and not request.url.path.endswith(('/workspaces', '/workspaces/worker/poll', '/workspaces/selection', '/resolve')):
+        raise HTTPException(409, '已归档内容为只读')
+    token = ACTIVE_SCOPE.set((scope['business_id'], scope['id']))
     try:
         yield
     finally:
@@ -72,7 +79,8 @@ def summary():
             counts = {r[0]: r[1] for r in db.execute('SELECT kind,count(*) FROM objects GROUP BY kind')}
             running = [dict(r) for r in db.execute("SELECT * FROM runs WHERE state='running'")]
             latest = db.execute('SELECT * FROM runs ORDER BY started DESC LIMIT 1').fetchone()
-        items.append({**topic, 'version': version, 'enabled': policy['enabled'], 'paused': policy['paused'] or directory.blocked(store.scope), 'counts': counts, 'running': running, 'latest': dict(latest) if latest else None})
+            debug_running = db.execute("SELECT count(*) FROM objects WHERE kind='debug_run' AND json_extract(data,'$.state')='running'").fetchone()[0]
+        items.append({**topic, 'version': version, 'enabled': policy['enabled'], 'paused': policy['paused'] or directory.blocked(store.scope), 'counts': counts, 'running': running, 'debug_running': debug_running, 'latest': dict(latest) if latest else None})
     return {'items': items}
 
 
@@ -87,17 +95,6 @@ def poll_account(body: dict):
         raise HTTPException(404, '账号不存在')
     from ..workspace_broker import poll
     return poll(directory, account, worker, body.get('busy') is True)
-
-
-@router.post('/workspaces/locate')
-def locate(body: dict):
-    directory = Workspaces()
-    matches = []
-    for topic in directory.catalog()['topics']:
-        with directory.store(topic['business_id'], topic['id']).connection() as db:
-            if any(db.execute(f'SELECT 1 FROM {table} WHERE id=?', (body.get('id'),)).fetchone() for table in ('objects', 'runs', 'actions')):
-                matches.append({'business_id': topic['business_id'], 'topic_id': topic['id']})
-    return {'matches': matches}
 
 
 @router.get('/workspaces/references/{topic_id}')
@@ -119,33 +116,6 @@ def reference(body: dict):
         return reference_source(Store(), body['source_topic_id'], body['source_id'])
     except (ValueError, KeyError) as exc:
         raise HTTPException(400, str(exc)) from exc
-
-
-@router.get('/workspaces/history/{source_topic_id}')
-def history_catalog(source_topic_id: str):
-    from ..store import Store
-    from ..workspace_history import catalog
-    try:
-        return catalog(Store(), source_topic_id)
-    except ValueError as exc:
-        raise HTTPException(404, str(exc)) from exc
-
-
-@router.post('/workspaces/history')
-def history_assign(body: dict):
-    from ..store import Store
-    from ..workspace_history import assign
-    try:
-        return assign(Store(), body)
-    except (ValueError, KeyError) as exc:
-        raise HTTPException(400, str(exc)) from exc
-
-
-@router.get('/workspaces/history')
-def history_assigned():
-    from ..store import Store
-    from ..workspace_history import assigned
-    return assigned(Store())
 
 
 @router.post('/workspaces/transfer-inbox')

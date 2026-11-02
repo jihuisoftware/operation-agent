@@ -83,7 +83,7 @@ def daily_report(store, day, delayed=False):
 
 def _consumption(store, day, runs, events, source_count, action_count):
     seconds = sum(max(0, (datetime.fromisoformat(r["ended"]) - datetime.fromisoformat(r["started"])).total_seconds())
-                  for r in runs if r["ended"] and r["state"] != "migrated")
+                  for r in runs if r["ended"])
     lines = ["", "## 数据与消耗", "", f"来源 {source_count} 条；外部动作记录 {action_count} 条。",
              f"模型调用 {sum(e['kind'] == 'model_call' for e in events)} 次；费用未知，不记为零。", f"已结束任务耗时合计 {seconds:.1f} 秒。"]
     for event in events:

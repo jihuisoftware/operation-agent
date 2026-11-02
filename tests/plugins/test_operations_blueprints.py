@@ -9,7 +9,7 @@ import pytest
 from plugins.operations import blueprints, workflow
 from plugins.operations.policy import DEFAULT
 from plugins.operations.runtime import tick
-from plugins.operations.store import Store, encoded
+from plugins.operations.store import Store
 
 
 @pytest.fixture
@@ -116,43 +116,6 @@ def test_removing_module_cancels_queued_action_and_preserves_history(store):
         store.reserve_action({**action, "target": "another"}, 2)
 
 
-def test_old_rules_and_claimed_occurrences_migrate_once_without_replay(store, monkeypatch):
-    from plugins.operations import workflow
-    from unittest.mock import Mock
-    for name in ('research', 'organize', 'topics', 'produce', 'publish'):
-        monkeypatch.setattr(workflow, name, lambda *args: None)
-    interactions = Mock()
-    monkeypatch.setattr(workflow, 'interact', interactions)
-    old = deepcopy(DEFAULT)
-    old.pop("modules")
-    old.pop("schema_version")
-    old.update(enabled=True, topic="旧主题", goal="旧目标", account_id="me")
-    old["allowed"].update(comment=True, dm=True, follow=True, publish=True)
-    old["limits"]["comment"] = 2
-    old["times"] = {"research": ["08:30"], "publish": ["10:10"], "interact": ["11:20"], "report": ["20:00"]}
-    with store.connection() as db:
-        db.execute("UPDATE settings SET version=4,data=?", (encoded(old),))
-    run = store.start_run("2026-10-31", "interact", "11:20", 4)
-    store.finish_run(run, "completed", "旧流程已处理")
-    with store.connection() as db:
-        db.execute("UPDATE runs SET started='2026-10-31T03:20:00+00:00', ended='2026-10-31T03:20:10+00:00' WHERE id=?", (run,))
-    migrated = Store(store.path)
-    version, policy = migrated.policy()
-    assert version == 5
-    assert policy["limits"]["comment"] == 2
-    assert policy["times"]["content"] == ["10:10"]
-    assert all(policy["times"][m] == ["11:20"] for m in ("comments", "dm", "follow"))
-    assert Store(store.path).policy()[0] == 5
-    migrated.claim("desktop", busy=True)
-    tick(migrated, datetime(2026, 10, 31, 3, 21, tzinfo=UTC))
-    interactions.assert_not_called()
-    assert not migrated.snapshot()["actions"]
-    assert any(r["stage"] == "interact" for r in migrated.snapshot()["runs"])
-    assert len([r for r in migrated.snapshot()["runs"] if r["state"] == "migrated"]) == 3
-    from plugins.operations.report import daily_report
-    report = daily_report(migrated, "2026-10-31")["markdown"]
-    assert "已结束任务耗时合计" in report
-    assert next(r for r in migrated.snapshot()["runs"] if r["id"] == run)["ended"] == "2026-10-31T03:20:10+00:00"
 
 
 def test_production_without_images_is_a_draft_and_publishing_never_generates_a_new_post(store, monkeypatch):

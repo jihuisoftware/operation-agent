@@ -17,7 +17,6 @@ import { $workspaceBrowser, $workspaces, loadWorkspaces, type OperationScope, ow
 
 interface WorkerOwner extends ReturnType<typeof host.state.requestOwner.get> {
   account_id?: string
-  legacy_account?: boolean
   business_id?: string
   topic_id?: string
 }
@@ -244,14 +243,14 @@ function AccountWorkers({ ctx, owner, visible }: { ctx: PluginContext; owner: Re
     const business = state?.catalog?.businesses.find(b => b.account === account.id && !b.archived)
     const topic = state?.catalog?.topics.find(t => t.business_id === business?.id && !t.archived)
 
-    return topic ? <OwnedAccountWorker accountId={account.id} businessId={topic.business_id} ctx={ctx} key={account.id} legacy={Boolean(account.legacy)} owner={owner} topicId={topic.id} visible={visible && account.id === selectedAccount} /> : null
+    return topic ? <OwnedAccountWorker accountId={account.id} businessId={topic.business_id} ctx={ctx} key={account.id} owner={owner} topicId={topic.id} visible={visible && account.id === selectedAccount} /> : null
   })}</>
 }
 
-function OwnedAccountWorker({ ctx, owner, accountId, legacy, businessId, topicId, visible }: {
-  ctx: PluginContext; owner: ReturnType<typeof host.state.requestOwner.get>; accountId: string; legacy: boolean; businessId: string; topicId: string; visible: boolean
+function OwnedAccountWorker({ ctx, owner, accountId, businessId, topicId, visible }: {
+  ctx: PluginContext; owner: ReturnType<typeof host.state.requestOwner.get>; accountId: string; businessId: string; topicId: string; visible: boolean
 }) {
-  const scope = useMemo(() => ({ ...owner, account_id: accountId, legacy_account: legacy, business_id: businessId, topic_id: topicId }), [owner, accountId, legacy, businessId, topicId])
+  const scope = useMemo(() => ({ ...owner, account_id: accountId, business_id: businessId, topic_id: topicId }), [owner, accountId, businessId, topicId])
 
   return <Worker ctx={ctx} scope={scope} visible={visible} />
 }

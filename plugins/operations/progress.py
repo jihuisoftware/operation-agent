@@ -29,8 +29,8 @@ def definition(store):
 
 def sync_plan(store, job_id=None):
     from cron.task_history import define
-    schedules = store.objects('schedule')
-    job_id = job_id or (schedules[0]['job_id'] if schedules else None)
+    from .scheduling import schedule_id
+    job_id = job_id or schedule_id(store)
     if job_id:
         define(job_id, definition(store))
 
@@ -46,8 +46,7 @@ def bind(store, now, manual_id):
     steps = planned_steps(store, policy, now, manual_id)
     if store.scope:
         for step in steps:
-            if not store.scope['legacy']:
-                step['id'] = store.scope['id'] + ':' + step['id']
+            step['id'] = store.scope['id'] + ':' + step['id']
             step['title'] = store.scope['business_name'] + ' / ' + policy['topic'] + ' · ' + step['title']
     owner = {'business_id': store.scope['business_id'], 'topic_id': store.scope['id'], 'account_slot': store.scope['account']} if store.scope else {}
     declare(execution['id'], steps, {'topic': policy['topic'], 'goal': policy['goal'],
@@ -103,7 +102,7 @@ def update(store, identity, state, detail, data=None):
         return
     store.event('progress', {'run_id': identity, 'day': row['day'], 'state': state, 'detail': detail, 'data': data or {}})
     if store.execution_id:
-        prefix = store.scope['id'] + ':' if store.scope and not store.scope['legacy'] else ''
+        prefix = store.scope['id'] + ':' if store.scope else ''
         progress(store.execution_id, prefix + f"{row['stage']}:{row['slot']}", state=state, detail=detail, data=data)
 
 

@@ -2,13 +2,13 @@ import { type CronBlueprintOwner, type PluginContext } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 
-import { bindScopeRoute, chooseScope, type OperationScope, ownerKey, type WorkspaceCatalog } from './workspace-state'
+import { bindScopeRoute, chooseScope, ownerKey, type WorkspaceCatalog } from './workspace-state'
 
 export function useWorkspaceRouting(ctx: PluginContext, owner: CronBlueprintOwner, catalog?: WorkspaceCatalog) {
   const [params, setParams] = useSearchParams()
   const query = params.toString()
   const key = ownerKey(owner) + ':' + query
-  const [resolved, setResolved] = useState<{ key: string; error?: string; choices?: OperationScope[] } | null>(null)
+  const [resolved, setResolved] = useState<{ key: string; error?: string } | null>(null)
   const loaded = Boolean(catalog)
   const [previousOwner, setPreviousOwner] = useState(ownerKey(owner))
   const changedOwner = previousOwner !== ownerKey(owner)
@@ -46,21 +46,6 @@ export function useWorkspaceRouting(ctx: PluginContext, owner: CronBlueprintOwne
         await ctx.rest('/policy?' + new URLSearchParams({ business_id: business, topic_id: topic }), { owner })
 
         if (!disposed) { chooseScope(owner, { business_id: business, topic_id: topic }, false) }
-      } else if (values.get('record')) {
-        const result = await ctx.rest<{ matches: OperationScope[] }>('/workspaces/locate', { owner, method: 'POST', body: { id: values.get('record') } })
-
-        if (disposed) { return }
-
-        if (result.matches.length !== 1) {
-          setResolved({ key, error: result.matches.length ? '该记录在多个主题中存在，请选择归属。' : '未找到此记录。', choices: result.matches })
-
-          return
-        }
-
-        const target = result.matches[0]
-        chooseScope(owner, target, false)
-        values.set('business_id', target.business_id); values.set('topic_id', target.topic_id)
-        setParams(values, { replace: true })
       }
 
       if (!disposed) { setResolved({ key }) }
@@ -71,11 +56,5 @@ export function useWorkspaceRouting(ctx: PluginContext, owner: CronBlueprintOwne
     return () => { disposed = true }
   }, [ctx, owner, query, key, loaded, changedOwner, setParams])
 
-  const pick = (scope: OperationScope) => {
-    const next = new URLSearchParams(params)
-    next.set('business_id', scope.business_id); next.set('topic_id', scope.topic_id)
-    setParams(next, { replace: true })
-  }
-
-  return { ready: resolved?.key === key, error: resolved?.key === key ? resolved.error : '', choices: resolved?.choices || [], pick }
+  return { ready: resolved?.key === key, error: resolved?.key === key ? resolved.error : '' }
 }

@@ -41,31 +41,11 @@ def item(day, stage, slot, due, state='pending', execution_id=None):
 def pending_manual(store):
     if store.workspace:
         from .workspace_upcoming import pending
-        queued = pending(store)
-        if queued or not store.scope['legacy']:
-            return queued
-    from cron.executions import live_inflight_execution
-    from cron.task_history import detail
-    from cron.jobs import get_job
-    schedules = store.objects('schedule')
-    if not schedules:
-        return []
-    job = get_job(schedules[0]['job_id'])
-    execution = live_inflight_execution(job['id']) if job else None
-    if not execution or execution['scheduled_instant'] is not None:
-        return []
-    record = detail(job, execution['id'])
-    if store.scope and record['context'].get('topic_id', store.scope['id']) != store.scope['id']:
-        return []
-    day = record['context'].get('day')
-    if not day:
-        return []
-    return [item(day, step['id'].split(':', 1)[0], 'manual:' + execution['id'], execution['claimed_at'],
-                 step['state'], execution['id']) for step in record['steps'] if step['state'] in {'pending', 'cancelled'} and step['id'].split(':', 1)[0] in STEPS]
+        return pending(store)
+    return []
 
 
 def cancel(store, body, now=None):
-    from cron.task_history import cancel_pending_step
     view = upcoming(store, now)
     key = tuple(body.get(k) for k in ('day', 'stage', 'slot', 'execution_id'))
     found = next((s for s in [*view['steps'], *view['manual']]
@@ -84,6 +64,4 @@ def cancel(store, body, now=None):
             db.execute('INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?)',
                        (uuid.uuid4().hex, *key[:3], body['version'], 'cancelled', CANCEL_REASON, stamp, stamp))
             db.execute("INSERT INTO events(at,kind,data) VALUES (?,'step_cancelled',?)", (stamp, json.dumps(found, ensure_ascii=False)))
-    if found['execution_id']:
-        cancel_pending_step(found['execution_id'], f"{found['stage']}:{found['slot']}", CANCEL_REASON)
     return {'state': 'cancelled'}

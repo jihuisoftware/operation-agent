@@ -13,19 +13,17 @@ from . import workflow
 
 
 def ensure_schedule(store):
-    if store.workspace and not store.scope['legacy']:
-        return ensure_schedule(store.workspace.store())
     from cron.jobs import create_job, get_job, list_jobs, resume_job
     from hermes_constants import get_hermes_home
     import hermes_constants
     script = get_hermes_home() / "scripts" / "operations_tick.py"
     # The database lock serializes Desktop/CLI saves; matching the durable script recovers
     # a crash between cron creation and writing the local receipt.
-    with store.connection() as db:
+    from .scheduling import schedule_id, save_schedule
+    with (store.workspace.connection() if store.workspace else store.connection()) as db:
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute("SELECT data FROM objects WHERE kind='schedule' ORDER BY created DESC LIMIT 1").fetchone()
-        import json
-        job = get_job(json.loads(row[0])["job_id"]) if row else None
+        identity = schedule_id(store, db)
+        job = get_job(identity) if identity else None
         if not job:
             job = next((j for j in list_jobs(include_disabled=True) if j.get("script") == str(script) and j.get("no_agent")), None)
         if not job:
@@ -35,19 +33,17 @@ def ensure_schedule(store):
             job = create_job(None, "every 1m", name="每日运营调度", script=str(script), no_agent=True, deliver="local")
         if not job.get("enabled", True):
             job = resume_job(job["id"])
-        db.execute("INSERT OR REPLACE INTO objects VALUES ('schedule', 'schedule', ?, ?)",
-                   (encoded({"job_id": job["id"]}), now_iso()))
+        save_schedule(store, db, job["id"])
     from .progress import sync_plan
     sync_plan(store, job['id'])
     return job["id"]
 
 
 def schedule_state(store):
-    if store.workspace and not store.scope['legacy']:
-        return schedule_state(store.workspace.store())
     from cron.jobs import get_job
-    schedules = store.objects("schedule")
-    job = get_job(schedules[0]["job_id"]) if schedules else None
+    from .scheduling import schedule_id
+    identity = schedule_id(store)
+    job = get_job(identity) if identity else None
     if not job:
         return "missing"
     return "ready" if job.get("enabled", True) else "paused"

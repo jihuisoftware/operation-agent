@@ -14,7 +14,6 @@ import { Button, host } from '@hermes/plugin-sdk'
 import { createRoot } from 'react-dom/client'
 
 import { AccountsPage } from './accounts'
-import { LegacyPage } from './legacy-page'
 import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
@@ -59,15 +58,6 @@ export default {
         id: `${section}-nav`,
         area: SIDEBAR_NAV_AREA,
         data: { path: `/${section}`, label: title, codicon: icon } satisfies SidebarNavContribution
-      })
-    }
-
-    for (const stage of ['analytics', 'industry']) {
-      ctx.register({
-        id: stage,
-        area: ROUTES_AREA,
-        data: { path: `/${stage}` },
-        render: () => <LegacyPage to={`/analysis?tab=${stage}`} />
       })
     }
 
@@ -143,13 +133,6 @@ export default {
       id: 'live-view',
       area: TITLEBAR_AREAS.right,
       render: () => <LiveViewButton />
-    })
-    ctx.register({
-      id: 'workbench',
-      area: ROUTES_AREA,
-      title: '运营管理',
-      data: { path: '/operations' },
-      render: () => <LegacyPage />
     })
     ctx.registerSettingsPage({
       id: 'settings',

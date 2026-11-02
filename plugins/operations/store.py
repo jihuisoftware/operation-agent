@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS platform_logins (platform TEXT NOT NULL, worker TEXT 
  account_id TEXT NOT NULL, checked REAL NOT NULL, PRIMARY KEY(platform, worker));
 CREATE TABLE IF NOT EXISTS platform_login_evidence (platform TEXT NOT NULL, worker TEXT NOT NULL, state TEXT NOT NULL,
  account_id TEXT NOT NULL, checked REAL NOT NULL, PRIMARY KEY(platform, worker));
-INSERT OR IGNORE INTO platform_login_evidence SELECT * FROM platform_logins WHERE state IN ('logged_in','logged_out');
 CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, seen REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS leases (id TEXT PRIMARY KEY, token TEXT NOT NULL, expires REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, at TEXT NOT NULL, kind TEXT NOT NULL, data TEXT NOT NULL);
@@ -45,12 +44,6 @@ class Store:
             scope = workspace.resolve(*(ACTIVE_SCOPE.get() or (None, None)))
             path = workspace.root / scope['file']
         self.workspace, self.scope = workspace, scope
-        if self.scope and not self.scope['legacy']:
-            # Do not let direct debug/API work bypass a failed legacy migration.
-            with workspace.connection() as directory:
-                migrated = directory.execute("SELECT 1 FROM preferences WHERE id='migration-complete'").fetchone()
-            if not migrated:
-                workspace.store()
         self.path = Path(path) if path else None
         if self.path:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,15 +57,13 @@ class Store:
             from .business_store import initialize
             initialize(db)
             db.execute("INSERT OR IGNORE INTO settings VALUES (1,0,?)", (encoded(DEFAULT),))
-        from .migration import migrate
         with self.connection() as db:
-            migrate(db)
+            if json.loads(db.execute('SELECT data FROM settings WHERE id=1').fetchone()[0]).get('schema_version') != 5:
+                raise ValueError('不支持旧运营规则，请清理开发数据后重新开始')
             if self.scope:
                 from .workspace_storage import initialize
                 initialize(db, self.scope)
         from .progress import sync_plan
-        from .workspace_migration import migrate as migrate_workspaces
-        migrate_workspaces(self)
         from .workspace_resources import synchronize
         synchronize(self)
         sync_plan(self)
@@ -115,7 +106,7 @@ class Store:
                 if previous['topic'] != policy['topic']:
                     from .workspace_topics import rename_metadata
                     rename_metadata(db, previous['topic'], policy['topic'])
-                if self.scope['legacy'] and db.execute('SELECT count(*) FROM directory.topics WHERE archived=0').fetchone()[0] == 1:
+                if db.execute('SELECT count(*) FROM directory.topics WHERE archived=0').fetchone()[0] == 1:
                     db.execute("UPDATE directory.preferences SET data=? WHERE id='limits'", (encoded({**policy['limits'], 'model': policy['model_calls'], '_timezone': policy['timezone']}),))
             first_activation = activation and not db.execute("SELECT 1 FROM objects WHERE kind='policy' AND json_extract(data,'$.policy.enabled')=1").fetchone()
             if first_activation:
@@ -243,9 +234,8 @@ class Store:
                 return None
             scoped_target = encoded([action["account_id"], target])
             identity = hashlib.sha256(encoded([action["kind"], action["account_id"], target]).encode()).hexdigest()
-            # Match the durable target too, so pre-account-scoped IDs stay idempotent.
-            if db.execute("SELECT 1 FROM actions WHERE kind=? AND target IN (?,?) AND json_extract(data,'$.account_id')=?",
-                          (action["kind"], target, scoped_target, action["account_id"])).fetchone():
+            if db.execute("SELECT 1 FROM actions WHERE kind=? AND target=? AND json_extract(data,'$.account_id')=?",
+                          (action["kind"], scoped_target, action["account_id"])).fetchone():
                 return None
             if db.execute("SELECT 1 FROM actions WHERE kind=? AND state IN ('unknown','submitted','executing','queued')", (action["kind"],)).fetchone():
                 raise ValueError("同类动作仍有未核对结果，请先处理异常")

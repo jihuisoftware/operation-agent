@@ -1,7 +1,6 @@
 import { Button, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 
-import { WorkspaceHistory } from './workspace-history'
 import { $workspaceDirty, $workspaces, chooseScope, loadWorkspaces, type OperationScope, ownerKey, scopeKey } from './workspace-state'
 
 export function WorkspacePicker({ ctx }: { ctx: PluginContext }) {
@@ -13,7 +12,6 @@ export function WorkspacePicker({ ctx }: { ctx: PluginContext }) {
   const [pending, setPending] = useState<OperationScope | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [historyOpen, setHistoryOpen] = useState(false)
   useEffect(() => { void loadWorkspaces(ctx, owner); setPending(null); setName(''); setError(''); setBusy(false) }, [ctx, owner])
   const { catalog, selected } = state || {}
 
@@ -71,7 +69,6 @@ export function WorkspacePicker({ ctx }: { ctx: PluginContext }) {
         <details><summary>归档（保留历史）</summary><Button disabled={busy} onClick={() => void manage({ action: 'archive', kind: 'topics', id: topic?.id })}>归档当前主题</Button><Button disabled={busy} onClick={() => void manage({ action: 'archive', kind: 'businesses', id: business?.id })}>归档当前业务</Button></details>
         <label className="block">关联账号<select aria-label="关联账号" className="w-full rounded border bg-background p-2" onChange={e => void manage({ action: 'link_account', business_id: business?.id, account_id: e.target.value })} value={business?.account}>{catalog.accounts.map(a => <option key={a.id} value={a.id}>{a.identity || `独立登录 ${a.id.slice(0, 8)}`}{a.conflict ? '（重复账号待关联）' : ''}</option>)}</select></label>
         <p className="text-muted-foreground">共用账号会共享登录、额度与网页队列；资料保持独立。</p>
-        <details onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>整理历史归属</summary>{historyOpen && <WorkspaceHistory ctx={ctx} key={scopeKey(owner, selected)} owner={owner} scope={selected} topics={catalog.topics} />}</details>
       </div>
     </details>
     {(error || state?.error) && <p className="text-destructive" role="alert">{error || state?.error}</p>}

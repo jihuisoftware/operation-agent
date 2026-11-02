@@ -16,7 +16,7 @@ NEEDS_APP = {"extensions": {"com.nousresearch.hermes": {"servers": {"srv": {
 def _entry(name, *, onboarding=True, platforms=(), title=""):
     return pc.entry_from_mapping({"name": name, "repo": f"https://github.com/fx/{name}", "sha": SHA,
                                   "description": f"{name} does things. More.", "maintainer": "fx",
-                                  "tier": "official", "category": "tools", "platforms": list(platforms),
+                                  "tier": "official", "category": "web", "platforms": list(platforms),
                                   "onboarding": onboarding, "title": title}, name)
 
 

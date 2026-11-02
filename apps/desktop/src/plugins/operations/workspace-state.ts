@@ -3,8 +3,8 @@ import { atom } from 'nanostores'
 
 export interface OperationScope { business_id: string; topic_id: string }
 export interface WorkspaceBusiness { id: string; name: string; category: string; archived: number; paused: number; account: string }
-export interface WorkspaceTopic { id: string; business_id: string; name: string; archived: number; legacy: number }
-export interface WorkspaceAccount { id: string; legacy: number; identity: string; conflict: string; held: number }
+export interface WorkspaceTopic { id: string; business_id: string; name: string; archived: number }
+export interface WorkspaceAccount { id: string; identity: string; conflict: string; held: number }
 export interface WorkspaceCatalog { businesses: WorkspaceBusiness[]; topics: WorkspaceTopic[]; accounts: WorkspaceAccount[]; paused: boolean; selection?: OperationScope | null }
 export interface WorkspaceState { catalog?: WorkspaceCatalog; selected?: OperationScope; error?: string }
 export const $workspaces = atom<Record<string, WorkspaceState>>({})
@@ -69,7 +69,7 @@ export function loadWorkspaces(ctx: PluginContext, owner: CronBlueprintOwner) {
 
     const topic = catalog.topics.find(t => t.id === current?.topic_id && t.business_id === current.business_id)
       || catalog.topics.find(t => t.id === catalog.selection?.topic_id && t.business_id === catalog.selection.business_id)
-      || catalog.topics.find(t => t.legacy) || catalog.topics[0]
+      || catalog.topics[0]
 
     const selected = topic && current?.topic_id === topic.id && current.business_id === topic.business_id ? current : topic ? { business_id: topic.business_id, topic_id: topic.id } : undefined
     $workspaces.set({ ...$workspaces.get(), [key]: { catalog, selected } })

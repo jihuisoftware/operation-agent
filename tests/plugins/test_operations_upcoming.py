@@ -78,25 +78,21 @@ def test_execution_and_cancellation_have_exactly_one_winner(store):
 
 
 def test_manual_pending_step_cancellation_is_scoped_to_batch_and_rejects_started(store):
-    from cron import executions, task_history, jobs
-    from plugins.operations.progress import planned_steps
+    from plugins.operations.workspace_runtime import request_run
     from plugins.operations.manual import summary
-    job_id = ensure_schedule(store)
-    execution = executions.create_execution(job_id, source='manual-test')
-    executions.mark_execution_running(execution['id'])
-    version, policy = store.policy()
-    task_history.declare(execution['id'], planned_steps(store, policy, NOW, execution['id']), {'day': '2026-10-31', 'manual': True})
+    ensure_schedule(store)
+    request_run(store, 'manual-test')
+    version, _ = store.policy()
     view = upcoming(store, NOW)
     pending = next(s for s in view['manual'] if s['stage'] == 'research')
     cancel(store, {**pending, 'version': version}, NOW)
     assert store.start_run(pending['day'], pending['stage'], pending['slot'], version) is None
-    assert task_history.detail(jobs.get_job(job_id))['steps'][0]['state'] == 'cancelled'
+    assert next(s for s in upcoming(store, NOW)['manual'] if s['stage'] == 'research')['state'] == 'cancelled'
     assert '取消 1' in summary(store, pending['day'], pending['slot'])
     assert store.start_run(pending['day'], pending['stage'], 'manual:new-batch', version)
     report = next(s for s in view['manual'] if s['stage'] == 'report')
     store.start_run(report['day'], report['stage'], report['slot'], version)
-    with pytest.raises(ValueError, match='已经开始'):
+    with pytest.raises(ValueError, match='步骤或规则已变化'):
         cancel(store, {**report, 'version': version}, NOW)
     with pytest.raises(ValueError, match='规则已变化'):
         cancel(store, {**pending, 'version': version - 1}, NOW)
-    executions.finish_execution(execution['id'], success=True)

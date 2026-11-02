@@ -1,4 +1,4 @@
-"""Enforce ownership on SQL writes, including legacy services using direct INSERTs."""
+"""Enforce ownership on SQL writes, including services using direct INSERTs."""
 
 
 def initialize(db, scope):

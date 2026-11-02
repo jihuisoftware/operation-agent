@@ -14,7 +14,6 @@ interface TopicCatalog {
   brief_id: string | null
   candidates: Topic[]
   selected: Topic | null
-  needs_confirmation?: boolean
 }
 
 export function TopicsPanel({ ctx }: { ctx: PluginContext }) {
@@ -74,8 +73,8 @@ export function TopicsPanel({ ctx }: { ctx: PluginContext }) {
         <Button disabled={pending || !title.trim()} onClick={() => void choose({ title })}>使用这个选题</Button>
         <p className="text-xs text-muted-foreground">指定题目不会立即生产或发布；生成内容仍需可追溯来源。</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2"><Badge>当前选题</Badge><strong>{data.selected?.title || (data.needs_confirmation ? '旧结果待确认' : data.candidates[0]?.title || '尚未确定')}</strong>
-        <span className="text-xs text-muted-foreground">{data.selected ? '用户已指定' : data.needs_confirmation ? '旧记录没有原始主题范围，请确认选用或重新生成' : data.candidates.length ? '默认使用首个推荐' : '可手动输入，或单独执行选题策划'}</span></div>
+      <div className="flex flex-wrap items-center gap-2"><Badge>当前选题</Badge><strong>{data.selected?.title || (data.candidates[0]?.title || '尚未确定')}</strong>
+        <span className="text-xs text-muted-foreground">{data.selected ? '用户已指定' : data.candidates.length ? '默认使用首个推荐' : '可手动输入，或单独执行选题策划'}</span></div>
       <h3 className="font-medium">自动推荐</h3>
       {!data.candidates.length && <p className="text-muted-foreground">暂无候选。采集并整理归类后，需执行独立的“选题策划”模块。</p>}
       {data.candidates.map((topic, index) => <article className="space-y-2 border-b pb-4" key={`${data.brief_id}:${index}`}>

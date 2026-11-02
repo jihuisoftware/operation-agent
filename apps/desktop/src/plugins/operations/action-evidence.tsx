@@ -91,7 +91,7 @@ function EvidenceDetails({ ctx, row, owner }: { ctx: PluginContext; row: RecordR
         <CopyButton label="仅复制网页错误" text={() => JSON.stringify({ action_id: row.id, errors }, null, 2)}>仅复制错误</CopyButton>
       </div>
       {error && <p role="alert">{error}</p>}
-      {!steps.length && <p className="text-sm text-muted-foreground">暂无网页步骤记录；历史任务可能尚未记录这些信息。</p>}
+      {!steps.length && <p className="text-sm text-muted-foreground">暂无网页步骤记录。</p>}
       {[...latest.values()].map(step => <details key={step.event_id}>
         <summary className="cursor-pointer">{names[step.name] || step.name} · {phases[step.phase]} · {formatTimestamp(step.at)}{step.duration_ms !== undefined && ` · ${(step.duration_ms / 1000).toFixed(1)} 秒`}</summary>
         <CopyButton label={`复制步骤 ${step.event_id}`} text={() => JSON.stringify(step, null, 2)}>复制这条记录</CopyButton>

@@ -72,7 +72,7 @@ def world(client, tmp_path, monkeypatch):
 
     def _entries():
         return [pc_cat.PluginCatalogEntry(name="cat-plugin", repo=repo.as_uri(), sha=state["pin"],
-                                          description="d", maintainer="t")]
+                                          description="d", maintainer="t", category="web")]
 
     monkeypatch.setattr(pc_cat, "load_catalog", lambda catalog_dir=None: _entries())
     monkeypatch.setattr(pc_cat, "fetch_live_catalog", lambda **_: None)  # in-tree only, no network
@@ -153,8 +153,9 @@ def test_the_catalog_name_you_installed_with_works_for_every_later_verb(world, t
     assert pc._get_enabled_set() == {"renamed-plugin"}
     pc.cmd_show("cat-plugin")
     pc.cmd_capabilities("cat-plugin")
+    disabled_before = pc._get_disabled_set()
     pc.cmd_disable("cat-plugin")
-    assert pc._get_disabled_set() == {"renamed-plugin"}
+    assert pc._get_disabled_set() == disabled_before | {"renamed-plugin"}
     assert pc.dashboard_set_agent_plugin_enabled("cat-plugin", enabled=True)["name"] == "renamed-plugin"
     assert pc.dashboard_update_user_plugin("cat-plugin")["ok"] is True
     assert pc.dashboard_remove_user_plugin("cat-plugin")["ok"] is True

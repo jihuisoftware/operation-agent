@@ -123,7 +123,7 @@ def test_actual_cron_script_distinguishes_manual_from_scheduled_parent(store):
                 assert any(r["slot"] == "manual:" + execution["id"] for r in Store().snapshot()["runs"])
                 current = detail(job)
                 assert current['execution']['status'] == 'running'
-                report_step = next(s for s in current['steps'] if s['id'].startswith('report:'))
+                report_step = next(s for s in current['steps'] if s['id'].startswith(store.scope['id'] + ':report:'))
                 assert report_step['state'] == 'completed'
                 report_event = next(e for e in current['events'] if e['data'].get('kind') == 'report')
                 assert report_event['data']['result']['markdown']

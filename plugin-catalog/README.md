@@ -5,6 +5,18 @@ Curated, Nous-approved Hermes plugins. Each YAML file in this directory
 `hermes plugins catalog` / `hermes plugins search` and installable with
 `hermes plugins install <name>`.
 
+## Operations distribution
+
+This build filters discovery after resolving the live, cached or local catalog.
+The policy lives in `hermes_cli/data/operations-profile.json` (`pluginCatalog`):
+macOS-compatible model, memory, web and voice backends plus curated content,
+media, office and marketing integrations. Platform adapters and retired features
+are not offered. See [the operations plugin scope](../plugins/README.md).
+
+The complete pinned catalog remains available for explicit name resolution,
+installed-plugin management, updates and migrations. Product filtering is not
+a security recall and does not add entries to `removed.yaml`.
+
 ## Admission policy
 
 Presence in this directory **is** the trust signal. The rules that keep it

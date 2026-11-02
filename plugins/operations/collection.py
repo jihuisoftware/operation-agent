@@ -105,7 +105,7 @@ def collect(store, policy, day):
             if prior and prior.get('text'):
                 stats['already_read'] += 1
                 continue
-            attempt = reserve(store, policy, day, url, prior) if used < stats['limit'] and stats['attempted'] < stats['read_limit'] else None
+            attempt = reserve(store, policy, day, url) if used < stats['limit'] and stats['attempted'] < stats['read_limit'] else None
             if attempt is None:
                 stats['not_attempted'] += 1
                 continue

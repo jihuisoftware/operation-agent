@@ -9,7 +9,7 @@ CONTENT = {'unknown', 'matched', 'mismatch', 'incomplete'}
 def normalize(result, previous=None):
     value = {**(previous or {}), **result}
     if 'publication' not in value:
-        return value  # Legacy receipts remain evidence of their original, narrower check.
+        return value  # Non-publication commands have no publication fields.
     status = value['publication']
     if not isinstance(status, dict):
         raise ValueError('发布状态格式错误')
@@ -38,5 +38,5 @@ def display(action):
     result = json.loads(result) if isinstance(result, str) else result
     return result.get('publication') or {
         'execution': 'verified' if action['state'] == 'published' else 'submitted' if action['state'] == 'submitted' else 'unknown',
-        'platform': 'unknown', 'content': 'unknown', 'legacy': True,
+        'platform': 'unknown', 'content': 'unknown',
     }

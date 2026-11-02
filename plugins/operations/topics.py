@@ -63,7 +63,6 @@ def catalog(store, policy=None, day=None):
     brief = rows["brief"]
     return {"version": version, "day": day, "scope_topic": policy["topic"],
             "brief_id": brief["id"] if brief else None, "candidates": candidates(brief) if brief else [],
-            "needs_confirmation": bool(brief and brief.get("scope_inherited")),
             "selected": rows["topic_selection"]}
 
 
@@ -100,8 +99,6 @@ def production_topic(store, policy, day):
     if data["selected"]:
         return data["selected"]
     if data["candidates"]:
-        if data["needs_confirmation"]:
-            raise StageSkipped("旧选题未记录原始主题范围，请在选题管理中确认选用，或重新执行选题策划")
         return {**data["candidates"][0], "brief_id": data["brief_id"], "origin": "recommended"}
     if policy["modules"].get("topics"):
         raise StageSkipped("请先执行选题策划，或在选题管理中手动指定题目")

@@ -126,5 +126,47 @@
   "brief": "你是通用运营助手，协助用户开展内容、品牌、活动、社群与增长运营，不预设行业、主题、品牌或业务阶段。运营主题由用户自行输入，或从你提供的候选方向中选择；候选只是建议，未经用户选择不得设为默认主题。先沿用当前任务中用户已确认的主题、品牌、目标受众、运营目标和渠道，仅对影响执行的缺口作简短询问；主题尚不明确时，引导用户描述需求，或提供少量候选供其选择，并允许自定义。公众号、小红书、抖音是首批渠道，按用户选择组织内容，不要求同时运营全部渠道；其他渠道按实际能力确认。围绕素材整理、选题、分渠道内容草稿、排期提醒、互动归类和复盘开展工作。用户改变主题或目标时，以最新要求为准，不混用不同任务的品牌事实、素材、授权或指标，也不将选择推广为其他会话的默认值。优先交付可审核的内容包；未连接账号或未获得执行授权时，不把草稿、发布建议或回复建议说成已发布、已发送。没有真实素材或数据时说明缺口，不编造用户故事、授权、账号状态、经营数据或运营成绩。",
   "services": {
     "mcp": false
+  },
+  "pluginCatalog": {
+    "platform": "macos",
+    "categories": [
+      "models",
+      "memory",
+      "web",
+      "voice"
+    ],
+    "include": [
+      "hermes-blogwatcher",
+      "hermes-newswire",
+      "rss-reader",
+      "artifacts",
+      "vault-view",
+      "hermes-board",
+      "digital-marketing-pro",
+      "markifact",
+      "adwhispr",
+      "bento",
+      "by2kb",
+      "acedatacloud-media",
+      "dashscope-image",
+      "dashscope-video",
+      "empiriolabs-media",
+      "image-utils",
+      "openai-compatible",
+      "pdf-surgeon",
+      "photofresco",
+      "promoat",
+      "titanos-mcp",
+      "workflow-record",
+      "gmail"
+    ],
+    "exclude": [
+      "homeassistant",
+      "spotify",
+      "advanced-delegation",
+      "mcp-serve",
+      "agent-importers",
+      "xchat"
+    ]
   }
 }

@@ -127,11 +127,12 @@ def presence(entry: Any) -> Presence:
 def _onboarding_catalog() -> list:
     """Catalog entries curated for onboarding (``onboarding: true``) that this OS can run."""
     from hermes_cli.plugin_catalog import load_catalog_live
+    from hermes_cli.plugin_catalog_scope import browse_catalog
     from hermes_cli.plugins_cmd_catalog import normalized_platforms
     from hermes_platform.host.facts import os_family
 
     here = os_family()
-    return [entry for entry in load_catalog_live()
+    return [entry for entry in browse_catalog(load_catalog_live())
             if entry.onboarding and (not entry.platforms or here in normalized_platforms(entry.platforms))]
 
 

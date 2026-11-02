@@ -69,7 +69,7 @@ def test_missing_live_identity_cannot_reserve_or_send_actions(tmp_path, monkeypa
 
 
 @pytest.mark.parametrize("manual", [False, True])
-def test_legacy_action_ids_still_deduplicate_with_account_scoped_targets(tmp_path, monkeypatch, manual):
+def test_repeated_action_deduplicates_in_its_account_and_batch(tmp_path, monkeypatch, manual):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     store = Store(tmp_path / "operations.db")
     policy = deepcopy(DEFAULT)
@@ -80,9 +80,8 @@ def test_legacy_action_ids_still_deduplicate_with_account_scoped_targets(tmp_pat
     action = {"kind": "reply", "account_id": "first", "target": "message"}
     identity = store.reserve_action(action, 1)
     with store.connection() as db:
-        db.execute("UPDATE actions SET id='legacy', target=?, state='confirmed' WHERE id=?",
-                   ("manual:batch:message" if manual else "message", identity))
+        db.execute("UPDATE actions SET state='confirmed' WHERE id=?", (identity,))
     assert store.reserve_action(action, 1) is None
     assert store.reserve_action({**action, "account_id": "second"}, 1)
-    assert {a["id"] for a in store.snapshot()["actions"]} >= {"legacy"}
+    assert {a["id"] for a in store.snapshot()["actions"]} >= {identity}
     assert len(store.snapshot()["actions"]) == 2

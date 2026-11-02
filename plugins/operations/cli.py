@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def configure(parser):
-    parser.add_argument("action", choices=["status", "tick", "run", "configure", "pause", "resume", "report"])
+    parser.add_argument("action", choices=["workspaces", "status", "tick", "run", "configure", "pause", "resume", "report"])
     parser.add_argument("--file")
     parser.add_argument("--day")
     parser.add_argument('--business-id')
@@ -36,6 +36,9 @@ def main(args):
     import uuid
     from .runtime import tick
     from .workspaces import Workspaces, bind_scope
+    if args.action == 'workspaces':
+        print(json.dumps(Workspaces().catalog(), ensure_ascii=False, indent=2))
+        return
     store = Workspaces().store(getattr(args, 'business_id', None), getattr(args, 'topic_id', None))
     handlers = {
         "configure": _configure, "pause": _pause, "resume": _pause,

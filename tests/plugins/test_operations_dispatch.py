@@ -43,17 +43,6 @@ def test_blocked_capability_does_not_reserve_or_consume_quota(store):
     assert not store.snapshot()['actions']
 
 
-def test_legacy_orphan_is_cancelled_but_unknown_submission_is_preserved(store):
-    identity = store.reserve_action(action(), 1)
-    with store.connection() as db:
-        db.execute('DELETE FROM commands WHERE action_id=?', (identity,))
-    restarted = Store(store.path)
-    assert restarted.snapshot()['actions'][0]['state'] == 'cancelled'
-    other = restarted.reserve_action(action('other'), 1)
-    restarted.claim('desktop')
-    command = restarted.enqueue('interact', action('other'), other)
-    restarted.acknowledge(command, 'desktop', {'state': 'unknown'})
-    assert Store(store.path).snapshot()['actions'][0]['state'] == 'unknown'
 
 
 @pytest.mark.parametrize('receipt', [{'state': 'submitted'}, {'state': 'unknown'}, [{'state': 'confirmed', 'evidence': '回执'}, {'state': 'unknown'}]])

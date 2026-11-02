@@ -9,8 +9,8 @@ import type { Guest } from './types'
 import { OperationsWorker } from './worker'
 import { $workspaceBrowser, $workspaces, chooseScope } from './workspace-state'
 
-const workerOwner = { connectionId: 'local', profile: 'one', account_id: 'account', legacy_account: true, business_id: 'b', topic_id: 't' }
-const catalog = { businesses: [{ id: 'b', name: '业务', account: 'account', archived: 0 }], topics: [{ id: 't', business_id: 'b', name: '主题', archived: 0, legacy: 1 }], accounts: [{ id: 'account', legacy: 1, identity: '' }], paused: false }
+const workerOwner = { connectionId: 'local', profile: 'one', account_id: 'account', business_id: 'b', topic_id: 't' }
+const catalog = { businesses: [{ id: 'b', name: '业务', account: 'account', archived: 0 }], topics: [{ id: 't', business_id: 'b', name: '主题', archived: 0 }], accounts: [{ id: 'account', identity: '' }], paused: false }
 
 vi.mock('@hermes/plugin-sdk', async importOriginal => {
   const sdk = await importOriginal<Record<string, unknown>>()
@@ -252,8 +252,8 @@ it('keeps a background account executing after switching businesses and acknowle
   const multiple = {
     ...catalog,
     businesses: [...catalog.businesses, { id: 'other', name: '其他业务', account: 'other-account', archived: 0 }],
-    topics: [...catalog.topics, { id: 'other-topic', business_id: 'other', name: '另一个主题', archived: 0, legacy: 0 }],
-    accounts: [...catalog.accounts, { id: 'other-account', legacy: 0, identity: '' }]
+    topics: [...catalog.topics, { id: 'other-topic', business_id: 'other', name: '另一个主题', archived: 0 }],
+    accounts: [...catalog.accounts, { id: 'other-account', identity: '' }]
   }
 
   let delivered = false
