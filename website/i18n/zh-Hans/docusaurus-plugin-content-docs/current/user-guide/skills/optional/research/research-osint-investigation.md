@@ -20,7 +20,7 @@ description: "公开记录 OSINT 调查框架 — SEC EDGAR 文件、USAspending
 | 作者 | Hermes Agent（改编自 ShinMegamiBoson/OpenPlanter，MIT 许可）|
 | 平台 | linux, macos, windows |
 | 标签 | `osint`, `investigation`, `public-records`, `sec`, `sanctions`, `corporate-registry`, `property`, `courts`, `due-diligence`, `journalism` |
-| 相关 skill | [`domain-intel`](/user-guide/skills/optional/research/research-domain-intel), [`arxiv`](/user-guide/skills/bundled/research/research-arxiv) |
+| 相关 skill | [`arxiv`](/user-guide/skills/bundled/research/research-arxiv) |
 
 ## 参考：完整 SKILL.md
 
@@ -53,9 +53,9 @@ description: "公开记录 OSINT 调查框架 — SEC EDGAR 文件、USAspending
 **不适用**此 skill 的场景：
 
 - 通用网络研究 → `web_search` / `web_extract`
-- 域名/基础设施 OSINT → `domain-intel` skill
+- 域名/基础设施研究 → 使用 `web_search` / `web_extract` 查询公开来源
 - 学术文献 → `arxiv` skill
-- 社交媒体账号发现 → `sherlock` skill（可选）
+- 社交媒体账号发现 → 使用 `web_search`，并人工核对账号身份
 - 美国**联邦**竞选财务 — FEC 在此处有意不覆盖（免费 DEMO_KEY 层级的 API 对临时贡献者姓名查询不可靠）。联邦捐款请直接引导用户访问 https://www.fec.gov/data/。
 
 ## 工作流程

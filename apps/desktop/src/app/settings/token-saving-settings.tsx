@@ -37,7 +37,7 @@ export function TokenSavingSettings({ profile }: { profile?: string }) {
       key={JSON.stringify(scope)}
       onSave={async next => {
         await saveHermesConfig({ token_saving: next }, scope)
-        await invalidateHermesConfig(profile)
+        await invalidateHermesConfig(scope)
       }}
       settings={values(query.data.token_saving)}
     />

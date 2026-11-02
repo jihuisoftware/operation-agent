@@ -6,7 +6,7 @@ import type { Guest } from './types'
 export const OPERATIONS_HOME = 'https://www.xiaohongshu.com/explore'
 
 /** Cookie ownership is stable across renderer/API reconnects; visibility is not lifecycle. */
-export function useOperationsGuest(owner: CronBlueprintOwner, container: RefObject<HTMLDivElement | null>) {
+export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: string; legacy_account?: boolean }, container: RefObject<HTMLDivElement | null>) {
   const [guest] = useState(() => document.createElement('webview') as Guest)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -34,7 +34,7 @@ export function useOperationsGuest(owner: CronBlueprintOwner, container: RefObje
     guest.setAttribute('webpreferences', 'contextIsolation=yes,sandbox=yes,nodeIntegration=no,backgroundThrottling=no')
     guest.style.cssText = 'width:100%;height:100%;display:flex'
     // Preserve the deployed partition format/order so existing logins remain available.
-    const identity = JSON.stringify({ profile: owner.profile, connectionId: owner.connectionId })
+    const identity = JSON.stringify({ profile: owner.profile, connectionId: owner.connectionId, ...(!owner.legacy_account && owner.account_id ? { account: owner.account_id } : {}) })
     void crypto.subtle.digest('SHA-256', new TextEncoder().encode(identity)).then(buffer => {
       if (disposed) { return }
       const key = Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, '0')).join('')
@@ -53,7 +53,7 @@ export function useOperationsGuest(owner: CronBlueprintOwner, container: RefObje
       guest.removeEventListener('render-process-gone', crashed)
       guest.remove()
     }
-  }, [guest, owner.profile, owner.connectionId, container])
+  }, [guest, owner.profile, owner.connectionId, owner.account_id, owner.legacy_account, container])
 
   const reopen = async () => {
     setError('')

@@ -69,7 +69,7 @@ it('ignores a late response from a departed Profile and keeps a visible stale-da
     .mockRejectedValueOnce(new Error('暂时离线'))
 
   const rest = vi.fn((path: string, _options?: { owner?: unknown }) =>
-    path === '/quick-start' ? Promise.resolve({ run: null, steps: [] }) : replies()
+    path === '/quick-start' ? Promise.resolve({ run: null, steps: [] }) : path === '/workspaces/summary' ? Promise.resolve({ items: [] }) : replies()
   )
 
   const ctx = { rest } as unknown as PluginContext
@@ -82,5 +82,5 @@ it('ignores a late response from a departed Profile and keeps a visible stale-da
   fireEvent.click(screen.getByRole('button', { name: '刷新' }))
   await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('暂时离线'))
   expect(screen.getByText('另一份配置')).toBeTruthy()
-  expect(rest.mock.calls[1][1]?.owner).toEqual(nextOwner)
+  expect(rest.mock.calls.filter(([path]) => path === '/overview')[1][1]?.owner).toEqual(nextOwner)
 })

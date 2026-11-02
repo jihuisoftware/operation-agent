@@ -401,7 +401,7 @@ mcp_servers:
       redirect_uri: "https://oauth.example.ts.net/callback"
 ```
 
-For fully headless gateways (messaging bot, no interactive terminal at all), the optional [`mcp-oauth-remote-gateway` skill](../skills/optional/mcp/mcp-mcp-oauth-remote-gateway.md) walks the agent through completing the flow manually and writing tokens where Hermes expects them.
+This operations distribution does not ship a headless-gateway OAuth skill; its supported product entry point is macOS Desktop, and the built-in MCP service is disabled by the operations profile.
 
 **Pitfall — WAF rejects `127.0.0.1` redirect URIs.** A few providers front their authorization server with a WAF that 403s any authorize request whose query string contains a literal `127.0.0.1` (Reclaim.ai's AWS API Gateway is a known example — every attempt returns `{"message":"Forbidden"}` before reaching the OAuth app). Set `oauth.redirect_host: localhost` to use `http://localhost:<port>/callback` instead; the callback listener still binds `127.0.0.1` either way.
 

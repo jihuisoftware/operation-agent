@@ -5,6 +5,7 @@ import {
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
   SIDEBAR_NAV_PREFS_AREA,
+  SIDEBAR_TOP_AREA,
   type SidebarNavContribution,
   type SidebarNavPrefsContribution,
   TITLEBAR_AREAS
@@ -21,6 +22,8 @@ import { PlanEditor } from './plan-editor'
 import { type Section, SectionPage, sections } from './section-page'
 import { UpcomingOperations } from './upcoming'
 import { OperationsWorker } from './worker'
+import { WorkspacePage } from './workspace-page'
+import { WorkspacePicker } from './workspace-picker'
 
 declare const __OPERATIONS_DEBUG__: boolean
 
@@ -29,12 +32,13 @@ export default {
   name: '每日自动运营',
   description: '目标、信息来源、规则执行与每日总结',
   register(ctx) {
+    ctx.register({ id: 'workspace-picker', area: SIDEBAR_TOP_AREA, render: () => <WorkspacePicker ctx={ctx} /> })
     ctx.register({
       id: 'overview',
       area: ROUTES_AREA,
       title: '运营总览',
       data: { path: '/overview' },
-      render: () => <OverviewPage ctx={ctx} />
+      render: () => <WorkspacePage ctx={ctx}>{scoped => <OverviewPage ctx={scoped} />}</WorkspacePage>
     })
     ctx.register({
       id: 'overview-nav',
@@ -49,7 +53,7 @@ export default {
         area: ROUTES_AREA,
         title,
         data: { path: `/${section}` },
-        render: () => <SectionPage ctx={ctx} section={section} />
+        render: () => <WorkspacePage ctx={ctx}>{scoped => <SectionPage ctx={scoped} section={section} />}</WorkspacePage>
       })
       ctx.register({
         id: `${section}-nav`,
@@ -104,7 +108,7 @@ export default {
       })
       void import('./debug/entry').then(({ registerDebug }) => {
         if (!disposed) {
-          registerDebug(ctx)
+          registerDebug(ctx, page => <WorkspacePage ctx={ctx}>{page}</WorkspacePage>)
         }
       })
     }
@@ -114,7 +118,7 @@ export default {
       area: ROUTES_AREA,
       title: '账号登录',
       data: { path: '/accounts' },
-      render: () => <AccountsPage ctx={ctx} />
+      render: () => <WorkspacePage ctx={ctx}>{scoped => <AccountsPage ctx={scoped} />}</WorkspacePage>
     })
     ctx.register({
       id: 'accounts-nav',
@@ -131,8 +135,8 @@ export default {
       area: CRON_BLUEPRINTS_AREA,
       title: '运营计划',
       data: {
-        render: ({ owner, view }) => <PlanEditor compact={view === 'summary'} ctx={ctx} owner={owner} />,
-        renderUpcoming: ({ owner }) => <UpcomingOperations ctx={ctx} key={JSON.stringify(owner)} owner={owner} />
+        render: ({ owner, view }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <PlanEditor compact={view === 'summary'} ctx={scoped} owner={owner} />}</WorkspacePage>,
+        renderUpcoming: ({ owner }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <UpcomingOperations ctx={scoped} key={JSON.stringify(owner)} owner={owner} />}</WorkspacePage>
       } satisfies CronBlueprintContribution
     })
     ctx.register({

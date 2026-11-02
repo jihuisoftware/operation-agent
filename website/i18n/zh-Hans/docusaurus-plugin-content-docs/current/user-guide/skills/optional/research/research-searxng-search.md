@@ -21,7 +21,7 @@ description: "通过 SearXNG 免费元搜索 — 聚合 70+ 搜索引擎的结�
 | 许可证 | MIT |
 | 平台 | linux, macos |
 | 标签 | `search`, `searxng`, `meta-search`, `self-hosted`, `free`, `fallback` |
-| 相关 skill | [`duckduckgo-search`](/user-guide/skills/optional/research/research-duckduckgo-search), [`domain-intel`](/user-guide/skills/optional/research/research-domain-intel) |
+| 相关 skill | [`duckduckgo-search`](/user-guide/skills/optional/research/research-duckduckgo-search) |
 
 ## 参考：完整 SKILL.md
 

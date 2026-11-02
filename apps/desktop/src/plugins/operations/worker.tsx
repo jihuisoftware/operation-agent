@@ -6,27 +6,54 @@ import { browserDockStyle, useBrowserDock } from './browser-dock'
 import { BrowserToolbar } from './browser-toolbar'
 import { createBrowserTrace } from './browser-trace'
 import { createExecutionClock } from './execution-clock'
-import { $loginNavigation } from './login-state'
-import { $operationsWorkerStatus, $showOperationsBrowser, beginBrowserActivity } from './state'
+import { $loginNavigation, $loginNavigationOwner, sameLoginOwner } from './login-state'
+import { $showOperationsBrowser, beginBrowserActivity } from './state'
 import type { Api, BrowserCommand } from './types'
 import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
+import { AccountViewHeader } from './workspace-browser-header'
+import { recordAction } from './workspace-notices'
+import { $workspaceBrowser, $workspaces, loadWorkspaces, type OperationScope, ownerKey, scopePath } from './workspace-state'
+
+interface WorkerOwner extends ReturnType<typeof host.state.requestOwner.get> {
+  account_id?: string
+  legacy_account?: boolean
+  business_id?: string
+  topic_id?: string
+}
+
+function loginBusy(owner: WorkerOwner) {
+  const navigating = $loginNavigationOwner.get()
+
+  return Boolean($loginNavigation.get() && navigating && sameLoginOwner(navigating, owner))
+}
+
+interface ReportNotice { id: string; day: string; label?: string; record_id?: string; scope?: OperationScope }
+
+function reportNotice(report: ReportNotice | null | undefined, previous: string, disposed: boolean, owner: WorkerOwner) {
+  if (disposed || !report || report.id === previous) { return previous }
+  host.notify({ kind: 'info', message: `${report.label || ''} · ${report.day} 运营日报已生成，请到首页查看`, action: recordAction(owner, report.scope, `/overview?tab=reports&record=${encodeURIComponent(report.record_id || report.id)}`) })
+
+  return report.id
+}
 
 function Worker({
   scope,
   ctx,
   visible
 }: {
-  scope: ReturnType<typeof host.state.requestOwner.get>
+  scope: WorkerOwner
   ctx: PluginContext
   visible: boolean
 }) {
-  const status = useValue($operationsWorkerStatus)
+  const [status, setStatus] = useState('等待连接')
+  const [taskLabel, setTaskLabel] = useState('')
   const container = useRef<HTMLDivElement>(null)
   const surface = useRef<HTMLElement>(null)
   const execution = useRef<{ pending: Promise<unknown> | null }>({ pending: null })
   const [worker] = useState(() => crypto.randomUUID())
   const manual = useRef(false)
+  const commandScope = useRef<OperationScope | null>(null)
   const { guest, loading, error, reopen } = useOperationsGuest(scope, container)
 
   useEffect(() => {
@@ -38,22 +65,28 @@ function Worker({
   }, [visible])
 
   const api = useMemo<Api>(
-    () => (path, body, method) =>
-      ctx.rest(path, {
+    () => (path, body, method) => {
+      const selected = commandScope.current || (scope.business_id && scope.topic_id ? { business_id: scope.business_id, topic_id: scope.topic_id } : null)
+      const polling = path === '/worker/poll' && scope.account_id
+
+      return ctx.rest(polling ? '/workspaces/worker/poll' : selected ? scopePath(path, selected) : path, {
         owner: scope,
         method: method || (body ? 'POST' : 'GET'),
-        body,
+        body: polling ? { ...(body as object), account_id: scope.account_id } : body,
         timeoutMs: path === '/worker/verify-images' ? 60000 : 15000
-      }),
+      })
+    },
     [ctx, scope]
   )
 
+  // Command scope is a server-issued request token, never a mirror of the selected UI scope.
+  // eslint-disable-next-line no-restricted-syntax
   useEffect(() => {
     let disposed = false
     let running = false
     let polling = false
     let reportSeen = ''
-    const noticeSeen = new Set<number>()
+    const noticeSeen = new Set<string | number>()
     let finishActivity: (() => void) | undefined
 
     const poll = async () => {
@@ -66,20 +99,14 @@ function Worker({
       try {
         // Poll also heartbeats during a command; the server serializes the account across windows.
         const result = await api<{
-          command: BrowserCommand | null
-          latest_report?: { id: string; day: string }
-          publication_notices?: { id: number; platform: string; action_id: string }[]
-        }>('/worker/poll', { worker, busy: running || manual.current || $loginNavigation.get() !== null })
+          command: (BrowserCommand & { scope?: OperationScope; topic_name?: string }) | null
+          latest_report?: ReportNotice
+          publication_notices?: { id: number | string; platform: string; action_id: string; label?: string; scope?: OperationScope }[]
+        }>('/worker/poll', { worker, busy: running || manual.current || loginBusy(scope) })
 
-        if (!disposed && result.latest_report && result.latest_report.id !== reportSeen) {
-          reportSeen = result.latest_report.id
-          host.notify({
-            kind: 'info',
-            message: `${result.latest_report.day} 运营日报已生成，请到自动运营 → 每日总结查看`
-          })
-        }
+        reportSeen = reportNotice(result.latest_report, reportSeen, disposed, scope)
 
-        publishNotices(result.publication_notices, noticeSeen, disposed)
+        publishNotices(result.publication_notices, noticeSeen, disposed, scope)
 
         if (!result.command || disposed || running) {
           return
@@ -90,10 +117,12 @@ function Worker({
         const endActivity = beginBrowserActivity(scope, result.command.kind)
         finishActivity = endActivity
         guest.style.pointerEvents = 'none'
-        $operationsWorkerStatus.set('正在执行任务；可点击人工接管暂停')
+        setStatus('正在执行任务；可点击人工接管暂停')
 
         try {
           const command = result.command
+          commandScope.current = command.scope || null
+          setTaskLabel(command.topic_name || '')
           const trace = createBrowserTrace(command, guest, api, worker)
 
           const pending = manual.current
@@ -108,16 +137,17 @@ function Worker({
           }
 
           if (!disposed) {
-            $operationsWorkerStatus.set(answer.error || '本次网页任务完成')
+            setStatus(answer.error || '本次网页任务完成')
           }
         } finally {
           endActivity()
           running = false
           execution.current.pending = null
+          commandScope.current = null
         }
       } catch (error) {
         if (!disposed) {
-          $operationsWorkerStatus.set(error instanceof Error ? error.message : '连接异常')
+          setStatus(error instanceof Error ? error.message : '连接异常')
         }
       } finally {
         polling = false
@@ -139,21 +169,21 @@ function Worker({
 
     try {
       await api('/worker/takeover', { worker, active: true })
-      $operationsWorkerStatus.set('已暂停，等待当前网页操作退出…')
+      setStatus('已暂停，等待当前网页操作退出…')
       await execution.current.pending?.then(
         () => undefined,
-        error => $operationsWorkerStatus.set(String(error))
+        error => setStatus(String(error))
       )
       guest.style.pointerEvents = 'auto'
-      $operationsWorkerStatus.set('网页已接管，采集与分析继续；完成后点击结束接管')
+      setStatus('网页已接管，采集与分析继续；完成后点击结束接管')
     } finally {
       manual.current = false
     }
   }, [api, guest, worker])
 
-  usePlatformLogin({ api, guest, owner: scope, worker, takeOver })
+  usePlatformLogin({ api, guest, owner: scope, worker, takeOver, onStatus: setStatus })
 
-  const failed = (reason: unknown) => $operationsWorkerStatus.set(String(reason))
+  const failed = (reason: unknown) => setStatus(String(reason))
 
   return (
     <section
@@ -164,6 +194,7 @@ function Worker({
       ref={surface}
       style={browserDockStyle(visible)}
     >
+      <AccountViewHeader scope={scope} taskLabel={taskLabel} />
       <BrowserToolbar
         error={error}
         hide={() => $showOperationsBrowser.set(false)}
@@ -175,7 +206,7 @@ function Worker({
         }
         release={() =>
           void api('/worker/takeover', { worker, active: false })
-            .then(() => $operationsWorkerStatus.set('已结束接管，网页动作按后续排期执行；全局暂停保持原设置'))
+            .then(() => setStatus('已结束接管，网页动作按后续排期执行；全局暂停保持原设置'))
             .catch(failed)
         }
         reopen={() => void takeOver().then(reopen).catch(failed)}
@@ -191,19 +222,45 @@ export function OperationsWorker({ ctx }: { ctx: PluginContext }) {
   const active = useValue(host.state.requestOwner)
   const shown = useValue($showOperationsBrowser)
   const visible = useBrowserDock(shown)
+  const [owners, setOwners] = useState([active])
+  useEffect(() => { setOwners(previous => previous.some(o => ownerKey(o) === ownerKey(active)) ? previous : [...previous, active]) }, [active])
 
-  const scope = useMemo(
-    () => ({ profile: active.profile, connectionId: active.connectionId }),
-    [active.profile, active.connectionId]
-  )
+  return <>{owners.map(owner => <AccountWorkers ctx={ctx} key={ownerKey(owner)} owner={owner} visible={visible && ownerKey(owner) === ownerKey(active)} />)}</>
+}
 
-  return <Worker ctx={ctx} key={JSON.stringify(scope)} scope={scope} visible={visible} />
+function AccountWorkers({ ctx, owner, visible }: { ctx: PluginContext; owner: ReturnType<typeof host.state.requestOwner.get>; visible: boolean }) {
+  const state = useValue($workspaces)[ownerKey(owner)]
+  const browser = useValue($workspaceBrowser)[ownerKey(owner)]
+  useEffect(() => {
+    void loadWorkspaces(ctx, owner)
+    const timer = setInterval(() => void loadWorkspaces(ctx, owner), 15000)
+
+    return () => clearInterval(timer)
+  }, [ctx, owner])
+  const accounts = state?.catalog?.accounts || []
+  const selectedAccount = browser?.business_id === state?.selected?.business_id ? browser?.account_id : state?.catalog?.businesses.find(b => b.id === state.selected?.business_id)?.account
+
+  return <>{accounts.map(account => {
+    const business = state?.catalog?.businesses.find(b => b.account === account.id && !b.archived)
+    const topic = state?.catalog?.topics.find(t => t.business_id === business?.id && !t.archived)
+
+    return topic ? <OwnedAccountWorker accountId={account.id} businessId={topic.business_id} ctx={ctx} key={account.id} legacy={Boolean(account.legacy)} owner={owner} topicId={topic.id} visible={visible && account.id === selectedAccount} /> : null
+  })}</>
+}
+
+function OwnedAccountWorker({ ctx, owner, accountId, legacy, businessId, topicId, visible }: {
+  ctx: PluginContext; owner: ReturnType<typeof host.state.requestOwner.get>; accountId: string; legacy: boolean; businessId: string; topicId: string; visible: boolean
+}) {
+  const scope = useMemo(() => ({ ...owner, account_id: accountId, legacy_account: legacy, business_id: businessId, topic_id: topicId }), [owner, accountId, legacy, businessId, topicId])
+
+  return <Worker ctx={ctx} scope={scope} visible={visible} />
 }
 
 function publishNotices(
-  notices: { id: number; platform: string; action_id: string }[] | undefined,
-  seen: Set<number>,
-  disposed: boolean
+  notices: { id: number | string; platform: string; action_id: string; label?: string; scope?: OperationScope }[] | undefined,
+  seen: Set<number | string>,
+  disposed: boolean,
+  owner: WorkerOwner
 ) {
   if (disposed) {
     return
@@ -217,7 +274,8 @@ function publishNotices(
     seen.add(notice.id)
     host.notify({
       kind: 'info',
-      message: `发布审核${notice.platform === 'published' ? '已通过' : '未通过'}，请到运营管理查看对应记录（${notice.action_id.slice(0, 8)}）`
+      action: recordAction(owner, notice.scope, `/content?tab=published&record=${encodeURIComponent(notice.action_id)}`),
+      message: `${notice.label || ''} · 发布审核${notice.platform === 'published' ? '已通过' : '未通过'}，请到内容页查看对应记录（${notice.action_id.slice(0, 8)}）`
     })
   }
 }

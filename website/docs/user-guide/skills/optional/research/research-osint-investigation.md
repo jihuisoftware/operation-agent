@@ -21,7 +21,7 @@ Follow the money via public records and sanctions data.
 | License | MIT |
 | Platforms | linux, macos, windows |
 | Tags | `osint`, `investigation`, `public-records`, `sec`, `sanctions`, `corporate-registry`, `property`, `courts`, `due-diligence`, `journalism` |
-| Related skills | [`domain-intel`](../../optional/research/research-domain-intel.md), [`arxiv`](../../bundled/research/research-arxiv.md) |
+| Related skills | [`arxiv`](../../bundled/research/research-arxiv.md) |
 
 ## Reference: full SKILL.md
 
@@ -67,9 +67,9 @@ Use when the user asks for:
 Do NOT use this skill for:
 
 - general web research → `web_search` / `web_extract`
-- domain/infrastructure OSINT → `domain-intel` skill
+- domain/infrastructure research → `web_search` / `web_extract` with public sources
 - academic literature → `arxiv` skill
-- social-media profile discovery → `sherlock` skill (optional)
+- social-media profile discovery → `web_search` with manual identity verification
 - US **federal** campaign finance — FEC is intentionally NOT covered here
   (the API is unreliable for ad-hoc contributor-name queries on the free
   DEMO_KEY tier). For federal donations, point users at

@@ -53,7 +53,8 @@ def image_urls(page, candidate, base, text):
 
 def directory(store):
     from plugins.plugin_storage import plugin_data_dir
-    return (Path(store.path).parent if store.path else plugin_data_dir("operations")) / "reference-images"
+    root = store.workspace.root if store.workspace else Path(store.path).parent if store.path else plugin_data_dir("operations")
+    return root / "reference-images"
 
 
 def download(url, *, max_bytes=2 * 1024 * 1024):

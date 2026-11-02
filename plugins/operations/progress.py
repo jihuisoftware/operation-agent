@@ -44,9 +44,15 @@ def bind(store, now, manual_id):
         return
     version, policy = store.policy()
     steps = planned_steps(store, policy, now, manual_id)
+    if store.scope:
+        for step in steps:
+            if not store.scope['legacy']:
+                step['id'] = store.scope['id'] + ':' + step['id']
+            step['title'] = store.scope['business_name'] + ' / ' + policy['topic'] + ' · ' + step['title']
+    owner = {'business_id': store.scope['business_id'], 'topic_id': store.scope['id'], 'account_slot': store.scope['account']} if store.scope else {}
     declare(execution['id'], steps, {'topic': policy['topic'], 'goal': policy['goal'],
             'day': local_day(policy, now), 'policy_version': version, 'manual': bool(manual_id),
-            'limits': policy['limits'], 'allowed': policy['allowed'], 'times': policy['times']})
+            'limits': policy['limits'], 'allowed': policy['allowed'], 'times': policy['times'], **owner})
 
 
 def planned_steps(store, policy, now, manual_id):
@@ -97,7 +103,8 @@ def update(store, identity, state, detail, data=None):
         return
     store.event('progress', {'run_id': identity, 'day': row['day'], 'state': state, 'detail': detail, 'data': data or {}})
     if store.execution_id:
-        progress(store.execution_id, f"{row['stage']}:{row['slot']}", state=state, detail=detail, data=data)
+        prefix = store.scope['id'] + ':' if store.scope and not store.scope['legacy'] else ''
+        progress(store.execution_id, prefix + f"{row['stage']}:{row['slot']}", state=state, detail=detail, data=data)
 
 
 def saved(store, kind, identity, data):

@@ -8,6 +8,7 @@ from .policy import local_day, now_iso
 
 def overview(store):
     version, policy = store.policy()
+    paused = policy['paused'] or bool(store.workspace and store.workspace.blocked(store.scope))
     day = local_day(policy)
     with store.connection() as db:
         db.execute("BEGIN")
@@ -25,11 +26,11 @@ def overview(store):
             "SELECT id,created,json_extract(data,'$.day') AS day FROM objects "
             "WHERE kind='report' ORDER BY created DESC,rowid DESC LIMIT 1").fetchone()
         online = bool(db.execute("SELECT 1 FROM workers WHERE seen>?", (time.time() - 15,)).fetchone())
-    scheduled = timeline(policy) if policy["enabled"] and not policy["paused"] else []
+    scheduled = timeline(policy) if policy["enabled"] and not paused else []
     return {
         "day": day, "timezone": policy["timezone"], "updated_at": now_iso(), "version": version,
         "topic": policy["topic"], "goal": policy["goal"], "enabled": policy["enabled"],
-        "paused": policy["paused"], "online": online, "counts": counts, "pending": pending,
+        "paused": paused, "online": online, "counts": counts, "pending": pending,
         "runs": runs, "publications": publications, "report": dict(report) if report else None,
         "schedule": sorted(scheduled, key=lambda row: row["next_at"])[:6],
         "analysis": _analysis(store, policy),

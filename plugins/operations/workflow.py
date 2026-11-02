@@ -113,6 +113,8 @@ def interact(store, policy, day, version, *, kinds=("comment", "reply", "dm", "f
         if items.get("evidence"):
             store.event("inventory", {"day": day, "kind": kind, "evidence": items["evidence"]})
         candidates = items.get("items", [])[:30]
+        from .workspace_inbox import candidates as owned_candidates
+        candidates = owned_candidates(store, kind, candidates)
         if not candidates:
             continue
         if kind == "follow" and not policy["follow_terms"]:

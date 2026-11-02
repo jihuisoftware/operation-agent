@@ -7,6 +7,10 @@ import { $loginRequest } from './login-state'
 import { $operationsBrowserActivity, $showOperationsBrowser } from './state'
 import type { Guest } from './types'
 import { OperationsWorker } from './worker'
+import { $workspaceBrowser, $workspaces, chooseScope } from './workspace-state'
+
+const workerOwner = { connectionId: 'local', profile: 'one', account_id: 'account', legacy_account: true, business_id: 'b', topic_id: 't' }
+const catalog = { businesses: [{ id: 'b', name: '业务', account: 'account', archived: 0 }], topics: [{ id: 't', business_id: 'b', name: '主题', archived: 0, legacy: 1 }], accounts: [{ id: 'account', legacy: 1, identity: '' }], paused: false }
 
 vi.mock('@hermes/plugin-sdk', async importOriginal => {
   const sdk = await importOriginal<Record<string, unknown>>()
@@ -38,6 +42,9 @@ vi.mock('./execution-clock', () => ({
 
 afterEach(() => {
   cleanup()
+  $workspaces.set({})
+  $workspaceBrowser.set({})
+  $loginRequest.set(null)
   $showOperationsBrowser.set(false)
   vi.useRealTimers()
   vi.unstubAllGlobals()
@@ -57,7 +64,9 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
   let delivered = false
 
   const rest = vi.fn(async (path: string, options?: { body?: unknown }) => {
-    if (path === '/worker/poll') {
+    if (path === '/workspaces') { return catalog }
+
+    if (path === '/workspaces/worker/poll') {
       const busy = (options?.body as { busy: boolean }).busy
 
       if (!delivered && !busy) {
@@ -91,22 +100,22 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
   })
   expect(container.querySelector('webview')).toBe(guest)
   expect(rest).toHaveBeenCalledWith(
-    '/worker/poll',
+    '/workspaces/worker/poll',
     expect.objectContaining({
-      body: { worker: 'worker', busy: true },
-      owner: { connectionId: 'local', profile: 'one' }
+      body: { worker: 'worker', busy: true, account_id: 'account' },
+      owner: workerOwner
     })
   )
   expect(executeBrowser).toHaveBeenCalledTimes(1)
   expect($operationsBrowserActivity.get()).toEqual({
-    owner: { connectionId: 'local', profile: 'one' },
+    owner: workerOwner,
     kind: 'publish'
   })
   await act(async () => {
     finish({ state: 'unknown', error: '提交超时' })
   })
   expect(rest).toHaveBeenCalledWith(
-    '/worker/ack',
+    '/worker/ack?business_id=b&topic_id=t',
     expect.objectContaining({ body: { id: 'task', worker: 'worker', result: { state: 'unknown', error: '提交超时' } } })
   )
   expect(host.notify).not.toHaveBeenCalled()
@@ -116,7 +125,7 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
 it('opens the operating homepage in the persistent login partition after mounting', async () => {
   vi.useFakeTimers()
   vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
-  const rest = vi.fn(async () => ({ command: null }))
+  const rest = vi.fn(async (path: string) => path === '/workspaces' ? catalog : { command: null })
   const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1)
@@ -129,7 +138,7 @@ it('opens the operating homepage in the persistent login partition after mountin
 it('retains the page and login partition when the same owner receives a new API context', async () => {
   vi.useFakeTimers()
   vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
-  const rest = vi.fn(async () => ({ command: null }))
+  const rest = vi.fn(async (path: string) => path === '/workspaces' ? catalog : { command: null })
   const { container, rerender } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1)
@@ -149,7 +158,7 @@ it('shows navigation failure with a recovery action instead of an unexplained bl
   $showOperationsBrowser.set(true)
   vi.useFakeTimers()
   vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
-  const rest = vi.fn(async () => ({ command: null }))
+  const rest = vi.fn(async (path: string) => path === '/workspaces' ? catalog : { command: null })
   const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1)
@@ -185,18 +194,20 @@ it('holds only the owning browser before opening a common-platform login in the 
   const order: string[] = []
 
   const rest = vi.fn(async (path: string, options?: { method?: string; body?: any }) => {
-    if (path === '/worker/poll') {
+    if (path === '/workspaces') { return catalog }
+
+    if (path === '/workspaces/worker/poll') {
       return { command: null }
     }
 
-    if (path === '/worker/takeover') {
+    if (path === '/worker/takeover?business_id=b&topic_id=t') {
       expect(options?.body.active).toBe(true)
       order.push('pause')
 
       return { version: 2 }
     }
 
-    if (path === '/policy') {
+    if (path === '/policy?business_id=b&topic_id=t') {
       return { version: 1, policy: { enabled: false, paused: false } }
     }
 
@@ -213,7 +224,7 @@ it('holds only the owning browser before opening a common-platform login in the 
   })
   await act(async () => {
     $loginRequest.set({
-      owner: { connectionId: 'local', profile: 'one' },
+      owner: workerOwner,
       platform: 'zhihu',
       url: 'https://www.zhihu.com/',
       id: 'login'
@@ -223,11 +234,53 @@ it('holds only the owning browser before opening a common-platform login in the 
   expect(container.querySelector('webview')).toBe(guest)
   expect(guest.loadURL).toHaveBeenCalledWith('https://www.zhihu.com/')
   expect(rest).toHaveBeenCalledWith(
-    '/platforms/observe',
+    '/platforms/observe?business_id=b&topic_id=t',
     expect.objectContaining({
-      owner: { connectionId: 'local', profile: 'one' },
+      owner: workerOwner,
       body: { worker: 'worker', platform: 'zhihu', state: 'unknown', account_id: '' }
     })
   )
   expect(executeBrowser).not.toHaveBeenCalled()
+})
+
+it('keeps a background account executing after switching businesses and acknowledges its original topic', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  let finish!: (result: { state: string; error: string }) => void
+  vi.mocked(executeBrowser).mockImplementation(() => new Promise(resolve => { finish = resolve }))
+
+  const multiple = {
+    ...catalog,
+    businesses: [...catalog.businesses, { id: 'other', name: '其他业务', account: 'other-account', archived: 0 }],
+    topics: [...catalog.topics, { id: 'other-topic', business_id: 'other', name: '另一个主题', archived: 0, legacy: 0 }],
+    accounts: [...catalog.accounts, { id: 'other-account', legacy: 0, identity: '' }]
+  }
+
+  let delivered = false
+
+  const rest = vi.fn(async (path: string, options?: { body?: any }) => {
+    if (path === '/workspaces') { return multiple }
+
+    if (path === '/workspaces/worker/poll' && options?.body.account_id === 'account' && !delivered) {
+      delivered = true
+
+      return { command: { id: 'owned-command', kind: 'publish', payload: {}, scope: { business_id: 'b', topic_id: 't' }, expires: Date.now() / 1000 + 120 } }
+    }
+
+    return { command: null }
+  })
+
+  const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1)
+    container.querySelectorAll('webview').forEach(guest => Object.assign(guest, { getURL: () => 'https://www.xiaohongshu.com/explore' }))
+    await vi.advanceTimersByTimeAsync(1999)
+  })
+  const guests = [...container.querySelectorAll('webview')]
+  expect(guests).toHaveLength(2)
+  act(() => chooseScope(host.state.requestOwner.get(), { business_id: 'other', topic_id: 'other-topic' }))
+  expect([...container.querySelectorAll('webview')]).toEqual(guests)
+  await act(async () => finish({ state: 'confirmed', error: '' }))
+  expect(rest).toHaveBeenCalledWith('/worker/ack?business_id=b&topic_id=t', expect.objectContaining({ body: expect.objectContaining({ id: 'owned-command' }) }))
+  expect(executeBrowser).toHaveBeenCalledTimes(1)
 })

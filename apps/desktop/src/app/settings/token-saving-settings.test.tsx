@@ -41,6 +41,7 @@ it('defaults to normal behavior and saves independent parsing controls only to t
     { connectionId: 'local', profile: 'one' }
   )
   expect(mocks.data.other_setting).toBe('preserved')
+  expect(mocks.invalidate).toHaveBeenCalledWith({ connectionId: 'local', profile: 'one' })
 })
 
 it('keeps edits on failure and drops an old owner draft and late save message on Profile switch', async () => {

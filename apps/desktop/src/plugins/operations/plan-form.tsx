@@ -45,6 +45,7 @@ export function PlanForm({ catalog, policy, change }: Props) {
           value={policy.topic}
         />
       </div>
+      <p className="text-xs text-muted-foreground">修改名称会保留当前主题的资料与历史；独立运营新方向请在左侧新增主题。</p>
       <ChoiceField
         allowCustom={false}
         allowEmpty={false}

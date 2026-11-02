@@ -33,6 +33,8 @@ def observe(store, body):
         if state in {"logged_in", "logged_out"}:
             db.execute("INSERT OR REPLACE INTO platform_login_evidence VALUES (?,?,?,?,?)",
                        (platform, worker, state, account if state == "logged_in" else "", now))
+    from .workspace_execution import observe_account
+    observe_account(store, body)
     return {"ok": True}
 
 
@@ -47,6 +49,11 @@ def catalog(store, worker=None):
                                 (platform,)).fetchone()
             evidence = db.execute("SELECT * FROM platform_login_evidence WHERE platform=? ORDER BY checked DESC, rowid DESC LIMIT 1",
                                   (platform,)).fetchone()
+            if store.workspace:
+                import json
+                shared = db.execute('SELECT record,evidence FROM directory.account_logins WHERE account_id=(SELECT account FROM directory.businesses WHERE id=?) AND platform=?', (store.scope['business_id'], platform)).fetchone()
+                if shared:
+                    record, evidence = json.loads(shared['record']), json.loads(shared['evidence']) if shared['evidence'] else None
             rows.append(_row(platform, name, url, record, evidence, worker, policy))
     return {"platforms": rows, "worker_online": online}
 

@@ -38,8 +38,22 @@ def encoded(value):
 
 
 class Store:
-    def __init__(self, path=None):
-        self.path = path
+    def __init__(self, path=None, *, workspace=None, scope=None):
+        if path is None:
+            from .workspaces import ACTIVE_SCOPE, Workspaces
+            workspace = Workspaces()
+            scope = workspace.resolve(*(ACTIVE_SCOPE.get() or (None, None)))
+            path = workspace.root / scope['file']
+        self.workspace, self.scope = workspace, scope
+        if self.scope and not self.scope['legacy']:
+            # Do not let direct debug/API work bypass a failed legacy migration.
+            with workspace.connection() as directory:
+                migrated = directory.execute("SELECT 1 FROM preferences WHERE id='migration-complete'").fetchone()
+            if not migrated:
+                workspace.store()
+        self.path = Path(path) if path else None
+        if self.path:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lease_token = None
         self.manual_run_id = None
         self.run_options = None
@@ -53,13 +67,22 @@ class Store:
         from .migration import migrate
         with self.connection() as db:
             migrate(db)
+            if self.scope:
+                from .workspace_storage import initialize
+                initialize(db, self.scope)
         from .progress import sync_plan
+        from .workspace_migration import migrate as migrate_workspaces
+        migrate_workspaces(self)
+        from .workspace_resources import synchronize
+        synchronize(self)
         sync_plan(self)
 
     @contextmanager
     def connection(self):
         db = sqlite3.connect(self.path, timeout=15) if self.path else plugin_db("operations")
         db.row_factory = sqlite3.Row
+        if self.workspace:
+            db.execute('ATTACH DATABASE ? AS directory', (str(self.workspace.path),))
         try:
             with db:
                 yield db
@@ -72,6 +95,8 @@ class Store:
             return row["version"], {**DEFAULT, **json.loads(row["data"])}
 
     def configure(self, value, expected_version, *, request_id=None, request_hash=None, first_run=None, activation=False):
+        if self.workspace and (self.scope['archived'] or self.scope['business_archived']):
+            raise ValueError('已归档主题配置为只读')
         policy = validate_policy(value)
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -85,13 +110,24 @@ class Store:
             row = db.execute("SELECT version FROM settings WHERE id=1").fetchone()
             if row[0] != expected_version:
                 raise ValueError("配置已变更，请刷新后重新保存")
+            if self.workspace:
+                previous = json.loads(db.execute('SELECT data FROM settings WHERE id=1').fetchone()[0])
+                if previous['topic'] != policy['topic']:
+                    from .workspace_topics import rename_metadata
+                    rename_metadata(db, previous['topic'], policy['topic'])
+                if self.scope['legacy'] and db.execute('SELECT count(*) FROM directory.topics WHERE archived=0').fetchone()[0] == 1:
+                    db.execute("UPDATE directory.preferences SET data=? WHERE id='limits'", (encoded({**policy['limits'], 'model': policy['model_calls'], '_timezone': policy['timezone']}),))
             first_activation = activation and not db.execute("SELECT 1 FROM objects WHERE kind='policy' AND json_extract(data,'$.policy.enabled')=1").fetchone()
             if first_activation:
                 db.execute("INSERT OR REPLACE INTO objects VALUES ('plan-activation','activation',?,?)", (encoded({'after': now_iso()}), now_iso()))
             version = expected_version + 1
+            from .workspace_resources import save_policy
+            save_policy(self, db, policy)
             db.execute("UPDATE settings SET version=?,data=? WHERE id=1", (version, encoded(policy)))
             db.execute("UPDATE actions SET state='cancelled' WHERE state='queued'")
             db.execute("UPDATE commands SET state='cancelled' WHERE state='queued'")
+            from .workspace_execution import sync_actions
+            sync_actions(self, db)
             db.execute("INSERT INTO objects VALUES (?, 'policy', ?, ?)",
                        (f"policy:{version}", encoded({"version": version, "policy": policy}), now_iso()))
             db.execute("INSERT INTO events(at,kind,data) VALUES (?, 'policy', ?)",
@@ -104,13 +140,20 @@ class Store:
                            ('quick:' + request_id, encoded({'version': version, 'options': first_run, 'activation_boundary': first_activation, 'state': 'pending', 'created': now_iso()}), now_iso()))
         from .progress import sync_plan
         sync_plan(self)
+        if self.workspace:
+            with self.workspace.connection() as db:
+                db.execute('UPDATE topics SET name=? WHERE id=?', (policy['topic'] or '未设置主题', self.scope['id']))
         return version
 
     def event(self, kind, data):
+        if self.scope:
+            data = {**data, 'business_id': self.scope['business_id'], 'topic_id': self.scope['id']}
         with self.connection() as db:
             db.execute("INSERT INTO events(at,kind,data) VALUES (?,?,?)", (now_iso(), kind, encoded(data)))
 
     def put(self, kind, data, identity=None):
+        if self.scope:
+            data = {**data, 'business_id': self.scope['business_id'], 'topic_id': self.scope['id']}
         identity = identity or uuid.uuid4().hex
         with self.connection() as db:
             changed = db.execute("INSERT OR IGNORE INTO objects VALUES (?,?,?,?)", (identity, kind, encoded(data), now_iso())).rowcount
@@ -212,6 +255,11 @@ class Store:
                 raise ValueError("达到每日动作额度")
             from .publication_snapshot import capture
             action = capture(db, action, version, policy)
+            from .workspace_execution import reserve_action
+            if not reserve_action(self, db, action, identity, day):
+                return None
+            if self.scope:
+                action = {**action, 'business_id': self.scope['business_id'], 'topic_id': self.scope['id']}
             changed = db.execute("INSERT OR IGNORE INTO actions VALUES (?,?,?,?,?,'queued',?,'{}',?)",
                 (identity, day, version, action["kind"], scoped_target, encoded(action), now_iso())).rowcount
             if changed:
@@ -267,6 +315,10 @@ class Store:
                 if action["version"] != policy["version"] or action["state"] != "queued":
                     db.execute("UPDATE commands SET state='cancelled' WHERE id=?", (row["id"],))
                     return None
+            from .workspace_execution import claim_account
+            if not claim_account(self, db, row, worker):
+                return None
+            if row["action_id"]:
                 db.execute("UPDATE actions SET state='executing' WHERE id=?", (row["action_id"],))
             db.execute("UPDATE commands SET state='running',worker=? WHERE id=?", (worker, row["id"]))
             if row['kind'] == 'verify':
@@ -282,6 +334,8 @@ class Store:
         db.execute("UPDATE actions SET state='blocked' WHERE id IN (SELECT action_id FROM commands WHERE state='queued' AND expires<?)", (time.time(),))
         db.execute("UPDATE actions SET state='unknown' WHERE id IN (SELECT action_id FROM commands WHERE state='running' AND expires<?)", (time.time(),))
         db.execute("UPDATE commands SET state='unknown' WHERE state IN ('running','queued') AND expires<?", (time.time(),))
+        from .workspace_execution import sync_actions
+        sync_actions(self, db)
 
     def acknowledge(self, identity, worker, result):
         from .publication_status import normalize
@@ -300,6 +354,8 @@ class Store:
                     return
                 raise ValueError("任务已过期或执行者不匹配，请核对执行结果")
             db.execute("UPDATE commands SET state='done',result=? WHERE id=?", (encoded(result), identity))
+            from .workspace_execution import release_account
+            release_account(self, db, identity, worker)
             if result.get("state") == "blocked" and row["kind"] not in {"verify", "account"}:
                 payload = json.loads(row["payload"])
                 block = {"kind": payload.get("kind", row["kind"]), "version": payload["policy_version"], "error": result.get("error"), "day": local_day(self.policy()[1])}
@@ -321,6 +377,12 @@ class Store:
                     action = db.execute('SELECT * FROM actions WHERE id=?', (row['action_id'],)).fetchone()
                     version = db.execute('SELECT version FROM settings WHERE id=1').fetchone()[0]
                     queue(db, action, version)
+            from .workspace_execution import sync_actions
+            sync_actions(self, db)
+
+        if row['kind'] == 'account' and result.get('account_id'):
+            from .workspace_execution import observe_account
+            observe_account(self, {'platform': 'xiaohongshu', 'state': 'logged_in', 'worker': worker, 'account_id': result['account_id']})
 
     def command(self, identity):
         with self.connection() as db:
@@ -335,6 +397,9 @@ class Store:
                       for name in ("runs", "actions", "events")}
             online = bool(db.execute("SELECT 1 FROM workers WHERE seen>?", (time.time() - 15,)).fetchone())
         tables["actions"] = [{**a, "target": json.loads(a["data"])["target"]} for a in tables["actions"]]
+        if self.scope:
+            owner = {'business_id': self.scope['business_id'], 'topic_id': self.scope['id']}
+            tables = {name: [{**row, **owner} for row in rows] for name, rows in tables.items()}
         return {"version": version, "policy": policy, "online": online, **tables,
                 **{kind: self.objects(kind)[:100] for kind in ("source", "asset", "content", "metric", "report", "task", "inbox", "brief", "block", "review")}}
 
@@ -361,5 +426,8 @@ class Store:
         directory = plugin_data_dir("operations") / "assets"
         directory.mkdir(exist_ok=True)
         (directory / (digest + suffix)).write_bytes(content)
-        return self.put("asset", {"name": Path(filename).name, "file": digest + suffix,
-                                  "authorized": True, "sha256": digest}, digest)
+        identity = self.put("asset", {"name": Path(filename).name, "file": digest + suffix,
+                                     "authorized": True, "sha256": digest}, digest)
+        from .workspace_resources import save_asset
+        save_asset(self, identity)
+        return identity

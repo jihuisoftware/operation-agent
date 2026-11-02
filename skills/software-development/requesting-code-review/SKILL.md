@@ -8,7 +8,7 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [code-review, security, verification, quality, pre-commit, auto-fix]
-    related_skills: [subagent-driven-development, test-driven-development, github]
+    related_skills: [test-driven-development, github]
 ---
 
 # Pre-Commit Code Verification
@@ -23,7 +23,7 @@ quality gates, an independent reviewer subagent, and an auto-fix loop.
 - After implementing a feature or bug fix, before `git commit` or `git push`
 - When user says "commit", "push", "ship", "done", "verify", or "review before merge"
 - After completing a task with 2+ file edits in a git repo
-- After each task in subagent-driven-development (the two-stage review)
+- After each implementation task that needs a two-stage review
 
 **Skip for:** documentation-only changes, pure config tweaks, or when user says "skip verification".
 
@@ -265,8 +265,8 @@ element.textContent = userInput;
 
 ## Integration with Other Skills
 
-**subagent-driven-development:** Run this after EACH task as the quality gate.
-The two-stage review (spec compliance + code quality) uses this pipeline.
+**Implementation workflows:** Run this after each task as the quality gate.
+The two-stage review checks spec compliance and code quality.
 
 **test-driven-development:** This pipeline verifies TDD discipline was followed —
 tests exist, tests pass, no regressions.

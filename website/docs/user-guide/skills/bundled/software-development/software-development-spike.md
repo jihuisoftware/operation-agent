@@ -21,7 +21,7 @@ Throwaway experiments to validate an idea before build.
 | License | MIT |
 | Platforms | linux, macos, windows |
 | Tags | `spike`, `prototype`, `experiment`, `feasibility`, `throwaway`, `exploration`, `research`, `planning`, `mvp`, `proof-of-concept` |
-| Related skills | [`sketch`](../../optional/creative/creative-sketch.md), [`subagent-driven-development`](../../optional/software-development/software-development-subagent-driven-development.md) |
+| Related skills | [`sketch`](../../optional/creative/creative-sketch.md) |
 
 ## Reference: full SKILL.md
 

@@ -11,7 +11,11 @@ from .store import encoded
 
 def resolve_action(store, identity, state, evidence):
     from .action_history import resolve
-    return resolve(store, identity, state, evidence)
+    result = resolve(store, identity, state, evidence)
+    from .workspace_execution import sync_actions
+    with store.connection() as db:
+        sync_actions(store, db)
+    return result
 
 
 def retry_action(store, identity):
@@ -50,6 +54,8 @@ def cancel_action(store, identity):
         if not changed:
             raise ValueError("动作已开始或已结束，不能假定取消成功；请暂停并核对结果")
         db.execute("UPDATE commands SET state='cancelled' WHERE action_id=? AND state='queued'", (identity,))
+        from .workspace_execution import sync_actions
+        sync_actions(store, db)
 
 
 def revoke_asset(store, identity):
@@ -61,6 +67,8 @@ def revoke_asset(store, identity):
         data = json.loads(row[0])
         data["revoked"] = True
         db.execute("UPDATE objects SET data=? WHERE id=?", (encoded(data), identity))
+    from .workspace_resources import save_asset
+    save_asset(store, identity)
     # Revoke already queued snapshots as well; in-flight workers check version before each step.
     store.configure(policy, version)
     store.event("asset_revoked", {"id": identity})

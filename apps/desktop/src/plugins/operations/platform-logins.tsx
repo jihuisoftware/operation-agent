@@ -6,7 +6,9 @@ import {
   $loginRequest,
   $loginStatusRevision,
   $loginWorker,
+  $loginWorkers,
   loginLabels,
+  loginOwnerKey,
   type PlatformLogins,
   sameLoginOwner
 } from './login-state'
@@ -18,9 +20,10 @@ interface PlatformLoginsProps {
 
 export function PlatformLoginsPanel({ ctx, owner }: PlatformLoginsProps) {
   const current = useValue($loginWorker)
+  const workers = useValue($loginWorkers)
   const navigating = useValue($loginNavigation)
   const revision = useValue($loginStatusRevision)
-  const worker = current && sameLoginOwner(current.owner, owner) ? current.worker : null
+  const worker = workers[loginOwnerKey(owner)] || (current && sameLoginOwner(current.owner, owner) ? current.worker : null)
   const [data, setData] = useState<PlatformLogins | null>(null)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)

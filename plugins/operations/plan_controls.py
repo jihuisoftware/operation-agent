@@ -15,15 +15,23 @@ def control(store, body):
         ensure_schedule(store)
         return {'version': version}
     if action == 'run':
+        from .workspace_execution import check_running
+        check_running(store)
         if not policy['enabled'] or policy['paused']:
             raise ValueError('请先启用计划或解除全局暂停')
         from .runtime import ensure_schedule
         from cron.jobs import trigger_job
+        if store.workspace:
+            import uuid
+            from .workspace_runtime import request_run
+            request_run(store, body.get('request_id') or uuid.uuid4().hex)
         return {'job_id': trigger_job(ensure_schedule(store))['id']}
     raise ValueError('未知计划操作')
 
 
 def check_cancelled(store):
+    from .workspace_execution import check_running
+    check_running(store)
     if not store.manual_run_id:
         return
     from .collection_ledger import load

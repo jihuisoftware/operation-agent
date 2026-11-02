@@ -2,6 +2,20 @@
 
 业务服务在本目录，桌面入口在 `apps/desktop/src/plugins/operations/`。首次启用规则前不会执行外部动作。界面入口：**首页 → 快速开始**，后续在 **任务 → 运营计划** 统一修改。规则保存后由现有 Cron 每分钟检查时间表；浏览器执行器独立于聊天焦点，在 Desktop 内嵌页面运行。
 
+## 业务与主题归属
+
+层级为 Profile → 业务空间 → 主题 → 计划。业务类型、业务名称和主题名称都不是数据库主键。`workspaces.py` 管理稳定 ID 与目录，`Store` 在明确的归属下打开独立主题 SQLite；目录库负责账号共享租约、消息认领、总额度、手动请求和人工历史归属。直接 SQL 写入的产物、事件、动作与命令通过 ownership 触发器写入并索引业务/主题 ID。
+
+私有接口沿用宿主 Profile 认证，业务请求同时携带 `business_id`、`topic_id`；缺一个或两者不匹配会拒绝。两者省略只访问迁移的原计划。`/workspaces` 管理目录，`/workspaces/summary` 汇总，`/workspaces/worker/poll` 按账号分配命令；命令回执仍提交到命令自己的主题。选择偏好不参与服务器请求归属判断。
+
+`workspace_runtime.py` 复用现有 Cron 扫描启用主题，按阶段轮转；`scheduled_queue` 持久化每个阶段最后一次到期项，过早的排期不写历史。`workspace_broker.py` 按账号轮转领取网页命令，统一心跳、通知与接管。原始 Cron 的手动触发兼容原计划；主题“立即执行”先保存请求，忽略排期并允许新的执行批次。同一请求在同一主题内只运行一次，停用/归档主题不会改变其他计划。全局采集与模型额度在原有 Profile 日界线上汇总，账号动作共享额度；失败或不确定动作的预留不自动退还。
+
+`workspace_migration.py` 在迁移前备份旧库；原账本与目录使用 SQLite super-journal 提交，历史副本在登记前完成。保留动作 ID、消耗和已确认登录。缺少可靠归属的历史只读，人工归属仅建立带规则快照的查询关联，不使旧动作重新执行。原有 Cookie 分区沿用；新账号分区基于稳定账号槽 ID，切换主题不改变 Cookie。
+
+`workspace_resources.py` 将业务授权素材、品牌与知识同步到主题提交检查所使用的本地账本。跨主题公开来源必须明确引用；内部数据和派生分析不通过该接口转为公开资料。新增业务或复制配置不会自动开启计划。
+
+模拟验收入口：`test_operations_workspace_pipeline.py`（两个业务、四个主题及真实业务服务）、`test_operations_workspace_http.py`（私有接口边界）、`test_operations_workspaces.py`（迁移、预算、账号和改名）；Desktop `workspace.test.tsx`、`worker.test.tsx` 验证切换与后台网页生命周期。模拟通过不等于真实平台验收。
+
 ## 启动与配置
 
 规则 schema 4 增加 `organize`（资料整理与归类），使用 `organization.py` 与 `organization_catalog.py` 持久化分类资料和进度；私有 `/organized-sources` 提供当前主题分类/搜索/分页。选题和生产只消费已整理且相关的可用来源，内容版本保存 organization_ids 和整理快照。按正文及来源元数据签名增量缓存，原文更新或主题变更不能复用旧整理。默认每批四条、正文前六千字，记录截断；模型漏返时保存已校验结果，仅对缺失来源单条补试一次，缺少 items 列表也按无有效结果补试，未知/重复引用仍拒绝。每批记录请求 ID、返回数量、缺失 ID 与补试标志，未完成仍标记待完善；剩余模型预算优先为后续步骤预留，不增加授权额度。旧计划为采集/选题/生产开启整理，继承采集排期，保留已执行外部动作。

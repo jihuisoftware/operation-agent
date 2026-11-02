@@ -17,6 +17,7 @@ import { LibraryPage } from './library-page'
 import { type OverviewData, useOverview } from './overview-data'
 import { Empty, Open, Region, overviewRoutes as routes, RunState, Time } from './overview-ui'
 import { PlanEditor } from './plan-editor'
+import { WorkspaceSummary } from './workspace-summary'
 
 export function OverviewPage({ ctx }: { ctx: PluginContext }) {
   const owner = useValue(host.state.requestOwner)
@@ -62,6 +63,7 @@ export function OwnedOverview({
             </Button>
           </div>
         </header>
+        <WorkspaceSummary ctx={bound} />
         {error && (
           <p className="text-destructive" role="alert">
             总览更新失败，已显示的数据可能过期。{error}

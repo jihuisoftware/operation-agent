@@ -47,6 +47,9 @@ def screenshot(data):
 
 
 def record_step(store, command_id, worker, body):
+    if body.get('phase') == 'started':
+        from .workspace_execution import check_running
+        check_running(store, web=True)
     sequence, phase = body.get('sequence'), body.get('phase')
     if type(sequence) is not int or not 1 <= sequence <= 100 or phase not in {'started', 'completed', 'failed'}:
         raise ValueError('步骤序号或状态无效')
@@ -57,6 +60,8 @@ def record_step(store, command_id, worker, body):
         raise ValueError('步骤记录过大')
     shot = screenshot(body['screenshot']) if body.get('screenshot') else None
     data = clean({k: v for k, v in body.items() if k != 'screenshot'})
+    if store.scope:
+        data.update(business_id=store.scope['business_id'], topic_id=store.scope['id'])
     if len(encoded(data)) > 32_000:
         raise ValueError('步骤文本过大')
     with store.connection() as db:

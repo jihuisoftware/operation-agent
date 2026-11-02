@@ -4,14 +4,18 @@ import { useEffect, useRef } from 'react'
 import { inspectLoginPage, loginPlatform } from './login-page'
 import {
   $loginNavigation,
+  $loginNavigationOwner,
   $loginRequest,
   $loginStatusRevision,
   $loginWorker,
+  $loginWorkers,
   type LoginObservation,
+  loginOwnerKey,
   sameLoginOwner
 } from './login-state'
 import { $operationsWorkerStatus, $showOperationsBrowser } from './state'
 import type { Api, Guest } from './types'
+import { showAccount } from './workspace-state'
 
 interface LoginMonitorProps {
   api: Api
@@ -19,6 +23,7 @@ interface LoginMonitorProps {
   owner: CronBlueprintOwner
   worker: string
   takeOver: () => Promise<void>
+  onStatus?: (status: string) => void
 }
 
 async function inspectWithDeadline(guest: Guest, platform: string): Promise<LoginObservation> {
@@ -38,12 +43,13 @@ async function inspectWithDeadline(guest: Guest, platform: string): Promise<Logi
   }
 }
 
-export function usePlatformLogin({ api, guest, owner, worker, takeOver }: LoginMonitorProps) {
+export function usePlatformLogin({ api, guest, owner, worker, takeOver, onStatus = $operationsWorkerStatus.set }: LoginMonitorProps) {
   const request = useValue($loginRequest)
   const handledRequests = useRef(new Set<string>())
 
   useEffect(() => {
     $loginWorker.set({ owner, worker })
+    $loginWorkers.set({ ...$loginWorkers.get(), [loginOwnerKey(owner)]: worker })
     let disposed = false
     let busy = false
     let generation = 0
@@ -107,7 +113,7 @@ export function usePlatformLogin({ api, guest, owner, worker, takeOver }: LoginM
         problems.set(platform, observation.state)
       } catch (error) {
         if (!disposed) {
-          $operationsWorkerStatus.set(`登录状态未同步：${String(error)}`)
+          onStatus(`登录状态未同步：${String(error)}`)
         }
       } finally {
         busy = false
@@ -122,7 +128,7 @@ export function usePlatformLogin({ api, guest, owner, worker, takeOver }: LoginM
     const inspect = () => {
       void observe().catch(error => {
         if (!disposed) {
-          $operationsWorkerStatus.set(`登录页面暂不可读取：${String(error)}`)
+          onStatus(`登录页面暂不可读取：${String(error)}`)
         }
       })
     }
@@ -147,8 +153,12 @@ export function usePlatformLogin({ api, guest, owner, worker, takeOver }: LoginM
       if ($loginWorker.get()?.worker === worker) {
         $loginWorker.set(null)
       }
+
+      const entries = { ...$loginWorkers.get() }
+
+      if (entries[loginOwnerKey(owner)] === worker) { delete entries[loginOwnerKey(owner)]; $loginWorkers.set(entries) }
     }
-  }, [api, guest, owner, worker])
+  }, [api, guest, owner, worker, onStatus])
 
   useEffect(() => {
     if (!request || !sameLoginOwner(request.owner, owner) || handledRequests.current.has(request.id)) {
@@ -158,6 +168,7 @@ export function usePlatformLogin({ api, guest, owner, worker, takeOver }: LoginM
     handledRequests.current.add(request.id)
     let disposed = false
     $loginNavigation.set(request.id)
+    $loginNavigationOwner.set(owner)
 
     const open = async () => {
       try {
@@ -166,6 +177,9 @@ export function usePlatformLogin({ api, guest, owner, worker, takeOver }: LoginM
         }
 
         $showOperationsBrowser.set(true)
+        const account = (owner as { account_id?: string }).account_id
+
+        if (account) { showAccount(owner, account) }
         $operationsWorkerStatus.set('正在暂停自动动作并打开登录页面…')
         await takeOver()
 
@@ -187,6 +201,7 @@ export function usePlatformLogin({ api, guest, owner, worker, takeOver }: LoginM
       } finally {
         if ($loginNavigation.get() === request.id) {
           $loginNavigation.set(null)
+          $loginNavigationOwner.set(null)
         }
 
         if ($loginRequest.get()?.id === request.id) {
@@ -202,6 +217,7 @@ export function usePlatformLogin({ api, guest, owner, worker, takeOver }: LoginM
 
       if ($loginNavigation.get() === request.id) {
         $loginNavigation.set(null)
+        $loginNavigationOwner.set(null)
       }
 
       if ($loginRequest.get()?.id === request.id) {

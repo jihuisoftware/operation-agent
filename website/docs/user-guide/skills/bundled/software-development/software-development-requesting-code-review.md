@@ -21,7 +21,7 @@ Pre-commit review: security scan, quality gates, auto-fix.
 | License | MIT |
 | Platforms | linux, macos, windows |
 | Tags | `code-review`, `security`, `verification`, `quality`, `pre-commit`, `auto-fix` |
-| Related skills | [`subagent-driven-development`](../../optional/software-development/software-development-subagent-driven-development.md), [`test-driven-development`](../../bundled/software-development/software-development-test-driven-development.md), [`github`](../../bundled/software-development/software-development-github.md) |
+| Related skills | [`test-driven-development`](../../bundled/software-development/software-development-test-driven-development.md), [`github`](../../bundled/software-development/software-development-github.md) |
 
 ## Reference: full SKILL.md
 
@@ -41,7 +41,7 @@ quality gates, an independent reviewer subagent, and an auto-fix loop.
 - After implementing a feature or bug fix, before `git commit` or `git push`
 - When user says "commit", "push", "ship", "done", "verify", or "review before merge"
 - After completing a task with 2+ file edits in a git repo
-- After each task in subagent-driven-development (the two-stage review)
+- After each implementation task that needs a two-stage review
 
 **Skip for:** documentation-only changes, pure config tweaks, or when user says "skip verification".
 
@@ -283,8 +283,8 @@ element.textContent = userInput;
 
 ## Integration with Other Skills
 
-**subagent-driven-development:** Run this after EACH task as the quality gate.
-The two-stage review (spec compliance + code quality) uses this pipeline.
+**Implementation workflows:** Run this after each task as the quality gate.
+The two-stage review checks spec compliance and code quality.
 
 **test-driven-development:** This pipeline verifies TDD discipline was followed —
 tests exist, tests pass, no regressions.

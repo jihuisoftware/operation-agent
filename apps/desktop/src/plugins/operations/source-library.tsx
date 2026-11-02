@@ -15,6 +15,7 @@ import {
 import { useEffect, useState } from 'react'
 
 import { CollectionSummary, type CollectionSummaryData } from './collection-summary'
+import { WorkspaceReferences } from './workspace-references'
 
 interface ReferenceImage {
   id?: string
@@ -186,6 +187,7 @@ export function SourceLibrary({
 
   return (
     <section aria-label="来源素材库" className="space-y-5">
+      <WorkspaceReferences ctx={ctx} />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <Codicon name="library" />

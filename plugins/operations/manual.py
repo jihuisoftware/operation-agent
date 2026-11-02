@@ -11,6 +11,8 @@ LABELS = {"research": "信息采集", "organize": "资料整理与归类", "anal
 def cron_execution(store):
     from cron.executions import live_inflight_execution
     schedules = store.objects("schedule")
+    if not schedules and store.workspace:
+        schedules = store.workspace.store().objects('schedule')
     if not schedules:
         return None
     execution = live_inflight_execution(schedules[0]["job_id"])
@@ -26,7 +28,7 @@ def cron_request_id(store):
     return execution['id'] if execution and 'scheduled_instant' in execution and execution['scheduled_instant'] is None else None
 
 
-def run(store, now, request_id):
+def run(store, now, request_id, *, one_stage=False):
     from .runtime import _execute
     version, policy = store.policy()
     if not policy["enabled"] or policy["paused"]:
@@ -65,6 +67,12 @@ def run(store, now, request_id):
                 store.finish_run(identity, "skipped", "桌面执行器离线，未执行网页动作")
             else:
                 _execute(store, policy, day, version, stage, identity)
+            if one_stage:
+                with store.connection() as db:
+                    done = {r[0] for r in db.execute('SELECT stage FROM runs WHERE slot=?', (slot,))}
+                if any(policy['modules'][key] and key not in done for key in TIMES):
+                    return '手动批次执行中'
+                break
         return summary(store, day, slot)
     finally:
         store.manual_run_id = None

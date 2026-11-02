@@ -11,6 +11,8 @@ def daily_report(store, day, delayed=False):
     existing = [r for r in store.objects("report", day) if r["id"] == identity]
     if existing:
         return existing[0]
+    from .workspace_execution import check_running
+    check_running(store)
     with store.connection() as db:
         runs = [dict(r) for r in db.execute("SELECT * FROM runs WHERE day=? AND stage!='report' ORDER BY started", (day,))]
         actions = [dict(r) for r in db.execute("SELECT * FROM actions WHERE day=? ORDER BY created", (day,))]
@@ -25,6 +27,8 @@ def daily_report(store, day, delayed=False):
     reused = [s for s in store.objects("source") if s["id"] in referenced and s.get("day") != day]
     lines = [f"# {day} 运营日报", "", f"目标：{'；'.join(dict.fromkeys(goals))}", f"生成时间：{now_iso()}",
              f"规则版本：{versions or [version]}", f"延迟补生成：{'是' if delayed else '否'}", "", "## 任务与执行", ""]
+    if store.scope:
+        lines.insert(2, f"业务：{store.scope['business_name']}；主题：{policy['topic']}；归属：{store.scope['business_id']} / {store.scope['id']}")
     lines.extend(f"- {r['stage']} · {r['state']} · {r['detail'] or '无补充说明'}" for r in runs)
     if not runs:
         lines.append("- 当日无执行记录；未据此推断任务已完成。")

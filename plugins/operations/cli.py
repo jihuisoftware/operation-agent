@@ -1,13 +1,14 @@
 """CLI and Desktop share the same service and records."""
 import json
 from pathlib import Path
-from .store import Store
 
 
 def configure(parser):
     parser.add_argument("action", choices=["status", "tick", "run", "configure", "pause", "resume", "report"])
     parser.add_argument("--file")
     parser.add_argument("--day")
+    parser.add_argument('--business-id')
+    parser.add_argument('--topic-id')
 
 
 def _configure(store, args):
@@ -34,13 +35,15 @@ def _report(store, args):
 def main(args):
     import uuid
     from .runtime import tick
-    store = Store()
+    from .workspaces import Workspaces, bind_scope
+    store = Workspaces().store(getattr(args, 'business_id', None), getattr(args, 'topic_id', None))
     handlers = {
         "configure": _configure, "pause": _pause, "resume": _pause,
         "tick": lambda store, args: tick(store), "report": _report,
         "run": lambda store, args: tick(store, request_id=uuid.uuid4().hex),
         "status": lambda store, args: json.dumps(store.snapshot(), ensure_ascii=False, indent=2),
     }
-    result = handlers[args.action](store, args)
+    with bind_scope(store.scope['business_id'], store.scope['id']):
+        result = handlers[args.action](store, args)
     if result is not None:
         print(result)

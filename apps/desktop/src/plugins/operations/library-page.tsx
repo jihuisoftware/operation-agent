@@ -6,6 +6,7 @@ import { EvidenceStorage } from './evidence-storage'
 import { ActionManager, ContentEditor } from './management'
 import type { RecordRow } from './types'
 import { Assets, download, NewRecord, Records } from './workbench-widgets'
+import { InboxTransfer } from './workspace-inbox'
 
 export interface Library {
   task?: RecordRow[]
@@ -116,15 +117,7 @@ interface ContentProps {
 
 function LibraryContents({ data, section, filter, ...props }: ContentProps) {
   const { ctx } = props
-
-  const content = (data.content || []).filter(row =>
-    filter === 'pending'
-      ? row.ready === true &&
-        !['published', 'confirmed', 'submitted', 'unknown', 'executing', 'queued'].includes(
-          String(row.publication_state)
-        )
-      : !row.ready
-  )
+  const content = (data.content || []).filter(row => matchesContent(row, filter))
 
   const actions = data.actions
 
@@ -157,6 +150,7 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
           <ActionManager {...props} rows={actions} />
           <details>
             <summary className="cursor-pointer">待处理与上下文</summary>
+            <InboxTransfers data={data} filter={filter} {...props} />
             <Records
               rows={[...(data.inbox || []).filter(row => !filter || row.kind === filter), ...(data.block || [])]}
             />
@@ -186,6 +180,16 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
       )}
     </>
   )
+}
+
+function matchesContent(row: RecordRow, filter: string) {
+  if (filter !== 'pending') { return !row.ready }
+
+  return row.ready === true && !['published', 'confirmed', 'submitted', 'unknown', 'executing', 'queued'].includes(String(row.publication_state))
+}
+
+function InboxTransfers({ data, filter, ctx, refresh, onError }: Omit<ContentProps, 'section'>) {
+  return (data.inbox || []).filter(row => !filter || row.kind === filter).map(row => <InboxTransfer ctx={ctx} failed={onError} key={row.id} row={row} saved={refresh} />)
 }
 
 function ContentCard({ ctx, row }: { ctx: PluginContext; row: RecordRow }) {

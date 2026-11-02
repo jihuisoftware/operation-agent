@@ -5,6 +5,7 @@ import type * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router'
 
+import { SIDEBAR_TOP_AREA } from '@/app/routes'
 import { PlatformAvatar } from '@/components/session-platform-icon'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -12,6 +13,7 @@ import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { SearchField } from '@/components/ui/search-field'
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu } from '@/components/ui/sidebar'
 import { Tip } from '@/components/ui/tooltip'
+import { Slot } from '@/contrib/react/slot'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { type SessionInfo, type SessionSearchResult } from '@/hermes'
 import { useI18n } from '@/i18n'
@@ -1517,6 +1519,7 @@ export function ChatSidebar({
       data-tour="sessions-sidebar"
     >
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2.5">
+        <div className="shrink-0"><Slot area={SIDEBAR_TOP_AREA} /></div>
         {renderNavigation(false)}
 
         <SidebarStorageCorruptNotice />

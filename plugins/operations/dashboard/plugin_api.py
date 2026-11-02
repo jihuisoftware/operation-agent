@@ -1,7 +1,7 @@
 """Private authenticated plugin API. Host middleware binds owning profile and secret scope."""
 import base64
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import PlainTextResponse
 from plugins.operations.store import Store
 from plugins.operations.runtime import ensure_schedule
@@ -13,7 +13,10 @@ from plugins.operations.dashboard.analysis_api import router as analysis_router
 
 from plugins.operations.dashboard.library_api import router as library_router
 
-router = APIRouter()
+from plugins.operations.dashboard.workspace_api import router as workspace_router, scope_dependency
+
+router = APIRouter(dependencies=[Depends(scope_dependency)])
+router.include_router(workspace_router)
 router.include_router(library_router)
 router.include_router(analysis_router)
 router.include_router(source_router)

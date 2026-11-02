@@ -11,6 +11,8 @@ class AnalysisCancelled(StageSkipped):
 
 
 def guard(store, policy):
+    from .workspace_execution import check_running
+    check_running(store)
     store.renew()
     if store.policy()[1] != policy or not policy['enabled'] or policy['paused']:
         raise AnalysisCancelled('分析已暂停或规则发生变化')

@@ -78,6 +78,8 @@ def previous(store, identity, task, version):
 
 
 def update_record(store, data):
+    if store.scope:
+        data.update(business_id=store.scope['business_id'], topic_id=store.scope['id'])
     with store.connection() as db:
         db.execute("UPDATE objects SET data=? WHERE id=? AND kind='debug_run'", (encoded(data), data["id"]))
 

@@ -7,6 +7,8 @@ from .policy import now_iso
 
 
 def web_held(db):
+    if any(row[1] == 'directory' for row in db.execute('PRAGMA database_list')):
+        return bool(db.execute('SELECT 1 FROM directory.accounts a JOIN directory.businesses b ON b.account=a.id JOIN main.ownership o ON o.business_id=b.id WHERE a.held=1 OR a.conflict!=\'\'').fetchone())
     return bool(db.execute("SELECT 1 FROM objects WHERE kind='web_hold' AND json_extract(data,'$.active')=1").fetchone())
 
 
@@ -16,6 +18,9 @@ def takeover(store, worker, active):
         raise ValueError('执行器或接管状态无效')
     with store.connection() as db:
         db.execute('BEGIN IMMEDIATE')
+        if store.workspace:
+            from .workspace_broker import takeover as account_takeover
+            account_takeover(store, db, worker, active)
         # Release stale windows after reopening, but never another live executor's hold.
         import time
         other = db.execute("SELECT 1 FROM objects o JOIN workers w ON w.id=json_extract(o.data,'$.worker') WHERE o.kind='web_hold' AND w.id!=? AND w.seen>?", (worker, time.time() - 15)).fetchone()

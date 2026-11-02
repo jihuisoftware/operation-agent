@@ -13,7 +13,7 @@ CATEGORIES = ('方法教程', '案例经验', '行业动态', '数据研究', '�
 
 
 def material_id(policy, source):
-    evidence = [policy['topic'], source['id'], source['text'], source.get('url'), source.get('title'), source.get('published_at')]
+    evidence = [source.get('original_topic_label', policy['topic']), source['id'], source['text'], source.get('url'), source.get('title'), source.get('published_at')]
     return 'organized:' + hashlib.sha256(encoded(evidence).encode()).hexdigest()
 
 

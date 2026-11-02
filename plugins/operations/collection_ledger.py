@@ -50,6 +50,8 @@ def reserve(store, policy, day, url, previous):
             "SELECT count(*) FROM objects WHERE kind='source' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
         if used >= policy['limits']['source']:
             return None
+        from .workspace_execution import charge
+        charge(store, db, day, 'source')
         for object_key, kind, data in ((key, 'collection_budget', {'day': day, 'used': used + 1}),
                                 (identity, 'collection_attempt', {'day': day, 'url': url, 'attempts': attempts + 1})):
             db.execute('INSERT INTO objects VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',

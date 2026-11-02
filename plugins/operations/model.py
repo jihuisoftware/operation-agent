@@ -15,6 +15,8 @@ def generate(store, policy, day, instruction, data):
         used = db.execute("SELECT count(*) FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
         if used >= policy["model_calls"]:
             raise ValueError("达到每日模型调用额度")
+        from .workspace_execution import charge
+        charge(store, db, day, 'model')
         db.execute("INSERT INTO events(at,kind,data) VALUES (?,'model_call',?)", (now_iso(), json.dumps({"day": day, "run_id": store.current_run_id})))
     store.progress("正在生成或核对内容", {"task": instruction[:120]})
     response = call_llm(messages=[

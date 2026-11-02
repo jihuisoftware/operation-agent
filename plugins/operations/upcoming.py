@@ -29,7 +29,7 @@ def upcoming(store, now=None):
                 continue
             steps.append({**item(day, stage, slot, due.isoformat(), row['state'] if row else 'pending'), 'readiness': readiness[stage]})
     manual = pending_manual(store)
-    return {'version': version, 'topic': policy['topic'], 'paused': policy['paused'],
+    return {'version': version, 'topic': policy['topic'], 'paused': policy['paused'] or bool(store.workspace and store.workspace.blocked(store.scope)),
             'timezone': policy['timezone'], 'steps': sorted(steps, key=lambda s: s['due']), 'manual': manual}
 
 
@@ -39,6 +39,11 @@ def item(day, stage, slot, due, state='pending', execution_id=None):
 
 
 def pending_manual(store):
+    if store.workspace:
+        from .workspace_upcoming import pending
+        queued = pending(store)
+        if queued or not store.scope['legacy']:
+            return queued
     from cron.executions import live_inflight_execution
     from cron.task_history import detail
     from cron.jobs import get_job
@@ -50,11 +55,13 @@ def pending_manual(store):
     if not execution or execution['scheduled_instant'] is not None:
         return []
     record = detail(job, execution['id'])
+    if store.scope and record['context'].get('topic_id', store.scope['id']) != store.scope['id']:
+        return []
     day = record['context'].get('day')
     if not day:
         return []
     return [item(day, step['id'].split(':', 1)[0], 'manual:' + execution['id'], execution['claimed_at'],
-                 step['state'], execution['id']) for step in record['steps'] if step['state'] in {'pending', 'cancelled'}]
+                 step['state'], execution['id']) for step in record['steps'] if step['state'] in {'pending', 'cancelled'} and step['id'].split(':', 1)[0] in STEPS]
 
 
 def cancel(store, body, now=None):

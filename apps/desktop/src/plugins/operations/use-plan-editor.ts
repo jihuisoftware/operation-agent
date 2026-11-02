@@ -1,10 +1,11 @@
-import type { PluginContext } from '@hermes/plugin-sdk'
+import { host, type PluginContext } from '@hermes/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
 
 import type { BlueprintCatalog, BlueprintPreview } from './blueprint-types'
 import { withTopicDefaults } from './business-config'
 import { initialPlan } from './plan-config'
 import type { Policy } from './types'
+import { $workspaceDirty, $workspaces, ownerKey, scopeKey } from './workspace-state'
 
 export function replacesSavedValue(change: BlueprintPreview['changes'][number]): boolean {
   if (['enabled', 'paused'].includes(change.field)) {
@@ -33,6 +34,19 @@ export function usePlanEditor(ctx: PluginContext) {
   const [notice, setNotice] = useState('')
   const [confirm, setConfirm] = useState(false)
   const request = useRef({ id: crypto.randomUUID(), start: false })
+
+  const dirtyKey = useRef((() => {
+    const owner = host.state.requestOwner.get()
+    const selected = $workspaces.get()[ownerKey(owner)]?.selected
+
+    return selected ? scopeKey(owner, selected) : ''
+  })())
+
+  const markDirty = (dirty: boolean) => {
+    if (dirtyKey.current) { $workspaceDirty.set({ ...$workspaceDirty.get(), [dirtyKey.current]: dirty }) }
+  }
+
+  useEffect(() => () => { if (dirtyKey.current) { $workspaceDirty.set({ ...$workspaceDirty.get(), [dirtyKey.current]: false }) } }, [])
   useEffect(() => {
     let disposed = false
     void ctx
@@ -89,6 +103,7 @@ export function usePlanEditor(ctx: PluginContext) {
   }, [ctx, policy, catalog])
 
   const change = (next: Policy) => {
+    markDirty(true)
     setPolicy(next)
     setNotice('')
     setPreview(null)
@@ -122,6 +137,7 @@ export function usePlanEditor(ctx: PluginContext) {
       const current = await ctx.rest<BlueprintCatalog>('/blueprints')
       setCatalog(current)
       setPolicy(current.policy)
+      markDirty(false)
       setConfirm(false)
       setNotice(start ? '首轮已安排，下方持续显示执行结果。' : '已保存，可继续补充详细设置。')
     } catch (reason) {

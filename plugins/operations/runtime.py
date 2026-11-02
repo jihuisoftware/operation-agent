@@ -6,7 +6,6 @@ import uuid
 
 from .policy import local_day, now_iso
 from .modules import EXTERNAL
-from .occurrences import latest_due
 from .store import encoded
 from .report import daily_report
 from .store import Store
@@ -14,6 +13,8 @@ from . import workflow
 
 
 def ensure_schedule(store):
+    if store.workspace and not store.scope['legacy']:
+        return ensure_schedule(store.workspace.store())
     from cron.jobs import create_job, get_job, list_jobs, resume_job
     from hermes_constants import get_hermes_home
     import hermes_constants
@@ -42,6 +43,8 @@ def ensure_schedule(store):
 
 
 def schedule_state(store):
+    if store.workspace and not store.scope['legacy']:
+        return schedule_state(store.workspace.store())
     from cron.jobs import get_job
     schedules = store.objects("schedule")
     job = get_job(schedules[0]["job_id"]) if schedules else None
@@ -50,11 +53,17 @@ def schedule_state(store):
     return "ready" if job.get("enabled", True) else "paused"
 
 
-def tick(store=None, now=None, *, request_id=None):
+def tick(store=None, now=None, *, request_id=None, scheduled=False):
+    if store is None:
+        from .workspace_runtime import dispatch
+        return dispatch(now)
     from .manual import cron_request_id, run
     store = store or Store()
     now = now or datetime.now(UTC)
-    request_id = request_id or cron_request_id(store)
+    store.execution_now = now
+    request_id = request_id or (None if scheduled else cron_request_id(store))
+    from .workspace_execution import check_running
+    check_running(store)
     token = uuid.uuid4().hex
     if not store.lease(token):
         return "已有运营任务执行中"
@@ -66,14 +75,14 @@ def tick(store=None, now=None, *, request_id=None):
         if quick is not None:
             return quick
         if request_id:
-            return run(store, now, request_id)
-        return _tick(store, now)
+            return run(store, now, request_id, one_stage=scheduled)
+        return _tick(store, now, one_stage=scheduled)
     finally:
         store.execution_id = None
         store.release(token)
 
 
-def _tick(store, now):
+def _tick(store, now, *, one_stage=False):
     from .evidence_storage import maybe_cleanup
     maybe_cleanup(store, now)
     version, policy = store.policy()
@@ -87,7 +96,8 @@ def _tick(store, now):
     if not policy["paused"] and store.snapshot()["online"]:
         from .recovery import reconcile_pending
         reconcile_pending(store, policy, day)
-    for stage, due in latest_due(store, policy, now).items():
+    from .workspace_upcoming import queue_due
+    for stage, due in queue_due(store, policy, now).items():
         if not readiness[stage]["ready"]:
             continue
         if stage in EXTERNAL and not store.snapshot()["online"]:
@@ -101,6 +111,8 @@ def _tick(store, now):
             # report alone summarizes its original day. The claim retains the due day.
             work_day = scheduled_day if stage == 'report' else day
             _execute(store, policy, work_day, version, stage, identity, delayed=scheduled_day < day)
+            if one_stage:
+                break
     return "本轮运营检查完成"
 
 

@@ -1611,6 +1611,7 @@ export {
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
   SIDEBAR_PROFILE_GROUP_HEADER_AREA,
+  SIDEBAR_TOP_AREA,
   type SidebarNavContribution,
   WORKSPACE_PAGE_HEADER_AREA
 } from '@/app/routes'

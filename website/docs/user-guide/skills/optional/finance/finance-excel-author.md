@@ -21,7 +21,7 @@ Build auditable financial workbooks headless via openpyxl.
 | License | Apache-2.0 |
 | Platforms | linux, macos, windows |
 | Tags | `excel`, `openpyxl`, `finance`, `spreadsheet`, `modeling` |
-| Related skills | [`xlsx`](../../bundled/productivity/productivity-xlsx.md), [`pptx-author`](../../optional/finance/finance-pptx-author.md), [`dcf-model`](../../optional/finance/finance-dcf-model.md), [`comps-analysis`](../../optional/finance/finance-comps-analysis.md), [`lbo-model`](../../optional/finance/finance-lbo-model.md), [`3-statement-model`](../../optional/finance/finance-3-statement-model.md) |
+| Related skills | [`xlsx`](../../bundled/productivity/productivity-xlsx.md), [`pptx-author`](../../optional/finance/finance-pptx-author.md) |
 
 ## Reference: full SKILL.md
 

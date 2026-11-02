@@ -21,7 +21,7 @@ description: "提交前审查：安全扫描、质量门控、自动修复"
 | 许可证 | MIT |
 | 平台 | linux, macos, windows |
 | 标签 | `code-review`, `security`, `verification`, `quality`, `pre-commit`, `auto-fix` |
-| 相关 skill | [`subagent-driven-development`](/user-guide/skills/bundled/software-development/software-development-subagent-driven-development), [`writing-plans`](/user-guide/skills/bundled/software-development/software-development-writing-plans), [`test-driven-development`](/user-guide/skills/bundled/software-development/software-development-test-driven-development), [`github-code-review`](/user-guide/skills/bundled/github/github-github-code-review) |
+| 相关 skill | [`writing-plans`](/user-guide/skills/bundled/software-development/software-development-writing-plans), [`test-driven-development`](/user-guide/skills/bundled/software-development/software-development-test-driven-development), [`github-code-review`](/user-guide/skills/bundled/github/github-github-code-review) |
 
 ## 参考：完整 SKILL.md
 
@@ -40,7 +40,7 @@ description: "提交前审查：安全扫描、质量门控、自动修复"
 - 实现功能或修复 bug 后，在 `git commit` 或 `git push` 之前
 - 当用户说"commit"、"push"、"ship"、"done"、"verify"或"review before merge"时
 - 在 git 仓库中完成包含 2 个以上文件编辑的任务后
-- 在 subagent-driven-development 的每个任务后（两阶段审查）
+- 在需要两阶段审查的每个实现任务后
 
 **跳过情形：** 仅文档变更、纯配置调整，或用户说"skip verification"时。
 
@@ -269,7 +269,7 @@ element.textContent = userInput;
 
 ## 与其他 Skill 的集成
 
-**subagent-driven-development：** 在每个任务后运行本 skill 作为质量门控。两阶段审查（规格合规性 + 代码质量）使用本流水线。
+**实现工作流：** 在每个任务后运行本 skill 检查规格合规性和代码质量。
 
 **test-driven-development：** 本流水线验证是否遵循了 TDD 纪律 — 测试存在、测试通过、无回归。
 

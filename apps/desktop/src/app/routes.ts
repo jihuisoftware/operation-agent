@@ -115,6 +115,7 @@ function isContributedPath(pathname: string): boolean {
 // while the app is there.
 
 export const SIDEBAR_NAV_AREA = 'sidebar.nav'
+export const SIDEBAR_TOP_AREA = 'sidebar.top'
 
 /** Payload of a `sidebar.nav` data contribution. */
 export interface SidebarNavContribution {

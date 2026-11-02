@@ -105,6 +105,7 @@ If a skill is missing from this list but present in the repo, the catalog is reg
 
 | Skill | Description | Path |
 |-------|-------------|------|
+| [`xiaohongshu`](../user-guide/skills/bundled/social-media/social-media-xiaohongshu.md) | 控制小红书网页，搜索和读取笔记，上传图片并填写待核对的图文草稿. | `social-media/xiaohongshu` |
 | [`xurl`](../user-guide/skills/bundled/social-media/social-media-xurl.md) | X/Twitter via xurl CLI: raw post search, posting, DM, media. | `social-media/xurl` |
 
 ## software-development
