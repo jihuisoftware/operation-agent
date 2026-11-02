@@ -1,10 +1,12 @@
 import { type PluginContext } from '@hermes/plugin-sdk'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { useState } from 'react'
+import { afterEach, beforeAll, expect, it, vi } from 'vitest'
 
 import { initialPlan, selectMode } from './plan-config'
 import { PlanEditor } from './plan-editor'
-import { catalog } from './plan-fixtures'
+import { business, catalog } from './plan-fixtures'
+import { PlanForm } from './plan-form'
 
 vi.mock('@hermes/plugin-sdk', async importOriginal => {
   const sdk = await importOriginal<Record<string, unknown>>()
@@ -22,7 +24,42 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
 })
+beforeAll(() => {
+  Element.prototype.hasPointerCapture ??= () => false
+  Element.prototype.setPointerCapture ??= () => undefined
+  Element.prototype.releasePointerCapture ??= () => undefined
+  Element.prototype.scrollIntoView ??= () => undefined
+})
 const owner = { connectionId: 'local', profile: 'one' }
+
+it('leaves custom topics empty with guidance and preserves manually entered topics when choosing a business', async () => {
+  const initial = catalog()
+  initial.templates.push(business)
+
+  function Harness() {
+    const [policy, setPolicy] = useState(initial.policy)
+
+    return <PlanForm catalog={initial} change={setPolicy} policy={policy} />
+  }
+
+  async function choose(label: string, option: string) {
+    fireEvent.keyDown(screen.getByRole('combobox', { name: label }), { key: 'ArrowDown' })
+    fireEvent.click(await screen.findByRole('option', { name: option }))
+  }
+
+  render(<Harness />)
+  await choose('业务类型', business.title)
+  expect(screen.getByRole('combobox', { name: '具体主题' }).textContent).toBe('请选择')
+  await choose('具体主题', '生产流程')
+  await choose('具体主题', '自定义／手动添加')
+  const input = screen.getByLabelText('自定义具体主题') as HTMLInputElement
+  expect(input.value).toBe('')
+  expect(input.placeholder).toBe('填写你想运营的具体方向，例如：小户型收纳、机械零件加工')
+  fireEvent.change(input, { target: { value: '精密零件加工' } })
+  await choose('业务类型', '请选择')
+  await choose('业务类型', business.title)
+  expect((screen.getByLabelText('自定义具体主题') as HTMLInputElement).value).toBe('精密零件加工')
+})
 
 it('starts from one page without account prerequisites and double click shares the request', async () => {
   const initial = catalog('机械零件加工')

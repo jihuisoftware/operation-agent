@@ -21,6 +21,8 @@ router.include_router(library_router)
 router.include_router(analysis_router)
 router.include_router(source_router)
 router.include_router(browser_router)
+from plugins.operations.dashboard.token_api import router as token_router
+router.include_router(token_router)
 
 # Development tooling is absent from release payloads and wheels.
 _source_root = Path(__file__).resolve().parents[3]

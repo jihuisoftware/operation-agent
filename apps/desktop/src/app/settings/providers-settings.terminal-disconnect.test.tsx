@@ -54,7 +54,7 @@ function connectedExternal(patch: Partial<OAuthProvider> = {}): OAuthProvider {
 
 beforeEach(() => {
   listOAuthProviders.mockResolvedValue({ providers: [connectedExternal()] })
-  disconnectOAuthProvider.mockResolvedValue({ ok: false, provider: 'nous' })
+  disconnectOAuthProvider.mockResolvedValue({ ok: false, provider: 'openai-codex' })
   Object.defineProperty(window, 'hermesDesktop', {
     configurable: true,
     value: { terminal: {} }
@@ -84,8 +84,8 @@ describe('connected external provider row', () => {
   it('runs the terminal control as disconnect instead of starting sign-in', async () => {
     await renderAccounts()
 
-    fireEvent.click(await screen.findByRole('button', { name: /Disconnect External CLI in terminal/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }))
+    fireEvent.click(await screen.findByRole('button', { name: /断开连接 External CLI in terminal/ }))
+    fireEvent.click(await screen.findByRole('button', { name: '断开连接' }))
 
     await waitFor(() => expect(runInTerminal).toHaveBeenCalledWith(COMMAND))
     expect(startManualProviderOAuth).not.toHaveBeenCalled()
@@ -97,20 +97,20 @@ describe('connected external provider row', () => {
     listOAuthProviders.mockResolvedValue({
       providers: [
         {
-          cli_command: 'hermes auth add nous',
+          cli_command: 'hermes auth add openai-codex',
           disconnectable: true,
           docs_url: '',
           flow: 'device_code',
-          id: 'nous',
-          name: 'Nous Portal',
+          id: 'openai-codex',
+          name: 'ChatGPT / Codex 订阅',
           status: { logged_in: true }
         }
       ]
     })
 
     await renderAccounts()
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove Nous Portal' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }))
+    fireEvent.click(await screen.findByRole('button', { name: '移除 ChatGPT / Codex 订阅' }))
+    fireEvent.click(await screen.findByRole('button', { name: '断开连接' }))
 
     await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalled())
     expect(notify).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'success' }))

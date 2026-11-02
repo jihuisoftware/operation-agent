@@ -91,6 +91,13 @@ def perform_api_call(
     _use_streaming = _should_stream(agent)
 
     def _perform_api_call(next_api_kwargs):
+        from agent.token_tracking import attempt
+        with attempt(model=str(agent.model or ''), provider=str(agent.provider or ''),
+                     purpose='chat', api_mode=agent.api_mode) as usage:
+            usage.response = _provider_call(next_api_kwargs)
+            return usage.response
+
+    def _provider_call(next_api_kwargs):
         if agent.api_mode == "codex_responses":
             next_api_kwargs = agent._get_transport().preflight_kwargs(
                 next_api_kwargs, allow_stream=False, is_github_responses=agent._is_copilot_url(),

@@ -54,15 +54,14 @@ class Store:
         self.current_run_id = None
         with self.connection() as db:
             db.executescript(SCHEMA)
-            from .business_store import initialize
-            initialize(db)
+            from .business_store import initialize as initialize_business
+            initialize_business(db)
             db.execute("INSERT OR IGNORE INTO settings VALUES (1,0,?)", (encoded(DEFAULT),))
-        with self.connection() as db:
             if json.loads(db.execute('SELECT data FROM settings WHERE id=1').fetchone()[0]).get('schema_version') != 5:
                 raise ValueError('不支持旧运营规则，请清理开发数据后重新开始')
             if self.scope:
-                from .workspace_storage import initialize
-                initialize(db, self.scope)
+                from .workspace_storage import initialize as initialize_workspace
+                initialize_workspace(db, self.scope)
         from .progress import sync_plan
         from .workspace_resources import synchronize
         synchronize(self)
@@ -166,6 +165,8 @@ class Store:
                                  (identity, day, stage, slot, version, now_iso())).rowcount
         if changed:
             self.current_run_id = identity
+            from .usage_context import begin
+            begin(self, identity)
             self.progress("开始执行")
         return identity if changed else None
 
@@ -174,6 +175,8 @@ class Store:
             db.execute("UPDATE runs SET state=?,detail=?,ended=? WHERE id=?", (state, detail, now_iso(), identity))
         from .progress import update
         update(self, identity, state, detail)
+        from .usage_context import finish
+        finish(self, identity, state)
         self.current_run_id = None
 
     def progress(self, detail, data=None):

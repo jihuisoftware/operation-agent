@@ -38,10 +38,11 @@ export function PlanForm({ catalog, policy, change }: Props) {
           value={policy.business_theme === 'custom' ? policy.business_subtype || '' : policy.business_theme || ''}
         />
         <ChoiceField
+          clearPresetOnCustom
           label="具体主题"
           onChange={topic => change({ ...policy, topic })}
           options={selected ? choices(selected.content_directions || []) : themeChoices}
-          placeholder="例如：小户型收纳、机械零件加工"
+          placeholder="填写你想运营的具体方向，例如：小户型收纳、机械零件加工"
           value={policy.topic}
         />
       </div>

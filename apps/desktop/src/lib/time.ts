@@ -48,11 +48,23 @@ const fmtTimestamp = localizedDateFormatter({
   hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
 })
 
+const fmtTimestampMinute = localizedDateFormatter({
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hour12: false
+})
+
 /** Display persisted instants in the computer's timezone; retain raw values for export. */
 export function formatTimestamp(value: string): string {
   const date = new Date(value)
 
   return Number.isNaN(date.getTime()) ? '时间不可用' : fmtTimestamp.format(date)
+}
+
+/** Display a persisted instant in the local timezone with minute precision. */
+export function formatTimestampMinute(value: string): string {
+  const date = new Date(value)
+
+  return Number.isNaN(date.getTime()) ? '时间不可用' : fmtTimestampMinute.format(date)
 }
 
 // Weekday + full date + clock (message time tooltips).

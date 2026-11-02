@@ -8,6 +8,9 @@ router = APIRouter()
 
 
 async def scope_dependency(request: Request):
+    if '/usage/' in request.url.path:
+        yield
+        return
     business = request.query_params.get('business_id')
     topic = request.query_params.get('topic_id')
     try:

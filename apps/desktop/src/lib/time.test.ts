@@ -9,6 +9,7 @@ import {
   fmtMonthYear,
   formatAgo,
   formatTimestamp,
+  formatTimestampMinute,
   HOUR,
   MINUTE,
   nominalDayStart,
@@ -35,7 +36,9 @@ it('formats offset instants in the local calendar and clock without fractional s
   const local = `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
   expect(formatTimestamp(value)).toBe(local)
   expect(formatTimestamp('2026-11-01T00:10:34.825964+08:00')).toBe(local)
+  expect(formatTimestampMinute(value)).toBe(`${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`)
   expect(formatTimestamp('invalid')).toBe('时间不可用')
+  expect(formatTimestampMinute('invalid')).toBe('时间不可用')
 })
 
 it('keeps dates and relative time Chinese for legacy language preferences', () => {

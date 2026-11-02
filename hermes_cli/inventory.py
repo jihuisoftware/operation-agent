@@ -141,6 +141,8 @@ def build_models_payload(
 
     if include_unconfigured:
         rows = list(rows) + _without_slug(_append_unconfigured_rows(rows, ctx), "moa")
+    from hermes_cli.model_provider_scope import scope_provider_rows
+    rows = scope_provider_rows(rows)
     if picker_hints:
         _apply_picker_hints(rows)
     if canonical_order:

@@ -44,6 +44,7 @@ class TurnFacadeMixin:
         from agent.aux_accounting import reset_accounting_context, set_accounting_context
         from agent.auxiliary_client import scoped_runtime_main
         from agent.conversation_loop import run_conversation
+        from agent.token_tracking import run_tracked_turn
         from agent.portal_tags import (
             reset_affinity_scope, reset_conversation_context, set_affinity_scope,
             set_conversation_context,
@@ -145,8 +146,8 @@ class TurnFacadeMixin:
                 try:
                     if lease is not None:
                         lease.start()
-                    result = run_conversation(
-                        self, user_message, system_message, conversation_history, effective_task_id,
+                    result = run_tracked_turn(
+                        run_conversation, self, user_message, system_message, conversation_history, effective_task_id,
                         stream_callback, persist_user_message,
                         persist_user_timestamp=persist_user_timestamp,
                         persist_user_display_kind=persist_user_display_kind,

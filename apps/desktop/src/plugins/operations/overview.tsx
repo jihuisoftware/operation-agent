@@ -15,9 +15,10 @@ import { moduleLabels } from './blueprint-types'
 import { FirstRunProgress } from './first-run'
 import { LibraryPage } from './library-page'
 import { type OverviewData, useOverview } from './overview-data'
-import { Empty, Open, Region, overviewRoutes as routes, RunState, Time } from './overview-ui'
+import { Empty, Open, Region, ReportTime, overviewRoutes as routes, RunState, Time } from './overview-ui'
 import { PlanEditor } from './plan-editor'
 import { WorkspaceSummary } from './workspace-summary'
+import { TokenUsageCard } from './token-usage/card'
 
 export function OverviewPage({ ctx }: { ctx: PluginContext }) {
   const owner = useValue(host.state.requestOwner)
@@ -64,6 +65,7 @@ export function OwnedOverview({
           </div>
         </header>
         <WorkspaceSummary ctx={bound} />
+        <TokenUsageCard ctx={bound} />
         {error && (
           <p className="text-destructive" role="alert">
             总览更新失败，已显示的数据可能过期。{error}
@@ -139,7 +141,7 @@ function OverviewContent({ data }: { data: OverviewData }) {
               <div className="space-y-1">
                 <p className="font-medium">{data.report.day} 运营日报</p>
                 <p className="text-xs text-muted-foreground">
-                  <Time value={data.report.created} />
+                  <ReportTime value={data.report.created} />
                 </p>
               </div>
             </div>

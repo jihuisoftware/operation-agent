@@ -1,3 +1,5 @@
+import { OPERATIONS_PROFILE } from './operations-profile'
+
 /** Which model/provider pair a picker should mark "current". SessionView state
  *  also drives the composer label, so a complete pair there wins over an older
  *  `model.options` response. During initial hydration (or pre-session startup),
@@ -31,20 +33,8 @@ export function currentPickerSelection(
   }
 }
 
-/** Canonical provider labels shared by onboarding and the model pill. OAuth
- *  provider ids stay distinct from their direct-API counterparts so a session on
- *  `xai-oauth` never reads as the plain `xai` key path, and internal route names
- *  never reach user-facing copy. */
-export const PROVIDER_DISPLAY_NAMES: Readonly<Record<string, string>> = {
-  anthropic: 'Anthropic Account',
-  'claude-code': 'Anthropic OAuth: Required Extra Usage Credits to Use Subscription',
-  'minimax-oauth': 'MiniMax',
-  nous: 'Nous Portal',
-  'openai-codex': 'ChatGPT or Codex Subscription',
-  'qwen-oauth': 'Qwen Code',
-  xai: 'xAI',
-  'xai-oauth': 'xAI Grok'
-}
+/** The same product labels feed the backend catalog, onboarding, settings and model pill. */
+export const PROVIDER_DISPLAY_NAMES: Readonly<Record<string, string>> = OPERATIONS_PROFILE.modelProviders.labels
 
 export function providerDisplayName(provider: string): string {
   const normalized = provider.trim().toLowerCase()

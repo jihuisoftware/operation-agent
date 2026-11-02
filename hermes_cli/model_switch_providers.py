@@ -1199,7 +1199,9 @@ def _build_curated_lists(current_provider: str, current_base_url: str, current_m
         if _pp.fallback_models and not curated.get(_pp.name):
             curated[_pp.name] = list(_pp.fallback_models)
     # Remote manifest so new Portal models surface without a release; in-repo snapshot fallback.
-    curated["nous"] = get_curated_nous_model_ids()
+    from hermes_cli.model_provider_scope import HIDDEN_MODEL_PROVIDERS
+    if "nous" not in HIDDEN_MODEL_PROVIDERS:
+        curated["nous"] = get_curated_nous_model_ids()
     if "ollama-cloud" not in curated:
         from hermes_cli.models import fetch_ollama_cloud_models
         # Read path: cache only; the row's own SWR refresh (cached_provider_model_ids) warms it.
@@ -1252,6 +1254,9 @@ def list_authenticated_providers(
 
     from agent.models_dev import fetch_models_dev
     from hermes_cli.config import coerce_provider_id, stringify_provider_map
+    from hermes_cli.model_provider_scope import HIDDEN_MODEL_PROVIDERS
+
+    excluded_providers = list(set(excluded_providers or []) | HIDDEN_MODEL_PROVIDERS)
 
     non_blocking_catalogs = bool(non_blocking_catalogs)
 
@@ -1313,6 +1318,8 @@ def list_authenticated_providers(
 
 def _finalize_picker_rows(results: list, user_providers, current_model: str) -> list:
     """Post-passes: drop ``providers.<name>.enabled: false`` rows, inject the current model, sort."""
+    from hermes_cli.model_provider_scope import scope_provider_rows
+    results = scope_provider_rows(results)
     # The enabled post-filter covers built-in rows (sections 1-2) that bypass the per-section
     # gate; matched by slug and ``provider_id``.
     try:

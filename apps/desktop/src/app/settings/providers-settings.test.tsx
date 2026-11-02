@@ -53,7 +53,7 @@ function provider(id: string, loggedIn: boolean, patch: Partial<OAuthProvider> =
     docs_url: '',
     flow: 'device_code',
     id,
-    name: id === 'nous' ? 'Nous Portal' : 'MiniMax',
+    name: id === 'openai-codex' ? 'ChatGPT / Codex 订阅' : 'MiniMax',
     status: {
       logged_in: loggedIn
     },
@@ -83,11 +83,11 @@ function keyVar(patch: Partial<EnvVarInfo> = {}): EnvVarInfo {
 beforeEach(() => {
   onboarding.set({ manual: false })
   getEnvVars.mockResolvedValue({})
-  disconnectOAuthProvider.mockResolvedValue({ ok: true, provider: 'nous' })
+  disconnectOAuthProvider.mockResolvedValue({ ok: true, provider: 'openai-codex' })
   revealEnvVar.mockResolvedValue({ value: 'old-secret' })
   setEnvVar.mockResolvedValue({ ok: true })
   listOAuthProviders.mockResolvedValue({
-    providers: [provider('nous', true), provider('minimax-oauth', false)]
+    providers: [provider('openai-codex', true), provider('anthropic', false)]
   })
 })
 
@@ -116,10 +116,10 @@ async function renderProvidersSettings() {
 
 describe('ProvidersSettings', () => {
   it.each([
-    ['Kimi（中国区）', 'KIMI_CN_API_KEY'],
-    ['DeepSeek', 'DEEPSEEK_API_KEY']
+    ['月之暗面（国内）', 'KIMI_CN_API_KEY'],
+    ['深度求索', 'DEEPSEEK_API_KEY']
   ])('opens the %s key form from the accounts page', async (name, key) => {
-    listOAuthProviders.mockResolvedValue({ providers: [provider('nous', false)] })
+    listOAuthProviders.mockResolvedValue({ providers: [provider('openai-codex', false)] })
     getEnvVars.mockResolvedValue({
       [key]: keyVar({ provider: name, provider_label: name }),
       OTHER_API_KEY: keyVar({ provider: 'other', provider_label: 'Other provider' })
@@ -181,11 +181,11 @@ describe('ProvidersSettings', () => {
       await renderProvidersSettings()
       expect(getEnvVars).toHaveBeenCalledWith('beta')
       expect(listOAuthProviders).toHaveBeenCalledWith('beta')
-      fireEvent.click(await screen.findByText('Nous Portal'))
-      expect(startManualProviderOAuth).toHaveBeenCalledWith('nous', 'beta')
-      fireEvent.click(await screen.findByRole('button', { name: '移除 Nous Portal' }))
+      fireEvent.click(await screen.findByText('ChatGPT / Codex 订阅'))
+      expect(startManualProviderOAuth).toHaveBeenCalledWith('openai-codex', 'beta')
+      fireEvent.click(await screen.findByRole('button', { name: '移除 ChatGPT / Codex 订阅' }))
       fireEvent.click(await screen.findByRole('button', { name: '断开连接' }))
-      await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalledWith('nous', 'beta'))
+      await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalledWith('openai-codex', 'beta'))
     } finally {
       $settingsScopeOverride.set(null)
     }
@@ -194,7 +194,7 @@ describe('ProvidersSettings', () => {
   it('disconnects a connected provider account and refreshes the accounts list', async () => {
     await renderProvidersSettings()
 
-    const remove = await screen.findByRole('button', { name: '移除 Nous Portal' })
+    const remove = await screen.findByRole('button', { name: '移除 ChatGPT / Codex 订阅' })
     await act(async () => {
       fireEvent.click(remove)
     })
@@ -207,7 +207,7 @@ describe('ProvidersSettings', () => {
       fireEvent.click(screen.getByRole('button', { name: '断开连接' }))
     })
 
-    await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalledWith('nous', 'default'))
+    await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalledWith('openai-codex', 'default'))
     expect(listOAuthProviders).toHaveBeenCalledTimes(2)
   })
 
@@ -215,7 +215,7 @@ describe('ProvidersSettings', () => {
     await renderProvidersSettings()
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: '移除 Nous Portal' }))
+      fireEvent.click(await screen.findByRole('button', { name: '移除 ChatGPT / Codex 订阅' }))
     })
 
     await act(async () => {
@@ -228,20 +228,20 @@ describe('ProvidersSettings', () => {
   it('does not offer removal for externally managed providers', async () => {
     listOAuthProviders.mockResolvedValue({
       providers: [
-        provider('qwen-oauth', true, {
-          cli_command: 'hermes auth add qwen-oauth',
-          disconnect_hint: "Use `hermes auth add qwen-oauth` or that provider's CLI to remove it.",
+        provider('external-provider', true, {
+          cli_command: 'hermes auth add external-provider',
+          disconnect_hint: "Use `hermes auth add external-provider` or that provider's CLI to remove it.",
           disconnectable: false,
           flow: 'external',
-          name: 'Qwen (via Qwen CLI)'
+          name: 'External Provider'
         })
       ]
     })
 
     await renderProvidersSettings()
 
-    expect(await screen.findByText('Qwen Code')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: '移除 Qwen Code' })).toBeNull()
+    expect(await screen.findByText('External Provider')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '移除 External Provider' })).toBeNull()
   })
 
   it('renders a Keys card for a backend-tagged provider with no PROVIDER_GROUPS prefix', async () => {
@@ -269,20 +269,20 @@ describe('ProvidersSettings', () => {
     getEnvVars.mockResolvedValue({
       DASHSCOPE_API_KEY: keyVar({
         provider: 'alibaba',
-        provider_label: 'Qwen Cloud',
+        provider_label: '阿里云百炼（国际）',
         provider_profiles: [
           {
             description: 'International DashScope route',
             primary: true,
             provider: 'alibaba',
-            provider_label: 'Qwen Cloud',
+            provider_label: '阿里云百炼（国际）',
             url: 'https://modelstudio.console.alibabacloud.com/'
           },
           {
             description: 'Mainland-China DashScope route',
             primary: true,
             provider: 'alibaba-cn',
-            provider_label: 'Alibaba Cloud DashScope (China)',
+            provider_label: '阿里云百炼（国内）',
             url: 'https://bailian.console.aliyun.com/'
           }
         ]
@@ -293,8 +293,12 @@ describe('ProvidersSettings', () => {
     const { ProvidersSettings } = await import('./providers-settings')
     render(<ProvidersSettings onClose={vi.fn()} onViewChange={vi.fn()} view="keys" />)
 
-    expect(await screen.findByText('Qwen Cloud')).toBeTruthy()
-    expect(screen.getByText('Alibaba Cloud DashScope (China)')).toBeTruthy()
+    expect(await screen.findByText('阿里云百炼（国际）')).toBeTruthy()
+    expect(screen.getByText('阿里云百炼（国内）')).toBeTruthy()
+    const intlCard = screen.getByText('阿里云百炼（国际）').closest('[id]')!
+    const cnCard = screen.getByText('阿里云百炼（国内）').closest('[id]')!
+    expect(window.document.getElementById(cnCard.id)).toBe(cnCard)
+    expect(cnCard.id).not.toBe(intlCard.id)
     const inputs = screen.getAllByPlaceholderText(/粘贴 .* 密钥/)
     expect(inputs).toHaveLength(2)
 
@@ -312,31 +316,31 @@ describe('ProvidersSettings', () => {
     // card's "Paste key" must edit the provider's own key, not the shared one.
     getEnvVars.mockResolvedValue({
       ALIBABA_CODING_PLAN_CN_API_KEY: keyVar({
-        provider: 'alibaba-coding-plan-cn',
-        provider_label: 'Alibaba Cloud (Coding Plan, China)',
+        provider: 'example-plan-cn',
+        provider_label: '示例订阅服务',
         provider_primary: true
       }),
       ALIBABA_CODING_PLAN_API_KEY: keyVar({
-        provider: 'alibaba-coding-plan-cn',
-        provider_label: 'Alibaba Cloud (Coding Plan, China)',
+        provider: 'example-plan-cn',
+        provider_label: '示例订阅服务',
         provider_primary: false
       }),
       DASHSCOPE_API_KEY: keyVar({
         provider: 'alibaba',
-        provider_label: 'Qwen Cloud',
+        provider_label: '阿里云百炼（国际）',
         provider_profiles: [
           {
             description: 'International DashScope route',
             primary: true,
             provider: 'alibaba',
-            provider_label: 'Qwen Cloud',
+            provider_label: '阿里云百炼（国际）',
             url: 'https://modelstudio.console.alibabacloud.com/'
           },
           {
             description: 'Coding Plan fallback alias',
             primary: false,
-            provider: 'alibaba-coding-plan-cn',
-            provider_label: 'Alibaba Cloud (Coding Plan, China)',
+            provider: 'example-plan-cn',
+            provider_label: '示例订阅服务',
             url: 'https://help.aliyun.com/zh/model-studio/'
           }
         ]
@@ -347,16 +351,16 @@ describe('ProvidersSettings', () => {
     const { ProvidersSettings } = await import('./providers-settings')
     const { container } = render(<ProvidersSettings onClose={vi.fn()} onViewChange={vi.fn()} view="keys" />)
 
-    expect(await screen.findByText('Alibaba Cloud (Coding Plan, China)')).toBeTruthy()
+    expect(await screen.findByText('示例订阅服务')).toBeTruthy()
 
     // Exactly one primary "Paste … key" input per card; the CN card's must edit
     // ALIBABA_CODING_PLAN_CN_API_KEY, never the shared DASHSCOPE_API_KEY.
     const inputs = container.querySelectorAll('input[type="password"]')
     const pasteInputs = await screen.findAllByPlaceholderText(/粘贴 .* 密钥/)
-    expect(pasteInputs).toHaveLength(2) // Qwen Cloud card + the CN Coding Plan card
+    expect(pasteInputs).toHaveLength(2) // 阿里云百炼（国际） card + the CN Coding Plan card
 
     const cnCard = screen
-      .getAllByText('Alibaba Cloud (Coding Plan, China)')
+      .getAllByText('示例订阅服务')
       .map(el => el.closest('[role="button"]') ?? el.closest('div[class*="group/card"]'))
       .find(Boolean)!
 
@@ -378,7 +382,7 @@ describe('ProvidersSettings', () => {
 
   it('clears the shared reveal when a namespaced provider-card draft is saved', async () => {
     const varKey = 'DASHSCOPE_API_KEY'
-    const editKey = `Qwen Cloud:${varKey}`
+    const editKey = `阿里云百炼（国际）:${varKey}`
     getEnvVars.mockResolvedValue({
       [varKey]: keyVar({ is_set: true, redacted_value: '••••••••' })
     })

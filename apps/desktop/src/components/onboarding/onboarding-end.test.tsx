@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { HermesConnection } from '@/global'
+import { zh } from '@/i18n/zh'
 import { writeKey } from '@/lib/storage'
 import { $localModelOfferPending, LOCAL_MODEL_PENDING_KEY } from '@/store/local-model-offer'
 import { $localSetupEligibility } from '@/store/local-setup-offer'
@@ -12,7 +13,7 @@ import type { LocalCatalogModel } from '@/types/hermes'
 
 import { OnboardingEnd } from './onboarding-end'
 
-const TITLE = 'This computer can run a model locally'
+const TITLE = zh.firstRun.localModel.title
 // Past the longest settle window plus one tick.
 const SETTLED_MS = 10 * 60_000 + 30_000
 
@@ -72,7 +73,7 @@ describe('OnboardingEnd', () => {
 
     await act(() => vi.advanceTimersByTimeAsync(SETTLED_MS))
     expect(screen.getByText(TITLE)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+    fireEvent.click(screen.getByRole('button', { name: zh.firstRun.localModel.notNow }))
     expect(screen.queryByText(TITLE)).toBeNull()
 
     act(() => $onboardingSettleFrom.set(Date.now()))

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
+from hermes_cli.model_provider_scope import provider_label
+
 
 class CuratedFallbackModels(list[str]):
     """A curated list served because the provider's live catalog was unavailable. The disk cache
@@ -408,7 +410,7 @@ def sync_plugin_provider_catalog() -> int:
     for pp in profiles:
         if not _plugin_provider_enters_picker(pp):
             continue
-        label = pp.display_name or pp.name
+        label = provider_label(pp.name, pp.display_name or pp.name)
         CANONICAL_PROVIDERS.append(ProviderEntry(pp.name, label, pp.description or f"{label} (direct API)"))
         _canonical_slugs.add(pp.name)
         _PROVIDER_LABELS[pp.name] = label
@@ -416,18 +418,19 @@ def sync_plugin_provider_catalog() -> int:
     return added
 
 
-_PROVIDER_LABELS: dict[str, str] = {p.slug: p.label for p in CANONICAL_PROVIDERS}
-_PROVIDER_LABELS["custom"] = "Custom endpoint"  # special case: not a named provider
+_PROVIDER_LABELS: dict[str, str] = {p.slug: provider_label(p.slug, p.label) for p in CANONICAL_PROVIDERS}
+_PROVIDER_LABELS["custom"] = provider_label("custom")
 sync_plugin_provider_catalog()
 
 
 def listed_canonical_providers() -> list[ProviderEntry]:
-    """``CANONICAL_PROVIDERS`` minus pre-release profiles the user has not opted into: what a provider
-    LIST offers. Typed paths (``provider:model``, labels, ``--provider``) keep the full table."""
+    """Providers offered by this product, excluding hidden and unlisted pre-release profiles.
+    Typed paths (``provider:model``, labels, ``--provider``) keep the full registry."""
     from hermes_cli import models  # the binding every list consumer read before this filter existed
+    from hermes_cli.model_provider_scope import HIDDEN_MODEL_PROVIDERS
     from providers import unlisted_provider_names
-    hidden = unlisted_provider_names()
-    return [p for p in models.CANONICAL_PROVIDERS if p.slug not in hidden]
+    hidden = unlisted_provider_names() | HIDDEN_MODEL_PROVIDERS
+    return [p._replace(label=provider_label(p.slug, p.label)) for p in models.CANONICAL_PROVIDERS if p.slug not in hidden]
 
 
 # ---------------------------------------------------------------------------
@@ -440,15 +443,15 @@ def listed_canonical_providers() -> list[ProviderEntry]:
 # Member order is the order shown inside the group submenu; member detail lives in ``tui_desc``.
 # ---------------------------------------------------------------------------
 PROVIDER_GROUPS: dict[str, tuple[str, str, list[str]]] = {
-    "kimi":     ("Kimi / Moonshot", "Coding Plan, Moonshot global & China endpoints", ["kimi-coding", "kimi-coding-cn"]),
-    "minimax":  ("MiniMax",         "Global, OAuth Coding Plan & China endpoints",     ["minimax", "minimax-oauth", "minimax-cn"]),
+    "kimi":     ("月之暗面", "国内与国际接口", ["kimi-coding", "kimi-coding-cn"]),
+    "minimax":  ("稀宇科技", "国内与国际接口", ["minimax", "minimax-oauth", "minimax-cn"]),
     "xai":      ("xAI Grok",        "Direct API or SuperGrok / Premium+ OAuth",        ["xai", "xai-oauth"]),
-    "google":   ("Google Gemini",   "Google AI Studio (API key)",                     ["gemini"]),
+    "google":   ("谷歌 Gemini", "通过 API 密钥连接", ["gemini"]),
     "openai":   ("OpenAI",          "ChatGPT/Codex subscription or direct OpenAI API", ["openai-codex", "openai-api"]),
-    "qwen":     ("Qwen",            "Qwen Cloud / DashScope, Coding Plan, Token Plan & Qwen CLI OAuth", ["alibaba", "alibaba-cn", "alibaba-coding-plan", "alibaba-coding-plan-cn", "alibaba-token-plan", "alibaba-token-plan-cn", "qwen-oauth"]),
+    "qwen":     ("阿里云百炼", "国内与国际接口", ["alibaba", "alibaba-cn", "alibaba-coding-plan", "alibaba-coding-plan-cn", "alibaba-token-plan", "alibaba-token-plan-cn", "qwen-oauth"]),
     "opencode": ("OpenCode",        "Zen pay-as-you-go or Go subscription", ["opencode-zen", "opencode-go"]),
     "copilot":  ("GitHub Copilot",  "GitHub token API or copilot --acp process",       ["copilot", "copilot-acp"]),
-    "tencent":  ("Tencent Hy",      "Hy4 / Hy3 via TokenHub & TokenPlan", ["tencent-tokenhub", "tencent-tokenplan"]),
+    "tencent":  ("腾讯云", "腾讯混元模型接口", ["tencent-tokenhub", "tencent-tokenplan"]),
 }
 
 # Reverse index: member slug -> group_id.

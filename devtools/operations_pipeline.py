@@ -38,7 +38,7 @@ def unavailable(store, data, step, policy):
     return ""
 
 
-def run_step(store, data, step, policy):
+def run_step(store, data, step, policy, *, quick=False):
     from .operations_debug import invoke, update_record
     store.debug_step = step["id"]
     store.renew()
@@ -51,7 +51,7 @@ def run_step(store, data, step, policy):
     if reason:
         outcome = {"state": "skipped", "detail": reason, "duration_ms": 0}
     else:
-        outcome = invoke(store, step["id"], policy, data["day"], data["version"], content_id=data.get("content_id"))
+        outcome = invoke(store, step["id"], policy, data["day"], data["version"], content_id=data.get("content_id"), quick=quick)
     step.update(**outcome, ended=now_iso())
     if step["id"] == "content" and isinstance(step.get("result"), dict):
         data["content_id"] = step["result"].get("content_id")
@@ -60,14 +60,14 @@ def run_step(store, data, step, policy):
     update_record(store, data)
 
 
-def run_pipeline(store, identity, task, version):
+def run_pipeline(store, identity, task, version, *, mode="normal"):
     from .operations_debug import TASKS, new_record, update_record
     current, policy = store.policy()
     if current != version:
         raise HTTPException(409, "规则已变更，请刷新调试页")
     day = local_day(policy)
     data = new_record(identity, task, "整链路测试", version, day)
-    data.update(mode="live", policy=policy, steps=[
+    data.update(mode=mode, policy=policy, steps=[
         {"id": key, "title": title, "module": module, "state": "pending", "detail": "等待执行"}
         for key, (title, module) in TASKS.items()])
     store.put("debug_run", data, identity)
@@ -76,7 +76,7 @@ def run_pipeline(store, identity, task, version):
     started = time.monotonic()
     try:
         for step in data["steps"]:
-            run_step(store, data, step, policy)
+            run_step(store, data, step, policy, quick=mode == "quick")
     except Exception as exc:
         # Infrastructure/lease loss must stop the batch; never silently replay a submission.
         import traceback

@@ -48,22 +48,21 @@ afterEach(() => {
 })
 
 describe('onboarding Picker', () => {
-  it('shows direct providers beside Nous and keeps other options behind a disclosure', () => {
-    setProviders([makeOAuthProvider('anthropic', 'Anthropic Claude'), makeOAuthProvider('nous', 'Nous Portal')])
+  it('hides retired providers from a backend response and keeps extensions visible', () => {
+    setProviders([
+      makeOAuthProvider('anthropic', 'Anthropic Claude'),
+      makeOAuthProvider('nous', 'Nous Portal'),
+      makeOAuthProvider('qwen-oauth', 'Qwen Code'),
+      makeOAuthProvider('private-extension', '企业模型服务')
+    ])
     render(<Picker ctx={ctx} />)
 
-    expect(screen.getByText('Nous Portal')).toBeTruthy()
-    expect(screen.getByText('推荐')).toBeTruthy()
-    // Fireworks stays behind the disclosure with the other alternatives; only
-    // Nous and the direct-provider shortcuts are visible before expansion.
-    expect(screen.queryByText('Fireworks AI')).toBeNull()
-    expect(screen.queryByText('Anthropic Account')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: '其他提供方' }))
-
+    expect(screen.queryByText('Nous Portal')).toBeNull()
+    expect(screen.queryByText('Qwen Code')).toBeNull()
+    expect(screen.queryByText('推荐')).toBeNull()
     expect(screen.getByText('Fireworks AI')).toBeTruthy()
-    expect(screen.getByText('Anthropic Account')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '收起' })).toBeTruthy()
+    expect(screen.getByText('Anthropic（Claude）')).toBeTruthy()
+    expect(screen.getByText('企业模型服务')).toBeTruthy()
   })
 
   it('shows every provider directly when Nous Portal is absent', () => {
@@ -74,8 +73,8 @@ describe('onboarding Picker', () => {
     render(<Picker ctx={ctx} />)
 
     expect(screen.getByText('Fireworks AI')).toBeTruthy()
-    expect(screen.getByText('Anthropic Account')).toBeTruthy()
-    expect(screen.getByText('ChatGPT or Codex Subscription')).toBeTruthy()
+    expect(screen.getByText('Anthropic（Claude）')).toBeTruthy()
+    expect(screen.getByText('ChatGPT / Codex 订阅')).toBeTruthy()
     expect(screen.queryByText('其他登录选项')).toBeNull()
     expect(screen.queryByText('推荐')).toBeNull()
   })
@@ -148,7 +147,7 @@ describe('ApiKeyForm manual local-model fallback', () => {
       expect(onSave).toHaveBeenLastCalledWith(
         'OPENAI_BASE_URL',
         'https://api.cohere.ai/compatibility/v1',
-        'Local / custom endpoint',
+        '本地模型 / 自定义接口',
         '',
         'command-a-plus-05-2026'
       )

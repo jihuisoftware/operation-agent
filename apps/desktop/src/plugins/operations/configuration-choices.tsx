@@ -18,10 +18,11 @@ interface ChoiceFieldProps {
   max?: number
   allowCustom?: boolean
   allowEmpty?: boolean
+  clearPresetOnCustom?: boolean
 }
 
 /** Saved values outside the presets remain editable; rendering never applies a default. */
-export function ChoiceField({ label, value, options, onChange, placeholder, type = 'text', max, allowCustom = true, allowEmpty = type !== 'number' }: ChoiceFieldProps) {
+export function ChoiceField({ label, value, options, onChange, placeholder, type = 'text', max, allowCustom = true, allowEmpty = type !== 'number', clearPresetOnCustom = false }: ChoiceFieldProps) {
   const id = useId()
   const [custom, setCustom] = useState(false)
   const isCustom = allowCustom && (custom || (!!value && !options.some(option => option.value === value)))
@@ -30,6 +31,10 @@ export function ChoiceField({ label, value, options, onChange, placeholder, type
     <label htmlFor={id}>{label}</label>
     <Select onValueChange={next => {
       setCustom(next === '__custom__')
+
+      if (next === '__custom__' && clearPresetOnCustom && options.some(option => option.value === value)) {
+        onChange('')
+      }
 
       if (next !== '__custom__') { onChange(next === '__empty__' ? '' : next) }
     }} value={isCustom ? '__custom__' : value || '__empty__'}>

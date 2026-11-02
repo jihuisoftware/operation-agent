@@ -115,6 +115,10 @@ class _AuxCallHooks:
         )
         if metadata.get("plugin_id"):  # a call a plugin asked for (ctx.side_question)
             self.base["plugin_id"] = str(metadata["plugin_id"])
+        from agent.token_ledger import safe_start
+        from agent.aux_accounting import usage_ownership
+        self.usage_record = safe_start(model=model, provider=provider, purpose=aux_task,
+                                       api_mode='chat_completions', scope=usage_ownership())
 
     def pre(self) -> None:
         if not _has_hook(PRE_AUXILIARY_CALL):
@@ -209,8 +213,6 @@ def _fire(name: str, **payload: Any) -> None:
 def start_aux_call_hooks(**kw: Any) -> Optional[_AuxCallHooks]:
     """Fire ``pre_auxiliary_call`` for one attempt; the handle for :func:`finish_aux_call_hooks`,
     or None when nothing subscribes. For callers that drive the provider call themselves."""
-    if not (_has_hook(PRE_AUXILIARY_CALL) or _has_hook(POST_AUXILIARY_CALL)):
-        return None
     try:
         hooks = _AuxCallHooks(**kw)
         hooks.pre()
@@ -227,6 +229,10 @@ def finish_aux_call_hooks(
     """Fire the ``post_auxiliary_call`` paired with :func:`start_aux_call_hooks`."""
     if hooks is None:
         return
+    from agent.token_ledger import safe_finish
+    if not hooks.streaming or error is not None:
+        safe_finish(hooks.usage_record, response=response, error=error,
+                    normalized=normalized[2] if normalized else None)
     try:
         hooks.post(response, error, normalized=normalized)
     except Exception:
@@ -247,6 +253,9 @@ def run_with_aux_hooks(
         finish_aux_call_hooks(hooks, error=exc)
         raise
     finish_aux_call_hooks(hooks, response=response)
+    if streaming and hooks is not None:
+        from agent.token_tracking import UsageStream
+        return UsageStream(response, hooks.usage_record)
     return response
 
 

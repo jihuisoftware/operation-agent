@@ -98,10 +98,10 @@ def _list_auth_returning(rows: list[dict]):
     )
 
 
-def _nous_row(model: str = "openai/gpt-5.5") -> dict:
+def _openrouter_row(model: str = "openai/gpt-5.5") -> dict:
     return {
-        "slug": "nous",
-        "name": "Nous",
+        "slug": "openrouter",
+        "name": "OpenRouter",
         "models": [model],
         "total_models": 1,
         "is_current": True,
@@ -133,9 +133,7 @@ def test_build_models_payload_returns_expected_shape():
     assert set(payload.keys()) == {"providers", "model", "provider"}
     assert payload["model"] == "m1"
     assert payload["provider"] == "openrouter"
-    assert payload["providers"][0]["slug"] == "moa"
-    assert payload["providers"][0]["models"] == ["default"]
-    assert payload["providers"][1:] == rows
+    assert payload["providers"] == rows  # Retired MoA stays hidden even with a saved preset.
 
 
 def test_build_models_payload_hides_moa_without_raw_preset():
@@ -425,7 +423,7 @@ def test_canonical_order_with_unconfigured_preserves_full_universe():
     custom rows trailing. MoA is excluded from unconfigured skeletons
     (virtual, opt-in only — issue #63353).
     """
-    from hermes_cli.models import CANONICAL_PROVIDERS
+    from hermes_cli.models_catalog_static import listed_canonical_providers
 
     rows = [
         {"slug": "custom:Ollama", "name": "Ollama", "models": [],
@@ -442,11 +440,10 @@ def test_canonical_order_with_unconfigured_preserves_full_universe():
         )
     slugs = [r["slug"] for r in payload["providers"]]
     # First row: first canonical provider in declaration order.
-    assert slugs[0] == CANONICAL_PROVIDERS[0].slug
+    assert slugs[0] == listed_canonical_providers()[0].slug
     # Custom row trails all visible canonical rows. MoA is virtual/opt-in
     # so it is excluded from the unconfigured skeleton set, and so is an
     # unlisted pre-release provider.
-    from hermes_cli.models_catalog_static import listed_canonical_providers
     visible_canonical_count = sum(
         1 for e in listed_canonical_providers() if e.slug != "moa"
     )
@@ -539,7 +536,7 @@ def test_user_defined_rows_carry_alias_set_for_gui_current_match():
             "source": "user-config",
             "api_url": "http://localhost:8000/v1",
         },
-        _nous_row() | {"is_current": False},
+        _openrouter_row() | {"is_current": False},
     ]
     ctx = _empty_ctx(provider="custom:myep", model="my-model")
 
@@ -552,7 +549,7 @@ def test_user_defined_rows_carry_alias_set_for_gui_current_match():
     assert "custom:myep" in aliases
     assert "myep" in aliases
     assert "custom:my-endpoint" in aliases
-    assert "aliases" not in by_slug["nous"]
+    assert "aliases" not in by_slug["openrouter"]
 
 
 def test_aggregator_dedup_removes_overlapping_models():
@@ -610,9 +607,9 @@ def test_flat_namespace_reseller_keeps_first_party_models_overlapping_user_proxy
         ]),
         _aggregator_row("openrouter", ["minimax-m3", "anthropic/claude-sonnet-4.6"]),
     ]
-    ctx = _empty_ctx()
-    with _list_auth_returning(rows):
-        payload = build_models_payload(ctx)
+    from hermes_cli.inventory import _strip_aggregator_overlaps
+    _strip_aggregator_overlaps(rows)
+    payload = {"providers": rows}
 
     go_row = next(r for r in payload["providers"] if r["slug"] == "opencode-go")
     or_row = next(r for r in payload["providers"] if r["slug"] == "openrouter")
@@ -639,8 +636,8 @@ def test_build_models_payload_no_max_models_returns_full_list():
     full_models = [f"model-{i}" for i in range(100)]
     rows = [
         {
-            "slug": "kilocode",
-            "name": "Kilo Code",
+            "slug": "openrouter",
+            "name": "OpenRouter",
             "models": full_models,
             "total_models": len(full_models),
             "is_current": False,
@@ -653,7 +650,7 @@ def test_build_models_payload_no_max_models_returns_full_list():
         # No max_models argument — should return all 100 models
         payload = build_models_payload(ctx)
 
-    kilo_row = next(r for r in payload["providers"] if r["slug"] == "kilocode")
+    kilo_row = next(r for r in payload["providers"] if r["slug"] == "openrouter")
     assert kilo_row["models"] == full_models
     assert kilo_row["total_models"] == 100
     assert len(kilo_row["models"]) == 100

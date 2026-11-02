@@ -86,8 +86,8 @@ def update_record(store, data):
 
 def execute(body, path=None):
     require_enabled()
-    task, request_id = body.get("task"), body.get("request_id")
-    if task not in {*TASKS, "pipeline"} or not isinstance(request_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", request_id):
+    task, request_id, mode = body.get("task"), body.get("request_id"), body.get("mode", "normal")
+    if task not in {*TASKS, "pipeline"} or mode not in {"normal", "quick"} or not isinstance(request_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", request_id):
         raise HTTPException(400, "任务或请求标识无效")
     identity = "debug:" + request_id
     store = DebugStore(identity, path)
@@ -99,12 +99,12 @@ def execute(body, path=None):
     try:
         from .operations_pipeline import run_pipeline
         handler = run_pipeline if task == "pipeline" else run_task
-        return previous(store, identity, task, body.get("version")) or handler(store, identity, task, body.get("version"))
+        return previous(store, identity, task, body.get("version")) or handler(store, identity, task, body.get("version"), mode=mode)
     finally:
         store.release(identity)
 
 
-def run_task(store, identity, task, version):
+def run_task(store, identity, task, version, *, mode="normal"):
     current, policy = store.policy()
     module = TASKS[task][1]
     if current != version:
@@ -117,11 +117,12 @@ def run_task(store, identity, task, version):
     if task in {"publish", "comment", "reply", "dm", "follow"} and not policy["allowed"][task]:
         raise HTTPException(400, "该动作尚未授权")
     data = new_record(identity, task, TASKS[task][0], version, day)
+    data["mode"] = mode
     store.put("debug_run", data, identity)
     store.manual_run_id = identity
     run_id = store.start_run(day, module, identity, version)
     store.event("debug_start", {"task": task, "rule": policy, "run_id": run_id})
-    outcome = invoke(store, task, policy, day, version)
+    outcome = invoke(store, task, policy, day, version, quick=mode == "quick")
     store.finish_run(run_id, outcome["state"], outcome["detail"])
     data.update(**outcome, ended=now_iso())
     update_record(store, data)
@@ -134,12 +135,15 @@ def new_record(identity, task, title, version, day):
             "pid": os.getpid(), "process_started": psutil.Process().create_time()}
 
 
-def invoke(store, task, policy, day, version, *, content_id=None):
+def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
     started = datetime.now(UTC)
     result = None
     try:
         if task in {"publish", "comment", "reply", "dm", "follow"} and not store.snapshot()["online"]:
             raise StageSkipped("桌面执行器离线，请启动开发版 Desktop")
+        if quick:
+            policy = {**policy, "limits": {**policy["limits"], "source": 1, "comment": 1, "reply": 1, "dm": 1, "follow": 1}, "model_calls": min(policy["model_calls"], 2)}
+            store.run_options = {"read_limit": 1, "query_limit": 1, "quick": True}
         handlers = {"research": workflow.research, "organize": workflow.organize, "analytics": workflow.analytics, "industry": workflow.industry, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     **{k: partial(workflow.interact, kinds=(k,)) for k in ("comment", "reply", "dm", "follow")}}
         if task == "report":
@@ -156,6 +160,8 @@ def invoke(store, task, policy, day, version, *, content_id=None):
         logging.getLogger(__name__).exception("Development task failed: %s", task)
         state, detail = "failed", str(exc)
         store.event("debug_exception", {"error": detail, "traceback": "".join(traceback.format_exception(*sys.exc_info()))})
+    if quick:
+        store.run_options = None
     return {"state": state, "detail": detail, "result": result,
             "duration_ms": int((datetime.now(UTC) - started).total_seconds() * 1000)}
 

@@ -42,6 +42,17 @@ def reset_accounting_context(token) -> None:
         _accounting.set(None)
 
 
+def usage_ownership() -> dict:
+    """Identity for auxiliary work outside a live turn (for example, title generation)."""
+    ctx = _accounting.get()
+    if ctx is None:
+        return {}
+    db, session_id = ctx
+    path = getattr(db, 'db_path', None)
+    from pathlib import Path
+    return {'session_id': str(session_id), **({'path': str(path)} if isinstance(path, (str, Path)) else {})}
+
+
 def record_aux_usage(
     response: Any, task: Optional[str], *, provider: Optional[str] = None,
     base_url: Optional[str] = None,

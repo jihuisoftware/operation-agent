@@ -23,6 +23,7 @@ import { UpcomingOperations } from './upcoming'
 import { OperationsWorker } from './worker'
 import { WorkspacePage } from './workspace-page'
 import { WorkspacePicker } from './workspace-picker'
+import { TokenUsagePage } from './token-usage/page'
 
 declare const __OPERATIONS_DEBUG__: boolean
 
@@ -77,6 +78,7 @@ export default {
         ],
         footer: [
           'operations:accounts-nav',
+          'operations:token-usage-nav',
           'new-session',
           'operations:settings-nav',
           'capabilities',
@@ -90,6 +92,8 @@ export default {
       area: SIDEBAR_NAV_AREA,
       data: { path: '/settings', label: '设置', codicon: 'settings-gear' } satisfies SidebarNavContribution
     })
+    ctx.register({ id: 'token-usage', area: ROUTES_AREA, title: 'Token 用量', data: { path: '/token-usage' }, render: () => <TokenUsagePage ctx={ctx} /> })
+    ctx.register({ id: 'token-usage-nav', area: SIDEBAR_NAV_AREA, data: { path: '/token-usage', label: 'Token 用量', codicon: 'pulse' } satisfies SidebarNavContribution })
 
     if (__OPERATIONS_DEBUG__) {
       let disposed = false

@@ -2,9 +2,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { $desktopOnboarding, closeManualOnboarding, type OnboardingContext } from '@/store/onboarding'
+import { stubMenuDomApis } from '@/test/jsdom'
 import { makeOAuthProvider } from '@/test/oauth-provider'
 
 import { Picker } from '.'
+
+stubMenuDomApis()
 
 afterEach(() => {
   cleanup()
@@ -13,9 +16,9 @@ afterEach(() => {
 })
 
 it.each([
-  ['Kimi（中国区）', 'KIMI_CN_API_KEY', 'kimi-coding-cn'],
-  ['DeepSeek', 'DEEPSEEK_API_KEY', 'deepseek'],
-  ['Kimi（国际区）', 'KIMI_API_KEY', 'kimi-coding']
+  ['月之暗面（国内）', 'KIMI_CN_API_KEY', 'kimi-coding-cn'],
+  ['深度求索', 'DEEPSEEK_API_KEY', 'deepseek'],
+  ['月之暗面（国际）', 'KIMI_API_KEY', 'kimi-coding']
 ])('connects %s to its own model even when Nous is first in the catalog', async (name, envKey, provider) => {
   const api = vi.fn(async ({ path }: { path: string }) => {
     if (path.startsWith('/api/model/options')) {
@@ -52,11 +55,11 @@ it.each([
   render(<Picker ctx={ctx} />)
 
   // Both direct providers are reachable without expanding "Other providers".
-  expect(screen.getByRole('button', { name: /^DeepSeek/ })).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: name === 'DeepSeek' ? /^DeepSeek/ : /^Kimi（中国区）/ }))
+  expect(screen.getByRole('button', { name: /^深度求索/ })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: name === '深度求索' ? /^深度求索/ : /^月之暗面（国内）/ }))
 
   if (provider === 'kimi-coding') {
-    fireEvent.click(screen.getByRole('button', { name: /^Kimi（国际区）/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^月之暗面（国际）/ }))
   }
 
   fireEvent.change(screen.getByPlaceholderText('粘贴 API 密钥'), { target: { value: 'fixture-key' } })

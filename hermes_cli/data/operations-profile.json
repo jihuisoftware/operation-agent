@@ -43,6 +43,9 @@
     "moa"
   ],
   "settings": {
+    "nous": {
+      "guest": false
+    },
     "agent": {
       "coding_context": "off"
     },
@@ -168,5 +171,70 @@
       "agent-importers",
       "xchat"
     ]
+  },
+  "modelProviders": {
+    "hidden": [
+      "nous",
+      "nous-portal",
+      "nousresearch",
+      "moa",
+      "novita",
+      "xai-oauth",
+      "tencent-tokenplan",
+      "nvidia",
+      "copilot",
+      "copilot-acp",
+      "claude-code",
+      "huggingface",
+      "vertex",
+      "minimax-oauth",
+      "arcee",
+      "gmi",
+      "kilocode",
+      "opencode-zen",
+      "opencode-go",
+      "bedrock",
+      "azure-foundry",
+      "ai-gateway",
+      "qwen-oauth",
+      "actual",
+      "commandcode",
+      "commandcode-anthropic",
+      "deepinfra",
+      "meta-ai",
+      "nebius-token-factory",
+      "router",
+      "solstice",
+      "upstage",
+      "alibaba-coding-plan",
+      "alibaba-coding-plan-cn",
+      "alibaba-token-plan",
+      "alibaba-token-plan-cn"
+    ],
+    "labels": {
+      "deepseek": "深度求索",
+      "alibaba": "阿里云百炼（国际）",
+      "alibaba-cn": "阿里云百炼（国内）",
+      "kimi-coding": "月之暗面（国际）",
+      "kimi-coding-cn": "月之暗面（国内）",
+      "zai": "智谱",
+      "minimax": "稀宇科技（国际）",
+      "minimax-cn": "稀宇科技（国内）",
+      "xiaomi": "小米",
+      "tencent-tokenhub": "腾讯云",
+      "stepfun": "阶跃星辰",
+      "openai-api": "OpenAI API",
+      "openai": "OpenAI",
+      "openai-codex": "ChatGPT / Codex 订阅",
+      "anthropic": "Anthropic（Claude）",
+      "gemini": "谷歌 Gemini",
+      "xai": "xAI（Grok）",
+      "openrouter": "OpenRouter",
+      "fireworks": "Fireworks AI",
+      "ollama-cloud": "Ollama 云端",
+      "lmstudio": "LM Studio",
+      "llamacpp": "本地模型",
+      "custom": "自定义接口"
+    }
   }
 }

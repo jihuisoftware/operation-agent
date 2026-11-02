@@ -2,19 +2,14 @@ import { RowButton } from '@/components/ui/row-button'
 import { useI18n } from '@/i18n'
 import { Check, ChevronRight, Terminal } from '@/lib/icons'
 import { PROVIDER_DISPLAY_NAMES } from '@/lib/model-status-label'
+import { operationsModelProviderAllowed } from '@/lib/operations-profile'
 import type { OAuthProvider } from '@/types/hermes'
 
 // Titles live in PROVIDER_DISPLAY_NAMES (shared with the model pill); this is
-// only the featured order. Both Anthropic entries sit at the bottom: the API-key
-// path first, then the subscription OAuth path (only works with extra usage credits).
+// only the account order. The backend owns each provider's authentication flow.
 const PROVIDER_ORDER: Record<string, number> = {
-  nous: 0,
   'openai-codex': 1,
-  'minimax-oauth': 2,
-  'qwen-oauth': 3,
-  'xai-oauth': 4,
-  anthropic: 5,
-  'claude-code': 6
+  anthropic: 2
 }
 
 const assetPath = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
@@ -23,7 +18,8 @@ export const providerTitle = (p: OAuthProvider) => PROVIDER_DISPLAY_NAMES[p.id] 
 const orderOf = (p: OAuthProvider) => PROVIDER_ORDER[p.id] ?? 99
 
 export const sortProviders = (providers: OAuthProvider[]) =>
-  [...providers].sort((a, b) => orderOf(a) - orderOf(b) || a.name.localeCompare(b.name))
+  providers.filter(p => operationsModelProviderAllowed(p.id))
+    .sort((a, b) => orderOf(a) - orderOf(b) || providerTitle(a).localeCompare(providerTitle(b), 'zh-CN'))
 
 export function FeaturedProviderRow({
   onSelect,
@@ -111,7 +107,7 @@ export function KeyProviderRow({ onClick, pitch, title }: { onClick: () => void;
 export const DIRECT_API_KEY_OPTIONS = [
   {
     id: 'kimi-coding-cn',
-    name: 'Kimi（中国区）',
+    name: PROVIDER_DISPLAY_NAMES['kimi-coding-cn'],
     envKey: 'KIMI_CN_API_KEY',
     docsUrl: 'https://platform.kimi.com/docs/api/overview',
     description: '使用 Kimi 中国区开放平台的 API 密钥连接模型。',
@@ -119,7 +115,7 @@ export const DIRECT_API_KEY_OPTIONS = [
   },
   {
     id: 'deepseek',
-    name: 'DeepSeek',
+    name: PROVIDER_DISPLAY_NAMES.deepseek,
     envKey: 'DEEPSEEK_API_KEY',
     docsUrl: 'https://platform.deepseek.com/api_keys',
     description: '使用 DeepSeek 开放平台的 API 密钥直连模型。',

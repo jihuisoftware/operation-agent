@@ -2,6 +2,7 @@ import type { OnboardingEndedPayload } from '@hermes/shared'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { zh } from '@/i18n/zh'
 import { $onboardingPhase } from '@/store/onboarding-phase'
 import { noteOnboardingEnded, startOnboarding } from '@/store/onboarding-run'
 import { isOnboardingChat } from '@/store/onboarding-session'
@@ -21,7 +22,7 @@ const request = async <T,>(method: string): Promise<T> =>
 async function onboardingChatOnScreen() {
   await startOnboarding(request, resume, { ensureProfile })
   render(<OnboardingSkip sessionId="rt-1" />)
-  expect(screen.getByRole('button', { name: 'Skip setup' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: zh.firstRun.skip })).toBeTruthy()
 }
 
 beforeEach(() => {
@@ -38,7 +39,7 @@ describe('Skip setup', () => {
 
     act(() => noteOnboardingEnded(ended))
 
-    expect(screen.queryByRole('button', { name: 'Skip setup' })).toBeNull()
+    expect(screen.queryByRole('button', { name: zh.firstRun.skip })).toBeNull()
   })
 
   // Last in the file: a throwing listener leaves nanostores' shared listener queue undrained.
@@ -54,6 +55,6 @@ describe('Skip setup', () => {
 
     expect($onboardingPhase.get()).toBe('done')
     expect(isOnboardingChat('rt-1')).toBe(false)
-    expect(screen.queryByRole('button', { name: 'Skip setup' })).toBeNull()
+    expect(screen.queryByRole('button', { name: zh.firstRun.skip })).toBeNull()
   })
 })

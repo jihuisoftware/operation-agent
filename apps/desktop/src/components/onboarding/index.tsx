@@ -11,6 +11,8 @@ import { getGlobalModelOptions } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Check, ChevronDown, ChevronLeft, KeyRound, Loader2 } from '@/lib/icons'
 import { isSubmitEnter } from '@/lib/ime'
+import { PROVIDER_DISPLAY_NAMES } from '@/lib/model-status-label'
+import { operationsModelProviderAllowed } from '@/lib/operations-profile'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { cn } from '@/lib/utils'
 import { $desktopBoot, type DesktopBootState } from '@/store/boot'
@@ -90,10 +92,10 @@ const API_KEY_OPTIONS: ApiKeyOption[] = [
   ...DIRECT_API_KEY_OPTIONS,
   {
     id: 'kimi-coding',
-    name: 'Kimi（国际区）',
+    name: '月之暗面（国际）',
     envKey: 'KIMI_API_KEY',
     docsUrl: 'https://platform.kimi.ai/docs/api/overview',
-    description: '使用 Kimi 国际区开放平台的 API 密钥；中国区密钥请选择“Kimi（中国区）”。',
+    description: '使用月之暗面国际区开放平台的 API 密钥；国内密钥请选择“月之暗面（国内）”。',
     short: '月之暗面 · 国际区'
   },
   {
@@ -116,24 +118,24 @@ const API_KEY_OPTIONS: ApiKeyOption[] = [
   },
   {
     id: 'gemini',
-    name: 'Google Gemini',
+    name: '谷歌 Gemini',
     envKey: 'GEMINI_API_KEY',
     docsUrl: 'https://aistudio.google.com/app/apikey'
   },
   {
     id: 'xai',
-    name: 'xAI Grok',
+    name: 'xAI（Grok）',
     envKey: 'XAI_API_KEY',
     docsUrl: 'https://console.x.ai/'
   },
   {
     id: 'local',
-    name: 'Local / custom endpoint',
+    name: '本地模型 / 自定义接口',
     envKey: 'OPENAI_BASE_URL',
     docsUrl: 'https://github.com/NousResearch/hermes-agent#bring-your-own-endpoint',
     placeholder: 'http://127.0.0.1:8000/v1'
   }
-]
+].map(option => ({ ...option, name: PROVIDER_DISPLAY_NAMES[option.id] ?? option.name }))
 
 // Build the FULL API-key provider catalog from the backend model options so the
 // onboarding / Providers key form lists every `api_key` provider `hermes model`
@@ -173,6 +175,10 @@ function useApiKeyCatalog(scope: OnboardingContext['scope']): ApiKeyOption[] {
     const seenEnv = new Set<string>(API_KEY_OPTIONS.map(o => o.envKey))
 
     for (const row of rows) {
+      if (!operationsModelProviderAllowed(row.slug)) {
+        continue
+      }
+
       // Only api_key providers can be activated with a pasted key. Skip OAuth /
       // external / managed flows and anything missing an env var to write to.
       if (row.auth_type && row.auth_type !== 'api_key') {

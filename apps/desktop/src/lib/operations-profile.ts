@@ -3,6 +3,10 @@ import profile from '../../../../hermes_cli/data/operations-profile.json'
 export const OPERATIONS_PROFILE = profile
 export const DISABLED_OPERATIONS_ROUTES: readonly string[] = profile.desktop.disabledRoutes
 
+export function operationsModelProviderAllowed(id: string): boolean {
+  return !profile.modelProviders.hidden.includes(id.trim().toLowerCase())
+}
+
 export function operationsPluginAllowed(id: string): boolean {
   return !profile.desktop.disabledPlugins.includes(id)
 }

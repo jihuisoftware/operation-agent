@@ -1,4 +1,4 @@
-import { Badge, Button, Codicon, formatTimestamp, host } from '@hermes/plugin-sdk'
+import { Badge, Button, Codicon, formatTimestamp, formatTimestampMinute, host } from '@hermes/plugin-sdk'
 import type { ReactNode } from 'react'
 
 export const overviewRoutes = {
@@ -22,6 +22,14 @@ export function Time({ value }: { value: string }) {
   return (
     <time dateTime={value} title={value}>
       {formatTimestamp(value)}
+    </time>
+  )
+}
+
+export function ReportTime({ value }: { value: string }) {
+  return (
+    <time dateTime={value} title={value}>
+      {formatTimestampMinute(value)}
     </time>
   )
 }

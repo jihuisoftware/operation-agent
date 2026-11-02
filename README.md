@@ -6,6 +6,10 @@
 
 ## 产品范围
 
+模型提供方入口已按运营场景精简：保留深度求索、阿里云百炼、月之暗面、智谱、稀宇科技、小米、腾讯云、阶跃星辰，以及 OpenAI、Anthropic（Claude）、谷歌 Gemini、xAI（Grok）、OpenRouter、Fireworks AI、Ollama 云端、LM Studio 和自定义接口。国内／国际区域分别展示。Nous Portal 不再出现在提供方列表，并关闭首次使用的自动免费身份开通；云部署、编码工具专用及重复登录入口从默认列表隐藏。
+
+范围与中文名称统一维护于 `hermes_cli/data/operations-profile.json` 的 `modelProviders`，由设置页、添加提供方和模型选择器共享。此裁剪不删除历史凭证、不改变已保存的提供方 ID，也不限制用户自行安装的其他提供方插件。
+
 | 状态 | 能力 |
 | --- | --- |
 | 已保留 | Desktop 对话、内容预览、文件处理、检索、浏览器、终端、代码执行、技能、记忆、待办和定时任务 |

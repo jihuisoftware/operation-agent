@@ -314,6 +314,10 @@ def _get_env_vars_sync(profile: Optional[str] = None):
     for var_name, info in OPTIONAL_ENV_VARS.items():
         if var_name in channel_keys:
             continue
+        # Retired provider cards must not be resurrected by the legacy env catalog.
+        # Stored keys still reach the custom-key management pass below.
+        if info.get("category") == "provider" and var_name not in catalog_meta:
+            continue
         result[var_name] = _row(var_name, info)
     # Catalog provider env vars with no hand entry in OPTIONAL_ENV_VARS.
     for var_name in catalog_meta:

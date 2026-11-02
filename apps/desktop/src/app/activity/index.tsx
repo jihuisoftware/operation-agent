@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useCallback, useState } from 'react'
 
 import { $apiRequestScope, hermesApiAs, resolveOwnerNow } from '@/api/client'
+import { formatTimestamp } from '@/lib/time'
 import type { CronJob, StatusResponse } from '@/types/hermes'
 
 import { TaskDetails } from '../cron/task-details'
@@ -43,7 +44,9 @@ function OwnedActivity({ owner: initialOwner }: { owner: ReturnType<typeof resol
         <span>Server：{data.status.gateway_running ? '运行中' : '未运行'}</span>
         <span>运行中的定时任务：{running.length}</span>
         <span>Profile：{owner.profile}</span>
-        <span>最近心跳：{data.status.gateway_updated_at || '暂无'}</span>
+        <span>最近心跳：{data.status.gateway_updated_at
+          ? <time dateTime={data.status.gateway_updated_at}>{formatTimestamp(data.status.gateway_updated_at)}</time>
+          : '暂无'}</span>
         {data.status.gateway_heartbeat_stale_s != null && <span className="text-destructive">心跳延迟 {data.status.gateway_heartbeat_stale_s} 秒</span>}
       </div>}
       <AgentProcess owner={owner} />

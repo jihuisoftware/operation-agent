@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hermes_cli.model_provider_scope import provider_label
+
 # Auth types that authenticate via an account / sign-in flow rather than a pasted API key; these
 # route to the desktop "Accounts" tab, everything else (api_key, and aws_sdk configured via
 # AWS_REGION/AWS_PROFILE) to "API keys". Mirrors the auth_type strings in PROVIDER_REGISTRY and
@@ -94,7 +96,7 @@ def provider_catalog() -> list[ProviderDescriptor]:
             api_key_vars, base_url_var = _split_env_vars(tuple(prof.env_vars))
         else:
             api_key_vars, base_url_var = (), ""
-        label = (prof.display_name if prof else "") or entry.label or slug
+        label = provider_label(slug, (prof.display_name if prof else "") or entry.label or slug)
         signup_url = (prof.signup_url if prof else "") or ""
         if not signup_url and api_key_vars:
             signup_url = (OPTIONAL_ENV_VARS.get(api_key_vars[0]) or {}).get("url") or ""

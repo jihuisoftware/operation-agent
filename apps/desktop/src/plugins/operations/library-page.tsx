@@ -1,4 +1,4 @@
-import { Button, CopyButton, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
+import { Button, CopyButton, formatTimestamp, formatTimestampMinute, host, type PluginContext } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useState } from 'react'
 
 import { AssetImage } from './asset-image'
@@ -168,10 +168,13 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
       {section === 'reports' &&
         (data.report || []).map(row => (
           <details key={row.id}>
-            <summary className="cursor-pointer">{String(row.day)} 日报</summary>
-            <Button onClick={() => download(String(row.day), String(row.markdown))} variant="outline">
-              导出 Markdown
-            </Button>
+            <summary className="cursor-pointer">{String(row.day)} 日报 · {formatTimestampMinute(String(row.created))}</summary>
+            <div className="flex gap-2">
+              <CopyButton label="复制日报" text={String(row.markdown)} />
+              <Button onClick={() => download(String(row.day), String(row.markdown))} variant="outline">
+                导出 Markdown
+              </Button>
+            </div>
             <pre className="whitespace-pre-wrap break-words">{String(row.markdown)}</pre>
           </details>
         ))}

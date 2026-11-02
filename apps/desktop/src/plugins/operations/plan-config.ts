@@ -53,6 +53,6 @@ export function selectBusiness(policy: Policy, catalog: BlueprintCatalog, busine
   const template = catalog.templates.find(t => t.id === business)
 
   return template
-    ? seedTemplateDefaults(policy, template, catalog.version === 0)
+    ? { ...seedTemplateDefaults(policy, template, catalog.version === 0), topic: policy.topic }
     : { ...policy, business_theme: business ? 'custom' : '', business_subtype: business }
 }

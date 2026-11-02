@@ -24,18 +24,25 @@ afterEach(() => {
 
 it('shows actual work beside the toggle, keeps it while hidden, and clears on completion', () => {
   render(<LiveViewButton />)
-  const button = screen.getByRole('button', { name: '运营画面' })
+  const button = screen.getByRole('button', { name: '展开运营画面' })
+  expect(button.textContent).toBe('展开运营画面')
   expect(screen.queryByLabelText('正在操作网页：发布内容')).toBeNull()
   let finish!: () => void
   act(() => { finish = beginBrowserActivity({ connectionId: 'local', profile: 'one' }, 'publish') })
   expect(screen.getByLabelText('正在操作网页：发布内容')).toBeTruthy()
   fireEvent.click(button)
   expect(button.getAttribute('aria-pressed')).toBe('true')
+  expect(screen.getByRole('button', { name: '收起运营画面' }).textContent).toContain('收起运营画面')
   fireEvent.click(button)
   expect(button.getAttribute('aria-pressed')).toBe('false')
+  expect(screen.getByRole('button', { name: '展开运营画面' })).toBe(button)
   expect(screen.getByLabelText('正在操作网页：发布内容')).toBeTruthy()
   act(() => finish())
   expect(screen.queryByLabelText('正在操作网页：发布内容')).toBeNull()
+  act(() => $showOperationsBrowser.set(true))
+  expect(screen.getByRole('button', { name: '收起运营画面' }).getAttribute('aria-pressed')).toBe('true')
+  act(() => $showOperationsBrowser.set(false))
+  expect(screen.getByRole('button', { name: '展开运营画面' }).getAttribute('aria-pressed')).toBe('false')
 })
 
 it('isolates owners and ignores an old task completing after another task begins', () => {

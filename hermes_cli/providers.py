@@ -254,6 +254,9 @@ def _plugin_profile_pdef(name: str) -> Optional[ProviderDef]:
 def get_label(provider_id: str) -> str:
     """Human-readable display name: label override, else models.dev name, else the id."""
     canonical = normalize_provider(provider_id)
+    from hermes_cli.model_provider_scope import MODEL_PROVIDER_LABELS
+    if canonical in MODEL_PROVIDER_LABELS:
+        return MODEL_PROVIDER_LABELS[canonical]
     if canonical in _LABEL_OVERRIDES:
         return _LABEL_OVERRIDES[canonical]
     pdef = get_provider(canonical)

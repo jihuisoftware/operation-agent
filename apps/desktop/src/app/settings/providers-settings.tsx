@@ -21,6 +21,8 @@ import { Tip } from '@/components/ui/tooltip'
 import { disconnectOAuthProvider, listOAuthProviders } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Check, ChevronDown, ChevronRight, KeyRound, Loader2, Terminal, Trash2 } from '@/lib/icons'
+import { PROVIDER_DISPLAY_NAMES } from '@/lib/model-status-label'
+import { operationsModelProviderAllowed } from '@/lib/operations-profile'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import { confirm } from '@/store/confirm'
@@ -70,7 +72,7 @@ export type ProviderView = (typeof PROVIDER_VIEWS)[number]
 //   2. Desktop prefix match (`providerGroup`) — legacy fallback for provider
 //      env vars that predate the backend tagging.
 // Only entries that resolve to neither (the "Other" bucket) are skipped.
-const providerKeyElementId = (name: string) => `provider-key-${name.replace(/\W+/g, '-')}`
+const providerKeyElementId = (name: string) => `provider-key-${name.replace(/[^\p{L}\p{N}_-]+/gu, '-')}`
 
 function buildProviderKeyGroups(vars: Record<string, EnvVarInfo>): ProviderKeyGroup[] {
   const buckets = new Map<string, [string, EnvVarInfo][]>()
@@ -95,9 +97,14 @@ function buildProviderKeyGroups(vars: Record<string, EnvVarInfo>): ProviderKeyGr
       : [info]
 
     for (const scopedInfo of scopedInfos) {
+      if (scopedInfo.provider && !operationsModelProviderAllowed(scopedInfo.provider)) {
+        continue
+      }
+
       // Prefer the backend-supplied provider label/id so the Keys tab groups by
       // the same identity the CLI picker uses; fall back to the prefix guess.
-      const name = scopedInfo.provider_label?.trim() || scopedInfo.provider?.trim() || providerGroup(key)
+      const name = PROVIDER_DISPLAY_NAMES[scopedInfo.provider ?? '']
+        || scopedInfo.provider_label?.trim() || scopedInfo.provider?.trim() || providerGroup(key)
 
       if (name === 'Other') {
         continue

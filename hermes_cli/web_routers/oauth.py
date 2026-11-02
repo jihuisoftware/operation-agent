@@ -647,12 +647,14 @@ def _build_oauth_catalog() -> list[dict[str, Any]]:
     """Accounts-tab provider list: ``_OAUTH_PROVIDER_CATALOG`` cards first (curated
     order, win on metadata), then every other accounts-tab ``provider_catalog()`` entry
     in ``hermes model`` order, so plugin-added OAuth/external providers appear automatically."""
+    from hermes_cli.model_provider_scope import HIDDEN_MODEL_PROVIDERS, provider_label
+
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
     for entry in _OAUTH_PROVIDER_CATALOG:
-        if entry["id"] not in seen:
+        if entry["id"] not in seen and entry["id"] not in HIDDEN_MODEL_PROVIDERS:
             seen.add(entry["id"])
-            rows.append(dict(entry))
+            rows.append({**entry, "name": provider_label(entry["id"], entry["name"])})
     try:
         from hermes_cli.provider_catalog import provider_catalog
         for d in provider_catalog():

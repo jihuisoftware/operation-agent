@@ -67,7 +67,7 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
     return () => { disposed = true; clearInterval(timer) }
   }, [api, selected, revision])
 
-  const run = async (task: string) => {
+  const run = async (task: string, mode: 'normal' | 'quick' = 'normal') => {
     if (!catalog) { return }
     const requestId = crypto.randomUUID()
     setPending(true)
@@ -76,7 +76,7 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
     setDetail(null)
 
     try {
-      await api('/debug/run', { task, version: catalog.version, request_id: requestId })
+      await api('/debug/run', { task, mode, version: catalog.version, request_id: requestId })
     } catch (reason) { setError(`${String(reason)}；请先查看执行记录核对结果，再决定是否重新执行。`) } finally {
       setPending(false)
       setRevision(value => value + 1)
@@ -97,14 +97,18 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
         <h2 className="font-semibold">整链路测试</h2>
         <p>采集 → 整理归类 → 选题 → 内容生产 → 发布 → 评论与回复 → 私信 → 回关 → 日报</p>
         <p className="text-sm text-muted-foreground">按当前规则真实执行，消耗现有额度。未启用、未授权或缺少条件的步骤会注明原因；失败阻止依赖步骤，发布只使用本轮草稿。最后保存调试日报，不受日报模块开关影响。</p>
-        <Button disabled={Boolean(busy) || !catalog?.pipeline_available} onClick={() => void run('pipeline')}>开始整链路测试（真实执行）</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={Boolean(busy) || !catalog?.pipeline_available} onClick={() => void run('pipeline')}>开始整链路测试（真实执行）</Button>
+          <Button disabled={Boolean(busy) || !catalog?.pipeline_available} onClick={() => void run('pipeline', 'quick')} variant="outline">快速调试整条链路</Button>
+        </div>
+        <p className="text-xs text-muted-foreground">快速调试每个阶段最多执行一次，采集最多读取 1 条、检索 1 次，模型调用最多 2 次；仍遵守当前授权，外部动作可能真实提交。</p>
         {catalog && !catalog.pipeline_available && <p className="text-sm text-muted-foreground">请重启源码 Server，加载整链路调试接口。</p>}
       </section>
       <div className="space-y-3">
         {catalog?.tasks.map(task => (
           <div className="flex items-center justify-between gap-4" key={task.id}>
             <span>{task.title}{!catalog.policy.modules[task.module] && ' · 未启用模块'}</span>
-            <Button disabled={Boolean(busy)} onClick={() => void run(task.id)} variant="outline">单独执行{task.title}</Button>
+            <div className="flex gap-2"><Button disabled={Boolean(busy)} onClick={() => void run(task.id)} variant="outline">详细执行{task.title}</Button><Button disabled={Boolean(busy)} onClick={() => void run(task.id, 'quick')} variant="ghost">快速调试</Button></div>
           </div>
         ))}
       </div>

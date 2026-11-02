@@ -14,9 +14,10 @@ export function LiveViewButton() {
   const visible = useValue($showOperationsBrowser)
   const running = activity && sameLoginOwner(owner, activity.owner) ? activity : null
   const message = running ? `正在操作网页：${taskLabels[running.kind]}` : '显示或隐藏自动运营内嵌网页'
+  const label = visible ? '收起运营画面' : '展开运营画面'
 
-  return <Button aria-label="运营画面" aria-pressed={visible} onClick={() => $showOperationsBrowser.set(!visible)} size="sm" title={message} variant="ghost">
-    运营画面
+  return <Button aria-label={label} aria-pressed={visible} onClick={() => $showOperationsBrowser.set(!visible)} size="sm" variant={visible ? 'secondary' : 'ghost'}>
+    {label}
     {running && <GlyphSpinner ariaLabel={message} className="size-3" />}
   </Button>
 }
