@@ -288,6 +288,9 @@ async def _expand_reference(
 def _expand_path_reference(ref: ContextReference, cwd: Path, *, allowed_root: Path | None = None,
                            max_inline_tokens: int | None = None) -> Expansion:
     """``@file:`` / ``@folder:``: resolve, allow-check, then inline text / binary stub / listing."""
+    from agent.input_policy import parsing_allowed, parsing_notice
+    if ref.kind == 'file' and not parsing_allowed('files'):
+        return None, f"{ref.raw}: {parsing_notice('files')}"
     is_folder = ref.kind == "folder"
     path = _resolve_path(cwd, ref.target, allowed_root=allowed_root)
     _ensure_reference_path_allowed(path)

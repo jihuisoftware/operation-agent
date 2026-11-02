@@ -1,4 +1,5 @@
 import { seedTemplateDefaults } from './business-config'
+import type { Readiness } from './plan-readiness'
 import type { Policy } from './types'
 
 export interface BlueprintTemplate {
@@ -24,6 +25,7 @@ export interface PlanTime {
   next_at: string
 }
 export interface BlueprintCatalog {
+  model_ready?: boolean | null
   version: number
   schedule_state?: 'ready' | 'missing' | 'paused'
   policy: Policy
@@ -35,6 +37,8 @@ export interface BlueprintCatalog {
   assets: { id: string; name: string; revoked: boolean }[]
 }
 export interface BlueprintPreview {
+  blocking?: string[]
+  readiness?: Record<string, Readiness>
   version: number
   policy: Policy
   missing: Record<string, string[]>
@@ -94,7 +98,18 @@ export function seedBlueprint(catalog: BlueprintCatalog, template: BlueprintTemp
 export function enableDefaultOperations(current: Policy): Policy {
   const policy = structuredClone(current)
 
-  for (const module of ['research', 'organize', 'analytics', 'industry', 'topics', 'content', 'publish', 'comments', 'dm', 'report']) {
+  for (const module of [
+    'research',
+    'organize',
+    'analytics',
+    'industry',
+    'topics',
+    'content',
+    'publish',
+    'comments',
+    'dm',
+    'report'
+  ]) {
     policy.modules[module] = true
   }
 

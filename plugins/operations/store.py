@@ -42,6 +42,7 @@ class Store:
         self.path = path
         self.lease_token = None
         self.manual_run_id = None
+        self.run_options = None
         self.execution_id = None
         self.current_run_id = None
         with self.connection() as db:
@@ -70,7 +71,7 @@ class Store:
             row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
             return row["version"], {**DEFAULT, **json.loads(row["data"])}
 
-    def configure(self, value, expected_version, *, request_id=None, request_hash=None):
+    def configure(self, value, expected_version, *, request_id=None, request_hash=None, first_run=None, activation=False):
         policy = validate_policy(value)
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -84,6 +85,9 @@ class Store:
             row = db.execute("SELECT version FROM settings WHERE id=1").fetchone()
             if row[0] != expected_version:
                 raise ValueError("配置已变更，请刷新后重新保存")
+            first_activation = activation and not db.execute("SELECT 1 FROM objects WHERE kind='policy' AND json_extract(data,'$.policy.enabled')=1").fetchone()
+            if first_activation:
+                db.execute("INSERT OR REPLACE INTO objects VALUES ('plan-activation','activation',?,?)", (encoded({'after': now_iso()}), now_iso()))
             version = expected_version + 1
             db.execute("UPDATE settings SET version=?,data=? WHERE id=1", (version, encoded(policy)))
             db.execute("UPDATE actions SET state='cancelled' WHERE state='queued'")
@@ -95,6 +99,9 @@ class Store:
             if request_id:
                 db.execute("INSERT INTO objects VALUES (?, 'application', ?, ?)",
                            ("apply:" + request_id, encoded({"version": version, "hash": request_hash}), now_iso()))
+            if first_run is not None:
+                db.execute("INSERT INTO objects VALUES (?, 'quick_run', ?, ?)",
+                           ('quick:' + request_id, encoded({'version': version, 'options': first_run, 'activation_boundary': first_activation, 'state': 'pending', 'created': now_iso()}), now_iso()))
         from .progress import sync_plan
         sync_plan(self)
         return version
@@ -172,6 +179,9 @@ class Store:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
             policy = json.loads(row["data"])
+            from .readiness import web_held
+            if web_held(db):
+                raise ValueError("网页正在人工接管")
             error = permitted(policy, action)
             if error or row["version"] != version:
                 raise ValueError(error or "运营规则已变更")
@@ -228,6 +238,11 @@ class Store:
             raise ValueError("该能力已暂停，请处理异常并重新保存规则后恢复")
         payload = {**command_context(self), **payload, "policy_version": version}
         with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            from .readiness import web_held
+            from .outcomes import StageSkipped
+            if web_held(db):
+                raise StageSkipped('网页正在人工接管，自动网页操作已暂停')
             db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
                        (identity, action_id, kind, encoded(payload), time.time() + 120))
         return identity
@@ -239,7 +254,8 @@ class Store:
             self._expire(db)
             policy = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
             cfg = json.loads(policy["data"])
-            if busy or cfg["paused"] or not cfg["enabled"]:
+            from .readiness import web_held
+            if busy or web_held(db) or cfg["paused"] or not cfg["enabled"]:
                 return None
             if db.execute("SELECT 1 FROM commands WHERE state='running'").fetchone():
                 return None

@@ -18,14 +18,25 @@ function searchQuery(words: string[] = [], topic: string) {
 }
 
 async function evaluateGuest(guest: Guest, expression: string) {
-  const result = await guest.executeJavaScript(`(() => { try { return ${expression}; } catch (error) { return { __operations_error: error instanceof Error ? error.message : String(error) }; } })()`)
+  const result = await guest.executeJavaScript(
+    `(() => { try { return ${expression}; } catch (error) { return { __operations_error: error instanceof Error ? error.message : String(error) }; } })()`
+  )
 
-  if (result?.__operations_error) { throw new Error(result.__operations_error) }
+  if (result?.__operations_error) {
+    throw new Error(result.__operations_error)
+  }
 
   return result
 }
 
-export async function executeBrowser(command: BrowserCommand, guest: Guest, api: Api, sleep?: (ms: number) => Promise<unknown>, trace: BrowserTrace = unrecordedTrace, worker?: string) {
+export async function executeBrowser(
+  command: BrowserCommand,
+  guest: Guest,
+  api: Api,
+  sleep?: (ms: number) => Promise<unknown>,
+  trace: BrowserTrace = unrecordedTrace,
+  worker?: string
+) {
   let submitted = false
   const payload = command.payload
   let baseline = payload.baseline
@@ -43,7 +54,8 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
       Date.now() / 1000 > command.expires ||
       current.version !== initial.version ||
       !current.policy.enabled ||
-      current.policy.paused
+      current.policy.paused ||
+      current.web_held
     ) {
       throw new Error('任务过期、规则变更或已暂停')
     }
@@ -70,14 +82,23 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
     }
 
     if (operation === 'ready') {
-      return evaluateGuest(guest, `(${xhsReady.toString()})(${JSON.stringify(data)}, (${xhsPublishControl.toString()}))`)
+      return evaluateGuest(
+        guest,
+        `(${xhsReady.toString()})(${JSON.stringify(data)}, (${xhsPublishControl.toString()}))`
+      )
     }
 
     if (operation.startsWith('publication:')) {
-      return evaluateGuest(guest, `(${publicationPage.toString()})(${JSON.stringify({ operation: operation.slice(12), payload: data })})`)
+      return evaluateGuest(
+        guest,
+        `(${publicationPage.toString()})(${JSON.stringify({ operation: operation.slice(12), payload: data })})`
+      )
     }
 
-    return evaluateGuest(guest, `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })}, (${xhsPublishControl.toString()}))`)
+    return evaluateGuest(
+      guest,
+      `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })}, (${xhsPublishControl.toString()}))`
+    )
   }
 
   const navigate = async (url: string) => {
@@ -93,9 +114,17 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
 
   const ready = async (phase: string, data = payload) => {
     try {
-      return await waitForRead(() => page('ready', { phase, payload: data }), result => result.ready === true, phase === 'post' ? 60000 : 15000, false, sleep)
+      return await waitForRead(
+        () => page('ready', { phase, payload: data }),
+        result => result.ready === true,
+        phase === 'post' ? 60000 : 15000,
+        false,
+        sleep
+      )
     } catch (error) {
-      throw new Error(`${phase}${data.label ? `「${data.label}」` : ''}：${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(
+        `${phase}${data.label ? `「${data.label}」` : ''}：${error instanceof Error ? error.message : String(error)}`
+      )
     }
   }
 
@@ -104,14 +133,26 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
     await page('click-label', { label })
   }
 
-  const publication = { read: (operation: string, data: Record<string, any>) => page(`publication:${operation}`, data), navigate, trace, sleep,
-    images: (urls: string[]) => api<{ state: string; evidence: string }>('/worker/verify-images', { command_id: command.id, worker, urls }) }
+  const publication = {
+    read: (operation: string, data: Record<string, any>) => page(`publication:${operation}`, data),
+    navigate,
+    trace,
+    sleep,
+    images: (urls: string[]) =>
+      api<{ state: string; evidence: string }>('/worker/verify-images', { command_id: command.id, worker, urls })
+  }
 
   try {
     const identity = await trace.step('account', async () => {
       await navigate(`${HOME}/explore`)
 
-      return waitForRead(() => page('account'), value => value.state !== 'unknown', 10000, true, sleep)
+      return waitForRead(
+        () => page('account'),
+        value => value.state !== 'unknown',
+        10000,
+        true,
+        sleep
+      )
     })
 
     if (identity.state !== 'logged_in' || !identity.account_id) {
@@ -135,7 +176,12 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
 
     if (command.kind === 'verify') {
       if (payload.kind === 'publish') {
-        return await resolvePublication(publication, payload, payload.previous_result || { state: 'unknown', url: payload.result_url }, baseline)
+        return await resolvePublication(
+          publication,
+          payload,
+          payload.previous_result || { state: 'unknown', url: payload.result_url },
+          baseline
+        )
       }
 
       if (payload.kind === 'follow') {
@@ -152,7 +198,10 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
       return await trace.step('inventory', async () => {
         await navigate(locations[payload.kind])
 
-        if (payload.kind === 'follow') { await clickLabel('粉丝') }
+        if (payload.kind === 'follow') {
+          await clickLabel('粉丝')
+        }
+
         await ready('inventory')
 
         return page('inventory')
@@ -189,7 +238,15 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
 
         return page('commit-post', payload.content)
       })
-      receipt = await trace.step('receipt', () => waitForRead(() => page('post-result'), result => result.state !== 'unknown', 15000, true, sleep))
+      receipt = await trace.step('receipt', () =>
+        waitForRead(
+          () => page('post-result'),
+          result => result.state !== 'unknown',
+          15000,
+          true,
+          sleep
+        )
+      )
 
       return submissionReceipt(receipt, baseline)
     }
@@ -214,11 +271,26 @@ export async function executeBrowser(command: BrowserCommand, guest: Guest, api:
       return page('commit-interaction')
     })
 
-    return await trace.step('verify_interaction', () => waitForRead(() => page('interaction-result'), result => result.state === 'confirmed', 15000, true, sleep))
+    return await trace.step('verify_interaction', () =>
+      waitForRead(
+        () => page('interaction-result'),
+        result => result.state === 'confirmed',
+        15000,
+        true,
+        sleep
+      )
+    )
   } catch (error) {
     return {
-      ...receipt, baseline,
-      state: submitted ? (receipt.state && receipt.state !== 'unknown' ? 'submitted' : 'unknown') : command.kind === 'account' ? 'waiting_login' : 'blocked',
+      ...receipt,
+      baseline,
+      state: submitted
+        ? receipt.state && receipt.state !== 'unknown'
+          ? 'submitted'
+          : 'unknown'
+        : command.kind === 'account'
+          ? 'waiting_login'
+          : 'blocked',
       error: error instanceof Error ? error.message : String(error)
     }
   }

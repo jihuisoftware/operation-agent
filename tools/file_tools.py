@@ -437,6 +437,9 @@ def _read_extracted_document(path: str, _resolved, offset: int, limit: int, task
 
     if not is_extractable_document(str(_resolved)):
         return None
+    from agent.input_policy import parsing_allowed, parsing_notice
+    if not parsing_allowed('files'):
+        return tool_error(parsing_notice('files'))
     file_ops = _get_file_ops(task_id)
     try:
         binary = file_ops.read_file_bytes(str(_resolved), max_bytes=MAX_DOCUMENT_BYTES)

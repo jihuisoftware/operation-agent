@@ -55,8 +55,10 @@ import {
 import { CONTROL_TEXT } from './constants'
 import { getNested, setNested } from './helpers'
 import { ModelSelect, withActive } from './model-select'
+import { ModelSettingsNotice } from './model-settings-notice'
 import { ListRow, ListRowSkeleton, Pill, SectionHeading, SectionHeadingSkeleton } from './primitives'
 import { dismissStaleAux, readStaleAuxDismissal, staleAuxFingerprint } from './stale-aux-dismissal'
+import { TokenSavingSettings } from './token-saving-settings'
 
 // Skeleton mirror of the Model settings DOM so the page keeps its shape while
 // the provider/model catalog loads, instead of collapsing to a centered
@@ -1065,23 +1067,14 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
     return <ModelSettingsSkeleton subpage={subpage} />
   }
 
-  const errorNotice = error && (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-destructive">
-      <span>{error}</span>
-      {skewRestart && (
-        <Button disabled={restartingBackend} onClick={() => void recycleStaleBackend()} size="sm" variant="textStrong">
-          {restartingBackend && <Loader2 className="size-3.5 animate-spin" />}
-          {restartingBackend ? m.restartingBackend : m.restartBackend}
-        </Button>
-      )}
-    </div>
-  )
+  const errorNotice = <ModelSettingsNotice copy={m} error={error} onRestart={recycleStaleBackend} restarting={restartingBackend} skewRestart={skewRestart} />
 
   return (
     <div className="grid gap-6">
       {!showMain && errorNotice}
       {showMain && (
         <section>
+          <TokenSavingSettings profile={scopeProfile} />
           <p className="mb-3 text-xs text-muted-foreground">{m.appliesDesc}</p>
           <div className="grid gap-1">
             <ListRow

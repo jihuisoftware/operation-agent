@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
@@ -47,9 +48,11 @@ async function renderCron() {
 
   await act(async () => {
     result = render(
-      <QueryClientProvider client={queryClient}>
-        <CronView />
-      </QueryClientProvider>
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CronView />
+        </QueryClientProvider>
+      </MemoryRouter>
     )
   })
 

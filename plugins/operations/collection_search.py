@@ -26,7 +26,7 @@ def search(store, policy, day, stats):
             plans.append((key, state))
     plans.sort(key=lambda item: item[1]['attempts'])
     results = []
-    for key, state in plans[:12]:
+    for key, state in plans[:stats.get('query_limit', 12)]:
         check(store, policy)
         limit = DEPTHS[state['depth']]
         store.progress('正在分轮检索信息来源', {'query': state['query'], 'requested': limit})

@@ -86,6 +86,9 @@ def collect(store, policy, day):
     stats = {key: 0 for key in ('candidates', 'attempted', 'succeeded', 'new', 'duplicate_content', 'already_read',
                                 'failed', 'not_attempted', 'retried', 'duplicate_links', 'invalid_urls', 'searches', 'search_errors')}
     stats.update(day=day, scope_topic=policy['topic'], started=now_iso(), state='running', limit=policy['limits']['source'])
+    options = store.run_options or {}
+    stats['read_limit'] = options.get('read_limit', stats['limit'])
+    stats['query_limit'] = options.get('query_limit', 12)
     save(store, 'collection_run', identity, stats)
     try:
         check(store, policy)
@@ -102,7 +105,7 @@ def collect(store, policy, day):
             if prior and prior.get('text'):
                 stats['already_read'] += 1
                 continue
-            attempt = reserve(store, policy, day, url, prior) if used < stats['limit'] else None
+            attempt = reserve(store, policy, day, url, prior) if used < stats['limit'] and stats['attempted'] < stats['read_limit'] else None
             if attempt is None:
                 stats['not_attempted'] += 1
                 continue

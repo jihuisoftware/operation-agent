@@ -61,6 +61,10 @@ def tick(store=None, now=None, *, request_id=None):
     try:
         from .progress import bind
         bind(store, now, request_id)
+        from .quick_start import drain
+        quick = drain(store, now)
+        if quick is not None:
+            return quick
         if request_id:
             return run(store, now, request_id)
         return _tick(store, now)
@@ -75,12 +79,16 @@ def _tick(store, now):
     version, policy = store.policy()
     if not policy["enabled"]:
         return "运营已暂停"
+    if policy["paused"]:
+        return "运营已全局暂停"
+    from .readiness import refresh
+    readiness = refresh(store, now)
     day = local_day(policy, now)
     if not policy["paused"] and store.snapshot()["online"]:
         from .recovery import reconcile_pending
         reconcile_pending(store, policy, day)
     for stage, due in latest_due(store, policy, now).items():
-        if policy["paused"] and stage != "report":
+        if not readiness[stage]["ready"]:
             continue
         if stage in EXTERNAL and not store.snapshot()["online"]:
             continue
@@ -100,8 +108,10 @@ def _execute(store, policy, day, version, stage, identity, *, delayed=False):
     from .outcomes import StageSkipped, describe
     from .analysis_runs import AnalysisCancelled
     try:
+        from .plan_controls import check_cancelled
+        check_cancelled(store)
         current_version, current = store.policy()
-        if current_version != version or (current["paused"] and stage != "report") or not current["enabled"]:
+        if current_version != version or current["paused"] or not current["enabled"]:
             store.finish_run(identity, "cancelled", "规则发生变更")
             return
         if policy["deadline"] and day > policy["deadline"][:10] and stage != "report":

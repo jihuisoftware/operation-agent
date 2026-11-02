@@ -88,13 +88,14 @@ def test_repeat_and_concurrent_application_keep_one_plan_and_one_schedule(store)
         blueprints.apply(store, changed)
 
 
-def test_stale_editor_and_incomplete_permissions_cannot_enable(store):
+def test_incomplete_setup_can_enable_but_stale_editor_cannot_overwrite(store):
     body = request(store, modules=("dm", "follow"))
     body["policy"]["allowed"].update(dm=True, follow=True)
     body["policy"]["account_id"] = "me"
-    with pytest.raises(ValueError, match="回复知识"):
-        blueprints.apply(store, body)
-    assert store.policy()[0] == 0
+    assert "补充已确认的回复知识" in blueprints.preview(store, body)["readiness"]["dm"]["reasons"]
+    blueprints.apply(store, body)
+    assert store.policy()[0] == 1
+    body["request_id"] = "stale"
     blueprints.apply(store, request(store, request_id="new"))
     with pytest.raises(ValueError, match="配置已变更"):
         blueprints.apply(store, body)
@@ -149,7 +150,9 @@ def test_old_rules_and_claimed_occurrences_migrate_once_without_replay(store, mo
     assert any(r["stage"] == "interact" for r in migrated.snapshot()["runs"])
     assert len([r for r in migrated.snapshot()["runs"] if r["state"] == "migrated"]) == 3
     from plugins.operations.report import daily_report
-    assert "耗时合计 10.0 秒" in daily_report(migrated, "2026-10-31")["markdown"]
+    report = daily_report(migrated, "2026-10-31")["markdown"]
+    assert "已结束任务耗时合计" in report
+    assert next(r for r in migrated.snapshot()["runs"] if r["id"] == run)["ended"] == "2026-10-31T03:20:10+00:00"
 
 
 def test_production_without_images_is_a_draft_and_publishing_never_generates_a_new_post(store, monkeypatch):

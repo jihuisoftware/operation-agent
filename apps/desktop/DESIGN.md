@@ -45,15 +45,19 @@ one-off at the call site.
 
 ## Information architecture
 
-- **Chat is the home surface.** The transcript and composer stay primary; tools,
-  previews, files, review, and terminal complement the conversation.
-- **Pages are durable destinations.** Chat, Scheduled Tasks, Live Status, Upcoming Tasks, Skills, Artifacts, and Account Login
-  remain in shell chrome. Do not hide a distinct product noun inside an
-  unrelated page.
-- Live Status and Upcoming Tasks sit next to Scheduled Tasks in the sidebar. Live Status uses the
-  current connection/Profile and existing session events; Upcoming Tasks shows actual scheduled
-  occurrences and independently cancellable plugin steps. A successful cancellation receipt stops
-  that pending occurrence only. A started step is visibly refused, never displayed as undone.
+- **Operations home is the fresh-start surface.** A plugin contributes the landing route;
+  existing users retain their remembered page. Background completion never changes navigation.
+- **Six primary destinations:** 首页, 任务, 资料, 分析, 内容, 互动. Each groups existing
+  pages into scoped tabs; the sidebar footer holds 账号, AI 助手, 设置, 扩展工具 and development-only 调试.
+  Chat, terminal, artifacts and plugin recovery remain reachable. Core navigation consumes generic
+  contribution preferences, never operations business imports.
+- **Tasks group plan, running, upcoming and history.** Upcoming steps keep their independent cancellation;
+  cancelling a pending occurrence does not undo a started step. Ordinary Cron tasks remain manageable.
+- **One configuration editor.** Home offers business type, topic and work mode, defaulting to automatic;
+  common and advanced controls progressively disclose detail. All later adjustments open the task plan.
+  Missing account/assets/knowledge block their modules, not saving the whole plan. Preserve saved settings.
+- **Separate selection, readiness and execution.** Never present “selected” as “ready” or a submitted
+  external action as verified success. Web takeover is distinct from global pause.
 - **Route overlays are short tasks.** Settings, Command Center, and Profiles
   render as `OverlayView` cards and return to the previous
   route on close. Model/session pickers and dialogs layer above the current

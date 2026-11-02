@@ -73,9 +73,15 @@ def record_step(store, command_id, worker, body):
             if phase == 'started' or not started or json.loads(started[0])['name'] != name:
                 raise ValueError('任务已结束或过期，不能追加网页操作')
             data['late_evidence'] = True
+        from .readiness import web_held
+        if phase == "started" and web_held(db):
+            raise ValueError("网页正在人工接管")
         from .analysis_publication import check_step
         check_step(db, command, phase)
         payload = json.loads(command['payload'])
+        cancelled = db.execute("SELECT 1 FROM objects WHERE id=? AND json_extract(data,'$.state')='cancelled'", (payload.get('manual_run_id', ''),)).fetchone()
+        if phase == 'started' and cancelled:
+            raise ValueError('快速首轮已取消，不能追加网页操作')
         data.update(command_id=command_id, action_id=command['action_id'] or payload.get('verification_action_id'),
                     policy_version=payload['policy_version'], account_id=payload.get('account_id'),
                     debug_id=payload.get('manual_run_id'), run_id=payload.get('run_id'),

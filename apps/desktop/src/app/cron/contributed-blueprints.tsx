@@ -7,7 +7,13 @@ import { ContribBoundary, ContribRender } from '@/contrib/react/boundary'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { CRON_BLUEPRINTS_AREA, type CronBlueprintContribution } from '@/sdk/cron'
 
-export function ContributedBlueprints({ profile, view }: { profile: string; view: 'blueprints' | 'summary' | 'upcoming' }) {
+export function ContributedBlueprints({
+  profile,
+  view
+}: {
+  profile: string
+  view: 'blueprints' | 'summary' | 'upcoming'
+}) {
   const scope = useStore($apiRequestScope)
   const owner = useMemo(() => ({ connectionId: scope.connectionId, profile }), [scope.connectionId, profile])
   const contributions = useContributions(CRON_BLUEPRINTS_AREA)
@@ -19,7 +25,7 @@ export function ContributedBlueprints({ profile, view }: { profile: string; view
         <p className="text-muted-foreground">请在功能与插件中启用运营插件；更新后重启 Desktop 和 Server。</p>
         <Button
           onClick={() => {
-            window.location.hash = '/capabilities?tab=plugins'
+            window.location.hash = '/settings?tab=plugins'
           }}
           variant="outline"
         >
@@ -55,7 +61,10 @@ function ContributionEntry({
   owner: { connectionId: string | null; profile: string }
   view: 'blueprints' | 'summary' | 'upcoming'
 }) {
-  const render = useCallback(() => view === 'upcoming' ? data.renderUpcoming?.({ owner }) : data.render({ owner, view }), [data, owner, view])
+  const render = useCallback(
+    () => (view === 'upcoming' ? data.renderUpcoming?.({ owner }) : data.render({ owner, view })),
+    [data, owner, view]
+  )
 
   return (
     <ContribBoundary id={id}>

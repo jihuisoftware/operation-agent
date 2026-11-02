@@ -10,6 +10,8 @@ def latest_due(store, policy, now):
     with store.connection() as db:
         first = db.execute("SELECT min(at) FROM events WHERE kind='policy'").fetchone()[0]
     first_day = datetime.fromisoformat(first).astimezone(local.tzinfo).date() if first else local.date()
+    from .readiness import boundaries
+    after = boundaries(store)
     result = {}
     for stage in TIMES:
         if not policy['modules'][stage]:
@@ -21,7 +23,7 @@ def latest_due(store, policy, now):
                 continue
             for slot in policy['times'][stage]:
                 due = datetime.fromisoformat(f'{day}T{slot}').replace(tzinfo=local.tzinfo)
-                if due <= local:
+                if due <= local and (not after[stage] or due > datetime.fromisoformat(after[stage])):
                     candidates.append(due)
         if candidates:
             # Select BEFORE consulting history: a completed/cancelled latest slot must

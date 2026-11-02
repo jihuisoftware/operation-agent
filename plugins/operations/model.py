@@ -5,6 +5,8 @@ from .policy import now_iso
 
 def generate(store, policy, day, instruction, data):
     from agent.auxiliary_client import call_llm
+    from .plan_controls import check_cancelled
+    check_cancelled(store)
     store.renew()
     if store.policy()[1] != policy or not policy["enabled"] or policy["paused"]:
         raise ValueError("运营规则变更或已暂停，取消模型调用")

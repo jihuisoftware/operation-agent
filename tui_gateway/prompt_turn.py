@@ -214,6 +214,9 @@ def _route_turn_images(agent, prompt: Any, images: list[str]) -> Any:
     """Run message for a turn with attached images: "native" content parts, or "text" path
     references the agent analyzes in-loop (never blocking submit on vision calls).
     Decision table: agent/image_routing.py."""
+    from agent.input_policy import parsing_allowed, parsing_notice
+    if not parsing_allowed('images'):
+        return str(prompt or '') + '\n[' + parsing_notice('images') + ']'
     try:
         from agent.image_routing import build_native_content_parts, decide_image_input_mode
         from hermes_cli.config import load_config as _tui_load_config

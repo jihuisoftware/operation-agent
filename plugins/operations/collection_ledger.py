@@ -19,6 +19,8 @@ def load(store, identity):
 
 
 def check(store, policy):
+    from .plan_controls import check_cancelled
+    check_cancelled(store)
     store.renew()
     if store.policy()[1] != policy or policy['paused'] or not policy['enabled']:
         raise ValueError('运营规则变更或已暂停，停止采集')

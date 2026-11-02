@@ -395,7 +395,7 @@ describe('ModelSettings', () => {
     renderModelSettings()
     await waitFor(() => expect(getHermesConfigRecord).toHaveBeenCalled())
 
-    const fastSwitch = await screen.findByRole('switch')
+    const fastSwitch = await screen.findByRole('switch', { name: '快速' })
     fireEvent.click(fastSwitch)
 
     await waitFor(() => expect(saveHermesConfig).toHaveBeenCalledWith({ agent: { service_tier: 'fast' } }))
@@ -417,7 +417,7 @@ describe('ModelSettings', () => {
     renderModelSettings()
     await waitFor(() => expect(getHermesConfigRecord).toHaveBeenCalled())
 
-    expect(screen.queryByRole('switch')).toBeNull()
+    expect(screen.queryByRole('switch', { name: '快速' })).toBeNull()
   })
 
   it('renders plugin-registered auxiliary tasks after the built-ins with the server label (#40880)', async () => {

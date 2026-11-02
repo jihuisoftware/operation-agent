@@ -79,7 +79,8 @@ def catalog(store):
     schedule = schedule_state(store)
     rows = timeline(policy)
     drafts = store.objects("blueprint_draft")
-    return {"version": version, "policy": policy, "online": online, "templates": templates,
+    from .readiness import refresh, model_setup
+    return {"model_ready": model_setup(), "readiness": refresh(store), "version": version, "policy": policy, "online": online, "templates": templates,
             "schedule_state": schedule, "timeline": rows, "next_at": min((r["next_at"] for r in rows), default=None) if policy["enabled"] and not policy["paused"] and schedule == "ready" else None,
             "draft": drafts[0] if drafts else None,
             "assets": [{"id": a["id"], "name": a["name"], "revoked": a.get("revoked", False)} for a in assets]}
@@ -98,11 +99,20 @@ def preview(store, body, *, check_version=True):
     missing = {m: requirements(candidate, m, store.objects("asset")) for m in TIMES if candidate["modules"][m]}
     if not any(candidate["modules"].values()):
         missing["plan"] = ["至少选择一个运营模块"]
+    blocking = []
+    if not candidate['topic'].strip():
+        blocking.append('填写运营主题')
+    if not any(candidate['modules'].values()):
+        blocking.append('至少选择一个运营模块')
+    if not candidate['goal'].strip() and candidate['topic'].strip():
+        candidate['goal'] = f"围绕「{candidate['topic']}」收集可靠资料，制作有依据的内容并记录运营成果。"
+    from .readiness import conditions
+    readiness = conditions(store, candidate)
     candidate["enabled"] = True
     candidate["paused"] = False
     changes = [{"field": key, "before": current[key], "after": value} for key, value in candidate.items() if value != current[key]]
     return {"version": version, "policy": candidate, "missing": {k: v for k, v in missing.items() if v},
-            "changes": changes, "timeline": timeline(candidate)}
+            "blocking": blocking, "readiness": readiness, "changes": changes, "timeline": timeline(candidate)}
 
 
 def apply(store, body):
@@ -141,9 +151,9 @@ def _save(store, body, digest):
             return receipt
         raise ValueError("配置已变更，请刷新后重新配置")
     if body["mode"] == "enable":
-        if result["missing"]:
-            raise ValueError("请完善运行条件：" + "；".join(dict.fromkeys(x for values in result["missing"].values() for x in values)))
-        version = store.configure(result["policy"], body["version"], request_id=body["request_id"], request_hash=digest)
+        if result["blocking"]:
+            raise ValueError("；".join(result["blocking"]))
+        version = store.configure(result["policy"], body["version"], request_id=body["request_id"], request_hash=digest, activation=True)
         return {"version": version, "draft": False}
     with store.connection() as db:
         db.execute("BEGIN IMMEDIATE")

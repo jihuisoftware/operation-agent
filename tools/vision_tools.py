@@ -577,7 +577,8 @@ def _native_tool_result_images(provider: str, model: str, cfg: Optional[dict[str
     route accepts images inside tool results. One predicate, so the lane never depends on which
     tool produced the image."""
     from agent.image_routing import decide_image_input_mode
-    return decide_image_input_mode(provider, model, cfg) == "native" and _accepts_tool_result_images(provider, model, cfg)
+    from agent.input_policy import parsing_allowed
+    return parsing_allowed('images', cfg) and decide_image_input_mode(provider, model, cfg) == "native" and _accepts_tool_result_images(provider, model, cfg)
 
 
 def _should_use_native_vision_fast_path() -> bool:
@@ -890,6 +891,9 @@ async def vision_analyze_tool(
     task_id: Optional[str] = None, region: Optional[list] = None) -> str:
     """Describe an image (URL, local path, data: URL) with the auxiliary vision LLM. ``user_prompt``
     is pre-formatted by the caller. Temp images live under $HERMES_HOME/cache/vision/."""
+    from agent.input_policy import parsing_allowed, parsing_notice
+    if not parsing_allowed('images'):
+        return json.dumps({'success': False, 'analysis': parsing_notice('images')}, ensure_ascii=False)
     async def stage(prompt: str, debug_call_data: dict, temp_paths: list) -> tuple:
         prepared = await _prepare_image(image_url, task_id, region, validate_decode=False)
         temp_paths.append(prepared.path)
@@ -1011,6 +1015,9 @@ def _configured_aux_model(sections: tuple, env_vars: tuple) -> Optional[str]:
 
 
 async def _handle_vision_analyze(args: dict[str, Any], **kw: Any) -> str:
+    from agent.input_policy import parsing_allowed, parsing_notice
+    if not parsing_allowed('images'):
+        return json.dumps({'success': False, 'analysis': parsing_notice('images')}, ensure_ascii=False)
     image_url, question, region = args.get("image_url", ""), args.get("question", ""), args.get("region")
     task_id = kw.get("task_id")
     # No concurrency gate around the whole analysis — the CPU burst is bounded inside the

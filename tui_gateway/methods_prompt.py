@@ -1059,6 +1059,9 @@ def _(rid, params: dict) -> dict:
     session, err = _sess_building(params, rid)
     if err:
         return err
+    from agent.input_policy import pdf_parsing_notice
+    if notice := pdf_parsing_notice(session.get('profile_home') or _hermes_home):
+        return _err(rid, 4017, notice)
     if shutil.which("pdftoppm") is None:
         return _err(rid, 5028, "pdftoppm not installed (poppler-utils package required)")
     raw_path = str(params.get("path", "") or "").strip()

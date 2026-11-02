@@ -53,3 +53,22 @@ describe('applySidebarNavPrefs', () => {
     }
   })
 })
+
+it('places secondary rows in the footer without removing plugin recovery', () => {
+  const result = applySidebarNavPrefs(
+    [
+      { id: 'cron', label: '定时任务' },
+      { id: 'capabilities', label: '功能' }
+    ],
+    [
+      {
+        area: SIDEBAR_NAV_PREFS_AREA,
+        id: 'layout',
+        data: { footer: ['capabilities'], labels: { cron: '任务' }, hide: ['capabilities'] }
+      }
+    ]
+  )
+
+  expect(result.find(row => row.id === 'cron')?.label).toBe('任务')
+  expect(result.find(row => row.id === 'capabilities')).toMatchObject({ placement: 'footer' })
+})

@@ -944,10 +944,10 @@ describe('useDesktopIntegrations', () => {
         api.mockClear()
         $hubInstalledOverride.set({})
         act(() => deepLink(payload))
-        expect($confirmRequest.get()?.title).toBe('Install “skill”?')
+        expect($confirmRequest.get()?.title).toBe('安装“skill”？')
         expect($confirmRequest.get()?.details).toEqual([
-          { label: 'Source', value: identifier },
-          { label: 'Install to', value: `${connection} · ${profile}` }
+          { label: '来源', value: identifier },
+          { label: '安装到', value: `${connection} · ${profile}` }
         ])
         expect(installs()).toHaveLength(0)
         await act(async () => settleConfirm(false))
@@ -982,7 +982,7 @@ describe('useDesktopIntegrations', () => {
       act(() => deepLink(payload))
       setApiRequestConnection('server-b')
       setApiRequestProfile('work')
-      await expect(runConfirm($confirmRequest.get()!)).rejects.toThrow('The destination changed')
+      await expect(runConfirm($confirmRequest.get()!)).rejects.toThrow('安装目标已更改')
       settleConfirm(false)
       expect(installs()).toHaveLength(0)
       act(() => deepLink({ kind: 'skill', name: 'install', params: {} }))

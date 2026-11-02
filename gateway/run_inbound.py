@@ -1431,6 +1431,9 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         self, source: SessionSource, session_key: str, message_text: str, image_paths: list[str]
     ) -> str:
         """Route images natively (attach pixels at run_conversation) or pre-analyze them into text."""
+        from agent.input_policy import parsing_allowed, parsing_notice
+        if not parsing_allowed('images'):
+            return message_text + '\n[' + parsing_notice('images') + ']'
         # See agent/image_routing.py. Offloaded to a thread: the decision does blocking network I/O
         # (models.dev fetch on cache miss, Ollama /api/show probe) that would stall the event loop.
         _img_mode = await asyncio.to_thread(

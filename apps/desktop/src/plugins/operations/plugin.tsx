@@ -9,17 +9,17 @@ import {
   type SidebarNavPrefsContribution,
   TITLEBAR_AREAS
 } from '@hermes/plugin-sdk'
+import { Button, host } from '@hermes/plugin-sdk'
 import { createRoot } from 'react-dom/client'
 
 import { AccountsPage } from './accounts'
-import { AnalysisPage } from './analysis-page'
-import { BlueprintLibrary } from './blueprint-library'
+import { LegacyPage } from './legacy-page'
 import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
+import { PlanEditor } from './plan-editor'
+import { type Section, SectionPage, sections } from './section-page'
 import { UpcomingOperations } from './upcoming'
-import { Workbench } from './workbench'
-import { WorkbenchPage } from './workbench-page'
 import { OperationsWorker } from './worker'
 
 declare const __OPERATIONS_DEBUG__: boolean
@@ -30,34 +30,82 @@ export default {
   description: '目标、信息来源、规则执行与每日总结',
   register(ctx) {
     ctx.register({
-      id: 'overview', area: ROUTES_AREA, title: '运营总览', data: { path: '/overview' },
+      id: 'overview',
+      area: ROUTES_AREA,
+      title: '运营总览',
+      data: { path: '/overview' },
       render: () => <OverviewPage ctx={ctx} />
     })
     ctx.register({
-      id: 'overview-nav', area: SIDEBAR_NAV_AREA,
-      data: { path: '/overview', label: '运营总览', codicon: 'dashboard' } satisfies SidebarNavContribution
+      id: 'overview-nav',
+      area: SIDEBAR_NAV_AREA,
+      data: { path: '/overview', label: '首页', codicon: 'dashboard' } satisfies SidebarNavContribution
     })
 
-    for (const [stage, label, icon] of [['analytics', '数据分析', 'graph'], ['industry', '行业分析', 'globe']] as const) {
-      ctx.register({ id: stage, area: ROUTES_AREA, title: label, data: { path: `/${stage}` }, render: () => <AnalysisPage ctx={ctx} stage={stage} /> })
-      ctx.register({ id: `${stage}-nav`, area: SIDEBAR_NAV_AREA, data: { path: `/${stage}`, label, codicon: icon } satisfies SidebarNavContribution })
+    for (const section of Object.keys(sections) as Section[]) {
+      const { title, icon } = sections[section]
+      ctx.register({
+        id: section,
+        area: ROUTES_AREA,
+        title,
+        data: { path: `/${section}` },
+        render: () => <SectionPage ctx={ctx} section={section} />
+      })
+      ctx.register({
+        id: `${section}-nav`,
+        area: SIDEBAR_NAV_AREA,
+        data: { path: `/${section}`, label: title, codicon: icon } satisfies SidebarNavContribution
+      })
+    }
+
+    for (const stage of ['analytics', 'industry']) {
+      ctx.register({
+        id: stage,
+        area: ROUTES_AREA,
+        data: { path: `/${stage}` },
+        render: () => <LegacyPage to={`/analysis?tab=${stage}`} />
+      })
     }
 
     ctx.register({
-      id: 'workbench-nav', area: SIDEBAR_NAV_AREA,
-      data: { path: '/operations', label: '运营管理', codicon: 'notebook' } satisfies SidebarNavContribution
+      id: 'navigation-order',
+      area: SIDEBAR_NAV_PREFS_AREA,
+      data: {
+        home: '/overview',
+        hide: ['upcoming', 'activity', 'artifacts'],
+        order: [
+          'operations:overview-nav',
+          'cron',
+          'operations:materials-nav',
+          'operations:analysis-nav',
+          'operations:content-nav',
+          'operations:interactions-nav'
+        ],
+        footer: [
+          'operations:accounts-nav',
+          'new-session',
+          'operations:settings-nav',
+          'capabilities',
+          'operations:debug-nav'
+        ],
+        labels: { cron: '任务', 'new-session': 'AI 助手', capabilities: '扩展工具' }
+      } satisfies SidebarNavPrefsContribution
     })
     ctx.register({
-      id: 'navigation-order', area: SIDEBAR_NAV_PREFS_AREA,
-      data: { order: ['operations:overview-nav', 'cron', 'upcoming', 'activity', 'operations:workbench-nav', 'operations:analytics-nav', 'operations:industry-nav',
-        'operations:accounts-nav', 'new-session', 'artifacts', 'capabilities', 'operations:debug-nav'] } satisfies SidebarNavPrefsContribution
+      id: 'settings-nav',
+      area: SIDEBAR_NAV_AREA,
+      data: { path: '/settings', label: '设置', codicon: 'settings-gear' } satisfies SidebarNavContribution
     })
 
     if (__OPERATIONS_DEBUG__) {
       let disposed = false
-      ctx.onDispose(() => { disposed = true })
+      ctx.onDispose(() => {
+        disposed = true
+      })
       void import('./debug/entry').then(({ registerDebug }) => {
-        if (!disposed) { registerDebug(ctx) }
+        if (!disposed) {
+          registerDebug(ctx)
+        }
       })
     }
 
@@ -71,14 +119,19 @@ export default {
     ctx.register({
       id: 'accounts-nav',
       area: SIDEBAR_NAV_AREA,
-      data: { path: '/accounts', label: '账号登录', codicon: 'account', activity: $loginActivity } satisfies SidebarNavContribution
+      data: {
+        path: '/accounts',
+        label: '账号',
+        codicon: 'account',
+        activity: $loginActivity
+      } satisfies SidebarNavContribution
     })
     ctx.register({
       id: 'blueprints',
       area: CRON_BLUEPRINTS_AREA,
-      title: '运营蓝图',
+      title: '运营计划',
       data: {
-        render: ({ owner, view }) => <BlueprintLibrary ctx={ctx} owner={owner} view={view} />,
+        render: ({ owner, view }) => <PlanEditor compact={view === 'summary'} ctx={ctx} owner={owner} />,
         renderUpcoming: ({ owner }) => <UpcomingOperations ctx={ctx} key={JSON.stringify(owner)} owner={owner} />
       } satisfies CronBlueprintContribution
     })
@@ -92,9 +145,13 @@ export default {
       area: ROUTES_AREA,
       title: '运营管理',
       data: { path: '/operations' },
-      render: () => <WorkbenchPage ctx={ctx} />
+      render: () => <LegacyPage />
     })
-    ctx.registerSettingsPage({ id: 'settings', title: '自动运营', render: () => <Workbench ctx={ctx} /> })
+    ctx.registerSettingsPage({
+      id: 'settings',
+      title: '自动运营',
+      render: () => <Button onClick={() => host.navigate('/cron?tab=plan')}>打开运营计划设置</Button>
+    })
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)

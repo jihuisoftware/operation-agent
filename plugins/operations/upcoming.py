@@ -14,6 +14,8 @@ CANCEL_REASON = '人工取消本次步骤'
 def upcoming(store, now=None):
     version, policy = store.policy()
     now = (now or datetime.now(UTC)).astimezone(ZoneInfo(policy['timezone']))
+    from .readiness import refresh
+    readiness = refresh(store, now)
     with store.connection() as db:
         existing = {(r['day'], r['stage'], r['slot']): dict(r) for r in db.execute('SELECT * FROM runs WHERE day>=?', ((now.date() - timedelta(days=1)).isoformat(),))}
     steps = []
@@ -25,7 +27,7 @@ def upcoming(store, now=None):
                 continue
             if stage == 'report' and day < now.date().isoformat() and store.objects('report', day):
                 continue
-            steps.append(item(day, stage, slot, due.isoformat(), row['state'] if row else 'pending'))
+            steps.append({**item(day, stage, slot, due.isoformat(), row['state'] if row else 'pending'), 'readiness': readiness[stage]})
     manual = pending_manual(store)
     return {'version': version, 'topic': policy['topic'], 'paused': policy['paused'],
             'timezone': policy['timezone'], 'steps': sorted(steps, key=lambda s: s['due']), 'manual': manual}

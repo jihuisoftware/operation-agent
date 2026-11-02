@@ -21,6 +21,7 @@ import { syncCatalogArcs } from './catalog/catalog-arc'
 import { CapabilityScopeSelector, useCapabilityScope } from './scope-selector'
 import { SKILLS_QUERY_KEY, useSkillsQuery } from './skills/skills-data'
 import { SkillsTab } from './skills/skills-tab'
+import { ToolShortcuts } from './tool-shortcuts'
 import { refreshToolCalls } from './toolsets/tool-calls'
 import { TOOLSETS_QUERY_KEY, toolsetSearchTerms, useToolsetsQuery, visibleToolsetCount } from './toolsets/toolsets-data'
 import { ToolsetsTab } from './toolsets/toolsets-tab'
@@ -159,6 +160,7 @@ export function CapabilitiesView({
     >
       <div className="flex h-full flex-col">
         <p className="px-4 py-2 text-xs text-muted-foreground">{OPERATIONS_PROFILE.desktop.labels.zh}</p>
+        <ToolShortcuts />
         <CapabilityScopeSelector scope={scope} />
         <div className="flex min-h-0 flex-1 flex-col">{loadGate ?? tabContent[mode]()}</div>
       </div>

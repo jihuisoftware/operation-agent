@@ -48,6 +48,7 @@ import type { SessionInfo } from '@/types/hermes'
 import { requestComposerFocus, requestComposerInsert } from '../../chat/composer/focus'
 import { appViewForPath, isOverlayView, NEW_CHAT_ROUTE, routeSessionId, sessionRoute } from '../../routes'
 
+import { initialLanding } from './initial-landing'
 import { resolveRememberedSessionId } from './remembered-session'
 
 type RememberedSession = Pick<SessionInfo, '_lineage_root_id' | 'id' | 'parent_session_id' | 'profile' | 'source'>
@@ -171,7 +172,16 @@ export function useDesktopIntegrations({
         // registers, and disk plugins load async. Hold the latch through the
         // first disk scan so a page that is merely late is not erased as stale
         // (an already-running backend can hand us the session list first).
-        if (routeSession && diskPluginsScanPending) {
+        if (
+          initialLanding({
+            route,
+            routeSession,
+            last,
+            sessionCount: sessions.length,
+            pending: diskPluginsScanPending,
+            navigate
+          })
+        ) {
           return
         }
 

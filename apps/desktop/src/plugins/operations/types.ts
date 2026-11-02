@@ -30,6 +30,7 @@ export interface RecordRow {
   [key: string]: unknown
 }
 export interface OperationsState {
+  web_held?: boolean
   version: number
   policy: Policy
   online: boolean

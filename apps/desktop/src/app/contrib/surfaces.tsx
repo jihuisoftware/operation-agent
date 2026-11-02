@@ -1,3 +1,4 @@
+import { useStore } from '@nanostores/react'
 /**
  * Wiring surfaces — each pane is its own memoized component. Every surface
  * reads the reactive state it renders from at the leaf (its own atom
@@ -6,8 +7,6 @@
  * wiring-controller tick) never re-renders another. This is what keeps the
  * layout tree's zones independently rendered — the whole point of the shell.
  */
-
-import { useStore } from '@nanostores/react'
 import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useMemo } from 'react'
 import { Navigate, Route, Routes, useParams } from 'react-router'
 
@@ -21,6 +20,7 @@ import { $freshDraftReady, $gatewayState } from '@/store/session'
 
 import { ChatView } from '../chat'
 import { ChatSidebar } from '../chat/sidebar'
+import { LegacyTaskRoute } from '../cron/task-sections'
 import { TerminalPaneChrome } from '../right-sidebar/terminal/chrome'
 import { contributedRoutes, NEW_CHAT_ROUTE, ROUTES_AREA, sessionRoute } from '../routes'
 import { useStatusSnapshot } from '../shell/hooks/use-status-snapshot'
@@ -191,8 +191,8 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
       <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="agents" />
       <Route element={null} path="command-center" />
       <Route element={page(<CronView onOpenSession={(...args) => actions.onResumeSession(...args)} />)} path="cron" />
-      <Route element={page(<ActivityView />)} path="activity" />
-      <Route element={page(<UpcomingView />)} path="upcoming" />
+      <Route element={page(<LegacyTaskRoute tab="running" />)} path="activity" />
+      <Route element={page(<LegacyTaskRoute tab="upcoming" />)} path="upcoming" />
       <Route element={null} path="profiles" />
       <Route element={null} path="settings" />
       <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="starmap" />

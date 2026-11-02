@@ -127,10 +127,10 @@ export interface HandoffFailResponse {
   state?: string
 }
 
-export type SidebarNavId =
-  'artifacts' | 'capabilities' | 'command-center' | 'cron' | 'new-session' | 'settings'
+export type SidebarNavId = 'artifacts' | 'capabilities' | 'command-center' | 'cron' | 'new-session' | 'settings'
 
 export interface SidebarNavItem extends Tiered {
+  placement?: 'main' | 'footer'
   activity?: ReadableAtom<TaskActivity>
   /** Built-in view id, or a contributed row's namespaced contribution id. */
   id: SidebarNavId | (string & {})

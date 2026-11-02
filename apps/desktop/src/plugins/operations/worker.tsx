@@ -8,11 +8,19 @@ import { createBrowserTrace } from './browser-trace'
 import { createExecutionClock } from './execution-clock'
 import { $loginNavigation } from './login-state'
 import { $operationsWorkerStatus, $showOperationsBrowser, beginBrowserActivity } from './state'
-import type { Api, BrowserCommand, OperationsState } from './types'
+import type { Api, BrowserCommand } from './types'
 import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
 
-function Worker({ scope, ctx, visible }: { scope: ReturnType<typeof host.state.requestOwner.get>; ctx: PluginContext; visible: boolean }) {
+function Worker({
+  scope,
+  ctx,
+  visible
+}: {
+  scope: ReturnType<typeof host.state.requestOwner.get>
+  ctx: PluginContext
+  visible: boolean
+}) {
   const status = useValue($operationsWorkerStatus)
   const container = useRef<HTMLDivElement>(null)
   const surface = useRef<HTMLElement>(null)
@@ -24,7 +32,9 @@ function Worker({ scope, ctx, visible }: { scope: ReturnType<typeof host.state.r
   useEffect(() => {
     const active = document.activeElement
 
-    if (!visible && active instanceof HTMLElement && surface.current?.contains(active)) { active.blur() }
+    if (!visible && active instanceof HTMLElement && surface.current?.contains(active)) {
+      active.blur()
+    }
   }, [visible])
 
   const api = useMemo<Api>(
@@ -55,10 +65,11 @@ function Worker({ scope, ctx, visible }: { scope: ReturnType<typeof host.state.r
 
       try {
         // Poll also heartbeats during a command; the server serializes the account across windows.
-        const result = await api<{ command: BrowserCommand | null; latest_report?: { id: string; day: string }; publication_notices?: { id: number; platform: string; action_id: string }[] }>(
-          '/worker/poll',
-          { worker, busy: running || manual.current || $loginNavigation.get() !== null }
-        )
+        const result = await api<{
+          command: BrowserCommand | null
+          latest_report?: { id: string; day: string }
+          publication_notices?: { id: number; platform: string; action_id: string }[]
+        }>('/worker/poll', { worker, busy: running || manual.current || $loginNavigation.get() !== null })
 
         if (!disposed && result.latest_report && result.latest_report.id !== reportSeen) {
           reportSeen = result.latest_report.id
@@ -127,19 +138,18 @@ function Worker({ scope, ctx, visible }: { scope: ReturnType<typeof host.state.r
     manual.current = true
 
     try {
-      const current = await api<OperationsState>('/policy')
-      await api('/policy', { version: current.version, policy: { ...current.policy, paused: true } }, 'PUT')
+      await api('/worker/takeover', { worker, active: true })
       $operationsWorkerStatus.set('已暂停，等待当前网页操作退出…')
       await execution.current.pending?.then(
         () => undefined,
         error => $operationsWorkerStatus.set(String(error))
       )
       guest.style.pointerEvents = 'auto'
-      $operationsWorkerStatus.set('已暂停自动动作，可人工操作网页；恢复请回运营工作台')
+      $operationsWorkerStatus.set('网页已接管，采集与分析继续；完成后点击结束接管')
     } finally {
       manual.current = false
     }
-  }, [api, guest])
+  }, [api, guest, worker])
 
   usePlatformLogin({ api, guest, owner: scope, worker, takeOver })
 
@@ -158,7 +168,16 @@ function Worker({ scope, ctx, visible }: { scope: ReturnType<typeof host.state.r
         error={error}
         hide={() => $showOperationsBrowser.set(false)}
         loading={loading}
-        login={() => void takeOver().then(() => guest.loadURL('https://www.xiaohongshu.com')).catch(failed)}
+        login={() =>
+          void takeOver()
+            .then(() => guest.loadURL('https://www.xiaohongshu.com'))
+            .catch(failed)
+        }
+        release={() =>
+          void api('/worker/takeover', { worker, active: false })
+            .then(() => $operationsWorkerStatus.set('已结束接管，网页动作按后续排期执行；全局暂停保持原设置'))
+            .catch(failed)
+        }
         reopen={() => void takeOver().then(reopen).catch(failed)}
         status={status}
         takeOver={() => void takeOver().catch(failed)}
@@ -172,18 +191,33 @@ export function OperationsWorker({ ctx }: { ctx: PluginContext }) {
   const active = useValue(host.state.requestOwner)
   const shown = useValue($showOperationsBrowser)
   const visible = useBrowserDock(shown)
-  const scope = useMemo(() => ({ profile: active.profile, connectionId: active.connectionId }), [active.profile, active.connectionId])
+
+  const scope = useMemo(
+    () => ({ profile: active.profile, connectionId: active.connectionId }),
+    [active.profile, active.connectionId]
+  )
 
   return <Worker ctx={ctx} key={JSON.stringify(scope)} scope={scope} visible={visible} />
 }
 
-
-function publishNotices(notices: { id: number; platform: string; action_id: string }[] | undefined, seen: Set<number>, disposed: boolean) {
-  if (disposed) { return }
+function publishNotices(
+  notices: { id: number; platform: string; action_id: string }[] | undefined,
+  seen: Set<number>,
+  disposed: boolean
+) {
+  if (disposed) {
+    return
+  }
 
   for (const notice of notices || []) {
-    if (seen.has(notice.id)) { continue }
+    if (seen.has(notice.id)) {
+      continue
+    }
+
     seen.add(notice.id)
-    host.notify({ kind: 'info', message: `发布审核${notice.platform === 'published' ? '已通过' : '未通过'}，请到运营管理查看对应记录（${notice.action_id.slice(0, 8)}）` })
+    host.notify({
+      kind: 'info',
+      message: `发布审核${notice.platform === 'published' ? '已通过' : '未通过'}，请到运营管理查看对应记录（${notice.action_id.slice(0, 8)}）`
+    })
   }
 }

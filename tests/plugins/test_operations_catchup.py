@@ -62,6 +62,11 @@ def test_offline_slot_is_superseded_without_history_when_desktop_returns(store, 
     version, policy = store.policy()
     policy['modules'] = {stage: stage == 'comments' for stage in policy['modules']}
     store.configure(policy, version)
+    from plugins.operations.login_status import observe
+    store.claim('simulated-desktop', busy=True)
+    observe(store, {'worker': 'simulated-desktop', 'platform': 'xiaohongshu', 'state': 'logged_in', 'account_id': 'test'})
+    with store.connection() as db:
+        db.execute('UPDATE workers SET seen=0')
     calls = []
     monkeypatch.setattr(workflow, 'interact', lambda *args, **kwargs: calls.append(args[2]) or '已检查')
     tick(store, datetime(2026, 11, 1, 8, tzinfo=UTC))  # 16:00, desktop offline

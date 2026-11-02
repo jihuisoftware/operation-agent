@@ -544,6 +544,9 @@ def build_native_content_parts(
     ``Runner._enrich_message_with_vision``. Returns ``(content_parts, skipped)``;
     ``skipped`` holds unreadable local paths (URLs are never skipped).
     """
+    from agent.input_policy import parsing_allowed, parsing_notice
+    if not parsing_allowed('images'):
+        return [{"type": "text", "text": str(user_text or "") + "\n[" + parsing_notice('images') + "]"}], list(image_paths)
     skipped: list[str] = []
     attached: list[tuple[str, str]] = []  # (url, hint)
     for raw_path in image_paths:

@@ -61,7 +61,7 @@ def planned_steps(store, policy, now, manual_id):
             state, detail = 'pending', ''
             if not policy['modules'][stage]:
                 state = 'disabled'
-            elif not policy['enabled'] or (policy['paused'] and (manual_id or stage != 'report')):
+            elif not policy['enabled'] or policy['paused']:
                 state, detail = 'not_run', '运营计划未启用或已全局暂停'
             elif (stage, slot) in previous:
                 old = previous[stage, slot]
@@ -80,7 +80,7 @@ def scheduled_steps(store, policy, now):
         day, slot = due.date().isoformat(), due.strftime('%H:%M')
         with store.connection() as db:
             previous = db.execute('SELECT 1 FROM runs WHERE day=? AND stage=? AND slot=?', (day, stage, slot)).fetchone()
-        if previous or (policy['paused'] and stage != 'report'):
+        if previous or policy['paused']:
             continue
         if stage == 'report' and day < local_day(policy, now) and store.objects('report', day):
             continue

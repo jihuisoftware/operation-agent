@@ -25,6 +25,11 @@ export interface SidebarNavPrefsContribution {
   /** Rows to drop. Merged as the UNION across contributions; `capabilities`
    *  (the row that hosts the Plugins tab) is never dropped. */
   hide?: string[]
+  /** Secondary entries rendered below the primary workspace navigation. */
+  footer?: string[]
+  labels?: Record<string, string>
+  /** Cold-start destination when no previous page or session exists. */
+  home?: string
   /** Rows to place first, in this order. Contributions apply in the registry's
    *  area order (lowest `Contribution.order`, then registration); the first
    *  order wins, later ones place only ids not yet placed. */
@@ -45,7 +50,7 @@ const cleanIds = (ids: unknown): string[] =>
  *  `order` = first contribution first, later contributions place only ids not
  *  yet placed; rows no order names keep their default relative order after
  *  the named ones; unknown ids are inert. */
-export function applySidebarNavPrefs<T extends { id: string }>(
+export function applySidebarNavPrefs<T extends { id: string; label?: string; placement?: 'main' | 'footer' }>(
   items: readonly T[],
   contributions: readonly Contribution[]
 ): T[] {
@@ -82,5 +87,28 @@ export function applySidebarNavPrefs<T extends { id: string }>(
     }
   }
 
-  return ordered
+  const footer = new Set(contributions.flatMap(c => cleanIds((c.data as SidebarNavPrefsContribution)?.footer)))
+
+  const labels = Object.assign(
+    {},
+    ...contributions.map(c => (c.data as SidebarNavPrefsContribution)?.labels || {})
+  ) as Record<string, string>
+
+  return ordered.map(item =>
+    !labels[item.id] && !footer.has(item.id)
+      ? item
+      : {
+          ...item,
+          ...(labels[item.id] ? { label: labels[item.id] } : {}),
+          ...(footer.has(item.id) ? { placement: 'footer' as const } : {})
+        }
+  )
+}
+
+export function contributedHome(contributions: readonly Contribution[]): string | null {
+  const home = contributions
+    .map(c => (c.data as SidebarNavPrefsContribution)?.home)
+    .find(path => path?.startsWith('/') && !path.startsWith('//'))
+
+  return home || null
 }

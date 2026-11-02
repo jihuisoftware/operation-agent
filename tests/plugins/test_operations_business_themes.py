@@ -30,8 +30,9 @@ def test_business_configuration_round_trip_keeps_one_schedule(tmp_path, monkeypa
     assert store.objects("blueprint_draft")[0]["policy"]["business_subtype"] == preset["subtypes"][0]
     assert store.policy()[1]["business_theme"] == ""
     assert list_jobs() == []
-    with pytest.raises(ValueError, match="运行条件"):
-        blueprints.apply(store, {**body, "mode": "enable", "request_id": "missing"})
+    assert not blueprints.preview(store, body)["blocking"]
+    blueprints.apply(store, {**body, "mode": "enable", "request_id": "missing"})
+    body["version"] = store.policy()[0]
     policy.update(account_id="mock-account", knowledge=["开放时间为九点"])
     store.put("asset", {"authorized": True, "name": "模拟图片"}, "mock-image")
     body.update(mode="enable", request_id="enable")

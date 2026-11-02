@@ -63,6 +63,9 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
     request = {"version": version, "policy": policy, "mode": "enable", "request_id": "full-day"}
     assert not preview(store, request)["missing"]
     assert apply(store, request)["job_id"]
+    from plugins.operations.login_status import observe
+    store.claim('simulated-desktop', busy=True)
+    observe(store, {'worker': 'simulated-desktop', 'platform': 'xiaohongshu', 'state': 'logged_in', 'account_id': 'me'})
     original = store.command
     submissions = []
     def consume(identity):
@@ -125,7 +128,7 @@ def test_unknown_actions_require_explicit_resolution_before_retry(store):
     assert store.claim("desktop", busy=True) is None
 
 
-def test_pause_preserves_reports_and_blocked_capability_requires_new_rules(store):
+def test_global_pause_blocks_new_reports_and_blocked_capability_requires_new_rules(store):
     command = store.enqueue("inbox", {"kind": "dm", "account_id": "me"})
     store.claim("desktop")
     store.acknowledge(command, "desktop", {"state": "blocked", "error": "需要登录"})
@@ -134,7 +137,7 @@ def test_pause_preserves_reports_and_blocked_capability_requires_new_rules(store
     version, policy = store.policy()
     store.configure({**policy, "paused": True}, version)
     tick(store, datetime(2026, 10, 31, 13, 5, tzinfo=UTC))
-    assert len(store.objects("report")) == 1
+    assert not store.objects("report")
     assert not store.snapshot()["actions"]
 
 

@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldHint } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { SegmentedControl } from '@/components/ui/segmented-control'
 import {
   Select,
   SelectContent,
@@ -92,6 +91,7 @@ import { reconcileCronRunVerdicts } from './open-cron-run'
 import { RunRecord } from './run-record'
 import { SchedulePicker } from './schedule-picker'
 import { TaskDetails } from './task-details'
+import { TaskSectionBody, TaskSectionTabs, useTaskSection } from './task-sections'
 
 const DEFAULT_DELIVER = 'local'
 
@@ -319,7 +319,7 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
   const jobs = useStore($cronJobs)
   const [loading, setLoading] = useState(jobs.length === 0)
   const [query, setQuery] = useState('')
-  const [section, setSection] = useState<'jobs' | 'blueprints'>('jobs')
+  const [section, setSection] = useTaskSection()
   const [busyJobTokens, setBusyJobTokens] = useState<ReadonlyMap<string, symbol>>(() => new Map())
   const [triggeringJobKeys, setTriggeringJobKeys] = useState<ReadonlySet<string>>(() => new Set())
   const triggerControllerRef = useRef<CronTriggerController | null>(null)
@@ -678,7 +678,7 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
         actions={
           <>
             <Button onClick={() => setSection('blueprints')} size="sm">
-              选择场景
+              运营计划
             </Button>
             <Button onClick={() => setEditor({ mode: 'create' })} size="sm" variant="outline">
               {c.newCron}
@@ -689,18 +689,11 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
         title={c.title}
       />
 
-      <div className="px-4 py-2">
-        <SegmentedControl
-          onChange={setSection}
-          options={[
-            { id: 'jobs', label: '任务与执行' },
-            { id: 'blueprints', label: '场景模板' }
-          ]}
-          value={section}
-        />
-      </div>
+      <TaskSectionTabs onChange={setSection} value={section} />
       {section === 'jobs' && <ContributedBlueprints profile={blueprintProfile} view="summary" />}
-      {section === 'blueprints' ? (
+      {['running', 'upcoming'].includes(section) ? (
+        <TaskSectionBody section={section} />
+      ) : section === 'blueprints' ? (
         <div className="min-h-0 flex-1 overflow-auto">
           <ContributedBlueprints profile={blueprintProfile} view="blueprints" />
         </div>
@@ -740,9 +733,7 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
                     icon: 'play',
                     label: c.triggerNow,
                     disabled:
-                      isJobRunning(job) ||
-                      busyJobTokens.has(job.id) ||
-                      triggeringJobKeys.has(`${profile}:${job.id}`),
+                      isJobRunning(job) || busyJobTokens.has(job.id) || triggeringJobKeys.has(`${profile}:${job.id}`),
                     onSelect: () => void handleTrigger(job)
                   },
                   { icon: 'edit', label: c.edit, onSelect: () => setEditor({ mode: 'edit', job }) },

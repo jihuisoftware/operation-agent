@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { atom } from 'nanostores'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AutomationBlueprint, CronJob } from '@/hermes'
@@ -66,7 +67,9 @@ function renderView() {
 
   return render(
     <QueryClientProvider client={client}>
-      <CronView />
+      <MemoryRouter>
+        <CronView />
+      </MemoryRouter>
     </QueryClientProvider>
   )
 }

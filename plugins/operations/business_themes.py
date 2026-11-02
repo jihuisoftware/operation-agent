@@ -100,6 +100,8 @@ BUSINESS_THEMES = [
 
 
 def validate_business_selection(theme, subtype):
+    if theme == "custom":
+        return
     if not theme:
         if subtype:
             raise ValueError("选择业务子类前请先选择业务主题")

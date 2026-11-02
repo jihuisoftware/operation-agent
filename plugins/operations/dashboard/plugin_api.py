@@ -11,7 +11,10 @@ from plugins.operations.dashboard.browser_api import router as browser_router
 
 from plugins.operations.dashboard.analysis_api import router as analysis_router
 
+from plugins.operations.dashboard.library_api import router as library_router
+
 router = APIRouter()
+router.include_router(library_router)
 router.include_router(analysis_router)
 router.include_router(source_router)
 router.include_router(browser_router)
@@ -76,15 +79,20 @@ def cancel_step(body: dict):
 @router.get("/policy")
 def read_policy():
     version, policy = Store().policy()
-    return {"version": version, "policy": policy}
+    from plugins.operations.readiness import web_held
+    with Store().connection() as db:
+        held = web_held(db)
+    return {"version": version, "policy": policy, "web_held": held}
 
 
 @router.put("/policy")
 def configure(body: dict):
     store = Store()
-    version = checked(lambda: store.configure(body["policy"], body["version"]))
+    version = checked(lambda: store.configure(body["policy"], body["version"], activation=True))
     if body["policy"].get("enabled"):
         ensure_schedule(store)
+    from plugins.operations.readiness import refresh
+    refresh(store)
     return {"version": version}
 
 
@@ -109,19 +117,24 @@ def ack(body: dict):
 
 
 @router.get("/assets/{identity}")
-def asset(identity: str):
+def asset(identity: str, thumbnail: bool = False):
     from plugins.plugin_storage import plugin_data_dir
     store = Store()
     row = next((a for a in store.objects("asset") if a["id"] == identity and not a.get("revoked")), None)
     if not row:
         raise HTTPException(404, "素材不存在或已撤回")
     data = (plugin_data_dir("operations") / "assets" / row["file"]).read_bytes()
+    if thumbnail:
+        from plugins.operations.asset_views import thumbnail_data
+        return checked(lambda: thumbnail_data(row['name'], data))
     return {"name": row["name"], "data": base64.b64encode(data).decode()}
 
 
 @router.post("/assets")
 def add_asset(body: dict):
     identity = checked(lambda: Store().add_asset(body["name"], base64.b64decode(body["data"], validate=True), body.get("authorized") is True))
+    from plugins.operations.readiness import refresh
+    refresh(Store())
     return {"id": identity}
 
 
@@ -213,4 +226,38 @@ def platforms(worker: str | None = None):
 @router.post("/platforms/observe")
 def platform_observation(body: dict):
     from plugins.operations.login_status import observe
-    return checked(lambda: observe(Store(), body))
+    store = Store()
+    result = checked(lambda: observe(store, body))
+    from plugins.operations.readiness import refresh
+    refresh(store)
+    return result
+
+
+@router.post('/quick-start')
+def quick_start(body: dict):
+    from plugins.operations.quick_start import apply
+    return checked(lambda: apply(Store(), body))
+
+
+@router.get('/quick-start')
+def first_run_status():
+    from plugins.operations.quick_start import status
+    return status(Store())
+
+
+@router.post('/worker/takeover')
+def web_takeover(body: dict):
+    from plugins.operations.readiness import takeover
+    return checked(lambda: takeover(Store(), body.get('worker'), body.get('active')))
+
+
+@router.post('/plan/control')
+def plan_control(body: dict):
+    from plugins.operations.plan_controls import control
+    return checked(lambda: control(Store(), body))
+
+
+@router.post('/quick-start/cancel')
+def cancel_first_run(body: dict):
+    from plugins.operations.plan_controls import cancel_first
+    return checked(lambda: cancel_first(Store(), body['id']))

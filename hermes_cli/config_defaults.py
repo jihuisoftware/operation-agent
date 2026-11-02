@@ -62,13 +62,10 @@ DEFAULT_CONFIG = {
         # terminal's session (tmux/kitty/wezterm pane, tty). false = resume globally most-recent.
         "terminal_continue": True,
     },
-    # Where the TUI/desktop gateway stages session file attachments (uploads, pasted
-    # text). "hermes-home" (default) keeps <profile home>/attachments — the dir
-    # container backends bind-mount, so @file: refs resolve in the sandbox (#76577).
-    # "workspace" opts into <session workspace>/.hermes/attachments: staging lands
-    # inside the allowed ref root, so the same profile's agent can always read its
-    # own attachments back (#110662). Read per profile from that profile's config;
-    # a remote (ssh) workspace keeps the profile home dir either way.
+    "token_saving": {"enabled": False, "parse_images": False, "parse_files": False},
+    # Profile home attachments are sandbox-mounted (#76577). Workspace storage opts into
+    # <session workspace>/.hermes/attachments so @file refs stay within its root (#110662).
+    # Remote workspaces keep the profile-home directory; read this setting per profile.
     "attachments": {
         "storage": "hermes-home",
     },
