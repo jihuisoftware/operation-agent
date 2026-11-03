@@ -1,7 +1,7 @@
 """Token analytics over the runtime ledger, never over cumulative session totals."""
 import base64
 import csv
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 import io
 import json
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -20,10 +20,10 @@ def window(period, tz, until=None):
         zone = ZoneInfo(tz)
     except (ZoneInfoNotFoundError, ValueError) as exc:
         raise ValueError('无效时区') from exc
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if until is not None:
-        now = datetime.fromtimestamp(float(until), timezone.utc)
-        if now > datetime.now(timezone.utc) + timedelta(seconds=5):
+        now = datetime.fromtimestamp(float(until), UTC)
+        if now > datetime.now(UTC) + timedelta(seconds=5):
             raise ValueError('截止时间不能在未来')
     starts = {'hour': now - timedelta(hours=1), 'day': now.astimezone(zone).replace(hour=0, minute=0, second=0, microsecond=0),
               'week': now - timedelta(days=7), 'month': now - timedelta(days=30), 'live': now - timedelta(hours=1)}

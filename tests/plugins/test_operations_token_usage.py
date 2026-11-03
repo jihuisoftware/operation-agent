@@ -1,5 +1,5 @@
 """Time-window analytics and scoped private HTTP use the same durable receipts."""
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from types import SimpleNamespace
 import csv
 import io
@@ -57,7 +57,7 @@ def test_windows_use_receipt_time_and_local_calendar_with_dst(directory):
 def test_same_names_scope_live_unknown_and_export_match(directory):
     one = directory.create('同名')
     two = directory.create('同名')
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.now(UTC).timestamp()
     record(directory, one, now - 60, identity='one', state='running')
     record(directory, two, now - 60, identity='two')
     with ledger.bind(ledger.start_task('unknown', business_id=one['business_id'], topic_id=one['topic_id'])):
@@ -82,7 +82,7 @@ def test_same_names_scope_live_unknown_and_export_match(directory):
 
 def test_call_cursor_and_profile_private_http(directory):
     scope = directory.create('业务')
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.now(UTC).timestamp()
     call = record(directory, scope, now - 5)
     from hermes_cli import web_server
     with TestClient(web_server.app) as client:

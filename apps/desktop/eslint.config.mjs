@@ -35,6 +35,22 @@ export default [
     }
   },
   {
+    // Nested feature modules may reach siblings inside their own plugin, but
+    // two parent hops cross the plugin boundary and still require the SDK.
+    files: ['src/plugins/*/*/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [{
+            group: ['@/*', '../../*', '@hermes/shared'],
+            message: 'Imports outside this plugin must use @hermes/plugin-sdk.'
+          }]
+        }
+      ]
+    }
+  },
+  {
     files: ['**/*.test.tsx'],
     rules: {
       'no-restricted-globals': ['warn', 'document']

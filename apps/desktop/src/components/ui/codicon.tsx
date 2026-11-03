@@ -11,10 +11,10 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowUpRight,
-  Box,
   Book,
-  Browser,
+  Box,
   Brain,
+  Browser,
   Bug,
   Bulb,
   Calendar,
@@ -37,8 +37,8 @@ import {
   CreditCard,
   Database,
   Download,
-  Eye,
   ExternalLink,
+  Eye,
   FileAnalytics,
   FileImage,
   FileText,
@@ -51,8 +51,8 @@ import {
   History,
   Home,
   Info,
-  LayoutDashboard,
   Layers3,
+  LayoutDashboard,
   ListCheck,
   Loader2,
   Lock,
@@ -96,7 +96,6 @@ import {
   Zap
 } from '@/lib/icons'
 import type { IconComponent } from '@/lib/icons'
-
 import { cn } from '@/lib/utils'
 
 export interface CodiconProps extends React.HTMLAttributes<HTMLElement> {

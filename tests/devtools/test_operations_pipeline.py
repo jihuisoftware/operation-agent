@@ -183,7 +183,7 @@ def test_quick_pipeline_covers_internal_modules_without_submitting_external_acti
     steps = {step["id"]: step for step in result["steps"]}
     assert all("模块未启用" not in steps[key]["detail"] for key in internal)
     assert all(steps[key]["state"] == "completed" for key in internal)
-    assert all("快速测试仅检查外部动作" in steps[key]["detail"] for key in {"publish", "comment", "reply", "dm", "follow"})
+    assert all("快速测试仅检查外部动作" in steps[key]["detail"] for key in ("publish", "comment", "reply", "dm", "follow"))
     assert steps["report"]["state"] == "completed"
     assert not submitted
     assert store.run_options is None

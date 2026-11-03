@@ -19,11 +19,11 @@ import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
 import { PlanEditor } from './plan-editor'
 import { type Section, SectionPage, sections } from './section-page'
+import { TokenUsagePage } from './token-usage/page'
 import { UpcomingOperations } from './upcoming'
 import { OperationsWorker } from './worker'
 import { WorkspacePage } from './workspace-page'
 import { WorkspacePicker } from './workspace-picker'
-import { TokenUsagePage } from './token-usage/page'
 
 declare const __OPERATIONS_DEBUG__: boolean
 

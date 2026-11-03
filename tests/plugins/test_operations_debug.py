@@ -46,6 +46,34 @@ def test_single_task_has_persistent_detailed_logs_and_idempotent_requests(config
     assert configured.policy()[0] == 1
 
 
+@pytest.mark.parametrize("task", ("publish", "comment", "reply", "dm", "follow"))
+def test_quick_external_task_never_enters_submission_workflow(configured, monkeypatch, task):
+    version, policy = configured.policy()
+    policy["modules"][debug.TASKS[task][1]] = True
+    policy["allowed"][task] = True
+    configured.configure(policy, version)
+    configured.claim("desktop", busy=True)
+    calls = []
+
+    def submit(*args, **kwargs):
+        calls.append(task)
+        return "已执行"
+
+    monkeypatch.setattr(debug.workflow, "publish", submit)
+    monkeypatch.setattr(debug.workflow, "interact", submit)
+    body = {"task": task, "version": 2, "request_id": task, "mode": "quick"}
+    result = debug.execute(body)
+    assert result["state"] == "skipped"
+    assert "未提交" in result["detail"]
+    assert not calls
+    assert debug.execute(body) == result
+    assert debug.detail(result["id"])["actions"] == []
+    assert configured.policy() == (2, policy)
+
+    debug.execute({**body, "mode": "normal", "request_id": task + "-normal"})
+    assert calls == [task]
+
+
 def test_failures_are_durable_and_locks_and_permissions_still_apply(configured, monkeypatch):
     def fail(*args):
         raise ValueError("来源解析失败")

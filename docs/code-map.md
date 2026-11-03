@@ -37,7 +37,7 @@
 | 模型列表、提供方、设置 | [模型设置](../apps/desktop/src/app/settings/model-settings.tsx)、同目录 `model-select.tsx` | [模型 API](../hermes_cli/web_routers/models.py)、[模型目录](../hermes_cli/model_catalog.py)、[提供方范围与名称](../hermes_cli/model_provider_scope.py)、`tui_gateway/model_switch.py` | `model-settings.test.tsx`；`tests/hermes_cli/test_model_provider_scope.py` |
 | 节省 Token、图像与文件解析开关 | [设置面板](../apps/desktop/src/app/settings/token-saving-settings.tsx)、[解析偏好](../agent/input_policy.py) | `image_routing.py` / `context_references.py`、`tools/vision_tools.py` / `file_tools.py`；Gateway/TUI 入站与 PDF 附件入口 | `tests/agent/test_input_policy.py`、`tests/tui_gateway/test_token_saving_pdf.py`、`token-saving-settings.test.tsx` |
 | Desktop 启动、连接、会话 | [Electron 入口](../apps/desktop/electron/main.ts)（只搜索相关符号）、同目录 `backend-*.ts` / `local-gateway-*.ts` | [Gateway 运行时](../hermes_cli/gateway_runtime.py)及同前缀兄弟模块；[会话创建请求](../apps/desktop/src/app/session/hooks/use-session-actions/session-create-request.ts) | Electron 同目录测试、`session-create-request.test.ts`；Gateway 对应测试 |
-| 产品能力显示与裁剪 | [产品范围](../hermes_cli/data/operations-profile.json)、[Desktop 范围读取](../apps/desktop/src/lib/operations-profile.ts) | [产品状态与启动说明](../README.md)、[MVP 状态](operations-platform-mvp.md) | `apps/desktop/src/lib/operations-profile.test.ts` |
+| 产品能力显示与裁剪 | [产品范围](../hermes_cli/data/operations-profile.json)、[Desktop 范围读取](../apps/desktop/src/lib/operations-profile.ts) | [App 介绍与快速上手](../README.md)、[功能细节与开发运行参考](operations-reference.md)、[MVP 状态](operations-platform-mvp.md) | `apps/desktop/src/lib/operations-profile.test.ts` |
 
 聊天预览与运营执行器有不同的生命周期和归属；先确认用户指的是哪一个。运营业务修改优先留在插件里，定时任务核心只负责通用贡献入口；SDK 契约在 [cron.ts](../apps/desktop/src/sdk/cron.ts)。
 

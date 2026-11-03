@@ -17,16 +17,20 @@ export function useUsage<T>(ctx: PluginContext, path: string) {
   useEffect(() => {
     let disposed = false
     let busy = false
+
     const refresh = async () => {
       if (busy || document.hidden) { return }
       busy = true
+
       try {
         const data = await ctx.rest<T>(path)
+
         if (!disposed) { setState({ path, ctx, data }) }
       } catch (reason) {
         if (!disposed) { setState(old => ({ path, ctx, data: old?.path === path && old.ctx === ctx ? old.data : undefined, error: String(reason) })) }
       } finally { busy = false }
     }
+
     void refresh()
     const timer = setInterval(() => void refresh(), 5000)
     document.addEventListener('visibilitychange', refresh)

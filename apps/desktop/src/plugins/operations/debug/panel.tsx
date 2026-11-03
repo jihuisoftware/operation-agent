@@ -90,6 +90,7 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
       <h1 className="text-xl font-semibold">任务调试 · 仅开发环境</h1>
       <p>每次只执行所选任务，忽略原排期。每次点击是独立批次；详细执行遵守当前模块、授权、暂停和每日额度，快速整链路按下方覆盖规则运行。</p>
       <p className="text-muted-foreground">调试会调用真实业务流程。网页任务使用当前内嵌账号；可在实时画面中暂停并人工接管。</p>
+      <p className="text-xs text-muted-foreground">单项快速调试最多使用 2 次模型调用；发布、评论、私信和回关只检查本地就绪条件，不提交外部动作。需要实际执行时使用“详细执行”。</p>
       {(error || loadError) && <div><p className="text-destructive" role="alert">{error || loadError}</p><CopyButton label="复制请求错误" text={JSON.stringify({ owner, run_id: selected, error, loadError }, null, 2)}>复制请求错误</CopyButton></div>}
       {loadError && <Button onClick={() => setRevision(value => value + 1)} variant="outline">重新连接调试服务</Button>}
       {!catalog && <p>请在当前 Profile 的 config.yaml 设置 development.operations_debug: true，并使用源码 Server 和开发版 Desktop。</p>}

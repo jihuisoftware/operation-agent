@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="400" viewBox="0 0 1440 400" role="img" aria-labelledby="title desc"><title id="title">首次使用四步指南</title><desc id="desc">先连接模型，再选择业务和主题，检查任务与动作权限，最后开始运行并查看记录。只想试用时选择准备内容。</desc><g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif">
+<rect x="0" y="0" width="1440" height="400" rx="22" fill="#f2f6f5" stroke="none"/>
+<text x="48" y="64" font-size="30" fill="#24414a" font-weight="650">第一次使用，按这四步开始</text>
+<text x="48" y="99" font-size="18" fill="#71838a" font-weight="400">先准备内容，再根据需要开启自动执行。</text>
+<rect x="48" y="134" width="318" height="205" rx="14" fill="#ffffff" stroke="#dde7e4"/>
+<rect x="68" y="154" width="37" height="37" rx="11" fill="#dcefe7" stroke="none"/>
+<text x="80" y="180" font-size="20" fill="#2b7260" font-weight="650">1</text>
+<text x="68" y="228" font-size="26" fill="#24414a" font-weight="650">连接 AI</text>
+<text x="68" y="267" font-size="18" fill="#3a7969" font-weight="500">设置 → 模型</text>
+<text x="68" y="305" font-size="17" fill="#71838a" font-weight="400">连接提供方并选择模型</text>
+<path d="M373 232h10m-5-5 5 5-5 5" fill="none" stroke="#85a99b" stroke-width="2" stroke-linecap="round"/>
+<rect x="390" y="134" width="318" height="205" rx="14" fill="#ffffff" stroke="#dde7e4"/>
+<rect x="410" y="154" width="37" height="37" rx="11" fill="#dcefe7" stroke="none"/>
+<text x="422" y="180" font-size="20" fill="#2b7260" font-weight="650">2</text>
+<text x="410" y="228" font-size="26" fill="#24414a" font-weight="650">选择主题</text>
+<text x="410" y="267" font-size="18" fill="#3a7969" font-weight="500">首页 → 快速开始</text>
+<text x="410" y="305" font-size="17" fill="#71838a" font-weight="400">填写业务、主题与工作方式</text>
+<path d="M715 232h10m-5-5 5 5-5 5" fill="none" stroke="#85a99b" stroke-width="2" stroke-linecap="round"/>
+<rect x="732" y="134" width="318" height="205" rx="14" fill="#ffffff" stroke="#dde7e4"/>
+<rect x="752" y="154" width="37" height="37" rx="11" fill="#dcefe7" stroke="none"/>
+<text x="764" y="180" font-size="20" fill="#2b7260" font-weight="650">3</text>
+<text x="752" y="228" font-size="26" fill="#24414a" font-weight="650">检查计划</text>
+<text x="752" y="267" font-size="18" fill="#3a7969" font-weight="500">任务 → 运营计划</text>
+<text x="752" y="305" font-size="17" fill="#71838a" font-weight="400">确认时间、数量与动作权限</text>
+<path d="M1057 232h10m-5-5 5 5-5 5" fill="none" stroke="#85a99b" stroke-width="2" stroke-linecap="round"/>
+<rect x="1074" y="134" width="318" height="205" rx="14" fill="#ffffff" stroke="#dde7e4"/>
+<rect x="1094" y="154" width="37" height="37" rx="11" fill="#dcefe7" stroke="none"/>
+<text x="1106" y="180" font-size="20" fill="#2b7260" font-weight="650">4</text>
+<text x="1094" y="228" font-size="26" fill="#24414a" font-weight="650">查看结果</text>
+<text x="1094" y="267" font-size="18" fill="#3a7969" font-weight="500">首页 / 任务 / 内容</text>
+<text x="1094" y="305" font-size="17" fill="#71838a" font-weight="400">看进度、草稿和待处理事项</text>
+<text x="48" y="373" font-size="17" fill="#6b7f79" font-weight="400">操作路径示意  ·  点击“开始运营”前，请确认是否允许发布、评论和私信回复。</text>
+</g></svg>

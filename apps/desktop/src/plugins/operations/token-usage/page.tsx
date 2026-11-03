@@ -1,5 +1,6 @@
 import { Button, Codicon, formatTimestamp, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useMemo, useState } from 'react'
+
 import { dimensions, number, periods, queryString, timestamp, useUsage } from './data'
 import { UsageTasks } from './tasks'
 import type { Summary } from './types'
@@ -26,6 +27,7 @@ function OwnedUsage({ ctx }: { ctx: PluginContext }) {
   async function download() {
     if (!data) { return }
     setExporting(true); setExportError('')
+
     try {
       const result = await ctx.rest<{ csv: string }>(`/usage/export?${query}&until=${data.until}&transport=json`, { timeoutMs: 60000 })
       const url = URL.createObjectURL(new Blob([result.csv], { type: 'text/csv;charset=utf-8' }))

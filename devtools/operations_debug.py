@@ -18,6 +18,8 @@ from plugins.operations.policy import local_day, now_iso
 from plugins.operations.report import daily_report
 from plugins.operations.store import Store, encoded
 
+from .operations_pipeline import EXTERNAL
+
 router = APIRouter(prefix="/debug")
 TASKS = {
     "research": ("信息采集", "research"), "organize": ("资料整理与归类", "organize"), "analytics": ("数据分析", "analytics"), "industry": ("行业分析", "industry"), "topics": ("选题策划", "topics"), "content": ("内容生产", "content"),
@@ -135,11 +137,25 @@ def new_record(identity, task, title, version, day):
             "pid": os.getpid(), "process_started": psutil.Process().create_time()}
 
 
+def quick_external_status(store, task, policy):
+    from plugins.operations.readiness import conditions
+    ready = conditions(store, policy)[TASKS[task][1]]
+    reasons = list(ready["reasons"])
+    if ready["waiting_upstream"]:
+        reasons.append("等待上游产物")
+    if not store.snapshot()["online"]:
+        reasons.append("Desktop 离线")
+    detail = "；".join(reasons) if reasons else "本地就绪检查通过，实际账号与页面状态仍需执行时核对"
+    return f"快速测试仅检查外部动作：{detail}，未提交"
+
+
 def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
     started = datetime.now(UTC)
     result = None
     owns_run_options = False
     try:
+        if quick and task in EXTERNAL:
+            raise StageSkipped(quick_external_status(store, task, policy))
         if task in {"publish", "comment", "reply", "dm", "follow"} and not store.snapshot()["online"]:
             raise StageSkipped("桌面执行器离线，请启动开发版 Desktop")
         if quick:

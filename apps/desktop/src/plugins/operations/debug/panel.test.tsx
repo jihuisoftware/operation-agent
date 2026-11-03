@@ -27,7 +27,7 @@ it('runs only the selected task and shows its saved full trace with a new ID for
   })
 
   render(<DebugPanel ctx={{ rest } as unknown as PluginContext} owner={owner} />)
-  fireEvent.click(await screen.findByRole('button', { name: '单独执行内容生产' }))
+  fireEvent.click(await screen.findByRole('button', { name: '详细执行内容生产' }))
   expect(await screen.findByText('已保存内容版本')).toBeTruthy()
   expect(screen.getByText(/完整步骤及输出/)).toBeTruthy()
   expect(screen.getByRole('button', { name: '复制完整记录' })).toBeTruthy()
@@ -38,11 +38,11 @@ it('runs only the selected task and shows its saved full trace with a new ID for
     expect(time.getAttribute('datetime')).toBe(started)
   }
 
-  await waitFor(() => expect((screen.getByRole('button', { name: '单独执行内容生产' }) as HTMLButtonElement).disabled).toBe(false))
-  fireEvent.click(screen.getByRole('button', { name: '单独执行内容生产' }))
+  await waitFor(() => expect((screen.getByRole('button', { name: '详细执行内容生产' }) as HTMLButtonElement).disabled).toBe(false))
+  fireEvent.click(screen.getByRole('button', { name: '详细执行内容生产' }))
   await waitFor(() => expect(rest.mock.calls.filter(([path]) => path === '/debug/run')).toHaveLength(2))
   const calls = rest.mock.calls.filter(([path]) => path === '/debug/run').map(([, options]) => options)
-  expect(calls[0]).toMatchObject({ owner, body: { version: 3, task: 'content' } })
+  expect(calls[0]).toMatchObject({ owner, body: { version: 3, task: 'content', mode: 'normal' } })
   expect(calls[1].body.request_id).not.toBe(calls[0].body.request_id)
 })
 
@@ -65,6 +65,21 @@ it('starts a whole-chain batch with the current owner and version only on an exp
   expect(rest.mock.calls.some(([path]) => path === '/debug/run')).toBe(false)
   fireEvent.click(button)
   await waitFor(() => expect(rest).toHaveBeenCalledWith('/debug/run', expect.objectContaining({
-    owner, body: { task: 'pipeline', version: 7, request_id: expect.any(String) }
+    owner, body: { task: 'pipeline', mode: 'normal', version: 7, request_id: expect.any(String) }
+  })))
+})
+
+it('sends quick mode only after the selected task is explicitly requested', async () => {
+  const rest = vi.fn(async (path: string) => path === '/debug' ? {
+    version: 7, policy: { modules: { publish: true } },
+    tasks: [{ id: 'publish', module: 'publish', title: '图文发布' }], runs: []
+  } : {})
+
+  render(<DebugPanel ctx={{ rest } as unknown as PluginContext} owner={owner} />)
+  const button = await screen.findByRole('button', { name: '快速调试' })
+  expect(rest.mock.calls.some(([path]) => path === '/debug/run')).toBe(false)
+  fireEvent.click(button)
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/debug/run', expect.objectContaining({
+    owner, body: { task: 'publish', mode: 'quick', version: 7, request_id: expect.any(String) }
   })))
 })
