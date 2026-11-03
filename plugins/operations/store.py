@@ -136,12 +136,16 @@ class Store:
         return version
 
     def event(self, kind, data):
+        from .run_scope import annotate
+        data = annotate(self, data)
         if self.scope:
             data = {**data, 'business_id': self.scope['business_id'], 'topic_id': self.scope['id']}
         with self.connection() as db:
             db.execute("INSERT INTO events(at,kind,data) VALUES (?,?,?)", (now_iso(), kind, encoded(data)))
 
     def put(self, kind, data, identity=None):
+        from .run_scope import annotate
+        data = annotate(self, data)
         if self.scope:
             data = {**data, 'business_id': self.scope['business_id'], 'topic_id': self.scope['id']}
         identity = identity or uuid.uuid4().hex

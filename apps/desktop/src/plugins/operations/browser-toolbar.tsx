@@ -1,6 +1,7 @@
 import { Button, Codicon } from '@hermes/plugin-sdk'
 
 interface Props {
+  platformName?: string
   status: string
   loading: boolean
   error: string
@@ -11,7 +12,7 @@ interface Props {
   release?: () => void
 }
 
-export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen, release }: Props) {
+export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen, release, platformName = '小红书' }: Props) {
   return (
     <>
       <header className="shrink-0 border-b border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)">
@@ -35,7 +36,7 @@ export function BrowserToolbar({ status, loading, error, takeOver, login, hide, 
             </Button>
           )}
           <Button onClick={login} size="sm" variant="ghost">
-            打开小红书／登录
+            打开{platformName}／登录
           </Button>
         </div>
         <p className="border-t border-(--ui-stroke-tertiary) px-3 py-2 text-xs text-muted-foreground" role="status">

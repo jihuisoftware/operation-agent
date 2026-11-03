@@ -7,6 +7,8 @@ from .store import encoded
 
 
 def save(store, kind, identity, data):
+    from .run_scope import annotate
+    data = annotate(store, data)
     with store.connection() as db:
         db.execute('INSERT INTO objects VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',
                    (identity, kind, encoded(data), now_iso()))

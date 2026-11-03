@@ -69,6 +69,8 @@ def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
               'truncated': page.get('truncated', False), 'original_chars': page.get('original_chars', len(text)),
               'is_new': bool(text and not prior_id), 'previous_source_id': prior_id, 'scope_topic': policy['topic'],
               'images': capture(store, image_urls(page, candidate, url, text), url) if text else []}
+    if getattr(store, 'debug_id', None):
+        record['debug_id'] = store.debug_id
     identity = previous['id'] if previous else hashlib.sha256(f'{day}:{url}'.encode()).hexdigest()
     save(store, 'source', identity, record)
     if store.current_run_id:
@@ -86,6 +88,8 @@ def collect(store, policy, day):
     stats = {key: 0 for key in ('candidates', 'attempted', 'succeeded', 'new', 'duplicate_content', 'already_read',
                                 'failed', 'not_attempted', 'retried', 'duplicate_links', 'invalid_urls', 'searches', 'search_errors')}
     stats.update(day=day, scope_topic=policy['topic'], started=now_iso(), state='running', limit=policy['limits']['source'])
+    if getattr(store, 'debug_id', None):
+        stats['debug_id'] = store.debug_id
     options = store.run_options or {}
     stats['read_limit'] = options.get('read_limit', stats['limit'])
     stats['query_limit'] = options.get('query_limit', 12)

@@ -1,8 +1,8 @@
-import type { CronBlueprintOwner, PluginContext } from '@hermes/plugin-sdk'
+import { type CronBlueprintOwner, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 
 import type { PlanTime } from './blueprint-types'
-import type { PlatformLogin } from './login-state'
+import { $loginStatusRevision, type PlatformLogin } from './login-state'
 
 export interface OverviewData {
   day: string
@@ -22,12 +22,14 @@ export interface OverviewData {
   schedule: PlanTime[]
   analysis?: { id: string; kind: string; created: string; detail: string }[]
   platforms: PlatformLogin[]
+  platform_worker_online?: boolean
 }
 
 export function useOverview(ctx: PluginContext, owner: CronBlueprintOwner) {
   const [data, setData] = useState<OverviewData | null>(null)
   const [error, setError] = useState('')
   const [revision, setRevision] = useState(0)
+  const loginRevision = useValue($loginStatusRevision)
   useEffect(() => {
     let disposed = false
     let busy = false
@@ -57,7 +59,7 @@ export function useOverview(ctx: PluginContext, owner: CronBlueprintOwner) {
       clearInterval(timer)
       document.removeEventListener('visibilitychange', visibleRefresh)
     }
-  }, [ctx, owner, revision])
+  }, [ctx, owner, revision, loginRevision])
 
   return { data, error, retry: () => setRevision(value => value + 1) }
 }

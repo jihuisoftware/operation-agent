@@ -42,7 +42,10 @@ def catalog(store, worker=None):
     now = time.time()
     _, policy = store.policy()
     with store.connection() as db:
-        online = bool(worker and db.execute("SELECT 1 FROM workers WHERE id=? AND seen>?", (worker, now - 15)).fetchone())
+        online = bool(
+            db.execute("SELECT 1 FROM workers WHERE id=? AND seen>?", (worker, now - 15)).fetchone()
+            if worker else db.execute("SELECT 1 FROM workers WHERE seen>?", (now - 15,)).fetchone()
+        )
         rows = []
         for platform, name, url in PLATFORMS:
             record = db.execute("SELECT * FROM platform_logins WHERE platform=? ORDER BY checked DESC, rowid DESC LIMIT 1",
@@ -52,6 +55,7 @@ def catalog(store, worker=None):
             if store.workspace:
                 import json
                 shared = db.execute('SELECT record,evidence FROM directory.account_logins WHERE account_id=(SELECT account FROM directory.businesses WHERE id=?) AND platform=?', (store.scope['business_id'], platform)).fetchone()
+                record, evidence = None, None
                 if shared:
                     record, evidence = json.loads(shared['record']), json.loads(shared['evidence']) if shared['evidence'] else None
             rows.append(_row(platform, name, url, record, evidence, worker, policy))

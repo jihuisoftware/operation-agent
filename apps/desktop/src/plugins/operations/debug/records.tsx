@@ -18,6 +18,7 @@ export interface Run {
   steps?: Step[]
   version?: number
   day?: string
+  coverage?: { quick?: boolean; read_limit?: number; query_limit?: number; external_actions?: string }
 }
 export interface Detail {
   run: Run
@@ -56,6 +57,7 @@ export function DebugRecord({ detail }: { detail: Detail }) {
       {hasErrors && <CopyButton label="仅复制错误日志" text={() => json(errors)}>仅复制错误日志</CopyButton>}
     </div>
     <p className="whitespace-pre-wrap">{detail.run.detail}</p>
+    {detail.run.coverage?.quick && <p className="text-sm text-muted-foreground">快速模式限制：仅抽样 1 条来源、外部动作不执行。</p>}
     {detail.run.duration_ms !== undefined && <p>执行耗时：{detail.run.duration_ms} 毫秒</p>}
     {detail.run.steps?.map((step, index) => {
       const events = detail.events.filter(event => (event.data as { step_id?: string })?.step_id === step.id)

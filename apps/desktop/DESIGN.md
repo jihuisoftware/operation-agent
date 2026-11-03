@@ -453,7 +453,9 @@ from their root base tokens; do not multiply the global tokens or nest CSS zoom.
   in feature code.
 - **`Codicon`** is the compact editor/tool/status vocabulary. Use
   `src/components/ui/codicon.tsx`, including `codiconIcon()` where a
-  Tabler-shaped component is required.
+  Tabler-shaped component is required. The semantic Codicon names remain the
+  compatibility API for plugins and navigation data, while the renderer uses
+  the same Tabler SVG family as the rest of the app.
 - Pick the vocabulary by semantic context and reuse the existing icon for an
   action. Do not introduce a third icon set or mix styles within one control
   group.

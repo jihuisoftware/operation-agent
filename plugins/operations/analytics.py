@@ -29,6 +29,8 @@ def analyze(store, policy, day, version):
               'operational_metrics': operational_metrics(store, period), 'datasets': batches,
               'evidence': evidence, 'model_calls': 0, 'state': 'completed',
               'detail': f"已统计 {sources['counts'].get('read', 0)} 条去重资料、{len(metrics)} 项业务指标；样本不代表行业规模"}
+    if getattr(store, 'debug_id', None):
+        report['debug_id'] = store.debug_id
     if store.policy() != (version, policy) or not valid(store, report, policy, day):
         raise ValueError('分析期间配置或数据发生变化，请重新执行')
     guard(store, policy)

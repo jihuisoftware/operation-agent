@@ -14,11 +14,13 @@ import { useSearchParams } from 'react-router'
 import { moduleLabels } from './blueprint-types'
 import { FirstRunProgress } from './first-run'
 import { LibraryPage } from './library-page'
+import { $loginNavigation, $loginRequest, $loginWorker } from './login-state'
 import { type OverviewData, useOverview } from './overview-data'
 import { Empty, Open, Region, ReportTime, overviewRoutes as routes, RunState, Time } from './overview-ui'
 import { PlanEditor } from './plan-editor'
-import { WorkspaceSummary } from './workspace-summary'
 import { TokenUsageCard } from './token-usage/card'
+import { $workspaces, ownerKey } from './workspace-state'
+import { WorkspaceSummary } from './workspace-summary'
 
 export function OverviewPage({ ctx }: { ctx: PluginContext }) {
   const owner = useValue(host.state.requestOwner)
@@ -37,6 +39,12 @@ export function OwnedOverview({
   tab?: string
 }) {
   const { data, error, retry } = useOverview(ctx, owner)
+  const workspaces = useValue($workspaces)
+  const workspace = workspaces[ownerKey(owner)]
+
+  const selectedAccount = workspace?.catalog?.businesses.find(
+    business => business.id === workspace.selected?.business_id
+  )?.account
 
   const bound = useMemo<PluginContext>(
     () => ({ ...ctx, rest: (path, options) => ctx.rest(path, { ...options, owner }) }),
@@ -65,7 +73,6 @@ export function OwnedOverview({
           </div>
         </header>
         <WorkspaceSummary ctx={bound} />
-        <TokenUsageCard ctx={bound} />
         {error && (
           <p className="text-destructive" role="alert">
             总览更新失败，已显示的数据可能过期。{error}
@@ -82,17 +89,26 @@ export function OwnedOverview({
           data && (
             <>
               {!data.topic && <PlanEditor ctx={ctx} owner={owner} />}
-              {data.topic && <OverviewContent data={data} />}
+              {data.topic && <OverviewContent accountId={selectedAccount} data={data} owner={owner} />}
               {data.topic && <FirstRunProgress ctx={bound} />}
             </>
           )
         )}
+        <TokenUsageCard ctx={bound} topic={workspaces[ownerKey(owner)]?.selected?.topic_id} />
       </div>
     </main>
   )
 }
 
-function OverviewContent({ data }: { data: OverviewData }) {
+function OverviewContent({
+  accountId,
+  data,
+  owner
+}: {
+  accountId?: string
+  data: OverviewData
+  owner: CronBlueprintOwner
+}) {
   return (
     <>
       <section aria-label="运营目标" className="space-y-3 border-b pb-4">
@@ -133,7 +149,7 @@ function OverviewContent({ data }: { data: OverviewData }) {
         <RecentRuns data={data} />
         <Schedule data={data} />
         <Publications data={data} />
-        <Accounts data={data} />
+        <Accounts accountId={accountId} data={data} owner={owner} />
         <Region icon="notebook" title="日报与复盘" to={routes.reports}>
           {data.report ? (
             <div className="flex items-center gap-3">
@@ -314,7 +330,23 @@ function Publications({ data }: { data: OverviewData }) {
   )
 }
 
-function Accounts({ data }: { data: OverviewData }) {
+function Accounts({ accountId, data, owner }: { accountId?: string; data: OverviewData; owner: CronBlueprintOwner }) {
+  const current = useValue($loginWorker)
+  const navigating = useValue($loginNavigation)
+  const canAuthorize = !navigating
+  const currentOwner = current?.owner
+
+  const currentMatchesOwner =
+    currentOwner &&
+    currentOwner.connectionId === owner.connectionId &&
+    (currentOwner.profile || 'default') === (owner.profile || 'default')
+
+  const loginOwner = accountId
+    ? { ...owner, account_id: accountId }
+    : currentMatchesOwner
+      ? currentOwner
+      : { ...owner, account_id: accountId }
+
   return (
     <Region icon="account" title="账号登录" to="/accounts">
       <div className="space-y-3">
@@ -338,14 +370,35 @@ function Accounts({ data }: { data: OverviewData }) {
                 <Codicon className="text-muted-foreground" name="globe" />
                 {platform.name}
               </span>
-              <Badge variant={loggedIn ? 'success' : attention ? 'warn' : 'muted'}>
-                <Codicon name={loggedIn ? 'check' : 'circle-outline'} />
-                {label}
-              </Badge>
+              <span className="flex items-center gap-2">
+                <Badge variant={loggedIn ? 'success' : attention ? 'warn' : 'muted'}>
+                  <Codicon name={loggedIn ? 'check' : 'circle-outline'} />
+                  {label}
+                </Badge>
+                <Button
+                  aria-label={`${platform.name}${loggedIn ? '检查' : '重新授权'}`}
+                  disabled={!canAuthorize}
+                  onClick={() =>
+                    $loginRequest.set({
+                      owner: loginOwner,
+                      platform: platform.id,
+                      url: platform.url,
+                      id: crypto.randomUUID()
+                    })
+                  }
+                  size="sm"
+                  variant="outline"
+                >
+                  {loggedIn ? '检查' : '重新授权'}
+                </Button>
+              </span>
             </div>
           )
         })}
       </div>
+      {!data.platform_worker_online && (
+        <p className="text-xs text-muted-foreground">桌面执行窗口未连接；连接后可在此直接重新授权。</p>
+      )}
     </Region>
   )
 }

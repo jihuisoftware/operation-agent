@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { $loginNavigation, $loginRequest, $loginWorker } from './login-state'
 import { $showOperationsBrowser } from './state'
 import type { Api, Guest } from './types'
+import { useLoginObservation } from './use-login-observation'
 import { usePlatformLogin } from './use-platform-login'
 
 vi.mock('@hermes/plugin-sdk', async () => {
@@ -23,15 +24,20 @@ function fixture() {
   const api = vi.fn(async () => ({ ok: true })) as unknown as Api
   const takeOver = vi.fn(async (): Promise<void> => undefined)
 
-  function Monitor() {
-    usePlatformLogin({ api, guest, owner, worker: 'window', takeOver })
+  const onStatus = vi.fn()
+
+  const openPage = async (request: { url: string }) => { await guest.loadURL(request.url) }
+
+  function Monitor({ currentApi = api }: { currentApi?: Api }) {
+    usePlatformLogin({ openPage, owner, worker: 'window', takeOver })
+    useLoginObservation({ api: currentApi, guest, worker: 'window', platform: 'xiaohongshu', onStatus })
 
     return null
   }
 
   const view = render(<Monitor />)
 
-  return { guest, api, takeOver, ...view }
+  return { guest, api, takeOver, ...view, replaceApi: (currentApi: Api) => view.rerender(<Monitor currentApi={currentApi} />) }
 }
 
 afterEach(() => {
@@ -148,4 +154,44 @@ it('reports a completed SPA login within two seconds without waiting for navigat
     account_id: 'mine'
   })
   expect(guest.loadURL).not.toHaveBeenCalled()
+})
+
+it('continues checking an already loaded page after the API binding changes', async () => {
+  vi.useFakeTimers()
+  const { guest, replaceApi } = fixture()
+  await act(async () => { guest.dispatchEvent(new Event('dom-ready')) })
+  const nextApi = vi.fn(async () => ({ ok: true })) as unknown as Api
+  replaceApi(nextApi)
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+  expect(nextApi).toHaveBeenCalledWith('/platforms/observe', {
+    worker: 'window', platform: 'xiaohongshu', state: 'logged_in', account_id: 'me'
+  })
+})
+
+it('resumes checks when loading stops without another dom-ready event', async () => {
+  vi.useFakeTimers()
+  const { guest, api } = fixture()
+  await act(async () => { guest.dispatchEvent(new Event('dom-ready')) })
+  vi.mocked(guest.executeJavaScript).mockResolvedValue({ state: 'logged_in', account_id: 'next' })
+  await act(async () => {
+    guest.dispatchEvent(new Event('did-start-loading'))
+    await vi.advanceTimersByTimeAsync(2000)
+  })
+  expect(api).toHaveBeenCalledTimes(1)
+  await act(async () => { guest.dispatchEvent(new Event('did-stop-loading')) })
+  expect(api).toHaveBeenLastCalledWith('/platforms/observe', {
+    worker: 'window', platform: 'xiaohongshu', state: 'logged_in', account_id: 'next'
+  })
+})
+
+it('surfaces takeover failure without opening a page and permits a new authorization attempt', async () => {
+  const { guest, takeOver } = fixture()
+  takeOver.mockRejectedValueOnce(new Error('窗口暂不可用'))
+  const request = { owner, platform: 'xiaohongshu', url: 'https://www.xiaohongshu.com/explore', id: 'failed' }
+  await act(async () => { $loginRequest.set(request) })
+  expect(guest.loadURL).not.toHaveBeenCalled()
+  expect(host.notify).toHaveBeenCalledWith({ kind: 'error', message: expect.stringContaining('窗口暂不可用') })
+  expect($loginNavigation.get()).toBeNull()
+  await act(async () => { $loginRequest.set({ ...request, id: 'retry' }) })
+  expect(guest.loadURL).toHaveBeenCalledWith(request.url)
 })

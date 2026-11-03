@@ -2,7 +2,8 @@
 import hashlib
 from collections import deque
 
-from .model import generate, model_limit
+from .model import generate
+from .model_budget import remaining_calls
 from .outcomes import StageSkipped
 from .policy import now_iso
 from .source_library import available_sources
@@ -105,11 +106,9 @@ def organize(store, policy, day, version):
     if not pairs:
         raise StageSkipped('没有可整理的来源，请先执行信息采集或选择历史素材')
     pending = [s for s, row in pairs if row is None]
-    with store.connection() as db:
-        used = db.execute("SELECT count(*) FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
     # Leave the configured downstream modules a chance to consume the partial collection.
     reserved = sum(cost for stage, cost in (('industry', 2), ('topics', 1), ('content', 2), ('publish', 1)) if policy['modules'][stage])
-    batches = max(0, model_limit(store, policy) - used - reserved)
+    batches = max(0, remaining_calls(store, policy, day) - reserved)
     added, budget_exhausted = _run_batches(store, policy, day, version, pairs, pending, batches)
     current = materials(store, policy, day, include_history=True)
     result = {'total': len(current), 'added': added, 'organized': sum(row is not None for _, row in current),
@@ -118,7 +117,8 @@ def organize(store, policy, day, version):
                  else '部分来源仍未返回有效整理结果，单条补试已结束；有效结果已保存，剩余来源下次继续。')
     result['detail'] = (f"新增整理 {added} 条；已整理 {result['organized']}/{result['total']} 条，相关资料 {result['usable']} 条，"
                         f"待整理 {result['pending']} 条。" + (remaining if result['pending'] else ''))
-    store.put('organization', {**result, 'day': day, 'scope_topic': policy['topic'], 'version': version, 'created': now_iso()})
+    store.put('organization', {**result, 'day': day, 'scope_topic': policy['topic'], 'version': version, 'created': now_iso(),
+                               **({'debug_id': store.debug_id} if getattr(store, 'debug_id', None) else {})})
     return result
 
 

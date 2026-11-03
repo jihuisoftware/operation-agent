@@ -80,7 +80,8 @@ def produce_content(store, policy, day, version):
     missing = ([] if content.get("asset_ids") else ["缺少获授权图片"]) + ([] if quality.get("pass") is True else ["自动质量检查未通过"])
     identity = store.put("content", {**content, "day": day, "version": version, "ready": ready,
                                     "state": "ready" if ready else "needs_material" if not content.get("asset_ids") else "needs_review",
-                                    "quality": quality, "selected_topic": topic, "created": now_iso()})
+                                    "quality": quality, "selected_topic": topic, "created": now_iso(),
+                                    **({'debug_id': store.debug_id} if getattr(store, 'debug_id', None) else {})})
     return {"content_id": identity, "ready": ready, "missing": missing, "reason": quality.get("reason")}
 
 

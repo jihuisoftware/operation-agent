@@ -77,6 +77,14 @@ it('recognizes the channel-list account entry after QR login, including a siblin
   expect(inspectLoginPage('xiaohongshu')).toEqual({ state: 'logged_in', account_id: 'mine' })
 })
 
+it('recognizes a labelled icon-only navigation entry with a relative account link', () => {
+  page(
+    'www.xiaohongshu.com',
+    '<nav><a title="个人中心" href="/user/profile/mine"><svg></svg></a></nav>'
+  )
+  expect(inspectLoginPage('xiaohongshu')).toEqual({ state: 'logged_in', account_id: 'mine' })
+})
+
 it('can execute the serialized probe in a guest without access to module helpers', () => {
   page('www.xiaohongshu.com', '<nav><a href="https://www.xiaohongshu.com/user/profile/mine">我</a></nav>')
   const probe = new Function(`return (${inspectLoginPage.toString()})`)()

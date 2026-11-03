@@ -69,17 +69,18 @@ export function inspectLoginPage(platform: string) {
       const labels = [
         text(e),
         e.getAttribute('aria-label') || '',
+        e.getAttribute('title') || '',
         text(e.closest('.side-bar-component,.channel-list li') || e)
       ]
 
       if (
         ['xiaohongshu', 'douyin'].includes(platform) &&
-        !labels.some(label => /^(我|我的|我的主页|个人主页)$/.test(label.replace(/\s+/g, '')))
+        !labels.some(label => /^(我|我的|我的主页|个人主页|个人中心)$/.test(label.replace(/\s+/g, '')))
       ) {
         return []
       }
 
-      const url = new URL((e as HTMLAnchorElement).href, location.href)
+      const url = new URL(e.getAttribute('href') || '', location.href)
 
       const id =
         url.protocol === 'https:' && url.hostname === accountHosts[platform]

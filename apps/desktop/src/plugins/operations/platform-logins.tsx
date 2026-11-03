@@ -23,7 +23,10 @@ export function PlatformLoginsPanel({ ctx, owner }: PlatformLoginsProps) {
   const workers = useValue($loginWorkers)
   const navigating = useValue($loginNavigation)
   const revision = useValue($loginStatusRevision)
-  const worker = workers[loginOwnerKey(owner)] || (current && sameLoginOwner(current.owner, owner) ? current.worker : null)
+
+  const worker =
+    workers[loginOwnerKey(owner)] || (current && sameLoginOwner(current.owner, owner) ? current.worker : null)
+
   const [data, setData] = useState<PlatformLogins | null>(null)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
@@ -69,9 +72,7 @@ export function PlatformLoginsPanel({ ctx, owner }: PlatformLoginsProps) {
 
   return (
     <section className="space-y-3 text-sm">
-      <h2 className="font-medium">
-        平台登录状态{data ? ` · ${attention} 个待检查或处理` : ''}
-      </h2>
+      <h2 className="font-medium">平台登录状态{data ? ` · ${attention} 个待检查或处理` : ''}</h2>
       <p className="text-xs text-muted-foreground">
         状态来自运营内嵌网页，按连接与 Profile
         隔离。已确认登录后持续保留，只有明确退出或失效才改为需要登录；任务执行前仍核对实际账号与权限。
@@ -101,7 +102,7 @@ export function PlatformLoginsPanel({ ctx, owner }: PlatformLoginsProps) {
           </span>
           <Button
             aria-label={`${platform.name}检查／登录`}
-            disabled={!worker || !data.worker_online || Boolean(navigating)}
+            disabled={Boolean(navigating)}
             onClick={() => {
               $loginRequest.set({ owner, platform: platform.id, url: platform.url, id: crypto.randomUUID() })
             }}
@@ -115,7 +116,7 @@ export function PlatformLoginsPanel({ ctx, owner }: PlatformLoginsProps) {
       ))}
       {data && !data.worker_online && (
         <p className="text-xs text-muted-foreground">
-          当前 Profile 的桌面执行窗口未连接，暂不能检查或执行网页任务；已保存的登录状态保留。
+          当前 Profile 的桌面执行窗口未连接；授权请求会在窗口连接后打开，已保存的登录状态保留。
         </p>
       )}
       <div className="flex items-center gap-2">

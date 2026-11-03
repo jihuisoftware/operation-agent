@@ -27,6 +27,7 @@ def overview(store):
             "WHERE kind='report' ORDER BY created DESC,rowid DESC LIMIT 1").fetchone()
         online = bool(db.execute("SELECT 1 FROM workers WHERE seen>?", (time.time() - 15,)).fetchone())
     scheduled = timeline(policy) if policy["enabled"] and not paused else []
+    login = login_catalog(store)
     return {
         "day": day, "timezone": policy["timezone"], "updated_at": now_iso(), "version": version,
         "topic": policy["topic"], "goal": policy["goal"], "enabled": policy["enabled"],
@@ -34,7 +35,7 @@ def overview(store):
         "runs": runs, "publications": publications, "report": dict(report) if report else None,
         "schedule": sorted(scheduled, key=lambda row: row["next_at"])[:6],
         "analysis": _analysis(store, policy),
-        "platforms": login_catalog(store)["platforms"],
+        "platforms": login["platforms"], "platform_worker_online": login["worker_online"],
     }
 
 

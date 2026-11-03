@@ -1,5 +1,40 @@
 # 当前开发交接记录
 
+## 当前阶段：审查第 2、3、4、5 项修复（2026-11-03）
+
+基准 `cca66a9821`；保留工作区既有图标、日报、授权、平台独立页面等改动，本轮未提交。
+用户仅选择审查第 2–5 项；未处理第 1 项单项 quick 外部动作路径，未执行真实模型、发布或互动。
+
+- `industry_batches.py` 每个成功批次立即保存检查点，进程中断或失败后可续跑；指纹包含实际输入、
+  指令、分析配置版本与数据权限快照。复用未变化批次，剩余预算不足仍汇总已有检查点。
+- `login_status.catalog` 换绑账号后仅使用当前账号共享证据；无记录显示未检查，不回退到旧主题记录。
+- `run_scope.py` 为产物和事件记录执行归属，日报统一筛选批次，按 run_id 补齐直接落库的调用记录；
+  请求 ID 含下划线不会再通过 SQL LIKE 匹配其他批次。复盘指标与快照同样隔离；普通日报仍汇总整日。
+- `report_sources.py` 区分新增、同日其他批次/历史来源复用、正文重复、读取失败；日报快照不重写。
+- `model_budget.py` 同时约束每日剩余与本轮剩余，跨步骤共享本轮预算，失败调用占用额度；Profile
+  共享额度的事务校验仍有效。整理与行业分析的预算预留使用同一计算。
+
+验证：先运行既有分析、登录、报告 18 项通过；新增 5 项复现测试修改前全部失败，最终扩展为
+6 项并全部通过（中断续跑、失败重试/配置失效、账号换绑、报告隔离/失败调用、预算两种边界）。
+运营后端与开发流水线共 32 文件首次 160 通过、5 失败；更新两处累计全日的旧断言，并补回失败来源
+说明后，关联 5 文件 30 项全部通过；最后新增边界断言的 6 项再次通过。
+
+通过显式 `HERMES_PYTHON` 使用现有 PM 测试环境及 `scripts/run_tests.sh`，没有安装依赖。
+环境路径：`/Users/dm/.hermes/installs/c8c5bff47822afc6/test-environment/gen-c848a0c51e694f03b964753d4a5ef4c9/venv/bin/python`。
+测试运行器需允许启动沙箱外的隔离子进程。日志：`/tmp/operations-fixes-{red,suite,final-tests,boundaries-final}.log`。
+`PATH=/opt/homebrew/bin:$PATH <PM python> scripts/check --base HEAD`：12 项仅 ruff 未过，
+既有 6 处位于 token_usage.py（3）、test_operations_token_usage.py（2）、test_operations_pipeline.py（1）。
+code health 为 0 blocking / 0 advisory；差异空白检查通过。日志 `/tmp/operations-fixes-check-final.log`。
+
+## 保留的桌面工作与未完成项
+
+各平台独立页面已实现：`platform-pages.tsx` 按账号保留页面，小红书保留执行页面，其余按需创建，
+各平台共用当前账号持久分区和一条执行队列。`use-platform-login.ts` 管理授权/worker，
+`use-login-observation.ts` 分别监测各平台；之前平台相关 8 文件 39 项通过。
+之前全运营 UI 检查为 112 通过、2 个旧调试断言失败；ESLint 6 错误、5 警告集中在 plugin.tsx 和
+部分 token-usage 文件，本轮未改桌面代码。Computer Use 无读取权限，真实扫码及 DOM 识别仍待实机验收。
+仍需单独处理单项 quick 外部动作限制、渠道能力说明及纯文字发布路径。
+
 ## 最新完成：提供方精简与中文名称（2026-11-02）
 
 基于 `f1e252d829`，保留工作区并行的运营配置、画面入口、心跳时间及交接记录修改。

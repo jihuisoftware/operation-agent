@@ -144,14 +144,11 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
             raise StageSkipped("桌面执行器离线，请启动开发版 Desktop")
         if quick:
             coverage = bool((store.run_options or {}).get("coverage"))
-            modules = ({**policy["modules"], **{key: True for key in
-                       ("research", "organize", "analytics", "industry", "topics", "content", "report")}}
-                       if coverage else policy["modules"])
-            policy = {**policy, "modules": modules,
-                      "limits": {**policy["limits"], "source": 1, "comment": 1, "reply": 1, "dm": 1, "follow": 1}}
+            # Keep the persisted policy object unchanged: workflow guards compare it exactly;
+            # quick bounds and pipeline coverage are carried by run_options and unavailable().
             if not coverage:
-                policy["model_calls"] = min(policy["model_calls"], 2)
-                store.run_options = {"read_limit": 1, "query_limit": 1, "quick": True}
+                store.run_options = {"read_limit": 1, "query_limit": 1, "quick": True,
+                                     "model_calls": min(policy["model_calls"], 2)}
                 owns_run_options = True
         handlers = {"research": workflow.research, "organize": workflow.organize, "analytics": workflow.analytics, "industry": workflow.industry, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     **{k: partial(workflow.interact, kinds=(k,)) for k in ("comment", "reply", "dm", "follow")}}

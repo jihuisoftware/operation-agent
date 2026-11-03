@@ -188,7 +188,7 @@ it('shows navigation failure with a recovery action instead of an unexplained bl
   expect(screen.queryByText('正在加载网页，沿用已保存的登录状态…')).toBeNull()
 })
 
-it('holds only the owning browser before opening a common-platform login in the existing guest', async () => {
+it('opens independent platform pages after takeover and keeps hidden pages reporting login changes', async () => {
   vi.useFakeTimers()
   vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
   const order: string[] = []
@@ -230,16 +230,46 @@ it('holds only the owning browser before opening a common-platform login in the 
       id: 'login'
     })
   })
-  expect(order).toEqual(['pause', 'load'])
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(order).toEqual(['pause'])
   expect(container.querySelector('webview')).toBe(guest)
-  expect(guest.loadURL).toHaveBeenCalledWith('https://www.zhihu.com/')
+  expect(guest.loadURL).not.toHaveBeenCalled()
+  const zhihu = container.querySelectorAll('webview')[1] as Guest
+  expect(zhihu.getAttribute('src')).toBe('https://www.zhihu.com/')
+  expect(zhihu.getAttribute('partition')).toBe(guest.getAttribute('partition'))
+  Object.assign(guest, {
+    getURL: () => 'https://www.xiaohongshu.com/explore',
+    executeJavaScript: vi.fn(async () => ({ state: 'logged_out', account_id: '' }))
+  })
+  Object.assign(zhihu, {
+    getURL: () => 'https://www.zhihu.com/',
+    executeJavaScript: vi.fn(async () => ({ state: 'logged_in', account_id: 'zhihu-me' })),
+    loadURL: vi.fn()
+  })
+  await act(async () => {
+    guest.dispatchEvent(new Event('dom-ready'))
+    zhihu.dispatchEvent(new Event('dom-ready'))
+  })
   expect(rest).toHaveBeenCalledWith(
     '/platforms/observe?business_id=b&topic_id=t',
     expect.objectContaining({
       owner: workerOwner,
-      body: { worker: 'worker', platform: 'zhihu', state: 'unknown', account_id: '' }
+      body: { worker: 'worker', platform: 'zhihu', state: 'logged_in', account_id: 'zhihu-me' }
     })
   )
+  vi.mocked(guest.executeJavaScript).mockResolvedValue({ state: 'logged_in', account_id: 'xhs-me' })
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+  expect(rest).toHaveBeenCalledWith('/platforms/observe?business_id=b&topic_id=t', expect.objectContaining({
+    body: { worker: 'worker', platform: 'xiaohongshu', state: 'logged_in', account_id: 'xhs-me' }
+  }))
+  fireEvent.click(screen.getByRole('button', { name: '小红书' }))
+  expect(screen.getByRole('region', { name: '小红书页面' })).toBeTruthy()
+  expect(screen.queryByRole('region', { name: '知乎页面' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '知乎' }))
+  expect(screen.getByRole('region', { name: '知乎页面' })).toBeTruthy()
+  await act(async () => { $loginRequest.set({ owner: workerOwner, platform: 'zhihu', url: 'https://www.zhihu.com/', id: 'again' }) })
+  expect([...container.querySelectorAll('webview')]).toEqual([guest, zhihu])
+  expect(zhihu.loadURL).not.toHaveBeenCalled()
   expect(executeBrowser).not.toHaveBeenCalled()
 })
 
@@ -283,4 +313,49 @@ it('keeps a background account executing after switching businesses and acknowle
   await act(async () => finish({ state: 'confirmed', error: '' }))
   expect(rest).toHaveBeenCalledWith('/worker/ack?business_id=b&topic_id=t', expect.objectContaining({ body: expect.objectContaining({ id: 'owned-command' }) }))
   expect(executeBrowser).toHaveBeenCalledTimes(1)
+})
+
+it('loads other platform pages only on demand and recovers the failed platform without replacing its siblings', async () => {
+  vi.useFakeTimers()
+  let id = 0
+  vi.stubGlobal('crypto', { randomUUID: () => `id-${++id}`, subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  $showOperationsBrowser.set(true)
+  const rest = vi.fn(async (path: string) => path === '/workspaces' ? catalog : { command: null })
+  const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+  const first = container.querySelector('webview')!
+  expect(container.querySelectorAll('webview')).toHaveLength(1)
+
+  const pages = [
+    ['知乎', 'https://www.zhihu.com/'],
+    ['B 站', 'https://www.bilibili.com/'],
+    ['微信公众号后台', 'https://mp.weixin.qq.com/'],
+    ['抖音', 'https://www.douyin.com/']
+  ]
+
+  for (const [name, url] of pages) {
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name }))
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    const guest = container.querySelectorAll('webview')[pages.findIndex(p => p[0] === name) + 1] as Guest
+    expect(guest.getAttribute('src')).toBe(url)
+    expect(screen.getByRole('region', { name: `${name}页面` })).toBeTruthy()
+    Object.assign(guest, { getURL: () => url, loadURL: vi.fn(async () => {}) })
+  }
+
+  const guests = [...container.querySelectorAll('webview')]
+  expect(guests).toHaveLength(5)
+  const douyin = guests[4] as Guest
+  act(() => douyin.dispatchEvent(Object.assign(new Event('did-fail-load'), {
+    isMainFrame: true, errorCode: -105, errorDescription: '连接失败'
+  })))
+  expect(screen.getByRole('alert').textContent).toContain('连接失败')
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '重新打开网页' })) })
+  expect(douyin.loadURL).toHaveBeenCalledWith('https://www.douyin.com/')
+  expect([...container.querySelectorAll('webview')]).toEqual(guests)
+  expect(guests[0]).toBe(first)
+  fireEvent.click(screen.getByRole('button', { name: '知乎' }))
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(rest.mock.calls.filter(([path]) => path === '/workspaces/worker/poll')).toHaveLength(1)
 })

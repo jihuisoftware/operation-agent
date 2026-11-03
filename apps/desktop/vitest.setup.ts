@@ -11,10 +11,20 @@ globalThis.ResizeObserver ??= InertResizeObserver as unknown as typeof ResizeObs
 // returns `undefined` unless the process was started with --localstorage-file
 // (it warns: "localStorage is not available because --localstorage-file was
 // not provided"). In the jsdom environment `globalThis` IS the window, so that
-// accessor shadows jsdom's Storage and every `localStorage.getItem(...)` in a
-// test throws "Cannot read properties of undefined". Install a real in-memory
-// Storage when the global resolves to nothing, before any test module reads it.
-if (typeof (globalThis as any).localStorage === 'undefined') {
+// accessor shadows jsdom's Storage and exposes an incomplete object when the
+// flag is absent. Install a real in-memory Storage when the global object does
+// not provide the Storage methods, before any test module reads it.
+const localStorageCandidate = (globalThis as { localStorage?: Partial<Storage> }).localStorage
+
+const hasStorageApi =
+  localStorageCandidate &&
+  typeof localStorageCandidate.clear === 'function' &&
+  typeof localStorageCandidate.getItem === 'function' &&
+  typeof localStorageCandidate.key === 'function' &&
+  typeof localStorageCandidate.removeItem === 'function' &&
+  typeof localStorageCandidate.setItem === 'function'
+
+if (!hasStorageApi) {
   const store = new Map<string, string>()
 
   const storage: Storage = {

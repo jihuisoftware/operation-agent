@@ -6,7 +6,7 @@ import type { Guest } from './types'
 export const OPERATIONS_HOME = 'https://www.xiaohongshu.com/explore'
 
 /** Cookie ownership is stable across renderer/API reconnects; visibility is not lifecycle. */
-export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: string }, container: RefObject<HTMLDivElement | null>) {
+export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: string }, container: RefObject<HTMLDivElement | null>, home = OPERATIONS_HOME) {
   const [guest] = useState(() => document.createElement('webview') as Guest)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -39,7 +39,7 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
       if (disposed) { return }
       const key = Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, '0')).join('')
       guest.setAttribute('partition', `persist:operations-${key}`)
-      guest.setAttribute('src', OPERATIONS_HOME)
+      guest.setAttribute('src', home)
       container.current?.append(guest)
     }).catch(reason => {
       if (!disposed) { setLoading(false); setError(`无法恢复网页：${String(reason)}`) }
@@ -53,13 +53,13 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
       guest.removeEventListener('render-process-gone', crashed)
       guest.remove()
     }
-  }, [guest, owner.profile, owner.connectionId, owner.account_id, container])
+  }, [guest, owner.profile, owner.connectionId, owner.account_id, container, home])
 
   const reopen = async () => {
     setError('')
     setLoading(true)
 
-    try { await guest.loadURL(OPERATIONS_HOME) } catch (reason) {
+    try { await guest.loadURL(home) } catch (reason) {
       setLoading(false)
       setError(`无法打开网页：${String(reason)}`)
     }

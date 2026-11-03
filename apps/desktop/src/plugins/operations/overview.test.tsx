@@ -2,6 +2,7 @@ import { host, type PluginContext } from '@hermes/plugin-sdk'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import { $loginRequest, $loginStatusRevision, $loginWorker, $loginWorkers, loginOwnerKey } from './login-state'
 import { OwnedOverview } from './overview'
 import type { OverviewData } from './overview-data'
 
@@ -38,10 +39,25 @@ const data: OverviewData = {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  $loginRequest.set(null)
+  $loginStatusRevision.set(0)
+  $loginWorker.set(null)
+  $loginWorkers.set({})
 })
 
 it('shows ledger outcomes, expandable progress and links to the relevant management section', async () => {
-  const rest = vi.fn(async (path: string) => (path === '/quick-start' ? { run: null, steps: [] } : data))
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/quick-start') {
+      return { run: null, steps: [] }
+    }
+
+    if (path.startsWith('/usage/summary?')) {
+      return { totals: {}, groups: { topic: [] }, trend: [], until: 0 }
+    }
+
+    return data
+  })
+
   const navigate = vi.spyOn(host, 'navigate').mockImplementation(() => {})
   render(<OwnedOverview ctx={{ rest } as unknown as PluginContext} owner={owner} />)
   expect(await screen.findByText('个人运营')).toBeTruthy()
@@ -69,7 +85,13 @@ it('ignores a late response from a departed Profile and keeps a visible stale-da
     .mockRejectedValueOnce(new Error('暂时离线'))
 
   const rest = vi.fn((path: string, _options?: { owner?: unknown }) =>
-    path === '/quick-start' ? Promise.resolve({ run: null, steps: [] }) : path === '/workspaces/summary' ? Promise.resolve({ items: [] }) : replies()
+    path === '/quick-start'
+      ? Promise.resolve({ run: null, steps: [] })
+      : path === '/workspaces/summary'
+        ? Promise.resolve({ items: [] })
+        : path.startsWith('/usage/summary?')
+          ? Promise.resolve({ totals: {}, groups: { topic: [] }, trend: [], until: 0 })
+          : replies()
   )
 
   const ctx = { rest } as unknown as PluginContext
@@ -83,4 +105,38 @@ it('ignores a late response from a departed Profile and keeps a visible stale-da
   await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('暂时离线'))
   expect(screen.getByText('另一份配置')).toBeTruthy()
   expect(rest.mock.calls.filter(([path]) => path === '/overview')[1][1]?.owner).toEqual(nextOwner)
+})
+
+it('offers platform reauthorization directly from the overview', async () => {
+  const platform = {
+    id: 'xiaohongshu',
+    name: '小红书',
+    url: 'https://www.xiaohongshu.com/explore',
+    state: 'logged_out' as const,
+    observed_state: null,
+    checked_at: null,
+    account_id: '',
+    reason: '页面明确要求重新登录，请处理后再执行任务。'
+  }
+
+  let overview: OverviewData = { ...data, platforms: [platform], platform_worker_online: true }
+  $loginWorkers.set({ [loginOwnerKey(owner)]: 'window' })
+
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/quick-start') { return { run: null, steps: [] } }
+
+    if (path === '/workspaces/summary') { return { items: [] } }
+
+    if (path.startsWith('/usage/summary?')) { return { totals: {}, groups: { topic: [] }, trend: [], until: 0 } }
+
+    return overview
+  })
+
+  render(<OwnedOverview ctx={{ rest } as unknown as PluginContext} owner={owner} />)
+  fireEvent.click(await screen.findByRole('button', { name: '小红书重新授权' }))
+  expect($loginRequest.get()).toMatchObject({ owner, platform: 'xiaohongshu', url: platform.url })
+  overview = { ...overview, platforms: [{ ...platform, state: 'logged_in', account_id: 'me' }] }
+  await act(async () => { $loginStatusRevision.set($loginStatusRevision.get() + 1) })
+  expect(await screen.findByText('已登录')).toBeTruthy()
+  expect(screen.queryByText('已退出或过期')).toBeNull()
 })

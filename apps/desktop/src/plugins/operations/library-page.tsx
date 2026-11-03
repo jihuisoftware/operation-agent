@@ -225,9 +225,17 @@ function ContentCard({ ctx, row }: { ctx: PluginContext; row: RecordRow }) {
         <Records rows={[row]} />
       </details>
       {!ids.length && (
-        <Button onClick={() => host.navigate('/materials?tab=assets')} variant="link">
-          添加授权图片
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => host.navigate('/materials?tab=assets')} variant="link">
+            添加授权图片
+          </Button>
+          <CopyButton
+            label="复制纯文字内容"
+            text={`${String(row.title)}\n\n${String(row.body)}`}
+          >
+            复制纯文字内容（可粘贴到文字渠道）
+          </CopyButton>
+        </div>
       )}
     </article>
   )

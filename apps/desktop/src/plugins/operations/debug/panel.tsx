@@ -101,7 +101,7 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
           <Button disabled={Boolean(busy) || !catalog?.pipeline_available} onClick={() => void run('pipeline')}>开始整链路测试（真实执行）</Button>
           <Button disabled={Boolean(busy) || !catalog?.pipeline_available} onClick={() => void run('pipeline', 'quick')} variant="outline">快速调试整条链路</Button>
         </div>
-        <p className="text-xs text-muted-foreground">快速调试会临时覆盖内部常用模块，采集最多读取 1 条、检索 1 次，共享最多 12 次模型调用；发布、评论、私信和回关只检查就绪，不会真实提交，也不会修改当前计划。</p>
+        <p className="text-xs text-muted-foreground">快速模式限制：仅抽样 1 条来源、外部动作不执行；检索最多 1 次，共享最多 12 次模型调用。发布、评论、私信和回关只检查就绪，不会修改当前计划。</p>
         {catalog && !catalog.pipeline_available && <p className="text-sm text-muted-foreground">请重启源码 Server，加载整链路调试接口。</p>}
       </section>
       <div className="space-y-3">

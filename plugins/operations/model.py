@@ -1,11 +1,8 @@
 """Bounded auxiliary generation. Web pages are data, never authorization."""
 import json
 from .policy import now_iso
-
-
-def model_limit(store, policy):
-    override = (store.run_options or {}).get("model_calls")
-    return override if type(override) is int and override >= 0 else policy["model_calls"]
+from .model_budget import remaining_calls
+from .run_scope import annotate
 
 
 def generate(store, policy, day, instruction, data):
@@ -21,12 +18,11 @@ def generate(store, policy, day, instruction, data):
         raise ValueError("运营规则变更或已暂停，取消模型调用")
     with store.connection() as db:
         db.execute("BEGIN IMMEDIATE")
-        used = db.execute("SELECT count(*) FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
-        if used >= model_limit(store, policy):
-            raise ValueError("达到每日模型调用额度")
+        if remaining_calls(store, persisted, day, db) <= 0:
+            raise ValueError("达到每日或本轮模型调用额度")
         from .workspace_execution import charge
         charge(store, db, day, 'model')
-        db.execute("INSERT INTO events(at,kind,data) VALUES (?,'model_call',?)", (now_iso(), json.dumps({"day": day, "run_id": store.current_run_id})))
+        db.execute("INSERT INTO events(at,kind,data) VALUES (?,'model_call',?)", (now_iso(), json.dumps(annotate(store, {"day": day}))))
     store.progress("正在生成或核对内容", {"task": instruction[:120]})
     from agent.token_ledger import bind, LAST_CALL
     from .usage_context import begin

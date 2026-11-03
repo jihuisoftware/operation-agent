@@ -70,14 +70,13 @@ def export(store, identity, format, public=False):
     return {'content': '\n\n'.join(lines), 'name': identity + '.md', 'mime': 'text/markdown;charset=utf-8'}
 
 
-def daily_lines(store, day):
+def daily_lines(scope):
     lines = ['', '## 数据与行业分析', '']
     for kind in ('analytics_report', 'industry_report'):
-        for report in store.objects(kind, day):
+        for report in scope.objects(kind):
             lines.append(f"- {report['id']}：{report['detail']}；范围 {report['window']['start']}～{report['window']['end']}；模型调用 {report['model_calls']} 次")
-    with store.connection() as db:
-        events = db.execute("SELECT kind,data FROM events WHERE kind IN ('analysis_fallback','business_import') AND json_extract(data,'$.day')=?", (day,))
-        for event in events:
+    for event in scope.events:
+        if event['kind'] in ('analysis_fallback', 'business_import'):
             value = json.loads(event['data'])
             lines.append('- ' + (value['reason'] if event['kind'] == 'analysis_fallback' else f"业务导入：有效 {value['inserted']}，重复 {value['duplicates']}，无效 {value['invalid']}"))
     return lines

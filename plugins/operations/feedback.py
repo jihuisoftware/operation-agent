@@ -2,9 +2,9 @@
 from collections import defaultdict
 
 
-def review(store, day):
+def review(store, day, *, scope=None):
     groups = defaultdict(list)
-    for metric in store.objects("metric", day):
+    for metric in scope.objects("metric") if scope else store.objects("metric", day):
         if type(metric.get("value")) in {int, float} and metric.get("content_id"):
             groups[(metric["name"], metric.get("definition", ""))].append(metric)
     suggestions = []
@@ -16,5 +16,5 @@ def review(store, day):
                             "metric_ids": [m["id"] for m in ranked], "content_id": ranked[0]["content_id"],
                             "caveat": "观察数据不代表因果，不调整权限或额度"})
     result = {"day": day, "suggestions": suggestions, "reason": "同口径有数值的内容指标排序" if suggestions else "可比较数据不足，不推断优劣"}
-    store.put("review", result, f"review:{day}")
+    store.put("review", result, f"review:{day}" + (f":manual:{scope.batch}" if scope and scope.batch else ""))
     return result

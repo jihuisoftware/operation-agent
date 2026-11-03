@@ -182,6 +182,7 @@ def test_quick_pipeline_covers_internal_modules_without_submitting_external_acti
     internal = {key for key, (_, module) in debug.TASKS.items() if module not in {"publish", "comments", "dm", "follow", "report"}}
     steps = {step["id"]: step for step in result["steps"]}
     assert all("模块未启用" not in steps[key]["detail"] for key in internal)
+    assert all(steps[key]["state"] == "completed" for key in internal)
     assert all("快速测试仅检查外部动作" in steps[key]["detail"] for key in {"publish", "comment", "reply", "dm", "follow"})
     assert steps["report"]["state"] == "completed"
     assert not submitted

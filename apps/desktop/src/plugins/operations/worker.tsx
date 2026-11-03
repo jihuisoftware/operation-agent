@@ -7,8 +7,10 @@ import { BrowserToolbar } from './browser-toolbar'
 import { createBrowserTrace } from './browser-trace'
 import { createExecutionClock } from './execution-clock'
 import { $loginNavigation, $loginNavigationOwner, sameLoginOwner } from './login-state'
+import { PlatformLoginPage, PlatformPageFrame, PlatformPageTabs, usePlatformPages } from './platform-pages'
 import { $showOperationsBrowser, beginBrowserActivity } from './state'
 import type { Api, BrowserCommand } from './types'
+import { useLoginObservation } from './use-login-observation'
 import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
 import { AccountViewHeader } from './workspace-browser-header'
@@ -54,6 +56,7 @@ function Worker({
   const manual = useRef(false)
   const commandScope = useRef<OperationScope | null>(null)
   const { guest, loading, error, reopen } = useOperationsGuest(scope, container)
+  const pages = usePlatformPages(guest)
 
   useEffect(() => {
     const active = document.activeElement
@@ -77,6 +80,12 @@ function Worker({
     },
     [ctx, scope]
   )
+
+  // Login observations belong to the account's fixed scope, never an in-flight task's scope.
+  const loginApi = useMemo<Api>(() => (path, body, method) => ctx.rest(
+    scope.business_id && scope.topic_id ? scopePath(path, { business_id: scope.business_id, topic_id: scope.topic_id }) : path,
+    { owner: scope, method: method || (body ? 'POST' : 'GET'), body, timeoutMs: 15000 }
+  ), [ctx, scope])
 
   // Command scope is a server-issued request token, never a mirror of the selected UI scope.
   // eslint-disable-next-line no-restricted-syntax
@@ -180,7 +189,10 @@ function Worker({
     }
   }, [api, guest, worker])
 
-  usePlatformLogin({ api, guest, owner: scope, worker, takeOver, onStatus: setStatus })
+  usePlatformLogin({ openPage: pages.openPage, owner: scope, worker, takeOver, onStatus: setStatus })
+  useLoginObservation({ api: loginApi, guest, worker, platform: 'xiaohongshu', onStatus: setStatus })
+
+  const release = async () => { await loginApi('/worker/takeover', { worker, active: false }) }
 
   const failed = (reason: unknown) => setStatus(String(reason))
 
@@ -194,25 +206,39 @@ function Worker({
       style={browserDockStyle(visible)}
     >
       <AccountViewHeader scope={scope} taskLabel={taskLabel} />
-      <BrowserToolbar
-        error={error}
-        hide={() => $showOperationsBrowser.set(false)}
-        loading={loading}
-        login={() =>
-          void takeOver()
-            .then(() => guest.loadURL('https://www.xiaohongshu.com'))
-            .catch(failed)
-        }
-        release={() =>
-          void api('/worker/takeover', { worker, active: false })
-            .then(() => setStatus('已结束接管，网页动作按后续排期执行；全局暂停保持原设置'))
-            .catch(failed)
-        }
-        reopen={() => void takeOver().then(reopen).catch(failed)}
-        status={status}
-        takeOver={() => void takeOver().catch(failed)}
-      />
-      <div className="min-h-0 flex-1" ref={container} />
+      <PlatformPageTabs active={pages.active} opened={pages.opened} owner={scope} select={pages.select} />
+      <PlatformPageFrame name="小红书" visible={visible && pages.active === 'xiaohongshu'}>
+        <BrowserToolbar
+          error={error}
+          hide={() => $showOperationsBrowser.set(false)}
+          loading={loading}
+          login={() =>
+            void takeOver()
+              .then(() => guest.loadURL('https://www.xiaohongshu.com'))
+              .catch(failed)
+          }
+          release={() =>
+            void api('/worker/takeover', { worker, active: false })
+              .then(() => setStatus('已结束接管，网页动作按后续排期执行；全局暂停保持原设置'))
+              .catch(failed)
+          }
+          reopen={() => void takeOver().then(reopen).catch(failed)}
+          status={status}
+          takeOver={() => void takeOver().catch(failed)}
+        />
+        <div className="min-h-0 flex-1" ref={container} />
+      </PlatformPageFrame>
+      {pages.opened.filter(platform => platform !== 'xiaohongshu').map(platform => <PlatformLoginPage
+        api={loginApi}
+        key={platform}
+        owner={scope}
+        platform={platform}
+        register={pages.register}
+        release={release}
+        takeOver={takeOver}
+        visible={visible && pages.active === platform}
+        worker={worker}
+      />)}
     </section>
   )
 }

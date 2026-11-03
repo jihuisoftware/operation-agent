@@ -45,7 +45,9 @@ def test_manual_repeats_completed_stages_but_not_same_batch_and_refreshes_report
     assert calls == ["research", "organize", "analytics", "industry", "topics", "produce", "publish", "interact", "interact"] * 2
     assert len(store.objects("report")) == 3
     reports = {r["id"]: r["markdown"] for r in store.objects("report")}
-    assert reports["report:2026-10-31:manual:click-two"].count("模拟完成") == len(calls)
+    for batch in ("click-one", "click-two"):
+        assert reports[f"report:2026-10-31:manual:{batch}"].count("模拟完成") == 9
+        assert "原定时任务已完成" not in reports[f"report:2026-10-31:manual:{batch}"]
     assert "模拟完成" not in reports["report:2026-10-31"]
     # A recovery of the same batch tomorrow still belongs to its original day.
     tick(Store(), datetime(2026, 11, 1, tzinfo=UTC), request_id="click-two")

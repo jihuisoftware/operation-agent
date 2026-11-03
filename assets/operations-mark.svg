@@ -1,6 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <path d="M410 264H614C705 264 778 337 778 428V552C778 643 705 716 614 716H432L268 788V428C268 337 319 264 410 264Z"
         fill="none" stroke="#f4fafb" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M384 556L472 468L548 528L660 408M564 408H660V504"
-        fill="none" stroke="#64dfc4" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M362 590H426C456 590 468 574 486 548L520 500C537 476 559 472 580 490L624 528C646 547 668 542 686 518L716 476"
+        fill="none" stroke="#64dfc4" stroke-width="50" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M666 476H716V426"
+        fill="none" stroke="#64dfc4" stroke-width="50" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="362" cy="590" r="29" fill="#64dfc4"/>
+  <circle cx="520" cy="500" r="29" fill="#64dfc4"/>
+  <circle cx="716" cy="476" r="29" fill="#64dfc4"/>
+  <path d="M654 350L666 380L696 392L666 404L654 434L642 404L612 392L642 380Z"
+        fill="#ffad8a"/>
+  <circle cx="722" cy="374" r="13" fill="#f7d36b"/>
 </svg>
