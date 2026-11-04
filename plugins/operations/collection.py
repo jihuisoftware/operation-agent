@@ -9,7 +9,7 @@ import httpx
 
 from .collection_ledger import budget, check, load, reserve, save
 from .collection_search import search
-from .collection_validation import canonical_url, document, fingerprint
+from .collection_validation import canonical_url, document, failure_hint, fingerprint
 from .policy import now_iso
 
 
@@ -65,7 +65,7 @@ def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
               'author': page.get('author') or candidate.get('author'),
               'published_at': page.get('published_at') or candidate.get('published_at'),
               'collected_at': now_iso(), 'text': text, 'state': 'read' if text else 'unavailable',
-              'error': error, 'summary': '', 'fingerprint': digest, 'attempts': attempt,
+              'error': error, 'error_hint': failure_hint(error) if error else None, 'summary': '', 'fingerprint': digest, 'attempts': attempt,
               'truncated': page.get('truncated', False), 'original_chars': page.get('original_chars', len(text)),
               'is_new': bool(text and not prior_id), 'previous_source_id': prior_id, 'scope_topic': policy['topic'],
               'images': capture(store, image_urls(page, candidate, url, text), url) if text else []}
@@ -87,7 +87,7 @@ def collect(store, policy, day):
     identity = 'collection:' + uuid.uuid4().hex
     stats = {key: 0 for key in ('candidates', 'attempted', 'succeeded', 'new', 'duplicate_content', 'already_read',
                                 'failed', 'not_attempted', 'retried', 'duplicate_links', 'invalid_urls', 'searches', 'search_errors')}
-    stats.update(day=day, scope_topic=policy['topic'], started=now_iso(), state='running', limit=policy['limits']['source'])
+    stats.update(day=day, scope_topic=policy['topic'], started=now_iso(), state='running', limit=policy['limits']['source'], failure_reasons=[])
     if getattr(store, 'debug_id', None):
         stats['debug_id'] = store.debug_id
     options = store.run_options or {}
@@ -104,7 +104,8 @@ def collect(store, policy, day):
             stats['reason'] = '当日读取额度已用完，未发起检索或读取'
         urls = candidates(store, policy, day, stats, previous, discover=used < stats['limit'])
         stats['candidates'] = len(urls)
-        for url, candidate in urls.items():
+        # An unavailable source must not consume every small sampling run before fresh candidates.
+        for url, candidate in sorted(urls.items(), key=lambda item: previous.get(item[0], {}).get('attempts', 0)):
             prior = previous.get(url)
             if prior and prior.get('text'):
                 stats['already_read'] += 1
@@ -123,6 +124,8 @@ def collect(store, policy, day):
             stats['failed'] += int(not success)
             stats['new'] += int(record['is_new'])
             stats['duplicate_content'] += int(success and not record['is_new'])
+            if record['error_hint'] and record['error_hint'] not in stats['failure_reasons']:
+                stats['failure_reasons'].append(record['error_hint'])
             save(store, 'collection_run', identity, stats)
         stats['state'] = 'completed'
     finally:

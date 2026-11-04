@@ -60,6 +60,8 @@ def analyze(store, policy, day, version):
                   pending=pending, errors=batches['errors'], model_calls=batches['model_calls'], reused=batches['reused'], evidence=public + private,
                   detail=f'已分析 {len(covered)}/{len(public) + len(private)} 项证据，形成 {len(findings)} 条结论；未覆盖 {pending} 项；复用已完成证据 {batches["reused"]} 项',
                   state='needs_attention' if pending or not findings else 'completed')
+    if batches['errors']:
+        report['detail'] += '；' + batches['errors'][0]
     if store.policy() != (version, policy) or not valid(store, analytics, policy, day):
         raise ValueError('分析期间配置或数据权限发生变化，结果未保存')
     guard(store, policy)

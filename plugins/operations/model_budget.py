@@ -1,16 +1,24 @@
-"""A diagnostic batch allowance can only narrow the standing daily allowance."""
+"""Normal-run quotas exclude exempt calls from the source-only debug runner."""
 import json
+from math import inf
 
 from .run_scope import belongs, runs_for_batch
 
 
+def quota_exempt(store):
+    return bool(getattr(store, 'debug_id', None))
+
+
 def remaining_calls(store, policy, day, db=None):
+    if quota_exempt(store):
+        return inf
     if db is None:
         with store.connection() as connection:
             return remaining_calls(store, policy, day, connection)
     rows = [json.loads(row[0]) for row in db.execute(
-        "SELECT data FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,))]
-    remaining = max(0, policy['model_calls'] - len(rows))
+        "SELECT data FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=? "
+        "AND COALESCE(json_extract(data,'$.quota_exempt'),0)!=1", (day,))]
+    remaining = inf if policy.get('model_budget_mode') == 'tokens' else max(0, policy['model_calls'] - len(rows))
     allowance = (store.run_options or {}).get('model_calls')
     if type(allowance) is not int or allowance < 0:
         return remaining

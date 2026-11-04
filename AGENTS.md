@@ -68,6 +68,9 @@ runs, with CI's pinned tools; `--install-hook pre-push` runs it on every push (r
 pulling to refresh the hook). `# noqa` does not waive a ratchet finding:
 `# health: allow <RULE> -- <why>` does.
 
+Before every backend start or restart, run `./.hermes/bin/hermes gateway stop` in the same
+activated environment and `HERMES_HOME`, wait for it to finish, then start the Gateway.
+
 ## Find the working set
 
 Use [docs/code-map.md](docs/code-map.md) to locate the feature, then read only the applicable

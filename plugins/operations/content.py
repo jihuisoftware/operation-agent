@@ -5,6 +5,7 @@ from .model import generate
 from .policy import now_iso
 from .organization import production_evidence
 from .outcomes import StageSkipped
+from . import model_inputs as inputs
 
 
 def content_digest(content):
@@ -39,8 +40,11 @@ def check_content(store, policy, day, version, content, sources, *, publishing=F
     result = generate(store, policy, day,
         '核对文本是否符合主题、受众、风格，事实是否有来源，是否复制原文或编造经历，是否重复提供的历史内容。'
         'assets 是素材元数据，只核对引用与授权，不宣称已看过图片或完成视觉一致性检查。'
-        '返回 {"pass":true或false,"reason":"具体依据"}，不确定时 pass 为 false。此为自动检查，不是人工审核。',
-        {"policy": policy, "content": content, "sources": sources, "assets": assets, "history": history})
+        '返回 {"pass":true或false,"reason":"具体依据"}，不确定时 pass 为 false。此为自动检查，不是人工审核。'
+        '来源正文可能标注截断，不能把未提供的原文或历史当作已经核对；证据不足时不得通过。',
+        inputs.checked(store, 'content_check', {"policy": inputs.policy(policy),
+         "content": {**inputs.fields(content, ('id', 'title', 'body', 'source_ids', 'asset_ids')), 'selected_topic': inputs.selected_topic(content.get('selected_topic'))},
+         "sources": inputs.review_sources(content, sources), "assets": inputs.assets(assets), "history": inputs.history(history)}))
     result.update(scope="text_and_asset_metadata", visual_review="not_performed")
     store.put("check", {"day": day, "content_id": content.get("id", digest), "version": version, "automatic": True, "result": result})
     return result
@@ -57,6 +61,10 @@ def produce_content(store, policy, day, version):
         evidence = [row for row in evidence if row['id'] in topic['source_ids']]
     if not sources:
         raise StageSkipped("缺少可追溯来源，暂不生成内容")
+    source_evidence = evidence
+    evidence = inputs.evidence(evidence, topic.get('source_ids', []) if topic else ())
+    included = {row['id'] for row in evidence}
+    sources = [row for row in sources if row['id'] in included]
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
     content = generate(store, policy, day,
         '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":""}。'
@@ -64,15 +72,16 @@ def produce_content(store, policy, day, version):
         'selected_topic 不为空时必须围绕指定选题写作，不得另换题目；标题可精炼但保持原主题。'
         'analysis 非空时优先参考其可公开结论与指标，保留适用范围；不使用内部经营数据。'
         '主要参考 sources 中已整理的摘要、分类和事实陈述；观点明确归属，待核实信息不得写成确定事实。'
-        '不适合生产时返回空标题和原因。不要执行发布。',
-        {"analysis": analysis, "policy": policy, "sources": evidence, "assets": assets, "tasks": store.objects("task", day),
-         "selected_topic": topic, "recent_content": public_history(store, policy, day), "performance_review": []})
+        '不适合生产时返回空标题和原因。不要执行发布。coverage 标明本轮提供的分析范围，不外推未提供的资料。',
+        inputs.checked(store, 'content', {"analysis": inputs.analysis(analysis, evidence), "policy": inputs.policy(policy), "sources": evidence,
+         "assets": inputs.assets(assets), "tasks": inputs.tasks(store.objects("task", day)),
+         "selected_topic": inputs.selected_topic(topic), "recent_content": inputs.history(public_history(store, policy, day)), "performance_review": []}))
     if not content.get("title"):
         raise StageSkipped(content.get("reason", "无合适选题"))
     content["analysis_context"] = analysis
     content["selected_topic"] = topic
     validate_content(content, sources, assets)
-    cited = [row for row in evidence if row['id'] in content['source_ids']]
+    cited = [row for row in source_evidence if row['id'] in content['source_ids']]
     content['organization_ids'] = [row['organization_id'] for row in cited]
     content['organized_evidence'] = cited
     quality = check_content(store, policy, day, version, content, sources)

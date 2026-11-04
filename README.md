@@ -154,7 +154,7 @@
 <details>
 <summary><strong>怎样控制模型用量？</strong></summary>
 
-在计划中设置模型调用额度，在「Token 用量」中查看消耗。「设置 → 模型 → 节省 Token 模式」可以控制图像和文件解析，但它不是总费用上限；已有上下文、文字和其他模型调用仍可能计费。
+在 **任务 → 运营计划 → 常用设置** 中选择按调用次数或 Token 用量设置每日模型预算，新计划默认 **200 次/天**。还可以展开「全部主题共用的模型预算」设置共享上限；两层预算同时生效，保存不会清空当天用量。在「Token 用量」中查看实际消耗。Token 模式达到上限后停止后续调用，最后一次调用可能超出上限；用量未返回或无法确认时会暂停后续调用。开发调试仍不限额。「设置 → 模型 → 节省 Token 模式」可以控制图像和文件解析，但它不是总费用上限；已有上下文、文字和其他模型调用仍可能计费。
 
 </details>
 
@@ -174,12 +174,13 @@
 
 需要 macOS、Git 和 Xcode Command Line Tools。在仓库根目录运行；两个终端使用相同的数据目录。
 
-**终端一：启动后台服务。**
+**终端一：先停止已有后台服务，再启动。每次启动都按这个顺序执行。**
 
 ```bash
 export HERMES_HOME="$HOME/hermes-operations-dev"
 export HERMES_RUNTIME_DIR="$HERMES_HOME/tools"
 source ./activate
+./.hermes/bin/hermes gateway stop
 ./.hermes/bin/hermes gateway run -v
 ```
 

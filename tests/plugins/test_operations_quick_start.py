@@ -87,6 +87,7 @@ def test_takeover_does_not_pause_non_browser_work_and_release_keeps_global_pause
     assert store.claim('other-window') is None
     with store.connection() as db:
         assert readiness.web_held(db)
+        db.execute("UPDATE objects SET data=json_set(data,'$.seen',0) WHERE kind='web_hold'")
     readiness.takeover(Store(store.path), 'new-window', False)
     command = store.enqueue('account', {})
     assert store.claim('new-window')['id'] == command

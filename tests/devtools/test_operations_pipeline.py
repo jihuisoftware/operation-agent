@@ -32,10 +32,11 @@ def environment(tmp_path, monkeypatch):
     original = Store.command
     submitted = []
     def consume(self, identity):
-        command = self.claim("simulated-desktop")
+        worker = Store(self.path, workspace=self.workspace, scope=self.scope)
+        command = worker.claim("simulated-desktop")
         while command and command['kind'] == 'verify' and command['id'] != identity:
-            self.acknowledge(command['id'], 'simulated-desktop', {'state': 'unknown', 'evidence': '只读核对：平台仍在审核'})
-            command = self.claim('simulated-desktop')
+            worker.acknowledge(command['id'], 'simulated-desktop', {'state': 'unknown', 'evidence': '只读核对：平台仍在审核'})
+            command = worker.claim('simulated-desktop')
         assert command["id"] == identity
         payload = command["payload"]
         if command["kind"] == "inbox":
@@ -43,7 +44,7 @@ def environment(tmp_path, monkeypatch):
         else:
             submitted.append(payload)
             result = {"state": "confirmed", "evidence": "模拟页面回执", "url": "https://example.org/result"}
-        self.acknowledge(identity, "simulated-desktop", result)
+        worker.acknowledge(identity, "simulated-desktop", result)
         return original(self, identity)
     monkeypatch.setattr(debug.DebugStore, "command", consume)
     store.claim("simulated-desktop", busy=True)
@@ -171,23 +172,53 @@ def test_disabled_modules_are_not_enabled_and_interrupted_batch_cannot_replay(en
     assert store.policy()[1] == policy
 
 
-def test_quick_pipeline_covers_internal_modules_without_submitting_external_actions(environment):
+def test_quick_pipeline_covers_internal_modules_but_respects_disabled_external_modules(environment):
     store, submitted = environment
     version, policy = store.policy()
     policy["modules"] = {key: key == "report" for key in policy["modules"]}
     store.configure(policy, version)
 
-    result = debug.execute({"task": "pipeline", "version": 2, "request_id": "quick-coverage", "mode": "quick"})
+    result = debug.execute({"task": "pipeline", "version": 2, "request_id": "quick-coverage", "mode": "quick", "external_actions": "execute_once"})
 
     internal = {key for key, (_, module) in debug.TASKS.items() if module not in {"publish", "comments", "dm", "follow", "report"}}
     steps = {step["id"]: step for step in result["steps"]}
     assert all("模块未启用" not in steps[key]["detail"] for key in internal)
     assert all(steps[key]["state"] == "completed" for key in internal)
-    assert all("快速测试仅检查外部动作" in steps[key]["detail"] for key in ("publish", "comment", "reply", "dm", "follow"))
+    assert all("模块未启用" in steps[key]["detail"] for key in ("publish", "comment", "reply", "dm", "follow"))
     assert steps["report"]["state"] == "completed"
     assert not submitted
     assert store.run_options is None
     assert store.policy()[1]["modules"] == policy["modules"]
+
+
+@pytest.mark.parametrize('mode', ('normal', 'quick'))
+def test_debug_pipeline_finishes_model_stages_after_daily_budget_is_exhausted(environment, monkeypatch, mode):
+    from agent import auxiliary_client
+    from plugins.operations.model import generate
+    store, submitted = environment
+    version, policy = store.policy()
+    policy['model_calls'] = 1
+    store.configure(policy, version)
+    day = local_day(policy)
+    for index in range(45):
+        store.put('source', {'day': day, 'scope_topic': policy['topic'], 'title': f'来源 {index}',
+                            'url': f'https://example.org/{index}', 'text': f'步行经验 {index}', 'state': 'read'}, f'source-{index}')
+    with monkeypatch.context() as scoped:
+        scoped.setattr(auxiliary_client, 'call_llm', lambda **kwargs: SimpleNamespace(
+            usage=None, choices=[SimpleNamespace(message=SimpleNamespace(content='{}'))]))
+        generate(store, policy, day, '用完常规额度', {})
+    result = debug.execute({'task': 'pipeline', 'version': 2, 'request_id': 'unlimited', 'mode': mode,
+                            **({'external_actions': 'execute_once'} if mode == 'quick' else {})})
+    steps = {step['id']: step for step in result['steps']}
+    for stage in ('organize', 'analytics', 'industry', 'topics', 'content'):
+        assert steps[stage]['state'] == 'completed', steps[stage]['detail']
+    events = debug.detail(result['id'])['events']
+    assert len([event for event in events if event['kind'] == 'model_call']) > 12
+    if mode == 'quick':
+        assert {row['kind'] for row in submitted} == {'publish', 'comment', 'reply', 'dm', 'follow'}
+    with store.workspace.connection() as db:
+        assert db.execute("SELECT sum(amount) FROM charges WHERE kind='model'").fetchone()[0] == 1
+    assert store.policy() == (2, policy)
 
 
 def test_partial_collection_preserves_usable_evidence_for_following_steps(environment, monkeypatch):
@@ -201,3 +232,81 @@ def test_partial_collection_preserves_usable_evidence_for_following_steps(enviro
     assert steps['organize']['state'] == steps['topics']['state'] == 'completed'
     assert result['state'] == 'needs_attention'
     assert '搜索服务不可用' in store.objects('report')[0]['markdown']
+
+
+def test_quick_live_pipeline_executes_once_without_enabling_standing_permissions(environment, monkeypatch):
+    from fastapi import HTTPException
+    store, submitted = environment
+    version, policy = store.policy()
+    policy['allowed'] = {kind: False for kind in policy['allowed']}
+    store.configure(policy, version)
+    consume = debug.DebugStore.command
+
+    def checked_consume(self, identity):
+        result = consume(self, identity)
+        payload = json.loads(result['payload'])
+        if result['kind'] == 'interact' and payload.get('kind') == 'comment':
+            with pytest.raises(ValueError, match='最多.*1'):
+                self.reserve_action({'kind': 'comment', 'account_id': 'me', 'target': 'second-comment', 'text': '再次评论'}, 2)
+        return result
+
+    monkeypatch.setattr(debug.DebugStore, 'command', checked_consume)
+    body = {'task': 'pipeline', 'mode': 'quick', 'external_actions': 'execute_once', 'version': 2, 'request_id': 'live-once'}
+    result = debug.execute(body)
+    assert result['state'] == 'completed', result['detail']
+    assert [row['kind'] for row in submitted] == ['publish', 'comment', 'reply', 'dm', 'follow']
+    assert debug.execute(body) == result and len(submitted) == 5
+    assert store.policy() == (2, policy)
+    actions = debug.detail(result['id'])['actions']
+    assert all(row['data'].get('debug_authorization') for row in actions)
+    with pytest.raises(HTTPException, match='未授权'):
+        debug.execute({'task': 'comment', 'mode': 'normal', 'version': 2, 'request_id': 'normal-still-off'})
+    with pytest.raises(HTTPException, match='同一请求'):
+        debug.execute({**body, 'mode': 'normal', 'external_actions': None})
+
+
+def test_ended_quick_grant_cannot_dispatch_a_late_command(environment, monkeypatch):
+    store, submitted = environment
+    version, policy = store.policy()
+    policy['allowed'] = {kind: False for kind in policy['allowed']}
+    store.configure(policy, version)
+    debug.execute({'task': 'pipeline', 'mode': 'normal', 'version': 2, 'request_id': 'prepare'})
+    assert not submitted
+    monkeypatch.setattr(debug.workflow, 'browser', lambda *args, **kwargs: {'state': 'submitted', 'evidence': '模拟等待派发'})
+    result = debug.execute({'task': 'publish', 'mode': 'quick', 'external_actions': 'execute_once', 'version': 2, 'request_id': 'late'})
+    actions = debug.detail(result['id'])['actions']
+    assert len(actions) == 1
+    assert store.claim('late-worker') is None
+    with store.connection() as db:
+        assert db.execute('SELECT state FROM actions WHERE id=?', (actions[0]['id'],)).fetchone()[0] == 'cancelled'
+    assert store.policy() == (2, policy)
+
+
+def test_saved_draft_completes_production_and_publish_explains_missing_material(environment):
+    store, submitted = environment
+    with store.connection() as db:
+        db.execute("DELETE FROM objects WHERE kind='asset'")
+    with store.workspace.connection() as db:
+        db.execute("DELETE FROM resources WHERE kind='asset'")
+    # Keep the real production/checking services but return an unillustrated draft.
+    from agent import auxiliary_client
+    from unittest.mock import patch
+
+    def text_only(**kwargs):
+        result = model(**kwargs)
+        data = json.loads(kwargs['messages'][1]['content'])
+        if 'assets' in data and 'content' not in data:
+            content = json.loads(result.choices[0].message.content)
+            content['asset_ids'] = []
+            result.choices[0].message.content = json.dumps(content)
+        return result
+
+    with patch.object(auxiliary_client, 'call_llm', text_only):
+        result = debug.execute({'task': 'pipeline', 'mode': 'quick', 'external_actions': 'execute_once', 'version': 1, 'request_id': 'draft-without-image'})
+    steps = {step['id']: step for step in result['steps']}
+    assert steps['content']['state'] == 'completed'
+    assert steps['content']['result']['content_id'] and not steps['content']['result']['ready']
+    assert steps['publish']['state'] == 'skipped'
+    assert '缺少获授权图片' in steps['publish']['detail']
+    assert '未完成' not in steps['publish']['detail']
+    assert not any(row['kind'] == 'publish' for row in submitted)

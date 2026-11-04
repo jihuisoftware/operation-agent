@@ -113,3 +113,26 @@ def test_parallel_reservations_share_quota_and_pause_stops_new_reads(tmp_path, m
     with pytest.raises(ValueError, match='暂停'):
         collection.collect(store, policy, '2026-11-01')
     assert store.objects('collection_run')[0]['state'] == 'interrupted'
+
+
+def test_small_read_budget_prefers_untried_sources_over_failed_retry(tmp_path, monkeypatch):
+    store, policy, web = setup(tmp_path, monkeypatch, quota=10)
+    policy['sources'] = ['https://example.org/failed', 'https://example.org/fresh']
+    store.configure(policy, 1)
+    store.run_options = {'read_limit': 1, 'query_limit': 1, 'quick': True}
+    monkeypatch.setattr(web, 'web_search_tool', lambda *a, **k: '{"data":{"web":[]}}')
+    requested = []
+
+    async def extract(urls, **kwargs):
+        requested.append(urls[0])
+        if urls[0].endswith('/failed'):
+            return '{"error":"Status code 504: request timed out"}'
+        return '{"results":[{"content":"可用的新来源正文"}]}'
+
+    monkeypatch.setattr(web, 'web_extract_tool', extract)
+    first = collection.collect(store, policy, '2026-11-03')
+    assert first['failed'] == 1
+    second = collection.collect(store, policy, '2026-11-03')
+    assert second['succeeded'] == 1 and requested[-1].endswith('/fresh')
+    third = collection.collect(store, policy, '2026-11-03')
+    assert third['retried'] == 1 and requested[-1].endswith('/failed')

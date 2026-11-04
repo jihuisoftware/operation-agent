@@ -97,7 +97,12 @@ def poll_account(body: dict):
     if account not in {a['id'] for a in catalog['accounts']}:
         raise HTTPException(404, '账号不存在')
     from ..workspace_broker import poll
-    return poll(directory, account, worker, body.get('busy') is True)
+    from ..web_control import validate_intent
+    try:
+        intent = validate_intent(body.get('takeover'))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return poll(directory, account, worker, body.get('busy') is True, takeover=intent)
 
 
 @router.get('/workspaces/references/{topic_id}')

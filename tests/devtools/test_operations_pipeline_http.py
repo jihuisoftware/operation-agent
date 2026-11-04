@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from PIL import Image
+import pytest
 from starlette.testclient import TestClient
 
 from plugins.operations.policy import DEFAULT
@@ -44,7 +45,8 @@ def providers(monkeypatch):
     monkeypatch.setattr(auxiliary_client, 'call_llm', model)
 
 
-def test_blueprint_to_report_through_authenticated_profile_http(tmp_path, monkeypatch, record_property):
+@pytest.mark.parametrize('mode', ('normal', 'quick'))
+def test_blueprint_to_report_through_authenticated_profile_http(tmp_path, monkeypatch, record_property, mode):
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     monkeypatch.setattr(Path, 'home', lambda: tmp_path)
     dev = tmp_path / 'profiles' / 'acceptance'
@@ -67,7 +69,7 @@ def test_blueprint_to_report_through_authenticated_profile_http(tmp_path, monkey
         policy.update(enabled=True, topic='步行', goal='整理路线信息并运营测试号', account_id='me',
                       sources=['https://example.org/walk'], knowledge=['开放时间为九点。'], follow_terms=['步行'])
         policy['modules'] = {key: True for key in policy['modules']}
-        policy['allowed'] = {key: True for key in policy['allowed']}
+        policy['allowed'] = {key: mode == 'normal' for key in policy['allowed']}
         catalog = request('GET', '/blueprints')
         cover = BytesIO()
         Image.new('RGB', (32, 32), 'white').save(cover, format='PNG')
@@ -76,7 +78,8 @@ def test_blueprint_to_report_through_authenticated_profile_http(tmp_path, monkey
             'version': catalog['version'], 'policy': policy, 'request_id': 'apply-acceptance', 'mode': 'enable'})
         version = applied['version']
         request('POST', '/worker/poll', {'worker': 'simulated-desktop', 'busy': True})
-        body = {'task': 'pipeline', 'version': version, 'request_id': 'http-acceptance'}
+        body = {'task': 'pipeline', 'version': version, 'request_id': 'http-acceptance', 'mode': mode,
+                **({'external_actions': 'execute_once'} if mode == 'quick' else {})}
         commands = []
         live_seen = set()
         def pump():
@@ -110,6 +113,7 @@ def test_blueprint_to_report_through_authenticated_profile_http(tmp_path, monkey
         assert result['state'] == 'completed', result['detail']
         assert all(step['state'] == 'completed' for step in result['steps'])
         assert result['external_actions'] == {'total': 5, 'confirmed': 5}
+        assert request('GET', '/policy')['policy']['allowed'] == policy['allowed']
         assert live_seen >= {'publish', 'comment', 'reply', 'dm', 'follow'}
         assert len(request('GET', '/sources')['items']) == 1
         assert request('GET', '/organized-sources')['usable'] == 1

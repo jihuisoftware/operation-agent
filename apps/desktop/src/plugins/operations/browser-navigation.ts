@@ -1,4 +1,4 @@
-import { waitForRead } from './browser-wait'
+import { BrowserReadinessError, waitForRead } from './browser-wait'
 import type { Guest } from './types'
 
 /** The webview IPC promise acknowledges dispatch, not completion of navigation. */
@@ -14,7 +14,7 @@ export async function navigateGuest(guest: Guest, url: string, sleep?: (ms: numb
   const failed = (event: Event) => {
     const detail = event as Event & { errorCode: number; errorDescription: string; isMainFrame: boolean }
 
-    if (detail.isMainFrame && detail.errorCode !== -3) { failure = new Error(`网页加载失败：${detail.errorDescription}`) }
+    if (detail.isMainFrame && detail.errorCode !== -3) { failure = new BrowserReadinessError(`网页加载失败：${detail.errorDescription}`, 'PAGE_UNAVAILABLE') }
   }
 
   guest.addEventListener('did-stop-loading', stopped)

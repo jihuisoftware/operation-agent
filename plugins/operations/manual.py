@@ -56,10 +56,10 @@ def run(store, now, request_id, *, one_stage=False):
             if not identity:
                 continue
             with store.connection() as db:
-                from .readiness import web_held
-                held = stage in EXTERNAL and web_held(db)
+                from .readiness import web_block_reason
+                held = web_block_reason(db) if stage in EXTERNAL else ''
             if held:
-                store.finish_run(identity, "skipped", "网页正在人工接管")
+                store.finish_run(identity, "skipped", held)
             elif store.run_options and not readiness[stage]["ready"]:
                 store.finish_run(identity, "skipped", "；".join(readiness[stage]["reasons"]))
             elif stage in EXTERNAL and not store.snapshot()["online"]:

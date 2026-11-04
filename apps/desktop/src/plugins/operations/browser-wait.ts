@@ -9,9 +9,13 @@ export async function waitForRead<T>(read: () => Promise<T>, ready: (value: T) =
 
     if (Date.now() >= deadline) {
       if (allowUnknown) { return value }
-      throw new Error('等待网页就绪超时，未执行后续提交')
+      throw new BrowserReadinessError('等待网页就绪超时，未执行后续提交')
     }
 
     await sleep(500)
   }
+}
+
+export class BrowserReadinessError extends Error {
+  constructor(message: string, readonly code = 'PAGE_NOT_READY') { super(message) }
 }

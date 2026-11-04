@@ -23,6 +23,9 @@ def capture(db, action, version, policy):
     data = {'id': identity, 'created': now_iso(), 'account_id': action['account_id'], 'policy_version': version,
             'policy': policy, 'content': action['content'], 'assets': assets, 'sources': sources,
             'content_hash': hashlib.sha256(encoded(action['content']).encode()).hexdigest()}
+    if action.get('debug_authorization'):
+        grant = db.execute("SELECT data FROM objects WHERE id=? AND kind='debug_action_grant'", (action['debug_authorization'],)).fetchone()
+        data['debug_authorization'] = json.loads(grant[0])
     db.execute("INSERT INTO objects VALUES (?, 'publication_snapshot', ?, ?)", (identity, encoded(data), data['created']))
     return {**action, 'snapshot_id': identity}
 

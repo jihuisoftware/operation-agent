@@ -6,6 +6,7 @@ from .analysis_runs import guard
 from .analytics import valid
 from .collection_ledger import load
 from .policy import now_iso
+from .model_errors import ModelServiceUnavailable
 
 BATCH_SIZE = 20
 
@@ -19,6 +20,7 @@ def check_current(store, analytics, policy, day, version):
 def analyze_batches(store, policy, day, version, analytics, config, groups, budget):
     from .industry import INSTRUCTION, generate, validate_findings
     findings, covered, errors, calls, reused = [], [], [], 0, 0
+    service_failed = False
     total = sum(len(rows) for _, rows in groups)
     for visibility, rows in groups:
         ordered = sorted(rows, key=lambda row: row['id'])
@@ -39,14 +41,15 @@ def analyze_batches(store, policy, day, version, analytics, config, groups, budg
                 covered.extend(ids)
                 reused += len(ids)
                 continue
-            if calls >= budget:
+            if calls >= budget or service_failed:
                 continue
             store.progress('正在分析行业证据', {'visibility': visibility, 'completed': len(covered), 'total': total})
             calls += 1
             try:
                 result = generate(store, policy, day, INSTRUCTION, data)
                 validated = validate_findings(result, set(ids), visibility)
-            except (ValueError, TimeoutError) as exc:
+            except (ValueError, TimeoutError, ModelServiceUnavailable) as exc:
+                service_failed = isinstance(exc, ModelServiceUnavailable)
                 errors.append(str(exc))
                 store.event('industry_analysis_error', {'day': day, 'error': str(exc), 'evidence_ids': ids})
                 continue

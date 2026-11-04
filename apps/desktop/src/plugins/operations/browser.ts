@@ -1,6 +1,8 @@
+import { openInteraction, openInventory } from './browser-inventory'
 import { navigateGuest } from './browser-navigation'
 import { type BrowserTrace, unrecordedTrace } from './browser-trace'
-import { waitForRead } from './browser-wait'
+import { BrowserReadinessError, waitForRead } from './browser-wait'
+import { xhsInteractionDom } from './interaction-dom'
 import { inspectLoginPage } from './login-page'
 import { xhsPage } from './page'
 import { xhsReady } from './page-ready'
@@ -50,12 +52,13 @@ export async function executeBrowser(
   const check = async () => {
     const current = await api<OperationsState>('/policy')
 
+    if (current.web_held) { throw new BrowserReadinessError('网页控制已暂停，当前动作尚未提交', 'CONTROL_PAUSED') }
+
     if (
       Date.now() / 1000 > command.expires ||
       current.version !== initial.version ||
       !current.policy.enabled ||
-      current.policy.paused ||
-      current.web_held
+      current.policy.paused
     ) {
       throw new Error('任务过期、规则变更或已暂停')
     }
@@ -84,7 +87,7 @@ export async function executeBrowser(
     if (operation === 'ready') {
       return evaluateGuest(
         guest,
-        `(${xhsReady.toString()})(${JSON.stringify(data)}, (${xhsPublishControl.toString()}))`
+        `(${xhsReady.toString()})(${JSON.stringify(data)}, (${xhsPublishControl.toString()}), (${xhsInteractionDom.toString()}))`
       )
     }
 
@@ -97,7 +100,7 @@ export async function executeBrowser(
 
     return evaluateGuest(
       guest,
-      `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })}, (${xhsPublishControl.toString()}))`
+      `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })}, (${xhsPublishControl.toString()}), (${xhsInteractionDom.toString()}))`
     )
   }
 
@@ -113,18 +116,28 @@ export async function executeBrowser(
   }
 
   const ready = async (phase: string, data = payload) => {
+    let reason = ''
+
     try {
       return await waitForRead(
-        () => page('ready', { phase, payload: data }),
+        async () => {
+          const result = await page('ready', { phase, payload: data })
+          reason = result.reason || ''
+
+          if (result.unavailable) { throw new BrowserReadinessError(reason, 'PAGE_UNAVAILABLE') }
+
+          return result
+        },
         result => result.ready === true,
         phase === 'post' ? 60000 : 15000,
         false,
         sleep
       )
     } catch (error) {
-      throw new Error(
-        `${phase}${data.label ? `「${data.label}」` : ''}：${error instanceof Error ? error.message : String(error)}`
-      )
+      const message = `${phase}${data.label ? `「${data.label}」` : ''}：${error instanceof Error ? error.message : String(error)}${reason ? `；${reason}` : ''}`
+
+      if (error instanceof BrowserReadinessError) { throw new BrowserReadinessError(message, error.code) }
+      throw new Error(message)
     }
   }
 
@@ -170,7 +183,6 @@ export async function executeBrowser(
     const locations: Record<string, string> = {
       comment: `${HOME}/search_result?keyword=${searchQuery(payload.keywords, initial.policy.topic)}`,
       reply: `${HOME}/notification`,
-      dm: `${HOME}/im`,
       follow: `${HOME}/user/profile/${encodeURIComponent(payload.account_id)}`
     }
 
@@ -196,13 +208,7 @@ export async function executeBrowser(
 
     if (command.kind === 'inbox') {
       return await trace.step('inventory', async () => {
-        await navigate(locations[payload.kind])
-
-        if (payload.kind === 'follow') {
-          await clickLabel('粉丝')
-        }
-
-        await ready('inventory')
+        await openInventory(payload, { navigate, page, ready, clickLabel, locations })
 
         return page('inventory')
       })
@@ -251,11 +257,7 @@ export async function executeBrowser(
       return submissionReceipt(receipt, baseline)
     }
 
-    await navigate(payload.kind === 'comment' ? payload.item.url : locations[payload.kind])
-
-    if (payload.kind === 'follow') {
-      await clickLabel('粉丝')
-    }
+    await trace.step('open_interaction', () => openInteraction(payload, { navigate, page, ready, clickLabel, locations }))
 
     const prepared = await trace.step('prepare_interaction', async () => {
       await ready('interaction')
@@ -291,7 +293,9 @@ export async function executeBrowser(
         : command.kind === 'account'
           ? 'waiting_login'
           : 'blocked',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      submitted,
+      error_code: error instanceof BrowserReadinessError ? error.code : undefined
     }
   }
 }

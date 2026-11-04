@@ -4,6 +4,7 @@ from collections import deque
 
 from .model import generate
 from .model_budget import remaining_calls
+from .model_errors import ModelServiceUnavailable
 from .outcomes import StageSkipped
 from .policy import now_iso
 from .source_library import available_sources
@@ -87,18 +88,22 @@ def _batch(store, policy, day, version, sources, *, retry=False):
 
 def _run_batches(store, policy, day, version, pairs, pending, budget):
     queue = deque((pending[start:start + BATCH_SIZE], False) for start in range(0, len(pending), BATCH_SIZE))
-    added, calls = 0, 0
+    added, calls, failure = 0, 0, ''
     while queue and calls < budget:
         batch, retry = queue.popleft()
         store.progress('正在补试缺失来源' if retry else '正在整理来源',
                        {'completed': len(pairs) - len(pending) + added, 'total': len(pairs), 'batch_size': len(batch)})
-        missing = _batch(store, policy, day, version, batch, retry=retry)
+        try:
+            missing = _batch(store, policy, day, version, batch, retry=retry)
+        except ModelServiceUnavailable as exc:
+            failure = str(exc)
+            break
         calls += 1
         added += len(batch) - len(missing)
         if not retry:
             for source in reversed(missing):
                 queue.appendleft(([source], True))
-    return added, bool(queue)
+    return added, bool(queue), failure
 
 
 def organize(store, policy, day, version):
@@ -109,12 +114,13 @@ def organize(store, policy, day, version):
     # Leave the configured downstream modules a chance to consume the partial collection.
     reserved = sum(cost for stage, cost in (('industry', 2), ('topics', 1), ('content', 2), ('publish', 1)) if policy['modules'][stage])
     batches = max(0, remaining_calls(store, policy, day) - reserved)
-    added, budget_exhausted = _run_batches(store, policy, day, version, pairs, pending, batches)
+    added, budget_exhausted, failure = _run_batches(store, policy, day, version, pairs, pending, batches)
     current = materials(store, policy, day, include_history=True)
     result = {'total': len(current), 'added': added, 'organized': sum(row is not None for _, row in current),
               'usable': sum(bool(row and row['relevant']) for _, row in current), 'pending': sum(row is None for _, row in current)}
     remaining = ('本轮模型额度已用完或已为后续步骤预留，下次从未整理资料继续。' if budget_exhausted
                  else '部分来源仍未返回有效整理结果，单条补试已结束；有效结果已保存，剩余来源下次继续。')
+    remaining = failure or remaining
     result['detail'] = (f"新增整理 {added} 条；已整理 {result['organized']}/{result['total']} 条，相关资料 {result['usable']} 条，"
                         f"待整理 {result['pending']} 条。" + (remaining if result['pending'] else ''))
     store.put('organization', {**result, 'day': day, 'scope_topic': policy['topic'], 'version': version, 'created': now_iso(),

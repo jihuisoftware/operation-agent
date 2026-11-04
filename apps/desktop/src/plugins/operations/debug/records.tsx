@@ -18,6 +18,8 @@ export interface Run {
   steps?: Step[]
   version?: number
   day?: string
+  model_quota?: 'unlimited'
+  action_mode?: string
   coverage?: { quick?: boolean; read_limit?: number; query_limit?: number; external_actions?: string }
 }
 export interface Detail {
@@ -57,7 +59,9 @@ export function DebugRecord({ detail }: { detail: Detail }) {
       {hasErrors && <CopyButton label="仅复制错误日志" text={() => json(errors)}>仅复制错误日志</CopyButton>}
     </div>
     <p className="whitespace-pre-wrap">{detail.run.detail}</p>
-    {detail.run.coverage?.quick && <p className="text-sm text-muted-foreground">快速模式限制：仅抽样 1 条来源、外部动作不执行。</p>}
+    {detail.run.model_quota === 'unlimited' && <p className="text-sm text-muted-foreground">本次调试模型调用次数不限，用量照常记录，不占正常运营模型额度。</p>}
+    {detail.run.action_mode === 'execute_once' && <p className="text-sm text-muted-foreground">本次快速实测使用真实生产流程，每种外部动作最多 1 次；本次授权不改变日常计划。</p>}
+    {detail.run.coverage?.external_actions === 'readiness_only' && <p className="text-sm text-muted-foreground">此历史批次仅预检查外部动作，未实际执行。</p>}
     {detail.run.duration_ms !== undefined && <p>执行耗时：{detail.run.duration_ms} 毫秒</p>}
     {detail.run.steps?.map((step, index) => {
       const events = detail.events.filter(event => (event.data as { step_id?: string })?.step_id === step.id)

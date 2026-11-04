@@ -26,15 +26,19 @@ def daily_report(store, day, delayed=False):
     source_sections, source_count = source_lines(scope, actions)
     coverage = getattr(store, "run_options", None) or {}
     quick_coverage = bool(coverage.get("coverage") or coverage.get("quick"))
+    external_mode = coverage.get('external_actions', 'readiness_only' if quick_coverage else 'enabled')
+    preflight_only = external_mode == 'readiness_only'
     external_stages = {"publish", "comments", "dm", "follow"}
-    execution_runs = [run for run in runs if not quick_coverage or run["stage"] not in external_stages]
-    preflight_runs = [run for run in runs if quick_coverage and run["stage"] in external_stages]
+    execution_runs = [run for run in runs if not preflight_only or run["stage"] not in external_stages]
+    preflight_runs = [run for run in runs if preflight_only and run["stage"] in external_stages]
     lines = [f"# {day} 运营日报", "", f"目标：{'；'.join(dict.fromkeys(goals))}", f"生成时间：{now_iso()}",
              f"规则版本：{versions or [version]}", f"延迟补生成：{'是' if delayed else '否'}", "", "## 任务与执行", ""]
     if store.scope:
         lines.insert(2, f"业务：{store.scope['business_name']}；主题：{policy['topic']}；归属：{store.scope['business_id']} / {store.scope['id']}")
     if quick_coverage:
-        lines.extend(["## 快速模式限制", "", "本次为快速模式：仅抽样 1 条来源、外部动作不执行。", ""])
+        action_text = {'execute_once': '外部动作直接在生产执行，每种最多 1 次，本次授权不改变日常计划',
+                       'not_requested': '本次未请求外部动作'}.get(external_mode, '外部动作仅预检查，不执行')
+        lines.extend(["## 快速模式限制", "", f"本次为快速模式：仅抽样 1 条来源；{action_text}。", ""])
     lines.extend(f"- {r['stage']} · {r['state']} · {r['detail'] or '无补充说明'}" for r in execution_runs)
     if preflight_runs:
         lines.extend(["", "## 预检查结果", ""])
@@ -87,7 +91,7 @@ def daily_report(store, day, delayed=False):
             "debug_id": run_scope if is_debug_scope else None,
             "coverage": {"quick": quick_coverage, "read_limit": coverage.get("read_limit"),
                          "query_limit": coverage.get("query_limit"),
-                         "external_actions": "readiness_only" if quick_coverage else "enabled"}}
+                         "external_actions": external_mode}}
     identity = store.put("report", data, identity)
     return {"id": identity, **data}
 

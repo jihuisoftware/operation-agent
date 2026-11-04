@@ -4,6 +4,7 @@ import { AccountSelection } from './account-selection'
 import { actionLabels, actionModules, moduleLabels } from './blueprint-types'
 import { ChoiceField, choices, KeywordChoices, TimeSlots } from './configuration-choices'
 import { audienceChoices, priorityChoices, styleChoices, timezoneChoices } from './configuration-presets'
+import { ModelBudgetFields } from './model-budget-fields'
 import type { Policy } from './types'
 
 export interface PolicyFieldsProps {
@@ -174,14 +175,10 @@ export function ScheduleFields({
             ))}
         </details>
       )}
-      {level !== 'common' && (
-        <ChoiceField
-          label="每日模型调用上限"
-          max={1000}
-          onChange={value => update('model_calls', Number(value))}
-          options={choices([0, 10, 50, 100, 500, 1000].map(String))}
-          type="number"
-          value={String(policy.model_calls)}
+      {level !== 'advanced' && (
+        <ModelBudgetFields
+          onChange={budget => onChange({ ...policy, model_budget_mode: budget.mode, model_calls: budget.calls, model_tokens: budget.tokens })}
+          value={{ mode: policy.model_budget_mode || 'calls', calls: policy.model_calls, tokens: policy.model_tokens ?? 1_000_000 }}
         />
       )}
     </div>

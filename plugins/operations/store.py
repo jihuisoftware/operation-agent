@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS platform_login_evidence (platform TEXT NOT NULL, work
 CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, seen REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS leases (id TEXT PRIMARY KEY, token TEXT NOT NULL, expires REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, at TEXT NOT NULL, kind TEXT NOT NULL, data TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS events_debug_progress ON events(json_extract(data,'$.debug_id'),json_extract(data,'$.step_id'),id) WHERE kind='progress';
 """
 
 
@@ -65,6 +66,8 @@ class Store:
         from .progress import sync_plan
         from .workspace_resources import synchronize
         synchronize(self)
+        from .model_budget_ledger import initialize
+        initialize(self)
         sync_plan(self)
 
     @contextmanager
@@ -106,7 +109,8 @@ class Store:
                     from .workspace_topics import rename_metadata
                     rename_metadata(db, previous['topic'], policy['topic'])
                 if db.execute('SELECT count(*) FROM directory.topics WHERE archived=0').fetchone()[0] == 1:
-                    db.execute("UPDATE directory.preferences SET data=? WHERE id='limits'", (encoded({**policy['limits'], 'model': policy['model_calls'], '_timezone': policy['timezone']}),))
+                    from .model_budget_settings import synchronize as synchronize_budget
+                    synchronize_budget(db, policy)
             first_activation = activation and not db.execute("SELECT 1 FROM objects WHERE kind='policy' AND json_extract(data,'$.policy.enabled')=1").fetchone()
             if first_activation:
                 db.execute("INSERT OR REPLACE INTO objects VALUES ('plan-activation','activation',?,?)", (encoded({'after': now_iso()}), now_iso()))
@@ -220,14 +224,17 @@ class Store:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
             policy = json.loads(row["data"])
-            from .readiness import web_held
-            if web_held(db):
-                raise ValueError("网页正在人工接管")
-            error = permitted(policy, action)
+            from .readiness import web_block_reason
+            blocked = web_block_reason(db)
+            if blocked:
+                raise ValueError(blocked)
+            from .debug_authorization import reservation_policy
+            effective = reservation_policy(self, db, policy, action, version)
+            error = permitted(effective, action)
             if error or row["version"] != version:
                 raise ValueError(error or "运营规则已变更")
-            if db.execute("SELECT 1 FROM objects WHERE kind='block' AND json_extract(data,'$.kind')=? AND json_extract(data,'$.version')=?",
-                          (action["kind"], version)).fetchone():
+            from .browser_failures import active_block
+            if active_block(self, db, action['kind'], version):
                 raise ValueError("该能力已暂停，请处理异常并重新保存规则后恢复")
             day = day or local_day(policy)
             from .analysis_publication import check
@@ -266,7 +273,9 @@ class Store:
             return identity if changed else None
 
     def blocked(self, kind, version):
-        return any(b["kind"] == kind and b["version"] == version for b in self.objects("block"))
+        from .browser_failures import active_block
+        with self.connection() as db:
+            return active_block(self, db, kind, version)
 
     def enqueue(self, kind, payload, action_id=None):
         from .browser_evidence import command_context
@@ -284,18 +293,21 @@ class Store:
         payload = {**command_context(self), **payload, "policy_version": version}
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            from .readiness import web_held
+            from .readiness import web_block_reason
             from .outcomes import StageSkipped
-            if web_held(db):
-                raise StageSkipped('网页正在人工接管，自动网页操作已暂停')
+            blocked = web_block_reason(db)
+            if blocked:
+                raise StageSkipped(blocked)
             db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
                        (identity, action_id, kind, encoded(payload), time.time() + 120))
         return identity
 
-    def claim(self, worker, busy=False):
+    def claim(self, worker, busy=False, *, takeover=None):
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute("INSERT OR REPLACE INTO workers VALUES (?,?)", (worker, time.time()))
+            from .web_control import heartbeat
+            heartbeat(self, db, worker, takeover)
             self._expire(db)
             policy = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
             cfg = json.loads(policy["data"])
@@ -311,6 +323,9 @@ class Store:
                 action = db.execute("SELECT * FROM actions WHERE id=?", (row["action_id"],)).fetchone()
                 if action["version"] != policy["version"] or action["state"] != "queued":
                     db.execute("UPDATE commands SET state='cancelled' WHERE id=?", (row["id"],))
+                    return None
+                from .debug_authorization import may_dispatch
+                if not may_dispatch(self, db, row, action, policy['version'], cfg):
                     return None
             from .workspace_execution import claim_account
             if not claim_account(self, db, row, worker):
@@ -353,10 +368,11 @@ class Store:
             db.execute("UPDATE commands SET state='done',result=? WHERE id=?", (encoded(result), identity))
             from .workspace_execution import release_account
             release_account(self, db, identity, worker)
-            if result.get("state") == "blocked" and row["kind"] not in {"verify", "account"}:
+            from .browser_failures import should_pause
+            if should_pause(db, row, result):
                 payload = json.loads(row["payload"])
                 block = {"kind": payload.get("kind", row["kind"]), "version": payload["policy_version"], "error": result.get("error"), "day": local_day(self.policy()[1])}
-                db.execute("INSERT OR IGNORE INTO objects VALUES (?, 'block', ?, ?)",
+                db.execute("INSERT INTO objects VALUES (?, 'block', ?, ?) ON CONFLICT(id) DO UPDATE SET kind='block',data=excluded.data,created=excluded.created",
                            (f"block:{block['version']}:{block['kind']}", encoded(block), now_iso()))
             if row['kind'] == 'verify':
                 from .review_queue import accept

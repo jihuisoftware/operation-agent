@@ -72,10 +72,12 @@ def recover_interrupted(store, data):
     update_record(store, data)
 
 
-def previous(store, identity, task, version):
+def previous(store, identity, task, version, mode='normal', external_actions='standing_policy'):
     existing = record(store, identity)
-    if existing and (existing["task"] != task or existing["version"] != version):
-        raise HTTPException(409, "同一请求标识不能用于不同任务或规则")
+    if existing and (existing["task"] != task or existing["version"] != version
+                     or existing.get('mode', 'normal') != mode
+                     or existing.get('action_mode', 'standing_policy') != external_actions):
+        raise HTTPException(409, "同一请求标识不能用于不同任务、规则或执行方式")
     return existing
 
 
@@ -91,9 +93,11 @@ def execute(body, path=None):
     task, request_id, mode = body.get("task"), body.get("request_id"), body.get("mode", "normal")
     if task not in {*TASKS, "pipeline"} or mode not in {"normal", "quick"} or not isinstance(request_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", request_id):
         raise HTTPException(400, "任务或请求标识无效")
+    from .operations_authorization import request_mode
+    external_actions = request_mode(body, task, mode)
     identity = "debug:" + request_id
     store = DebugStore(identity, path)
-    existing = previous(store, identity, task, body.get("version"))
+    existing = previous(store, identity, task, body.get("version"), mode, external_actions)
     if existing:
         return existing
     if not store.lease(identity):
@@ -101,12 +105,13 @@ def execute(body, path=None):
     try:
         from .operations_pipeline import run_pipeline
         handler = run_pipeline if task == "pipeline" else run_task
-        return previous(store, identity, task, body.get("version")) or handler(store, identity, task, body.get("version"), mode=mode)
+        return previous(store, identity, task, body.get("version"), mode, external_actions) or handler(
+            store, identity, task, body.get("version"), mode=mode, external_actions=external_actions)
     finally:
         store.release(identity)
 
 
-def run_task(store, identity, task, version, *, mode="normal"):
+def run_task(store, identity, task, version, *, mode="normal", external_actions='standing_policy'):
     current, policy = store.policy()
     module = TASKS[task][1]
     if current != version:
@@ -116,12 +121,14 @@ def run_task(store, identity, task, version, *, mode="normal"):
     day = local_day(policy)
     if policy["deadline"] and day > policy["deadline"][:10] and task != "report":
         raise HTTPException(400, "运营目标已超过期限")
-    if task in {"publish", "comment", "reply", "dm", "follow"} and not policy["allowed"][task]:
+    if task in EXTERNAL and mode != 'quick' and not policy["allowed"][task]:
         raise HTTPException(400, "该动作尚未授权")
     data = new_record(identity, task, TASKS[task][0], version, day)
-    data["mode"] = mode
+    data.update(mode=mode, action_mode=external_actions)
     store.put("debug_run", data, identity)
     store.manual_run_id = identity
+    from .operations_authorization import create
+    create(store, data)
     run_id = store.start_run(day, module, identity, version)
     store.event("debug_start", {"task": task, "rule": policy, "run_id": run_id})
     outcome = invoke(store, task, policy, day, version, quick=mode == "quick")
@@ -134,19 +141,7 @@ def run_task(store, identity, task, version, *, mode="normal"):
 def new_record(identity, task, title, version, day):
     return {"id": identity, "task": task, "title": title, "version": version,
             "day": day, "started": now_iso(), "ended": None, "state": "running", "detail": "开始执行",
-            "pid": os.getpid(), "process_started": psutil.Process().create_time()}
-
-
-def quick_external_status(store, task, policy):
-    from plugins.operations.readiness import conditions
-    ready = conditions(store, policy)[TASKS[task][1]]
-    reasons = list(ready["reasons"])
-    if ready["waiting_upstream"]:
-        reasons.append("等待上游产物")
-    if not store.snapshot()["online"]:
-        reasons.append("Desktop 离线")
-    detail = "；".join(reasons) if reasons else "本地就绪检查通过，实际账号与页面状态仍需执行时核对"
-    return f"快速测试仅检查外部动作：{detail}，未提交"
+            "pid": os.getpid(), "process_started": psutil.Process().create_time(), "model_quota": "unlimited"}
 
 
 def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
@@ -154,8 +149,9 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
     result = None
     owns_run_options = False
     try:
-        if quick and task in EXTERNAL:
-            raise StageSkipped(quick_external_status(store, task, policy))
+        from plugins.operations.debug_authorization import authorized
+        if quick and task in EXTERNAL and not authorized(store, policy, task):
+            raise StageSkipped('本次快速实测授权已失效，请重新发起')
         if task in {"publish", "comment", "reply", "dm", "follow"} and not store.snapshot()["online"]:
             raise StageSkipped("桌面执行器离线，请启动开发版 Desktop")
         if quick:
@@ -164,7 +160,7 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
             # quick bounds and pipeline coverage are carried by run_options and unavailable().
             if not coverage:
                 store.run_options = {"read_limit": 1, "query_limit": 1, "quick": True,
-                                     "model_calls": min(policy["model_calls"], 2)}
+                                     'external_actions': 'execute_once' if task in EXTERNAL else 'not_requested'}
                 owns_run_options = True
         handlers = {"research": workflow.research, "organize": workflow.organize, "analytics": workflow.analytics, "industry": workflow.industry, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     **{k: partial(workflow.interact, kinds=(k,)) for k in ("comment", "reply", "dm", "follow")}}
@@ -196,12 +192,16 @@ def catalog():
     with store.connection() as db:
         runs = [json.loads(row[0]) for row in db.execute(
             "SELECT data FROM objects WHERE kind='debug_run' ORDER BY created DESC LIMIT 30")]
+        from plugins.operations.readiness import web_block_reason
+        web_block = web_block_reason(db)
     for data in runs:
         recover_interrupted(store, data)
+    from .operations_debug_status import task_status
     fields = ("id", "task", "title", "version", "day", "started", "ended", "state", "detail", "duration_ms")
     return {"version": version, "policy": policy,
             "tasks": [{"id": key, "title": value[0], "module": value[1]} for key, value in TASKS.items()],
-            "runs": [{key: value for key, value in run.items() if key in fields} for run in runs], "pipeline_available": True}
+            "runs": [{key: value for key, value in run.items() if key in fields} for run in runs],
+            "task_status": task_status(store, runs), 'web_block_reason': web_block, "pipeline_available": True}
 
 
 @router.post("/run")

@@ -6,6 +6,15 @@ from urllib.parse import unquote_plus, urlsplit, urlunsplit
 from .policy import public_url
 
 
+def failure_hint(error):
+    text = str(error).casefold()
+    if '504' in text or 'timed out' in text or 'timeout' in text:
+        return '网页提取服务超时（504/网络超时），已保留来源供后续重试'
+    if '429' in text:
+        return '网页提取服务限流，稍后重试'
+    return '来源读取失败，请展开日志查看原因'
+
+
 def canonical_url(value):
     parts = urlsplit(public_url(value))
     query = '&'.join(part for part in parts.query.split('&') if part and not tracking_key(part))

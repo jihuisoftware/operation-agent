@@ -7,9 +7,12 @@ from .policy import now_iso
 
 
 def web_held(db):
-    if any(row[1] == 'directory' for row in db.execute('PRAGMA database_list')):
-        return bool(db.execute('SELECT 1 FROM directory.accounts a JOIN directory.businesses b ON b.account=a.id JOIN main.ownership o ON o.business_id=b.id WHERE a.held=1 OR a.conflict!=\'\'').fetchone())
-    return bool(db.execute("SELECT 1 FROM objects WHERE kind='web_hold' AND json_extract(data,'$.active')=1").fetchone())
+    return bool(web_block_reason(db))
+
+
+def web_block_reason(db):
+    from .web_control import block_reason
+    return block_reason(db)
 
 
 def takeover(store, worker, active):
@@ -21,16 +24,17 @@ def takeover(store, worker, active):
         if store.workspace:
             from .workspace_broker import takeover as account_takeover
             account_takeover(store, db, worker, active)
-        # Release stale windows after reopening, but never another live executor's hold.
-        import time
-        other = db.execute("SELECT 1 FROM objects o JOIN workers w ON w.id=json_extract(o.data,'$.worker') WHERE o.kind='web_hold' AND w.id!=? AND w.seen>?", (worker, time.time() - 15)).fetchone()
-        if other:
-            raise ValueError('另一执行窗口正在人工接管，请在该窗口结束接管')
-        if not active:
             db.execute("DELETE FROM objects WHERE kind='web_hold'")
         else:
-            db.execute("INSERT OR REPLACE INTO objects VALUES (?, 'web_hold', ?, ?)",
-                       ('web-hold:' + worker, encoded({'worker': worker, 'active': True}), now_iso()))
+            from .web_control import legacy_holds
+            if any(data['worker'] != worker for _, data in legacy_holds(db)):
+                raise ValueError('另一执行窗口正在人工接管，请在该窗口结束接管')
+            db.execute("DELETE FROM objects WHERE kind='web_hold'")
+            if active:
+                import time
+                db.execute("INSERT OR REPLACE INTO objects VALUES (?, 'web_hold', ?, ?)",
+                           ('web-hold:' + worker, encoded({'worker': worker, 'active': True, 'seen': time.time()}), now_iso()))
+        if active:
             db.execute("UPDATE commands SET state='cancelled' WHERE state='queued'")
             db.execute("UPDATE actions SET state='cancelled' WHERE state='queued'")
     refresh(store)
@@ -43,7 +47,7 @@ def conditions(store, policy):
     assets = store.objects('asset')
     login = next(p for p in catalog(store)['platforms'] if p['id'] == 'xiaohongshu')
     with store.connection() as db:
-        held = web_held(db)
+        held = web_block_reason(db)
         present = {r[0] for r in db.execute("SELECT DISTINCT kind FROM objects WHERE json_extract(data,'$.scope_topic')=?", (policy['topic'],))}
     upstream = {'organize': 'source', 'topics': 'organized_source', 'content': 'organized_source', 'publish': 'content', 'industry': 'analytics_report'}
     rows = {}
@@ -51,7 +55,7 @@ def conditions(store, policy):
         reasons = requirements(policy, stage, assets)
         if stage in EXTERNAL:
             if held:
-                reasons.append('网页正在人工接管')
+                reasons.append(held)
             if login['state'] != 'logged_in' or (bool(policy['account_id']) and login['account_id'] != policy['account_id']) or login['observed_state'] == 'verification':
                 reasons.append('登录并确认小红书账号')
         waiting = stage in upstream and upstream[stage] not in present

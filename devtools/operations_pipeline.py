@@ -8,7 +8,6 @@ from plugins.operations.policy import local_day, now_iso
 
 EXTERNAL = {"publish", "comment", "reply", "dm", "follow"}
 DEPENDENCIES = {"organize": "research", "industry": "analytics", "topics": "organize", "content": "topics", "publish": "content"}
-QUICK_COVERAGE_MODEL_CALLS = 12
 
 
 def unavailable(store, data, step, policy, *, coverage=False):
@@ -25,24 +24,28 @@ def unavailable(store, data, step, policy, *, coverage=False):
         return "已跨越运营日期，请发起新的测试；未沿用昨日额度"
     if policy["deadline"] and data["day"] > policy["deadline"][:10]:
         return "运营目标已超过期限"
-    if not coverage and not policy["modules"][step["module"]]:
+    if (not coverage or task in EXTERNAL) and not policy["modules"][step["module"]]:
         return "模块未启用；未修改现有计划"
-    if task in EXTERNAL and not policy["allowed"][task]:
-        return "快速测试仅检查外部动作：尚未授权，未提交" if coverage else "该动作尚未授权"
+    from plugins.operations.debug_authorization import allowed
+    if task in EXTERNAL and not allowed(store, policy, task):
+        return "该动作尚未授权"
+    return dependency_reason(data, task)
+
+
+def dependency_reason(data, task):
     dependency = DEPENDENCIES.get(task)
-    prior = next((s for s in data["steps"] if s["id"] == dependency), None)
-    usable_partial = prior and dependency in {'research', 'organize'} and prior['state'] == 'needs_attention' and prior.get('result', {}).get('usable', 0) > 0
-    if prior and prior["state"] != "completed" and not usable_partial:
-        reason = f"依赖步骤「{prior['title']}」未完成，不使用旧产物替代本轮结果"
-        return f"快速测试仅检查外部动作：{reason}，未提交" if coverage and task in EXTERNAL else reason
-    if task == "publish" and not data.get("content_id"):
-        reason = "本轮没有保存可发布的内容版本"
-        return f"快速测试仅检查外部动作：{reason}，未提交" if coverage else reason
-    if task in EXTERNAL and coverage:
-        if not store.snapshot()["online"]:
-            return "快速测试仅检查外部动作：Desktop 离线，未提交"
-        return "快速测试仅检查外部动作：已满足就绪条件，未提交"
-    return ""
+    prior = next((step for step in data['steps'] if step['id'] == dependency), None)
+    value = prior.get('result') if prior else None
+    result = value if isinstance(value, dict) else {}
+    if task == 'publish' and result.get('content_id') and not result.get('ready'):
+        missing = result.get('missing') or ['请检查草稿的发布条件']
+        return '本轮草稿已生成，尚不可发布：' + '；'.join(missing)
+    usable_partial = prior and dependency in {'research', 'organize'} and prior['state'] == 'needs_attention' and result.get('usable', 0) > 0
+    if prior and prior['state'] != 'completed' and not usable_partial:
+        return f"依赖步骤「{prior['title']}」未完成，不使用旧产物替代本轮结果"
+    if task == 'publish' and not data.get('content_id'):
+        return '本轮没有保存可发布的内容版本'
+    return ''
 
 
 def run_step(store, data, step, policy, *, quick=False, coverage=False):
@@ -67,29 +70,31 @@ def run_step(store, data, step, policy, *, quick=False, coverage=False):
     update_record(store, data)
 
 
-def run_pipeline(store, identity, task, version, *, mode="normal"):
+def run_pipeline(store, identity, task, version, *, mode="normal", external_actions='standing_policy'):
     from .operations_debug import TASKS, new_record, update_record
     current, policy = store.policy()
     if current != version:
         raise HTTPException(409, "规则已变更，请刷新调试页")
     day = local_day(policy)
     data = new_record(identity, task, "整链路测试", version, day)
-    data.update(mode=mode, policy=policy, steps=[
+    data.update(mode=mode, action_mode=external_actions, policy=policy, steps=[
         {"id": key, "title": title, "module": module, "state": "pending", "detail": "等待执行"}
         for key, (title, module) in TASKS.items()])
     store.put("debug_run", data, identity)
     store.manual_run_id = identity
+    from .operations_authorization import create
+    create(store, data)
     coverage = mode == "quick"
     if coverage:
         data["coverage"] = {"internal_modules": [key for key, (_, module) in TASKS.items()
                               if module not in {"comments", "dm", "follow", "publish", "report"}],
-                             "external_actions": "readiness_only", "model_calls": QUICK_COVERAGE_MODEL_CALLS}
+                             "external_actions": external_actions, 'max_per_kind': 1}
         update_record(store, data)
     store.event("pipeline_start", {"day": day, "version": version, "policy": policy, "mode": mode,
                                     "coverage": coverage})
     if coverage:
         store.run_options = {"read_limit": 1, "query_limit": 1, "quick": True, "coverage": True,
-                             "model_calls": QUICK_COVERAGE_MODEL_CALLS}
+                             'external_actions': external_actions}
     started = time.monotonic()
     try:
         try:

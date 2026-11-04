@@ -20,12 +20,13 @@ Bot Mode、Kanban／Radio 界面及旧的 agents、starmap、webhooks、session-
 
 Server 与 Desktop 分别在两个终端启动，均从仓库根目录运行，使用相同的开发数据目录。
 
-终端一启动 Server（Gateway）：
+终端一先停止已有 Server（Gateway），再启动；每次启动都执行停止步骤：
 
 ```bash
 export HERMES_HOME="$HOME/hermes-operations-dev"
 export HERMES_RUNTIME_DIR="$HERMES_HOME/tools"
 source ./activate
+hermes gateway stop
 hermes gateway run -v
 ```
 

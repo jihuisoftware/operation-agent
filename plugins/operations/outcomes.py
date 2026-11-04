@@ -7,6 +7,8 @@ class StageSkipped(Exception):
 
 def describe(stage, result):
     from .publication_status import normalize
+    if stage == 'report' and isinstance(result, dict) and result.get('id'):
+        return 'completed', '运营日报已保存'
     if stage == 'publish' and isinstance(result, dict):
         result = normalize(result)
     if stage == 'research' and isinstance(result, dict):
@@ -23,11 +25,10 @@ def describe(stage, result):
         if pending:
             return "needs_attention", "已提交待核对或结果未知，尚不能计为成功：" + str(pending)
     if stage == "content" and isinstance(result, dict) and result.get("content_id"):
-        state = "completed" if result.get("ready") else "needs_attention"
-        detail = f"草稿已保存，版本 {result['content_id']}；" + ("可供发布" if result.get("ready") else "待完善，尚不可发布")
+        detail = '草稿生成完成；' + ('已通过检查，可供发布' if result.get('ready') else '发布前仍需完善')
         if result.get("missing"):
             detail += "；" + "；".join(result["missing"])
         if result.get("reason"):
             detail += "\n自动检查：" + str(result["reason"])
-        return state, detail
+        return 'completed', detail
     return "completed", str(result or "完成")

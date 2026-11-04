@@ -5,13 +5,14 @@ from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 from .modules import TIMES, ACTION_MODULE
 from .business_themes import validate_business_selection
+from .model_budget_settings import DEFAULT_CALLS, POLICY_DEFAULTS, topic_config, validate as validate_model_budget
 
 LIMITS = {"source": 10_000, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "follow": 5}
 DEFAULT = {"schema_version": 5, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
            "style": "真实、清楚、具体", "brand": "", "account_id": "", "timezone": "Asia/Shanghai",
            "sources": [], "rss_sources": [], "keywords": [], "knowledge": [], "follow_terms": [],
            "allowed": {k: k != "follow" for k in LIMITS if k != "source"}, "limits": LIMITS,
-           "times": TIMES, "deadline": "", "priority": 1, "model_calls": 50,
+           "times": TIMES, "deadline": "", "priority": 1, "model_calls": DEFAULT_CALLS, **POLICY_DEFAULTS,
            "business_theme": "", "business_subtype": ""}
 
 
@@ -48,6 +49,7 @@ def validate_policy(value):
         raise ValueError("优先级必须是 1 到 5 的整数")
     ZoneInfo(result["timezone"])
     _validate_collections(result)
+    validate_model_budget(topic_config(result))
     if result["schema_version"] != 5 or set(result["modules"]) != set(TIMES) or any(type(v) is not bool for v in result["modules"].values()):
         raise ValueError("运营模块格式错误")
     if result["enabled"] and not any(result["modules"].values()):

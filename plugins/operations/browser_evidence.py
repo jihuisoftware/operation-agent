@@ -78,9 +78,10 @@ def record_step(store, command_id, worker, body):
             if phase == 'started' or not started or json.loads(started[0])['name'] != name:
                 raise ValueError('任务已结束或过期，不能追加网页操作')
             data['late_evidence'] = True
-        from .readiness import web_held
-        if phase == "started" and web_held(db):
-            raise ValueError("网页正在人工接管")
+        from .readiness import web_block_reason
+        blocked = web_block_reason(db)
+        if phase == "started" and blocked:
+            raise ValueError(blocked)
         from .analysis_publication import check_step
         check_step(db, command, phase)
         payload = json.loads(command['payload'])

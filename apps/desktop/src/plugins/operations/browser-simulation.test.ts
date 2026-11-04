@@ -110,3 +110,50 @@ it.each(['success', 'custom', 'disabled', 'pause', 'disconnect'] as const)('exec
 
   if (mode === 'success') { expect(result.url).toBe('https://www.xiaohongshu.com/explore/note') }
 })
+
+it('opens the actual search card before submitting one comment to the verified note', async () => {
+  let url = 'about:blank'
+  let sent = 0
+  const events = new EventTarget()
+
+  const guest = {
+    addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events),
+    getURL: () => url,
+    loadURL: vi.fn(async (next: string) => {
+      url = next
+      vi.stubGlobal('location', new URL(next))
+      document.body.innerHTML = '<nav><a href="https://www.xiaohongshu.com/user/profile/me">我</a></nav>'
+
+      if (next.includes('/search_result')) {
+        document.body.innerHTML += '<section class="note-item"><a id="card" href="https://www.xiaohongshu.com/explore/target?xsec_token=kept">目标笔记</a></section>'
+        document.querySelector('#card')!.addEventListener('click', event => {
+          event.preventDefault()
+          url = 'https://www.xiaohongshu.com/explore/target?xsec_token=kept'
+          vi.stubGlobal('location', new URL(url))
+          document.body.innerHTML = '<div id="detail-desc">目标笔记</div><textarea placeholder="评论"></textarea><button>发送</button>'
+          document.querySelector('button')!.addEventListener('click', () => {
+            sent += 1
+            const posted = document.createElement('div')
+            posted.className = 'comment-content'
+            posted.textContent = (document.querySelector('textarea') as HTMLTextAreaElement).value
+            document.body.append(posted)
+          })
+        })
+      }
+
+      events.dispatchEvent(new Event('did-stop-loading'))
+    }),
+    executeJavaScript: vi.fn(async (code: string) => (0, eval)(code))
+  } as unknown as Guest
+
+  const api = (async () => ({ version: 1, policy: { enabled: true, paused: false, account_id: 'me', topic: '测试' } })) as Api
+
+  const result = executeBrowser({ id: 'comment', kind: 'interact', expires: Date.now() / 1000 + 120,
+    payload: { kind: 'comment', policy_version: 1, account_id: 'me', target: 'note:target', text: '有依据的回复',
+      inventory_url: 'https://www.xiaohongshu.com/search_result?keyword=test', item: { url: 'https://www.xiaohongshu.com/explore/target' } } }, guest, api)
+
+  await vi.runAllTimersAsync()
+  expect(await result).toMatchObject({ state: 'confirmed' })
+  expect(sent).toBe(1)
+  expect(guest.loadURL).not.toHaveBeenCalledWith('https://www.xiaohongshu.com/explore/target')
+})

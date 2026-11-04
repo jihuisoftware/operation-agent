@@ -1,7 +1,8 @@
+import { xhsInteractionDom } from './interaction-dom'
 import { xhsPublishControl } from './publish-control'
 
 /** Runs in the isolated guest. Unknown DOM shapes fail closed and return evidence, never success. */
-export function xhsPage(command: { operation: string; payload: Record<string, any> }, publishControl = xhsPublishControl) {
+export function xhsPage(command: { operation: string; payload: Record<string, any> }, publishControl = xhsPublishControl, interactionDom = xhsInteractionDom) {
   const { operation, payload } = command
 
   const visible = (element: Element) => {
@@ -59,31 +60,10 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
     element.dispatchEvent(new Event('change', { bubbles: true }))
   }
 
-  const noteLink = (element: HTMLElement) =>
-    element.querySelector<HTMLAnchorElement>('a[href*="/explore/"],a[href*="/search_result/"]')
-
-  const identifier = (element: HTMLElement) => {
-    const note = noteLink(element)
-    const profile = element.querySelector<HTMLAnchorElement>('a[href*="/user/profile/"]')
-
-    const ids: Record<string, string | undefined> = {
-      comment: note ? `note:${new URL(note.href).pathname.split('/').at(-1)}` : undefined,
-      reply: element.dataset.commentId,
-      dm: element.dataset.messageId,
-      follow: element.dataset.userId || (profile ? new URL(profile.href).pathname.split('/').at(-1) : undefined)
-    }
-
-    return ids[payload.kind]
-  }
-
-  const selectors: Record<string, string> = {
-    comment: 'section.note-item',
-    reply: '[data-comment-id],.comment-item',
-    dm: '[data-message-id]',
-    follow: '[data-user-id],.user-item'
-  }
-
-  const items = () => all(selectors[payload.kind] || '[data-operation-item]')
+  const inventory = () => interactionDom(payload.kind)
+  const items = () => inventory().rows
+  const identifier = (element: HTMLElement) => inventory().identifier(element)
+  const noteLink = (element: HTMLElement) => inventory().noteLink(element)
 
   const findItem = () =>
     unique(
@@ -112,6 +92,33 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
   }
 
   const handlers: Record<string, () => unknown> = {
+    'open-note': () => {
+      const matches = items().filter(element => identifier(element) === payload.target)
+
+      if (matches.length !== 1) { return { opened: false, reason: '目标笔记已不在当前候选页，请重新读取候选' } }
+      const link = noteLink(matches[0])
+
+      if (!link) { return { opened: false, reason: '目标笔记入口不可用，请重新读取候选' } }
+      link.click()
+
+      return { opened: payload.target }
+    },
+    'open-messages': () => {
+      const entries = all('a,button,[role="button"]').filter(element => {
+        const label = element.getAttribute('aria-label') || element.getAttribute('title') || text(element)
+        const href = element.getAttribute('href')
+        const url = href ? new URL(href, location.href) : null
+
+        if (url && (url.origin !== location.origin || url.pathname === '/notification')) { return false }
+
+        return /^(私信|消息|聊天)$/.test(label) || url?.pathname === '/im'
+      }).filter(element => !all('a,button,[role="button"]', element).some(child => /^(私信|消息|聊天)$/.test(text(child))))
+
+      if (entries.length !== 1) { return { opened: false, reason: '当前网页没有唯一可确认的私信入口，请在网页检查消息功能' } }
+      entries[0].click()
+
+      return { opened: true }
+    },
     inventory: () => {
       const list = items()
         .map(element => ({
@@ -122,14 +129,12 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
               ? noteLink(element)?.href
               : element.querySelector<HTMLAnchorElement>('a[href*="/user/profile/"]')?.href,
           inbound: payload.kind === 'dm' && element.getAttribute('data-direction') === 'incoming',
-          follows_me: payload.kind === 'follow' && /关注了你|已关注你/.test(text(element)),
-          already_following:
-            payload.kind === 'follow' &&
-            all('button,[role="button"]', element).some(e => /^(互相关注|已关注)$/.test(text(e)))
+          follows_me: payload.kind === 'follow' && inventory().followsMe(element),
+          already_following: payload.kind === 'follow' && inventory().alreadyFollowing(element)
         }))
         .filter(item => item.id)
 
-      if (!list.length && !/暂无|没有.*(消息|评论|粉丝|结果)/.test(text(document.body))) {
+      if (!list.length && !inventory().empty) {
         throw new Error('未识别到稳定条目或明确空列表，页面结构需要人工核对')
       }
 
@@ -219,10 +224,11 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
       return { state: 'unknown', evidence: '没有取得与账号及内容一致的公开笔记证据', url: location.href }
     },
     'prepare-interaction': () => {
+      if (payload.kind === 'comment' && !inventory().matchesNote(payload.target)) { throw new Error('当前笔记与目标不一致，未填写评论') }
       const root = payload.kind === 'comment' ? document.body : findItem()
 
       if (payload.kind === 'follow') {
-        if (!/关注了你|已关注你/.test(text(root))) {
+        if (!inventory().followsMe(root)) {
           throw new Error('无法确认对方关注了当前账号')
         }
 
@@ -247,10 +253,11 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
       return { ready: true, before_count }
     },
     'commit-interaction': () => {
+      if (payload.kind === 'comment' && !inventory().matchesNote(payload.target)) { throw new Error('当前笔记与目标不一致，未提交评论') }
       const root = payload.kind === 'comment' ? document.body : findItem()
 
       if (payload.kind === 'follow') {
-        if (!/关注了你|已关注你/.test(text(root))) {
+        if (!inventory().followsMe(root)) {
           throw new Error('对方关注状态发生变化')
         }
 
@@ -275,7 +282,7 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
 
       const sent =
         payload.kind === 'follow'
-          ? all('button,[role="button"]', root).some(e => /^(互相关注|已关注)$/.test(text(e)))
+          ? inventory().alreadyFollowing(root)
           : typeof payload.before_count === 'number' &&
             all('[data-message-id],.comment-content,.content', root).filter(e => text(e) === payload.text).length >
               payload.before_count

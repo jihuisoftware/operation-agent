@@ -6,16 +6,21 @@ from datetime import datetime, date
 from zoneinfo import ZoneInfo
 
 
-def check_running(store, *, web=False):
+def check_running(store, *, web=False, db=None):
     if not store.workspace:
         return
     if store.workspace.blocked(store.scope):
         raise ValueError('当前业务、主题或全部运营已暂停/归档')
     if web:
-        with store.workspace.connection() as db:
-            row = db.execute('SELECT * FROM accounts WHERE id=?', (store.workspace.resolve(store.scope['business_id'], store.scope['id'])['account'],)).fetchone()
-        if row['held'] or row['conflict']:
-            raise ValueError('账号正在人工接管或与已有账号重复，请处理后继续')
+        from .web_control import reason_for_account
+        account = store.workspace.resolve(store.scope['business_id'], store.scope['id'])['account']
+        if db is None:
+            with store.workspace.connection() as connection:
+                reason = reason_for_account(connection, account, prefix='')
+        else:
+            reason = reason_for_account(db, account)
+        if reason:
+            raise ValueError(reason)
 
 
 def charge(store, db, day, kind, *, identity=None, account=''):
@@ -30,7 +35,8 @@ def charge(store, db, day, kind, *, identity=None, account=''):
     identity = identity or uuid.uuid4().hex
     if db.execute('SELECT 1 FROM directory.charges WHERE id=?', (identity,)).fetchone():
         return
-    if used >= limits[kind]:
+    token_budget = kind == 'model' and limits.get('model_budget_mode') == 'tokens'
+    if not token_budget and used >= limits[kind]:
         raise ValueError('达到账号共享额度' if account else '达到 Profile 每日总额度')
     db.execute('INSERT INTO directory.charges VALUES (?,?,?,?,?,?)', (identity, day, kind, 1, store.scope['id'], account))
 
@@ -39,7 +45,7 @@ def reserve_action(store, db, action, identity, day):
     if not store.workspace:
         return True
     sync_actions(store, db)
-    check_running(store, web=True)
+    check_running(store, web=True, db=db)
     account = store.workspace.resolve(store.scope['business_id'], store.scope['id'])['account']
     registered = db.execute('SELECT identity FROM directory.accounts WHERE id=?', (account,)).fetchone()[0]
     if registered and registered != action['account_id']:
@@ -60,7 +66,7 @@ def reserve_action(store, db, action, identity, day):
 def claim_account(store, db, command, worker):
     if not store.workspace:
         return True
-    check_running(store, web=True)
+    check_running(store, web=True, db=db)
     account = store.workspace.resolve(store.scope['business_id'], store.scope['id'])['account']
     row = db.execute('SELECT * FROM directory.account_leases WHERE account_id=?', (account,)).fetchone()
     if row and row['expires'] > time.time():

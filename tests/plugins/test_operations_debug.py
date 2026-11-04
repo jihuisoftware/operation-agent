@@ -1,5 +1,7 @@
 """Development endpoints share the real Profile store and run only the selected workflow."""
 from copy import deepcopy
+import json
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -33,7 +35,8 @@ def test_single_task_has_persistent_detailed_logs_and_idempotent_requests(config
     monkeypatch.setattr(debug.workflow, "research", lambda *args: pytest.fail("不得执行其他任务"))
     body = {"task": "content", "version": 1, "request_id": "first"}
     result = debug.execute(body)
-    assert result["state"] == "needs_attention"
+    assert result["state"] == "completed"
+    assert not result['result']['ready']
     assert debug.execute(body) == result
     assert calls == ["content"]
     detail = debug.detail(result["id"])
@@ -47,10 +50,10 @@ def test_single_task_has_persistent_detailed_logs_and_idempotent_requests(config
 
 
 @pytest.mark.parametrize("task", ("publish", "comment", "reply", "dm", "follow"))
-def test_quick_external_task_never_enters_submission_workflow(configured, monkeypatch, task):
+def test_quick_external_task_requires_explicit_run_authorization(configured, monkeypatch, task):
     version, policy = configured.policy()
     policy["modules"][debug.TASKS[task][1]] = True
-    policy["allowed"][task] = True
+    policy["allowed"][task] = False
     configured.configure(policy, version)
     configured.claim("desktop", busy=True)
     calls = []
@@ -62,16 +65,60 @@ def test_quick_external_task_never_enters_submission_workflow(configured, monkey
     monkeypatch.setattr(debug.workflow, "publish", submit)
     monkeypatch.setattr(debug.workflow, "interact", submit)
     body = {"task": task, "version": 2, "request_id": task, "mode": "quick"}
-    result = debug.execute(body)
-    assert result["state"] == "skipped"
-    assert "未提交" in result["detail"]
+    with pytest.raises(HTTPException, match='真实外部动作'):
+        debug.execute(body)
     assert not calls
+    body['external_actions'] = 'execute_once'
+    result = debug.execute(body)
+    assert result['state'] == 'completed'
+    assert calls == [task]
     assert debug.execute(body) == result
     assert debug.detail(result["id"])["actions"] == []
     assert configured.policy() == (2, policy)
 
-    debug.execute({**body, "mode": "normal", "request_id": task + "-normal"})
+    with pytest.raises(HTTPException, match='未授权'):
+        debug.execute({**body, "mode": "normal", "external_actions": None, "request_id": task + "-normal"})
     assert calls == [task]
+
+
+@pytest.mark.parametrize("mode", ("normal", "quick"))
+@pytest.mark.parametrize("exhausted", (False, True))
+def test_debug_model_calls_ignore_quotas_without_spending_normal_allowance(configured, monkeypatch, mode, exhausted):
+    from agent import auxiliary_client
+    from plugins.operations import model
+    from plugins.operations.policy import local_day
+    version, policy = configured.policy()
+    policy['model_calls'] = 1
+    configured.configure(policy, version)
+    day = local_day(policy)
+    response = SimpleNamespace(usage=None, choices=[SimpleNamespace(message=SimpleNamespace(content='{}'))])
+    monkeypatch.setattr(auxiliary_client, 'call_llm', lambda **kwargs: response)
+    if exhausted:
+        model.generate(configured, policy, day, '常规调用', {})
+
+    def produce(store, current, run_day, rule_version):
+        for _ in range(3):
+            model.generate(store, current, run_day, '调试调用', {})
+        return '模型调用完成'
+
+    monkeypatch.setattr(debug.workflow, 'produce', produce)
+    body = {'task': 'content', 'version': 2, 'request_id': 'budget', 'mode': mode}
+    def timeout(**kwargs):
+        raise TimeoutError('模拟超时')
+    monkeypatch.setattr(auxiliary_client, 'call_llm', timeout)
+    assert debug.execute(body)['state'] == 'failed'
+    monkeypatch.setattr(auxiliary_client, 'call_llm', lambda **kwargs: response)
+    assert debug.execute({**body, 'request_id': 'retry'})['state'] == 'completed'
+    with configured.connection() as db:
+        calls = [json.loads(row[0]) for row in db.execute("SELECT data FROM events WHERE kind='model_call'")]
+    assert len([call for call in calls if call.get('debug_id')]) == 4
+    if not exhausted:
+        model.generate(configured, policy, day, '常规调用', {})
+    with pytest.raises(ValueError, match='模型调用额度'):
+        model.generate(configured, policy, day, '超额常规调用', {})
+    with configured.workspace.connection() as db:
+        assert db.execute("SELECT sum(amount) FROM charges WHERE kind='model'").fetchone()[0] == 1
+    assert configured.policy() == (2, policy)
 
 
 def test_failures_are_durable_and_locks_and_permissions_still_apply(configured, monkeypatch):

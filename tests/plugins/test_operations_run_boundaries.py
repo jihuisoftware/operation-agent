@@ -167,8 +167,10 @@ def test_quick_budget_is_shared_by_steps_but_not_previous_batches(tmp_path, monk
     store.manual_run_id = 'debug:current'
     run = store.start_run(day, 'research', 'debug:current:research', 1)
     monkeypatch.setattr('agent.auxiliary_client.call_llm', lambda **kwargs: (_ for _ in ()).throw(TimeoutError('提供方超时')))
-    with pytest.raises(TimeoutError):
+    from plugins.operations.model_errors import ModelServiceUnavailable
+    with pytest.raises(ModelServiceUnavailable) as failure:
         model.generate(store, policy, day, '测试', {})
+    assert isinstance(failure.value.__cause__, TimeoutError)
     store.finish_run(run, 'failed', '提供方超时')
     store.start_run(day, 'industry', 'debug:current:industry', 1)
     monkeypatch.setattr('agent.auxiliary_client.call_llm', lambda **kwargs: response())

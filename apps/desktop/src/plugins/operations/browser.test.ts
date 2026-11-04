@@ -123,3 +123,17 @@ it.each([{ keywords: [] }, { keywords: ['   '] }])('uses the operating topic whe
   await executeBrowser({ ...command, kind: 'inbox', payload: { policy_version: 3, account_id: 'me', kind: 'comment', keywords } }, guest, api)
   expect(guest.loadURL).toHaveBeenCalledWith('https://www.xiaohongshu.com/search_result?keyword=' + encodeURIComponent('主题'))
 })
+
+it('reports a readiness timeout as unsubmitted and recoverable without clicking send', async () => {
+  vi.useFakeTimers()
+  const { guest, api } = fixture('me')
+  vi.mocked(guest.executeJavaScript).mockImplementation(async code => {
+    const request = requestFromScript(code)
+
+    return request === 'xiaohongshu' ? { state: 'logged_in', account_id: 'me' } : { ready: false, reason: '未取得列表内容' }
+  })
+  const pending = executeBrowser({ ...command, kind: 'inbox', payload: { policy_version: 3, account_id: 'me', kind: 'reply' } }, guest, api)
+  await vi.runAllTimersAsync()
+  expect(await pending).toMatchObject({ state: 'blocked', submitted: false, error_code: 'PAGE_NOT_READY' })
+  expect(vi.mocked(guest.executeJavaScript).mock.calls.some(([code]) => requestFromScript(code).operation === 'commit-interaction')).toBe(false)
+})

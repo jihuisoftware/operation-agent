@@ -1,5 +1,5 @@
 import { host, type PluginContext, useValue } from '@hermes/plugin-sdk'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { executeBrowser } from './browser'
 import { browserDockStyle, useBrowserDock } from './browser-dock'
@@ -13,6 +13,7 @@ import type { Api, BrowserCommand } from './types'
 import { useLoginObservation } from './use-login-observation'
 import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
+import { useWebTakeover, type WebControlState } from './use-web-takeover'
 import { AccountViewHeader } from './workspace-browser-header'
 import { recordAction } from './workspace-notices'
 import { $workspaceBrowser, $workspaces, loadWorkspaces, type OperationScope, ownerKey, scopePath } from './workspace-state'
@@ -53,7 +54,6 @@ function Worker({
   const surface = useRef<HTMLElement>(null)
   const execution = useRef<{ pending: Promise<unknown> | null }>({ pending: null })
   const [worker] = useState(() => crypto.randomUUID())
-  const manual = useRef(false)
   const commandScope = useRef<OperationScope | null>(null)
   const { guest, loading, error, reopen } = useOperationsGuest(scope, container)
   const pages = usePlatformPages(guest)
@@ -87,6 +87,8 @@ function Worker({
     { owner: scope, method: method || (body ? 'POST' : 'GET'), body, timeoutMs: 15000 }
   ), [ctx, scope])
 
+  const { manual, revision: controlRevision, takeOver, release, reconcile } = useWebTakeover({ api: loginApi, guest, worker, execution, onStatus: setStatus })
+
   // Command scope is a server-issued request token, never a mirror of the selected UI scope.
   // eslint-disable-next-line no-restricted-syntax
   useEffect(() => {
@@ -105,12 +107,17 @@ function Worker({
       polling = true
 
       try {
+        const observedControl = controlRevision.current
+
         // Poll also heartbeats during a command; the server serializes the account across windows.
         const result = await api<{
           command: (BrowserCommand & { scope?: OperationScope; topic_name?: string }) | null
+          takeover?: WebControlState
           latest_report?: ReportNotice
           publication_notices?: { id: number | string; platform: string; action_id: string; label?: string; scope?: OperationScope }[]
-        }>('/worker/poll', { worker, busy: running || manual.current || loginBusy(scope) })
+        }>('/worker/poll', { worker, busy: running || manual.current || loginBusy(scope), takeover: manual.current })
+
+        if (!disposed) { reconcile(result.takeover, observedControl) }
 
         reportSeen = reportNotice(result.latest_report, reportSeen, disposed, scope)
 
@@ -134,7 +141,7 @@ function Worker({
           const trace = createBrowserTrace(command, guest, api, worker)
 
           const pending = manual.current
-            ? Promise.resolve({ state: 'blocked', error: '已进入人工接管' })
+            ? Promise.resolve({ state: 'blocked', error: '已进入人工接管', submitted: false, error_code: 'CONTROL_PAUSED' })
             : trace.step('execution', () => executeBrowser(command, guest, api, clock.sleep, trace, worker))
 
           execution.current.pending = pending
@@ -144,7 +151,7 @@ function Worker({
             await api('/worker/ack', { id: result.command.id, worker, result: answer })
           }
 
-          if (!disposed) {
+          if (!disposed && !manual.current) {
             setStatus(answer.error || '本次网页任务完成')
           }
         } finally {
@@ -170,29 +177,11 @@ function Worker({
       finishActivity?.()
       clock.dispose()
     }
-  }, [scope, api, guest, worker])
-
-  const takeOver = useCallback(async () => {
-    manual.current = true
-
-    try {
-      await api('/worker/takeover', { worker, active: true })
-      setStatus('已暂停，等待当前网页操作退出…')
-      await execution.current.pending?.then(
-        () => undefined,
-        error => setStatus(String(error))
-      )
-      guest.style.pointerEvents = 'auto'
-      setStatus('网页已接管，采集与分析继续；完成后点击结束接管')
-    } finally {
-      manual.current = false
-    }
-  }, [api, guest, worker])
+  }, [scope, api, guest, worker, manual, controlRevision, reconcile])
 
   usePlatformLogin({ openPage: pages.openPage, owner: scope, worker, takeOver, onStatus: setStatus })
   useLoginObservation({ api: loginApi, guest, worker, platform: 'xiaohongshu', onStatus: setStatus })
 
-  const release = async () => { await loginApi('/worker/takeover', { worker, active: false }) }
 
   const failed = (reason: unknown) => setStatus(String(reason))
 
@@ -217,11 +206,7 @@ function Worker({
               .then(() => guest.loadURL('https://www.xiaohongshu.com'))
               .catch(failed)
           }
-          release={() =>
-            void api('/worker/takeover', { worker, active: false })
-              .then(() => setStatus('已结束接管，网页动作按后续排期执行；全局暂停保持原设置'))
-              .catch(failed)
-          }
+          release={() => void release().catch(failed)}
           reopen={() => void takeOver().then(reopen).catch(failed)}
           status={status}
           takeOver={() => void takeOver().catch(failed)}

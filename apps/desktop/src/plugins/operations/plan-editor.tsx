@@ -5,6 +5,7 @@ import { FirstRunProgress } from './first-run'
 import { PlanForm } from './plan-form'
 import { PlanReadiness } from './plan-readiness'
 import { PlanSave } from './plan-save'
+import { SharedModelBudget } from './shared-model-budget'
 import { usePlanEditor } from './use-plan-editor'
 
 const LibraryPage = lazy(() => import('./library-page').then(m => ({ default: m.LibraryPage })))
@@ -61,6 +62,7 @@ function OwnedEditor({ ctx, compact }: { ctx: PluginContext; compact?: boolean }
       {(first || expanded) && (
         <>
           <PlanForm catalog={catalog} change={change} policy={policy} />
+          <SharedModelBudget ctx={ctx} />
           {catalog.draft?.version === catalog.version && (
             <Button onClick={() => change(catalog.draft!.policy)} variant="outline">
               恢复之前保存的配置草稿

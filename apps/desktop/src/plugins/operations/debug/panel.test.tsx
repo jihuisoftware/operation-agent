@@ -1,5 +1,5 @@
 import { formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { DebugPanel } from './panel'
@@ -76,10 +76,34 @@ it('sends quick mode only after the selected task is explicitly requested', asyn
   } : {})
 
   render(<DebugPanel ctx={{ rest } as unknown as PluginContext} owner={owner} />)
-  const button = await screen.findByRole('button', { name: '快速调试' })
+  const button = await screen.findByRole('button', { name: '快速实测图文发布（真实执行）' })
   expect(rest.mock.calls.some(([path]) => path === '/debug/run')).toBe(false)
   fireEvent.click(button)
   await waitFor(() => expect(rest).toHaveBeenCalledWith('/debug/run', expect.objectContaining({
-    owner, body: { task: 'publish', mode: 'quick', version: 7, request_id: expect.any(String) }
+    owner, body: { task: 'publish', mode: 'quick', external_actions: 'execute_once', version: 7, request_id: expect.any(String) }
   })))
+})
+
+it('shows and refreshes each task status without opening a history record', async () => {
+  const catalog = {
+    version: 1, policy: { modules: { research: true, organize: true, content: true } },
+    tasks: [{ id: 'research', module: 'research', title: '信息采集' }, { id: 'organize', module: 'organize', title: '资料整理' }, { id: 'content', module: 'content', title: '内容生产' }],
+    runs: [{ id: 'debug:live', state: 'running', title: '整链路测试', started, detail: '执行中' }],
+    task_status: {
+      research: { run_id: 'debug:live', state: 'completed', detail: '读取完成', duration_ms: 200 },
+      organize: { run_id: 'debug:live', state: 'running', detail: '正在整理第 2 批资料', duration_ms: 1200 },
+      content: { run_id: 'debug:live', state: 'pending', detail: '等待上游步骤' }
+    }
+  }
+
+  const rest = vi.fn(async () => ({ ...catalog, task_status: { ...catalog.task_status } }))
+  render(<DebugPanel ctx={{ rest } as unknown as PluginContext} owner={owner} />)
+  const row = await screen.findByRole('group', { name: '资料整理' })
+  expect(within(row).getByRole('status').textContent).toContain('正在执行')
+  expect(within(row).getByText('正在整理第 2 批资料')).toBeTruthy()
+  expect(within(screen.getByRole('group', { name: '内容生产' })).getByRole('status').textContent).toContain('等待执行')
+  catalog.task_status.organize = { run_id: 'debug:live', state: 'needs_attention', detail: '模型服务繁忙（503），已保留部分资料', duration_ms: 3200 }
+  await waitFor(() => expect(within(row).getByRole('status').textContent).toContain('待检查'), { timeout: 5000 })
+  expect(within(row).getByText(/模型服务繁忙/)).toBeTruthy()
+  expect(rest.mock.calls.every(args => (args as unknown[])[0] === '/debug')).toBe(true)
 })

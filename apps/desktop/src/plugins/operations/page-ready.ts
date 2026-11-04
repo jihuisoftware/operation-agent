@@ -1,7 +1,8 @@
+import { xhsInteractionDom } from './interaction-dom'
 import { xhsPublishControl } from './publish-control'
 
 /** Read-only readiness checks, serialized into the same isolated execution page. */
-export function xhsReady(request: { phase: string; payload: Record<string, any> }, publishControl = xhsPublishControl) {
+export function xhsReady(request: { phase: string; payload: Record<string, any> }, publishControl = xhsPublishControl, interactionDom = xhsInteractionDom) {
   const { phase, payload } = request
 
   const visible = (element: Element) => {
@@ -17,7 +18,20 @@ export function xhsReady(request: { phase: string; payload: Record<string, any> 
   const body = document.body.innerText || ''
 
   if (/安全验证|拖动滑块/.test(body)) { throw new Error('页面要求人工安全验证') }
-  const selectors: Record<string, string> = { comment: 'section.note-item', reply: '[data-comment-id],.comment-item', dm: '[data-message-id]', follow: '[data-user-id],.user-item' }
+
+  if (phase === 'inventory' || phase === 'interaction') {
+    const view = interactionDom(payload.kind)
+
+    if (view.unavailable) { return { ready: false, unavailable: true, reason: '目标页面访问受限、已失效或要求重新登录' } }
+
+    if (phase === 'inventory') {
+      return { ready: view.rows.length > 0 || view.empty, reason: view.blank ? '页面仍为空白，尚未取得消息或列表内容' : '未识别到稳定条目或明确空列表，请检查当前页面' }
+    }
+
+    return { ready: payload.kind === 'comment'
+      ? view.matchesNote(payload.target) && all('#detail-desc,.note-detail .desc').length > 0
+      : view.rows.some(row => view.identifier(row) === payload.target), reason: '目标条目尚未加载或无法核对身份' }
+  }
 
   const handlers: Record<string, () => boolean> = {
     publish: () => publishControl(false, payload.title).ready,
@@ -32,10 +46,6 @@ export function xhsReady(request: { phase: string; payload: Record<string, any> 
         all('[contenteditable="true"],textarea[placeholder*="正文"]').length === 1 &&
         all('[class*="upload"] img,[class*="image-list"] img').filter(image => (image as HTMLImageElement).naturalWidth > 0).length >= payload.content.asset_ids.length
     },
-    inventory: () => all(selectors[payload.kind]).length > 0 || /暂无|没有.*(消息|评论|粉丝|结果)/.test(body),
-    interaction: () => payload.kind === 'comment'
-      ? all('#detail-desc,.note-detail .desc').length > 0
-      : all(selectors[payload.kind]).length > 0
   }
 
   return { ready: handlers[phase]?.() === true }

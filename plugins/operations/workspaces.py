@@ -61,12 +61,13 @@ class Workspaces:
 
     def _bootstrap(self, db):
         from .policy import DEFAULT
+        from .model_budget_settings import profile_fields, topic_config
         policy = DEFAULT
         business, topic, account = (uuid.uuid4().hex for _ in range(3))
         db.execute('INSERT INTO accounts(id) VALUES (?)', (account,))
         db.execute('INSERT INTO businesses(id,name,category,account) VALUES (?,?,?,?)', (business, '我的业务', '', account))
         db.execute('INSERT INTO topics(id,business_id,name,file) VALUES (?,?,?,?)', (topic, business, '未设置主题', f'topics/{topic}.db'))
-        db.execute("INSERT INTO preferences VALUES ('limits',?)", (json.dumps({'source': policy['limits']['source'], 'model': policy['model_calls'], '_timezone': policy['timezone'], **{k: v for k, v in policy['limits'].items() if k != 'source'}}),))
+        db.execute("INSERT INTO preferences VALUES ('limits',?)", (json.dumps({**policy['limits'], **profile_fields(topic_config(policy)), '_timezone': policy['timezone']}),))
 
     def catalog(self):
         with self.connection() as db:

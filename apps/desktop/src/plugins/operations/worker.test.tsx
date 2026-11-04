@@ -102,7 +102,7 @@ it('keeps the hidden guest mounted and heartbeats without claiming another task 
   expect(rest).toHaveBeenCalledWith(
     '/workspaces/worker/poll',
     expect.objectContaining({
-      body: { worker: 'worker', busy: true, account_id: 'account' },
+      body: { worker: 'worker', busy: true, takeover: false, account_id: 'account' },
       owner: workerOwner
     })
   )

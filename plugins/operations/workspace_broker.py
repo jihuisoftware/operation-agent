@@ -3,7 +3,7 @@ import json
 import time
 
 
-def poll(directory, account, worker, busy):
+def poll(directory, account, worker, busy, *, takeover=None):
     catalog = directory.catalog()
     businesses = {b['id']: b['name'] for b in catalog['businesses'] if b['account'] == account}
     topics = [t for t in catalog['topics'] if t['business_id'] in businesses and not t['archived']]
@@ -13,7 +13,8 @@ def poll(directory, account, worker, busy):
         row = db.execute('SELECT data FROM preferences WHERE id=?', (key,)).fetchone()
         cursor = int(row[0]) if row else 0
         db.execute('INSERT OR REPLACE INTO preferences VALUES (?,?)', (key, str(cursor + 1)))
-        db.execute('UPDATE account_holds SET seen=? WHERE account_id=? AND worker=?', (time.time(), account, worker))
+        from .web_control import account_heartbeat
+        control = account_heartbeat(db, account, worker, takeover, prefix='')
     if topics:
         start = cursor % len(topics)
         topics = topics[start:] + topics[:start]
@@ -31,19 +32,14 @@ def poll(directory, account, worker, busy):
                 notices.append({**json.loads(row['data']), 'id': topic['id'] + ':' + str(row['id']), 'scope': scope, 'label': label})
         if command or directory.blocked(store.scope):
             continue
-        claimed = store.claim(worker, busy=busy)
+        claimed = store.claim(worker, busy=busy, takeover=takeover)
         if claimed:
             command = {**claimed, 'scope': scope, 'topic_name': label}
-    return {'command': command, 'latest_report': max(reports, key=lambda r: r['created']) if reports else None, 'publication_notices': notices}
+    return {'command': command, 'latest_report': max(reports, key=lambda r: r['created']) if reports else None,
+            'publication_notices': notices, 'takeover': control}
 
 
 def takeover(store, db, worker, active):
     account = db.execute('SELECT account FROM directory.businesses WHERE id=?', (store.scope['business_id'],)).fetchone()[0]
-    held = db.execute('SELECT * FROM directory.account_holds WHERE account_id=?', (account,)).fetchone()
-    if held and held['worker'] != worker and held['seen'] > time.time() - 15:
-        raise ValueError('另一执行窗口正在人工接管，请在该窗口结束接管')
-    db.execute('UPDATE directory.accounts SET held=? WHERE id=?', (int(active), account))
-    if active:
-        db.execute('INSERT OR REPLACE INTO directory.account_holds VALUES (?,?,?)', (account, worker, time.time()))
-    else:
-        db.execute('DELETE FROM directory.account_holds WHERE account_id=?', (account,))
+    from .web_control import account_takeover
+    account_takeover(db, account, worker, active)

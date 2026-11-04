@@ -23,6 +23,8 @@ export interface Policy {
   deadline: string
   priority: number
   model_calls: number
+  model_budget_mode?: 'calls' | 'tokens'
+  model_tokens?: number
 }
 
 export interface RecordRow {

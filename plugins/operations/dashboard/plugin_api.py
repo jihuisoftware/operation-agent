@@ -23,6 +23,8 @@ router.include_router(source_router)
 router.include_router(browser_router)
 from plugins.operations.dashboard.token_api import router as token_router
 router.include_router(token_router)
+from plugins.operations.dashboard.model_budget_api import router as model_budget_router
+router.include_router(model_budget_router)
 
 # Development tooling is absent from release payloads and wheels.
 _source_root = Path(__file__).resolve().parents[3]
@@ -107,11 +109,15 @@ def poll(body: dict):
     if not 1 <= len(worker) <= 128:
         raise HTTPException(400, "执行者标识无效")
     store = Store()
+    from plugins.operations.web_control import state as control_state, validate_intent
+    intent = checked(lambda: validate_intent(body.get('takeover')))
+    command = store.claim(worker, busy=body.get('busy') is True, takeover=intent)
     with store.connection() as db:
         report = db.execute("SELECT id, json_extract(data,'$.day') AS day FROM objects WHERE kind='report' ORDER BY created DESC LIMIT 1").fetchone()
         notices = [dict(r) for r in db.execute("SELECT id,data FROM events WHERE kind='publication_notice' ORDER BY id DESC LIMIT 10")]
+        control = control_state(store, db, worker)
     import json
-    return {"command": store.claim(worker, busy=body.get("busy") is True), "latest_report": dict(report) if report else None,
+    return {"command": command, 'takeover': control, "latest_report": dict(report) if report else None,
             'publication_notices': [{**json.loads(n['data']), 'id': n['id']} for n in notices]}
 
 
