@@ -359,3 +359,56 @@ it('loads other platform pages only on demand and recovers the failed platform w
   expect(screen.queryByRole('alert')).toBeNull()
   expect(rest.mock.calls.filter(([path]) => path === '/workspaces/worker/poll')).toHaveLength(1)
 })
+
+
+it('acknowledges a stable login interruption and ignores a late old execution result', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  let finish!: (value: any) => void
+  vi.mocked(executeBrowser).mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  let delivered = false
+
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/workspaces') { return catalog }
+
+    if (path === '/workspaces/worker/poll') {
+      if (!delivered) {
+        delivered = true
+
+        return { command: { id: 'login-task', kind: 'inbox', payload: { account_id: 'me' }, expires: Date.now() / 1000 + 120 } }
+      }
+
+      return { command: null }
+    }
+
+    return { ok: true }
+  })
+
+  const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1)
+    Object.assign(container.querySelector('webview')!, { getURL: () => 'https://www.xiaohongshu.com/explore',
+      executeJavaScript: async () => ({ state: 'logged_out', account_id: '' }) })
+    await vi.advanceTimersByTimeAsync(1999)
+  })
+  await act(async () => { container.querySelector('webview')!.dispatchEvent(new Event('dom-ready')); await vi.advanceTimersByTimeAsync(1) })
+  const acknowledgements = () => rest.mock.calls.filter(([path]) => path.startsWith('/worker/ack?'))
+  expect(acknowledgements()).toHaveLength(0)
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
+  expect(acknowledgements()).toHaveLength(1)
+  expect(rest).toHaveBeenCalledWith(expect.stringContaining('/worker/ack'), expect.objectContaining({
+    body: { id: 'login-task', worker: 'worker', result: expect.objectContaining({ error_code: 'AUTH_REQUIRED', state: 'blocked', submitted: false }) }
+  }))
+  await act(async () => { finish({ state: 'confirmed' }); await vi.advanceTimersByTimeAsync(1) })
+  expect(acknowledgements()).toHaveLength(1)
+})
+
+it('shows an idle connection after a successful heartbeat instead of waiting for a command', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  const rest = vi.fn(async (path: string) => path === '/workspaces' ? catalog : { command: null })
+  render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+  expect(screen.getByText('执行窗口已连接，等待任务')).toBeTruthy()
+  expect(screen.queryByText('等待连接')).toBeNull()
+})

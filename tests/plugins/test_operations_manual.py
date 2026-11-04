@@ -146,10 +146,10 @@ def test_saved_incomplete_draft_is_not_reported_as_ready_or_published(store, mon
     monkeypatch.setattr(workflow, 'produce', lambda *args: {
         'content_id': 'draft', 'ready': False, 'missing': ['缺少获授权图片'], 'reason': '自动检查通过'})
     result = tick(store, NOW, request_id='incomplete')
-    assert '待完善 1' in result
-    assert '草稿已保存' in result and '尚不可发布' in result
+    assert '内容生产：完成' in result
+    assert '草稿生成完成' in result and '发布前仍需完善' in result
     assert '已核对成功 0 条' in result
     assert '图文发布：未加入当前生效计划' in result
     assert '填写小红书账号 ID' not in result and '补充已确认的回复知识' in result
-    assert any(r['state'] == 'needs_attention' for r in store.snapshot()['runs'])
-    assert 'needs_attention' in store.objects('report')[0]['markdown']
+    assert next(r for r in store.snapshot()['runs'] if r['stage'] == 'content')['state'] == 'completed'
+    assert '缺少获授权图片' in store.objects('report')[0]['markdown']

@@ -25,6 +25,8 @@ from plugins.operations.dashboard.token_api import router as token_router
 router.include_router(token_router)
 from plugins.operations.dashboard.model_budget_api import router as model_budget_router
 router.include_router(model_budget_router)
+from plugins.operations.dashboard.topics_api import router as topics_router
+router.include_router(topics_router)
 
 # Development tooling is absent from release payloads and wheels.
 _source_root = Path(__file__).resolve().parents[3]
@@ -89,7 +91,8 @@ def read_policy():
     from plugins.operations.readiness import web_held
     with Store().connection() as db:
         held = web_held(db)
-    return {"version": version, "policy": policy, "web_held": held}
+    from plugins.operations.execution_pause import block
+    return {"version": version, "policy": policy, "web_held": held, "execution_block": block(Store())}
 
 
 @router.put("/policy")
@@ -117,7 +120,8 @@ def poll(body: dict):
         notices = [dict(r) for r in db.execute("SELECT id,data FROM events WHERE kind='publication_notice' ORDER BY id DESC LIMIT 10")]
         control = control_state(store, db, worker)
     import json
-    return {"command": command, 'takeover': control, "latest_report": dict(report) if report else None,
+    from plugins.operations.execution_pause import block
+    return {"command": command, "execution_block": block(store), 'takeover': control, "latest_report": dict(report) if report else None,
             'publication_notices': [{**json.loads(n['data']), 'id': n['id']} for n in notices]}
 
 
@@ -272,3 +276,7 @@ def plan_control(body: dict):
 def cancel_first_run(body: dict):
     from plugins.operations.plan_controls import cancel_first
     return checked(lambda: cancel_first(Store(), body['id']))
+
+
+from plugins.operations.dashboard.resume_api import router as resume_router
+router.include_router(resume_router)

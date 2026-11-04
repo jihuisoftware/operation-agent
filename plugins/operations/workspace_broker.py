@@ -35,7 +35,9 @@ def poll(directory, account, worker, busy, *, takeover=None):
         claimed = store.claim(worker, busy=busy, takeover=takeover)
         if claimed:
             command = {**claimed, 'scope': scope, 'topic_name': label}
-    return {'command': command, 'latest_report': max(reports, key=lambda r: r['created']) if reports else None,
+    from .execution_pause import block
+    execution_block = block(directory.store(topics[0]['business_id'], topics[0]['id'])) if topics else None
+    return {'command': command, 'execution_block': execution_block, 'latest_report': max(reports, key=lambda r: r['created']) if reports else None,
             'publication_notices': notices, 'takeover': control}
 
 

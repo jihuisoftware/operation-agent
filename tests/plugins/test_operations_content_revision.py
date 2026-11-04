@@ -27,7 +27,9 @@ def test_publish_checks_releases_and_supplies_asset_metadata(tmp_path, monkeypat
         db.execute("UPDATE actions SET state='published' WHERE id=?", (prior,))
 
     def review(_store, _policy, _day, _instruction, data):
-        assert data["history"] == [released]
+        assert len(data['history']) == 1
+        assert data['history'][0]['id'] == released['id']
+        assert data['history'][0]['body'] == released['body']
         assert data["assets"][0]["name"] == "原创文字封面.png"
         return {"pass": True, "reason": "检查通过"}
 

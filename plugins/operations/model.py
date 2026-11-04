@@ -16,6 +16,8 @@ def generate(store, policy, day, instruction, data):
     # Quick diagnostics may adjust transient module and limit scope; every standing-policy field stays exact.
     if (persisted != policy and (not transient_quick or persisted != comparable)) or not policy["enabled"] or policy["paused"]:
         raise ValueError("运营规则变更或已暂停，取消模型调用")
+    from .model_budget_recovery import recover
+    recover(store)
     with store.connection() as db:
         db.execute("BEGIN IMMEDIATE")
         if remaining_calls(store, persisted, day, db) <= 0:
@@ -35,12 +37,16 @@ def generate(store, policy, day, instruction, data):
 def _generate_response(store, day, instruction, data, budget_id):
     from agent.auxiliary_client import call_llm
     from .model_budget_ledger import marker, settle
-    store.progress("正在生成或核对内容", {"task": instruction[:120]})
     from agent.token_ledger import bind, LAST_CALL
     from .usage_context import begin
-    context = begin(store, store.current_run_id) if store.current_run_id else None
-    after, response = marker(context), None
+    context, after, response = None, 0, None
     try:
+        store.progress("正在生成或核对内容", {"task": instruction[:120]})
+        owner = begin(store, store.current_run_id or budget_id)
+        after = marker(owner)
+        context = owner
+        from .model_budget_recovery import attach
+        attach(store, budget_id, context, after)
         with bind(context):
             LAST_CALL.set(None)
             response = call_llm(messages=[
@@ -58,6 +64,9 @@ def _generate_response(store, day, instruction, data, budget_id):
         raise failure from exc
     finally:
         settle(store, budget_id, response, context, after)
+        if context and not store.current_run_id:
+            from agent.token_ledger import finish_task
+            finish_task(context, 'completed' if response else 'failed')
     usage = getattr(response, "usage", None)
     usage_data = usage.model_dump() if hasattr(usage, "model_dump") else usage if isinstance(usage, dict) else None
     cost = usage_data.get("cost") if usage_data else None

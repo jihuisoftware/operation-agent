@@ -32,6 +32,7 @@ export interface RecordRow {
   [key: string]: unknown
 }
 export interface OperationsState {
+  execution_block?: { error_code: string; error: string; cause_at?: number } | null
   web_held?: boolean
   version: number
   policy: Policy
@@ -61,6 +62,7 @@ export interface Guest extends HTMLElement {
   capturePage?: () => Promise<{ resize: (options: { width: number }) => { toDataURL: () => string } }>
   executeJavaScript: (code: string) => Promise<any>
   loadURL: (url: string) => Promise<void>
+  isLoadingMainFrame?: () => boolean
   getURL: () => string
 }
 

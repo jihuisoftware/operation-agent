@@ -66,16 +66,25 @@ def produce_content(store, policy, day, version):
     included = {row['id'] for row in evidence}
     sources = [row for row in sources if row['id'] in included]
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
+    from .content_recovery import fingerprint, pending, review
+    data = inputs.checked(store, 'content', {"analysis": inputs.analysis(analysis, evidence), "policy": inputs.policy(policy), "sources": evidence,
+         "assets": inputs.assets(assets), "tasks": inputs.tasks(store.objects("task", day)),
+         "selected_topic": inputs.selected_topic(topic), "recent_content": inputs.history(public_history(store, policy, day)), "performance_review": []})
+    signature = fingerprint(data, version, analysis)
+    draft = pending(store, day, signature)
+    if draft:
+        validate_content(draft, sources, assets)
+        store.progress('复用已保存草稿，继续自动质量检查', {'content_id': draft['id']})
+        return review(store, policy, day, version, draft, sources)
     content = generate(store, policy, day,
         '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":""}。'
         '标题不超过20字，正文不超过900字。只能使用提供的来源和素材，缺少图片时保留文本草稿。'
         'selected_topic 不为空时必须围绕指定选题写作，不得另换题目；标题可精炼但保持原主题。'
         'analysis 非空时优先参考其可公开结论与指标，保留适用范围；不使用内部经营数据。'
+        'analysis_origin=historical 的结论属于 origin_window 的历史证据分析，不得改称今日趋势。'
         '主要参考 sources 中已整理的摘要、分类和事实陈述；观点明确归属，待核实信息不得写成确定事实。'
         '不适合生产时返回空标题和原因。不要执行发布。coverage 标明本轮提供的分析范围，不外推未提供的资料。',
-        inputs.checked(store, 'content', {"analysis": inputs.analysis(analysis, evidence), "policy": inputs.policy(policy), "sources": evidence,
-         "assets": inputs.assets(assets), "tasks": inputs.tasks(store.objects("task", day)),
-         "selected_topic": inputs.selected_topic(topic), "recent_content": inputs.history(public_history(store, policy, day)), "performance_review": []}))
+        data)
     if not content.get("title"):
         raise StageSkipped(content.get("reason", "无合适选题"))
     content["analysis_context"] = analysis
@@ -84,17 +93,16 @@ def produce_content(store, policy, day, version):
     cited = [row for row in source_evidence if row['id'] in content['source_ids']]
     content['organization_ids'] = [row['organization_id'] for row in cited]
     content['organized_evidence'] = cited
-    quality = check_content(store, policy, day, version, content, sources)
-    ready = quality.get("pass") is True and bool(content.get("asset_ids"))
-    missing = ([] if content.get("asset_ids") else ["缺少获授权图片"]) + ([] if quality.get("pass") is True else ["自动质量检查未通过"])
-    identity = store.put("content", {**content, "day": day, "version": version, "ready": ready,
-                                    "state": "ready" if ready else "needs_material" if not content.get("asset_ids") else "needs_review",
-                                    "quality": quality, "selected_topic": topic, "created": now_iso(),
-                                    **({'debug_id': store.debug_id} if getattr(store, 'debug_id', None) else {})})
-    return {"content_id": identity, "ready": ready, "missing": missing, "reason": quality.get("reason")}
+    draft = {**content, "day": day, "version": version, "ready": False, "review_pending": True,
+             "production_input": signature, "state": "needs_review", "created": now_iso(),
+             "quality": {"pass": False, "reason": "草稿已保存，等待自动质量检查"},
+             **({'debug_id': store.debug_id} if getattr(store, 'debug_id', None) else {})}
+    draft['id'] = store.put('content', draft)
+    return review(store, policy, day, version, draft, sources)
 
 
 def public_history(store, policy, day):
     from .analytics import valid
     enabled = any(policy['modules'].get(k) for k in ('analytics', 'industry'))
-    return [c for c in store.objects('content') if not c.get('analysis_context') or (enabled and valid(store, c['analysis_context'], policy, day))][:15]
+    return [c for c in store.objects('content') if not c.get('review_pending')
+            and (not c.get('analysis_context') or (enabled and valid(store, c['analysis_context'], policy, day)))][:15]

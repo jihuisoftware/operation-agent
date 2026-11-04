@@ -1,5 +1,5 @@
 import type { CronBlueprintOwner } from '@hermes/plugin-sdk'
-import { type RefObject, useEffect, useState } from 'react'
+import { type RefObject, useCallback, useEffect, useState } from 'react'
 
 import type { Guest } from './types'
 
@@ -7,9 +7,10 @@ export const OPERATIONS_HOME = 'https://www.xiaohongshu.com/explore'
 
 /** Cookie ownership is stable across renderer/API reconnects; visibility is not lifecycle. */
 export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: string }, container: RefObject<HTMLDivElement | null>, home = OPERATIONS_HOME) {
-  const [guest] = useState(() => document.createElement('webview') as Guest)
+  const [guest, setGuest] = useState(() => document.createElement('webview') as Guest)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const replace = useCallback(() => { setGuest(document.createElement('webview') as Guest) }, [])
 
   useEffect(() => {
     let disposed = false
@@ -29,6 +30,8 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
     const crashed = () => { setLoading(false); setError('网页进程已退出，请重新打开网页；已保存的登录数据仍保留。') }
     guest.addEventListener('did-start-loading', start)
     guest.addEventListener('dom-ready', ready)
+    guest.addEventListener('did-stop-loading', ready)
+    guest.addEventListener('did-navigate-in-page', ready)
     guest.addEventListener('did-fail-load', failed)
     guest.addEventListener('render-process-gone', crashed)
     guest.setAttribute('webpreferences', 'contextIsolation=yes,sandbox=yes,nodeIntegration=no,backgroundThrottling=no')
@@ -49,6 +52,8 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
       disposed = true
       guest.removeEventListener('did-start-loading', start)
       guest.removeEventListener('dom-ready', ready)
+      guest.removeEventListener('did-stop-loading', ready)
+      guest.removeEventListener('did-navigate-in-page', ready)
       guest.removeEventListener('did-fail-load', failed)
       guest.removeEventListener('render-process-gone', crashed)
       guest.remove()
@@ -65,5 +70,5 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
     }
   }
 
-  return { guest, loading, error, reopen }
+  return { guest, loading, error, reopen, replace }
 }

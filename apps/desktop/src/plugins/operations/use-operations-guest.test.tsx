@@ -1,6 +1,6 @@
 import { webcrypto } from 'node:crypto'
 
-import { cleanup, render, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { useRef } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 
@@ -49,4 +49,41 @@ it('preserves existing account cookies across platform pages and isolates a seco
   expect(xhs.getAttribute('partition')).toBe(zhihu.getAttribute('partition'))
   expect(other.getAttribute('partition')).not.toBe(zhihu.getAttribute('partition'))
   expect(zhihu.getAttribute('src')).toBe('https://www.zhihu.com/')
+})
+
+
+it('replaces an unusable guest while preserving its account cookie partition', async () => {
+  vi.stubGlobal('crypto', webcrypto)
+
+  function Recoverable() {
+    const container = useRef<HTMLDivElement>(null)
+    const { replace } = useOperationsGuest({ connectionId: 'local', profile: 'one', account_id: 'a' }, container)
+
+    return <><button onClick={replace}>重建网页</button><div ref={container} /></>
+  }
+
+  const view = render(<Recoverable />)
+  await waitFor(() => expect(view.container.querySelector('webview')).not.toBeNull())
+  const old = view.container.querySelector('webview')!
+  const partition = old.getAttribute('partition')
+  fireEvent.click(view.getByRole('button', { name: '重建网页' }))
+  await waitFor(() => expect(view.container.querySelector('webview')).not.toBe(old))
+  await waitFor(() => expect(view.container.querySelector('webview')?.getAttribute('partition')).toBe(partition))
+  expect(old.isConnected).toBe(false)
+})
+
+it('clears loading when navigation stops without delivering a second dom-ready event', async () => {
+  vi.stubGlobal('crypto', webcrypto)
+
+  function StatusViewer() {
+    const container = useRef<HTMLDivElement>(null)
+    const { loading } = useOperationsGuest({ connectionId: 'local', profile: 'one' }, container)
+
+    return <><p>{loading ? '网页加载中' : '网页已加载'}</p><div ref={container} /></>
+  }
+
+  const view = render(<StatusViewer />)
+  await waitFor(() => expect(view.container.querySelector('webview')).not.toBeNull())
+  fireEvent(view.container.querySelector('webview')!, new Event('did-stop-loading'))
+  expect(view.getByText('网页已加载')).toBeTruthy()
 })

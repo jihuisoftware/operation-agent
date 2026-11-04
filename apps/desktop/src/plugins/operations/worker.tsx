@@ -1,12 +1,13 @@
 import { host, type PluginContext, useValue } from '@hermes/plugin-sdk'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { executeBrowser } from './browser'
+import { type ActiveBrowserExecution, runBrowserCommand } from './browser-command'
 import { browserDockStyle, useBrowserDock } from './browser-dock'
+import type { ExecutionBlock } from './browser-execution'
+import { BACKEND_MS } from './browser-timeouts'
 import { BrowserToolbar } from './browser-toolbar'
-import { createBrowserTrace } from './browser-trace'
 import { createExecutionClock } from './execution-clock'
-import { $loginNavigation, $loginNavigationOwner, sameLoginOwner } from './login-state'
+import { $loginNavigation, $loginNavigationOwner, type LoginObservation, sameLoginOwner } from './login-state'
 import { PlatformLoginPage, PlatformPageFrame, PlatformPageTabs, usePlatformPages } from './platform-pages'
 import { $showOperationsBrowser, beginBrowserActivity } from './state'
 import type { Api, BrowserCommand } from './types'
@@ -52,10 +53,9 @@ function Worker({
   const [taskLabel, setTaskLabel] = useState('')
   const container = useRef<HTMLDivElement>(null)
   const surface = useRef<HTMLElement>(null)
-  const execution = useRef<{ pending: Promise<unknown> | null }>({ pending: null })
+  const execution = useRef<ActiveBrowserExecution>({ pending: null })
   const [worker] = useState(() => crypto.randomUUID())
-  const commandScope = useRef<OperationScope | null>(null)
-  const { guest, loading, error, reopen } = useOperationsGuest(scope, container)
+  const { guest, loading, error, reopen, replace } = useOperationsGuest(scope, container)
   const pages = usePlatformPages(guest)
 
   useEffect(() => {
@@ -68,14 +68,14 @@ function Worker({
 
   const api = useMemo<Api>(
     () => (path, body, method) => {
-      const selected = commandScope.current || (scope.business_id && scope.topic_id ? { business_id: scope.business_id, topic_id: scope.topic_id } : null)
+      const selected = scope.business_id && scope.topic_id ? { business_id: scope.business_id, topic_id: scope.topic_id } : null
       const polling = path === '/worker/poll' && scope.account_id
 
       return ctx.rest(polling ? '/workspaces/worker/poll' : selected ? scopePath(path, selected) : path, {
         owner: scope,
         method: method || (body ? 'POST' : 'GET'),
         body: polling ? { ...(body as object), account_id: scope.account_id } : body,
-        timeoutMs: path === '/worker/verify-images' ? 60000 : 15000
+        timeoutMs: path === '/worker/verify-images' ? 60000 : BACKEND_MS
       })
     },
     [ctx, scope]
@@ -90,8 +90,9 @@ function Worker({
   const { manual, revision: controlRevision, takeOver, release, reconcile } = useWebTakeover({ api: loginApi, guest, worker, execution, onStatus: setStatus })
 
   // Command scope is a server-issued request token, never a mirror of the selected UI scope.
-  // eslint-disable-next-line no-restricted-syntax
+
   useEffect(() => {
+    const executionState = execution.current
     let disposed = false
     let running = false
     let polling = false
@@ -113,11 +114,16 @@ function Worker({
         const result = await api<{
           command: (BrowserCommand & { scope?: OperationScope; topic_name?: string }) | null
           takeover?: WebControlState
+          execution_block?: ExecutionBlock | null
           latest_report?: ReportNotice
           publication_notices?: { id: number | string; platform: string; action_id: string; label?: string; scope?: OperationScope }[]
         }>('/worker/poll', { worker, busy: running || manual.current || loginBusy(scope), takeover: manual.current })
 
-        if (!disposed) { reconcile(result.takeover, observedControl) }
+        if (!disposed) {
+          reconcile(result.takeover, observedControl)
+          execution.current.context?.block(result.execution_block)
+          setStatus(previous => previous === '等待连接' ? '执行窗口已连接，等待任务' : previous)
+        }
 
         reportSeen = reportNotice(result.latest_report, reportSeen, disposed, scope)
 
@@ -132,24 +138,20 @@ function Worker({
         const endActivity = beginBrowserActivity(scope, result.command.kind)
         finishActivity = endActivity
         guest.style.pointerEvents = 'none'
-        setStatus('正在执行任务；可点击人工接管暂停')
+        setStatus('正在执行网页任务；慢网络加载最多等待 2 分钟，可人工接管中断')
 
         try {
           const command = result.command
-          commandScope.current = command.scope || null
           setTaskLabel(command.topic_name || '')
-          const trace = createBrowserTrace(command, guest, api, worker)
 
-          const pending = manual.current
-            ? Promise.resolve({ state: 'blocked', error: '已进入人工接管', submitted: false, error_code: 'CONTROL_PAUSED' })
-            : trace.step('execution', () => executeBrowser(command, guest, api, clock.sleep, trace, worker))
+          const commandApi: Api = (path, body, method) => {
+            const selected = command.scope || (scope.business_id && scope.topic_id ? { business_id: scope.business_id, topic_id: scope.topic_id } : null)
 
-          execution.current.pending = pending
-          const answer = await pending
-
-          if (!disposed) {
-            await api('/worker/ack', { id: result.command.id, worker, result: answer })
+            return ctx.rest(selected ? scopePath(path, selected) : path, { owner: scope, method: method || (body ? 'POST' : 'GET'), body,
+              timeoutMs: path === '/worker/verify-images' ? 60000 : BACKEND_MS })
           }
+
+          const answer = await runBrowserCommand(command, guest, commandApi, worker, execution, clock.sleep, replace, () => !disposed)
 
           if (!disposed && !manual.current) {
             setStatus(answer.error || '本次网页任务完成')
@@ -157,8 +159,6 @@ function Worker({
         } finally {
           endActivity()
           running = false
-          execution.current.pending = null
-          commandScope.current = null
         }
       } catch (error) {
         if (!disposed) {
@@ -169,18 +169,23 @@ function Worker({
       }
     }
 
+    const unavailable = () => execution.current.context?.abort('网页进程已退出，请重新打开后手动继续', 'BROWSER_UNAVAILABLE')
+    guest.addEventListener('render-process-gone', unavailable)
     const clock = createExecutionClock(() => void poll())
     void poll()
 
     return () => {
       disposed = true
+      executionState.context?.abort('执行窗口已关闭或切换，停止旧任务', 'BROWSER_UNAVAILABLE')
+      guest.removeEventListener('render-process-gone', unavailable)
       finishActivity?.()
       clock.dispose()
     }
-  }, [scope, api, guest, worker, manual, controlRevision, reconcile])
+  }, [scope, api, ctx, guest, worker, manual, controlRevision, reconcile, replace])
 
   usePlatformLogin({ openPage: pages.openPage, owner: scope, worker, takeOver, onStatus: setStatus })
-  useLoginObservation({ api: loginApi, guest, worker, platform: 'xiaohongshu', onStatus: setStatus })
+  const observed = useCallback((observation: LoginObservation) => { execution.current.context?.observe(observation.state, observation.account_id) }, [])
+  useLoginObservation({ api: loginApi, guest, worker, platform: 'xiaohongshu', onStatus: setStatus, onObservation: observed })
 
 
   const failed = (reason: unknown) => setStatus(String(reason))

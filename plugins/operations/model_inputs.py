@@ -54,7 +54,7 @@ def analysis(context, sources):
     metrics = pack([fields(row, ('id', 'dataset_id', 'key', 'name', 'value', 'unit', 'previous', 'growth_percent', 'samples', 'missing', 'definition', 'semantics'))
                     for row in context['metrics']], 20, 6000)
     known = {row['id'] for row in sources} | {row['id'] for row in metrics}
-    rows = [fields(row, ('view', 'dimension', 'title', 'text', 'evidence_ids', 'scope', 'counter', 'unknowns'))
+    rows = [fields(row, ('view', 'dimension', 'title', 'text', 'evidence_ids', 'scope', 'counter', 'unknowns', 'origin_window', 'analyzed_at', 'analysis_origin'))
             for row in context['findings'] if set(row['evidence_ids']) <= known]
     findings = pack(rows, 12, 12_000)
     return {**fields(context, ('window', 'pending')), 'findings': findings, 'metrics': metrics,

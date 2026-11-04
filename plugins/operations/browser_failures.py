@@ -27,6 +27,9 @@ def retryable(db, command, result):
 
 
 def should_pause(db, command, result):
+    from .execution_pause import CODES
+    if result.get('error_code') in CODES:
+        return False
     return result.get('state') == 'blocked' and command['kind'] not in {'account', 'verify'} and not retryable(db, command, result)
 
 

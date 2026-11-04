@@ -1,6 +1,7 @@
 import { host } from '@hermes/plugin-sdk'
 import { useEffect, useRef } from 'react'
 
+import { LoginEvidence } from './login-evidence'
 import { inspectLoginPage, loginPlatform } from './login-page'
 import { $loginStatusRevision, type LoginObservation } from './login-state'
 import type { Api, Guest } from './types'
@@ -11,9 +12,11 @@ interface LoginObservationProps {
   worker: string
   platform: string
   onStatus: (status: string) => void
+  onObservation?: (observation: LoginObservation) => void
 }
 
 async function inspectWithDeadline(guest: Guest, platform: string): Promise<LoginObservation> {
+  if (guest.isLoadingMainFrame?.()) { return { state: 'unknown', account_id: '', loading: true } }
   let timer: ReturnType<typeof setTimeout> | undefined
 
   try {
@@ -30,7 +33,7 @@ async function inspectWithDeadline(guest: Guest, platform: string): Promise<Logi
   }
 }
 
-export function useLoginObservation({ api, guest, worker, platform, onStatus }: LoginObservationProps) {
+export function useLoginObservation({ api, guest, worker, platform, onStatus, onObservation }: LoginObservationProps) {
   // API/owner callbacks can change while the same guest remains mounted and ready.
   const readyGuest = useRef<Guest | null>(null)
 
@@ -40,6 +43,7 @@ export function useLoginObservation({ api, guest, worker, platform, onStatus }: 
     let disposed = false
     let busy = false
     let generation = 0
+    const evidence = new LoginEvidence()
     const problems = new Map<string, string>()
     const observations = new Map<string, string>()
 
@@ -70,6 +74,11 @@ export function useLoginObservation({ api, guest, worker, platform, onStatus }: 
           return
         }
 
+        const confirmed = evidence.observe(observation, `${started}:${url}`)
+
+        if (!confirmed) { return }
+        observation = confirmed
+        onObservation?.(observation)
         const signature = JSON.stringify([started, observation.state, observation.account_id])
 
         // Report state changes; an unchanged page is not a new login confirmation.
@@ -77,7 +86,7 @@ export function useLoginObservation({ api, guest, worker, platform, onStatus }: 
           return
         }
 
-        await api('/platforms/observe', { worker, platform, ...observation })
+        await api('/platforms/observe', { worker, platform, state: observation.state, account_id: observation.account_id })
         observations.set(platform, signature)
 
         if (!disposed) {
@@ -107,6 +116,7 @@ export function useLoginObservation({ api, guest, worker, platform, onStatus }: 
 
     const navigate = () => {
       generation += 1
+      evidence.reset()
       readyGuest.current = null
     }
 
@@ -137,5 +147,5 @@ export function useLoginObservation({ api, guest, worker, platform, onStatus }: 
       guest.removeEventListener('did-stop-loading', ready)
       guest.removeEventListener('did-navigate-in-page', ready)
     }
-  }, [api, guest, worker, platform, onStatus])
+  }, [api, guest, worker, platform, onStatus, onObservation])
 }

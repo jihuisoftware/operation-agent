@@ -1,7 +1,19 @@
 /** Pure read-only DOM inspection, serialized into the isolated guest. No cookies or credentials leave it. */
 export function inspectLoginPage(platform: string) {
-  const visible = (e: Element) =>
-    Boolean((e as HTMLElement).offsetWidth || (e as HTMLElement).offsetHeight || e.getClientRects().length)
+  const visible = (e: Element) => {
+    if (e.closest('[hidden],[aria-hidden="true"]')) { return false }
+    const appearance = getComputedStyle(e)
+
+    if (['hidden', 'collapse'].includes(appearance.visibility)) { return false }
+
+    for (let ancestor: Element | null = e; ancestor; ancestor = ancestor.parentElement) {
+      const style = ancestor === e ? appearance : getComputedStyle(ancestor)
+
+      if (style.display === 'none' || Number.parseFloat(style.opacity) === 0) { return false }
+    }
+
+    return Boolean((e as HTMLElement).offsetWidth || (e as HTMLElement).offsetHeight || e.getClientRects().length)
+  }
 
   const all = (selector: string) => Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(visible)
   const text = (e: Element) => (e.textContent || '').trim()
@@ -23,6 +35,8 @@ export function inspectLoginPage(platform: string) {
     return result('unknown')
   }
 
+  if (document.readyState === 'loading') { return { ...result('unknown'), loading: true } }
+
   const challenge = all('[class*="captcha"],[class*="verify"],[role="dialog"]').some(e =>
     /请.*验证|安全验证|安全检查|拖动滑块|验证码验证/.test(text(e))
   )
@@ -36,6 +50,19 @@ export function inspectLoginPage(platform: string) {
   ).some(e => /扫码登录|手机登录|密码登录|登录后|登录注册|账号登录/.test(text(e)))
 
   if (login) {
+    return result('logged_out')
+  }
+
+  const loginButtons = all(
+    'header button,header a,nav button,nav a,.side-bar button,.login__type__container button,.login__type__container a'
+  )
+
+  if (loginButtons.some(e => /^(登录|登录\/注册|登录注册|立即登录)$/.test(text(e)))) {
+    return result('logged_out')
+  }
+
+  if (platform === 'xiaohongshu' && /^\/(404|login)(\/|$)/.test(location.pathname) &&
+      /登录状态异常|登录已过期|请重新登录|登录失效/.test(document.body?.innerText || document.body?.textContent || '')) {
     return result('logged_out')
   }
 
@@ -107,14 +134,6 @@ export function inspectLoginPage(platform: string) {
     if (account.length === 1 && logout) {
       return result('logged_in')
     }
-  }
-
-  const loginButtons = all(
-    'header button,header a,nav button,nav a,.side-bar button,.login__type__container button,.login__type__container a'
-  )
-
-  if (loginButtons.some(e => /^(登录|登录\/注册|登录注册|立即登录)$/.test(text(e)))) {
-    return result('logged_out')
   }
 
   return result('unknown')

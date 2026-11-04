@@ -55,7 +55,9 @@ def sources_summary(store, policy, window):
         categories[organized['category']] += 1
         keywords.update(set(organized['keywords']))
         evidence.append({'id': source['id'], 'organization_id': organized['id'], 'title': source.get('title', ''),
-                         'url': source.get('url', ''), 'day': source['day'], 'category': organized['category'],
+                         'url': source.get('url', ''), 'day': source['day'], 'published_at': source.get('published_at'),
+                         'content_fingerprint': fingerprint(source['text']), 'source_complete': not source.get('truncated', False),
+                         'category': organized['category'],
                          'summary': organized['summary'], 'facts': organized['facts'], 'opinions': organized['opinions'],
                          'uncertainties': organized['uncertainties'], 'text_truncated': organized['text_truncated']})
     return {'counts': dict(counts), 'previous': dict(previous), 'categories': dict(categories), 'keywords': dict(keywords.most_common(30)),

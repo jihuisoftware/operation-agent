@@ -1,8 +1,12 @@
+import { pageScript } from './browser-document'
+import { BrowserExecution, BrowserExecutionError } from './browser-execution'
 import { openInteraction, openInventory } from './browser-inventory'
 import { navigateGuest } from './browser-navigation'
+import { BACKEND_MS, READINESS_MS } from './browser-timeouts'
 import { type BrowserTrace, unrecordedTrace } from './browser-trace'
 import { BrowserReadinessError, waitForRead } from './browser-wait'
 import { xhsInteractionDom } from './interaction-dom'
+import { confirmLogin } from './login-evidence'
 import { inspectLoginPage } from './login-page'
 import { xhsPage } from './page'
 import { xhsReady } from './page-ready'
@@ -34,23 +38,36 @@ async function evaluateGuest(guest: Guest, expression: string) {
 export async function executeBrowser(
   command: BrowserCommand,
   guest: Guest,
-  api: Api,
+  request: Api,
   sleep?: (ms: number) => Promise<unknown>,
   trace: BrowserTrace = unrecordedTrace,
-  worker?: string
+  worker?: string,
+  context?: BrowserExecution
 ) {
-  let submitted = false
+  const execution = context || new BrowserExecution(command, guest)
+
+  try { return await executeCommand(command, guest, request, trace, execution, sleep, worker) } catch (error) {
+    return execution.failure(error)
+  } finally { if (!context) { execution.finish() } }
+}
+
+async function executeCommand(command: BrowserCommand, guest: Guest, request: Api, trace: BrowserTrace,
+  execution: BrowserExecution, sleep?: (ms: number) => Promise<unknown>, worker?: string) {
+  const api: Api = (path, body, method) => execution.wait(() => request(path, body, method), path === '/worker/verify-images' ? 60000 : BACKEND_MS, false, `后台接口 ${path}`)
   const payload = command.payload
   let baseline = payload.baseline
   let receipt: Record<string, any> = {}
   const initial = await api<OperationsState>('/policy')
 
   if (initial.version !== payload.policy_version) {
-    return { state: 'blocked', error: '任务使用的规则已失效' }
+    return { state: 'blocked', error: '任务使用的规则已失效', submitted: false, dispatch_state: execution.dispatchState }
   }
 
   const check = async () => {
+    execution.assert()
     const current = await api<OperationsState>('/policy')
+    execution.block(current.execution_block)
+    execution.assert()
 
     if (current.web_held) { throw new BrowserReadinessError('网页控制已暂停，当前动作尚未提交', 'CONTROL_PAUSED') }
 
@@ -68,40 +85,47 @@ export async function executeBrowser(
     }
 
     if (current.policy.account_id && payload.account_id && current.policy.account_id !== payload.account_id) {
-      throw new Error('账号配置与任务不匹配')
+      throw new BrowserExecutionError('账号配置与任务不匹配', 'ACCOUNT_CHANGED')
     }
   }
 
   const page = async (operation: string, data: Record<string, unknown> = payload) => {
     await check()
     const url = new URL(guest.getURL())
+    execution.page(url)
 
     if (url.protocol !== 'https:' || !['www.xiaohongshu.com', 'creator.xiaohongshu.com'].includes(url.hostname)) {
       throw new Error('当前网页不是任务目标平台')
     }
 
-    if (operation === 'account') {
-      return evaluateGuest(guest, `(${inspectLoginPage.toString()})(${JSON.stringify('xiaohongshu')})`)
-    }
+    const identity = await confirmLogin(
+      () => pageScript(guest, execution, () => evaluateGuest(guest, `(${inspectLoginPage.toString()})(${JSON.stringify('xiaohongshu')})`), '网页脚本：登录识别', sleep),
+      () => guest.getURL(), execution, operation === 'account', sleep
+    )
+
+    if (operation === 'account') { return identity }
+
+    execution.observe(identity.state, identity.account_id)
+    execution.assert()
 
     if (operation === 'ready') {
-      return evaluateGuest(
+      return pageScript(guest, execution, () => evaluateGuest(
         guest,
         `(${xhsReady.toString()})(${JSON.stringify(data)}, (${xhsPublishControl.toString()}), (${xhsInteractionDom.toString()}))`
-      )
+      ), `网页脚本：${data.phase}就绪`, sleep)
     }
 
     if (operation.startsWith('publication:')) {
-      return evaluateGuest(
+      return pageScript(guest, execution, () => evaluateGuest(
         guest,
         `(${publicationPage.toString()})(${JSON.stringify({ operation: operation.slice(12), payload: data })})`
-      )
+      ), `网页脚本：${operation}`, sleep)
     }
 
-    return evaluateGuest(
+    return pageScript(guest, execution, () => evaluateGuest(
       guest,
       `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })}, (${xhsPublishControl.toString()}), (${xhsInteractionDom.toString()}))`
-    )
+    ), `网页脚本：${operation}`, sleep, ['commit-post', 'commit-interaction'].includes(operation) ? check : undefined)
   }
 
   const navigate = async (url: string) => {
@@ -112,7 +136,7 @@ export async function executeBrowser(
       throw new Error('导航地址不属于小红书')
     }
 
-    await navigateGuest(guest, target.href, sleep)
+    await navigateGuest(guest, target.href, sleep, execution)
   }
 
   const ready = async (phase: string, data = payload) => {
@@ -129,12 +153,15 @@ export async function executeBrowser(
           return result
         },
         result => result.ready === true,
-        phase === 'post' ? 60000 : 15000,
+        READINESS_MS,
         false,
-        sleep
+        sleep,
+        execution
       )
     } catch (error) {
       const message = `${phase}${data.label ? `「${data.label}」` : ''}：${error instanceof Error ? error.message : String(error)}${reason ? `；${reason}` : ''}`
+
+      if (error instanceof BrowserExecutionError) { throw new BrowserExecutionError(message, error.code) }
 
       if (error instanceof BrowserReadinessError) { throw new BrowserReadinessError(message, error.code) }
       throw new Error(message)
@@ -150,6 +177,7 @@ export async function executeBrowser(
     read: (operation: string, data: Record<string, any>) => page(`publication:${operation}`, data),
     navigate,
     trace,
+    execution,
     sleep,
     images: (urls: string[]) =>
       api<{ state: string; evidence: string }>('/worker/verify-images', { command_id: command.id, worker, urls })
@@ -159,31 +187,43 @@ export async function executeBrowser(
     const identity = await trace.step('account', async () => {
       await navigate(`${HOME}/explore`)
 
-      return waitForRead(
-        () => page('account'),
-        value => value.state !== 'unknown',
-        10000,
-        true,
-        sleep
-      )
+      return page('account')
     })
 
+    execution.observe(identity.state, identity.account_id)
+    execution.assert()
+
     if (identity.state !== 'logged_in' || !identity.account_id) {
-      throw new Error('未识别到登录账号，请在内嵌网页扫码登录后重新执行')
+      throw new BrowserExecutionError('登录状态仍未确认，请等待页面加载完成后手动继续', 'BROWSER_UNAVAILABLE')
     }
 
-    if (command.kind === 'account') {
+    if (command.kind === 'account' && !payload.readonly_inventory) {
       return identity
     }
 
-    if (identity.account_id !== payload.account_id) {
-      throw new Error('当前登录账号不匹配，已停止执行')
+    if (command.kind === 'account' && payload.readonly_inventory !== 'comment') {
+      throw new Error('未知的只读网页检查类型')
+    }
+
+    if (command.kind !== 'account' && identity.account_id !== payload.account_id) {
+      throw new BrowserExecutionError('当前登录账号不匹配，已停止执行', 'ACCOUNT_CHANGED')
     }
 
     const locations: Record<string, string> = {
       comment: `${HOME}/search_result?keyword=${searchQuery(payload.keywords, initial.policy.topic)}`,
       reply: `${HOME}/notification`,
       follow: `${HOME}/user/profile/${encodeURIComponent(payload.account_id)}`
+    }
+
+    if (command.kind === 'account' && payload.readonly_inventory === 'comment') {
+      return trace.step('inventory', async () => {
+        const readOnly = { ...payload, kind: 'comment', account_id: identity.account_id }
+        await openInventory(readOnly, { navigate, page: operation => page(operation, readOnly),
+          ready: phase => ready(phase, readOnly), clickLabel, locations })
+        const items = await page('inventory', readOnly)
+
+        return { ...identity, ...items, probe: 'account_and_search' }
+      })
     }
 
     if (command.kind === 'verify') {
@@ -240,7 +280,6 @@ export async function executeBrowser(
       })
       await trace.step('submit', async () => {
         await check()
-        submitted = true
 
         return page('commit-post', payload.content)
       })
@@ -248,9 +287,10 @@ export async function executeBrowser(
         waitForRead(
           () => page('post-result'),
           result => result.state !== 'unknown',
-          15000,
+          READINESS_MS,
           true,
-          sleep
+          sleep,
+          execution
         )
       )
 
@@ -268,7 +308,6 @@ export async function executeBrowser(
     payload.before_count = prepared.before_count
     await trace.step('submit_interaction', async () => {
       await check()
-      submitted = true
 
       return page('commit-interaction')
     })
@@ -277,25 +316,21 @@ export async function executeBrowser(
       waitForRead(
         () => page('interaction-result'),
         result => result.state === 'confirmed',
-        15000,
+        READINESS_MS,
         true,
-        sleep
+        sleep,
+        execution
       )
     )
   } catch (error) {
-    return {
-      ...receipt,
-      baseline,
-      state: submitted
-        ? receipt.state && receipt.state !== 'unknown'
-          ? 'submitted'
-          : 'unknown'
-        : command.kind === 'account'
-          ? 'waiting_login'
-          : 'blocked',
-      error: error instanceof Error ? error.message : String(error),
-      submitted,
-      error_code: error instanceof BrowserReadinessError ? error.code : undefined
-    }
+    return failureReceipt(execution, error, receipt, baseline)
   }
+}
+
+function failureReceipt(execution: BrowserExecution, error: unknown, receipt: Record<string, any>, baseline: unknown) {
+  const result = execution.failure(error)
+
+  if (result.submitted && receipt.state && receipt.state !== 'unknown') { result.state = 'submitted' }
+
+  return { ...receipt, baseline, ...result, error_code: error instanceof BrowserReadinessError ? error.code : result.error_code }
 }

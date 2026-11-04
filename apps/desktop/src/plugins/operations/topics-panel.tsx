@@ -60,6 +60,24 @@ export function TopicsPanel({ ctx }: { ctx: PluginContext }) {
     finally { setPending(false) }
   }
 
+  const generate = async (force: boolean) => {
+    if (!data || pending) { return }
+    setPending(true)
+    setError('')
+
+    try {
+      const result = await ctx.rest<{ state: string; detail: string }>('/topics/generate', {
+        method: 'POST', body: { version: data.version, request_id: crypto.randomUUID(), force }, timeoutMs: 1_800_000
+      })
+
+      if (result.state === 'failed' || result.state === 'paused') { setError(result.detail) }
+      else { setNotice(result.detail) }
+
+      setRevision(value => value + 1)
+    } catch (error) { setError(String(error)) }
+    finally { setPending(false) }
+  }
+
   return <section aria-label="选题管理" className="max-w-4xl space-y-5">
     <header className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-lg font-semibold"><Codicon name="lightbulb" />选题管理</h2>
       <Button onClick={() => setRevision(value => value + 1)} variant="ghost">刷新选题</Button></header>
@@ -76,6 +94,11 @@ export function TopicsPanel({ ctx }: { ctx: PluginContext }) {
       <div className="flex flex-wrap items-center gap-2"><Badge>当前选题</Badge><strong>{data.selected?.title || (data.candidates[0]?.title || '尚未确定')}</strong>
         <span className="text-xs text-muted-foreground">{data.selected ? '用户已指定' : data.candidates.length ? '默认使用首个推荐' : '可手动输入，或单独执行选题策划'}</span></div>
       <h3 className="font-medium">自动推荐</h3>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={pending} onClick={() => void generate(false)}>生成选题（优先复用）</Button>
+        <Button disabled={pending} onClick={() => void generate(true)} variant="outline">重新生成选题</Button>
+      </div>
+      <p className="text-xs text-muted-foreground">输入未变化时优先复用今天的结果；重新生成会再次调用模型并计入正常预算。已指定的选题与已有草稿保持不变。</p>
       {!data.candidates.length && <p className="text-muted-foreground">暂无候选。采集并整理归类后，需执行独立的“选题策划”模块。</p>}
       {data.candidates.map((topic, index) => <article className="space-y-2 border-b pb-4" key={`${data.brief_id}:${index}`}>
         <div className="flex items-center justify-between gap-3"><h4 className="font-medium">{index + 1}. {topic.title}</h4>

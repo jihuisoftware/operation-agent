@@ -157,3 +157,74 @@ it('opens the actual search card before submitting one comment to the verified n
   expect(sent).toBe(1)
   expect(guest.loadURL).not.toHaveBeenCalledWith('https://www.xiaohongshu.com/explore/target')
 })
+
+it('reads actual search DOM during an account diagnostic without any submit path', async () => {
+  const events = new EventTarget()
+  let url = 'about:blank'
+
+  const guest = {
+    addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events),
+    getURL: () => url,
+    loadURL: async (next: string) => {
+      url = next
+      vi.stubGlobal('location', new URL(next))
+      document.body.innerHTML = '<nav><a href="https://www.xiaohongshu.com/user/profile/me">我</a></nav>'
+
+      if (next.includes('/search_result')) {
+        document.body.innerHTML += '<section class="note-item"><a href="https://www.xiaohongshu.com/explore/readonly-note">候选笔记</a></section>'
+      }
+
+      events.dispatchEvent(new Event('dom-ready'))
+    },
+    executeJavaScript: async (code: string) => (0, eval)(code)
+  } as unknown as Guest
+
+  const api = (async () => ({ version: 1, policy: { enabled: true, paused: false, account_id: 'me', topic: '测试' } })) as Api
+
+  const pending = executeBrowser({ id: 'read-only-search', kind: 'account', expires: Date.now() / 1000 + 120,
+    payload: { policy_version: 1, resume_probe: true, readonly_inventory: 'comment', keywords: ['测试'] } }, guest, api)
+
+  await vi.runAllTimersAsync()
+  expect(await pending).toMatchObject({ state: 'logged_in', probe: 'account_and_search', items: [{ id: 'note:readonly-note' }] })
+})
+
+it('separates a slow proxy page load from the script execution budget', async () => {
+  const events = new EventTarget()
+  let url = 'about:blank'
+  let loading = false
+  let loaded = Promise.resolve()
+  const dispatchedWhileLoading: boolean[] = []
+
+  const guest = {
+    addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events),
+    getURL: () => url, isLoadingMainFrame: () => loading,
+    loadURL: async (next: string) => {
+      url = next
+      loading = true
+      vi.stubGlobal('location', new URL(next))
+      document.body.innerHTML = '<nav><a href="https://www.xiaohongshu.com/user/profile/me">我</a></nav>'
+      loaded = new Promise<void>(resolve => setTimeout(() => {
+        loading = false
+        events.dispatchEvent(new Event('did-stop-loading'))
+        resolve()
+      }, 45000))
+      events.dispatchEvent(new Event('dom-ready'))
+      await loaded
+    },
+    executeJavaScript: async (code: string) => {
+      dispatchedWhileLoading.push(loading)
+      await loaded
+
+      return (0, eval)(code)
+    }
+  } as unknown as Guest
+
+  const api = (async () => ({ version: 1, policy: { enabled: true, paused: false, account_id: 'me', topic: '测试' } })) as Api
+
+  const result = executeBrowser({ id: 'slow-proxy', kind: 'account', expires: Date.now() / 1000 + 600,
+    payload: { policy_version: 1, resume_probe: true } }, guest, api)
+
+  await vi.advanceTimersByTimeAsync(46000)
+  expect(await result).toMatchObject({ state: 'logged_in', account_id: 'me' })
+  expect(dispatchedWhileLoading).toEqual([false])
+})

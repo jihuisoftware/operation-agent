@@ -48,9 +48,14 @@ def apply(store, body):
 def status(store):
     with store.connection() as db:
         row = db.execute("SELECT id,data FROM objects WHERE kind='quick_run' ORDER BY created DESC LIMIT 1").fetchone()
-        runs = [] if not row else [dict(r) for r in db.execute('SELECT * FROM runs WHERE slot=? ORDER BY started', ('manual:' + row['id'],))]
+        slot = 'manual:' + row['id'] if row else ''
+        scope = (slot, len(slot) + 1, slot + ':')
+        where = '(slot=? OR substr(slot,1,?)=?)'
+        runs = [] if not row else [dict(r) for r in db.execute(f'SELECT * FROM runs WHERE {where} ORDER BY started,rowid', scope)]
         events = [] if not row else [dict(r) for r in db.execute(
-            "SELECT id,at,kind,data FROM events WHERE json_extract(data,'$.run_id') IN (SELECT id FROM runs WHERE slot=?) ORDER BY id", ('manual:' + row['id'],))]
+            f"SELECT id,at,kind,data FROM events WHERE json_extract(data,'$.run_id') IN (SELECT id FROM runs WHERE {where}) ORDER BY id", scope)]
+    for item in runs:
+        item['attempt'] = int(item['slot'].rsplit(':resume:', 1)[1]) if ':resume:' in item['slot'] else 0
     result = {**json.loads(row['data']), 'id': row['id']} if row else None
     errors = [r for r in runs if r['state'] in {'failed', 'interrupted'}]
     errors.extend(e for e in events if 'error' in e['kind'] or json.loads(e['data']).get('state') in {'failed', 'interrupted'})

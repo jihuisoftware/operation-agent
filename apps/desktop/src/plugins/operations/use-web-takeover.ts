@@ -1,5 +1,6 @@
 import { type RefObject, useCallback, useRef } from 'react'
 
+import type { BrowserExecution } from './browser-execution'
 import type { Api, Guest } from './types'
 
 export interface WebControlState { held: boolean; owned: boolean }
@@ -8,7 +9,7 @@ interface Props {
   api: Api
   guest: Guest
   worker: string
-  execution: RefObject<{ pending: Promise<unknown> | null }>
+  execution: RefObject<{ pending: Promise<unknown> | null; context?: BrowserExecution | null }>
   onStatus: (message: string) => void
 }
 
@@ -37,6 +38,7 @@ export function useWebTakeover({ api, guest, worker, execution, onStatus }: Prop
       if (revision.current !== current) { return }
       changing.current = false
       current = ++revision.current
+      execution.current.context?.abort('已进入人工接管，停止当前网页任务', 'CONTROL_PAUSED')
       onStatus('已暂停，等待当前网页操作退出…')
       await execution.current.pending?.then(() => undefined, error => {
         if (revision.current === current) { onStatus(String(error)) }

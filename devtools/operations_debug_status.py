@@ -1,5 +1,39 @@
 """Small per-task projections for the debug list; full events stay in the detail endpoint."""
 from datetime import UTC, datetime
+from copy import deepcopy
+import json
+
+
+def persist_recovery(store, data, original):
+    from plugins.operations.store import encoded
+    with store.connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute("SELECT data FROM objects WHERE id=? AND kind='debug_run'", (data['id'],)).fetchone()
+        if row and json.loads(row[0]) == json.loads(original):
+            db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(data), data['id']))
+        elif row:
+            data.clear()
+            data.update(json.loads(row[0]))
+
+
+def present_run(store, run):
+    if run.get('state') != 'paused':
+        return run
+    from plugins.operations.execution_pause import load
+    from plugins.operations.execution_pause_view import describe
+    reason = load(store, run['id'])
+    if not reason:
+        return run
+    view = describe(store, reason)
+    presented = deepcopy(run)
+    presented['pause_status'] = view
+    if view.get('historical_error'):
+        presented['detail'] = view['error']
+        for step in presented.get('steps', []):
+            if step['state'] == 'paused':
+                step['historical_detail'] = step.get('detail', '')
+                step['detail'] = view['error']
+    return presented
 
 
 def latest_progress(store, identities):
@@ -51,3 +85,19 @@ def saved_result_status(run, step):
         if reason.startswith('本轮草稿已生成'):
             return {'detail': reason[:500]}
     return {}
+
+
+def active_execution(store):
+    import time
+    from plugins.operations.manual import LABELS
+    with store.connection() as db:
+        if not db.execute("SELECT 1 FROM leases WHERE id='account' AND expires>?", (time.time(),)).fetchone():
+            return None
+        row = db.execute("SELECT id,stage,started FROM runs WHERE state='running' ORDER BY started DESC LIMIT 1").fetchone()
+        if not row:
+            return {'message': '已有任务占用执行通道，请等待当前任务结束'}
+        progress = db.execute("SELECT at,json_extract(data,'$.detail') AS detail FROM events WHERE kind='progress' "
+                              "AND json_extract(data,'$.run_id')=? ORDER BY id DESC LIMIT 1", (row['id'],)).fetchone()
+    detail = str(progress['detail'] or '')[:500] if progress else '任务执行中'
+    return {'run_id': row['id'], 'started': row['started'], 'progress_at': progress['at'] if progress else None,
+            'message': f"后台正在执行「{LABELS.get(row['stage'], row['stage'])}」：{detail}"}

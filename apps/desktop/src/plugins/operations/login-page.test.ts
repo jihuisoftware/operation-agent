@@ -90,3 +90,32 @@ it('can execute the serialized probe in a guest without access to module helpers
   const probe = new Function(`return (${inspectLoginPage.toString()})`)()
   expect(probe('xiaohongshu')).toEqual({ state: 'logged_in', account_id: 'mine' })
 })
+
+
+it('prioritizes explicit logout over a stale account link and recognizes the login-expired error page', () => {
+  page('www.xiaohongshu.com', '<nav><a href="/user/profile/mine">我</a><button>登录</button></nav>')
+  expect(inspectLoginPage('xiaohongshu').state).toBe('logged_out')
+  vi.stubGlobal('location', new URL('https://www.xiaohongshu.com/404'))
+  document.body.innerHTML = '<main>登录状态异常，请重新登录后再试</main>'
+  expect(inspectLoginPage('xiaohongshu').state).toBe('logged_out')
+})
+
+
+it('does not treat a login button in a still-loading document as logout evidence', () => {
+  page('www.xiaohongshu.com', '<nav><button>登录</button></nav>')
+  vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading')
+  expect(inspectLoginPage('xiaohongshu')).toMatchObject({ state: 'unknown', loading: true })
+})
+
+it.each([
+  'hidden',
+  'aria-hidden="true"',
+  'style="display:none"',
+  'style="visibility:hidden"',
+  'style="opacity:0"'
+])('ignores a login dialog hidden by its ancestor (%s) while preserving visible login requirements', hidden => {
+  page('www.xiaohongshu.com', `<nav><a href="/user/profile/mine">我</a></nav><div ${hidden}><div role="dialog">扫码登录</div></div>`)
+  expect(inspectLoginPage('xiaohongshu')).toEqual({ state: 'logged_in', account_id: 'mine' })
+  document.body.innerHTML = '<nav><a href="/user/profile/mine">我</a></nav><div role="dialog">扫码登录</div>'
+  expect(inspectLoginPage('xiaohongshu').state).toBe('logged_out')
+})

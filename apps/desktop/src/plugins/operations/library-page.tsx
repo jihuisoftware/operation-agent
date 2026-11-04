@@ -1,11 +1,13 @@
-import { Button, CopyButton, formatTimestamp, formatTimestampMinute, host, type PluginContext } from '@hermes/plugin-sdk'
+import { Button, CopyButton, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useState } from 'react'
 
 import { AssetImage } from './asset-image'
 import { EvidenceStorage } from './evidence-storage'
 import { ActionManager, ContentEditor } from './management'
+import { PausedRuns } from './paused-runs'
+import { ReportCard } from './report-card'
 import type { RecordRow } from './types'
-import { Assets, download, NewRecord, Records } from './workbench-widgets'
+import { Assets, NewRecord, Records } from './workbench-widgets'
 import { InboxTransfer } from './workspace-inbox'
 
 export interface Library {
@@ -159,25 +161,14 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
       )}
       {section === 'history' && (
         <>
+          <PausedRuns ctx={ctx} />
           <NewRecord ctx={ctx} kind="task" onError={props.onError} onSaved={props.refresh} />
           <Records rows={data.task || []} />
           <CopyButton label="复制执行记录" text={JSON.stringify(data.runs, null, 2)} />
           <Records rows={data.runs || []} />
         </>
       )}
-      {section === 'reports' &&
-        (data.report || []).map(row => (
-          <details key={row.id}>
-            <summary className="cursor-pointer">{String(row.day)} 日报 · {formatTimestampMinute(String(row.created))}</summary>
-            <div className="flex gap-2">
-              <CopyButton label="复制日报" text={String(row.markdown)} />
-              <Button onClick={() => download(String(row.day), String(row.markdown))} variant="outline">
-                导出 Markdown
-              </Button>
-            </div>
-            <pre className="whitespace-pre-wrap break-words">{String(row.markdown)}</pre>
-          </details>
-        ))}
+      {section === 'reports' && (data.report || []).map(row => <ReportCard ctx={ctx} key={row.id} row={row} />)}
       {!actions.length && ['interactions', 'content'].includes(section) && (
         <p className="text-muted-foreground">暂无外部执行记录；未提交的内容不会标记为已发布。</p>
       )}

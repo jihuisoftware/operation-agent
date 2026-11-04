@@ -11,6 +11,7 @@ from PIL import Image
 import pytest
 from starlette.testclient import TestClient
 
+from devtools import operations_debug as debug
 from plugins.operations.policy import DEFAULT
 from tests.plugins.operations_support import organized_response
 from tests.waiting import wait_until
@@ -78,7 +79,7 @@ def test_blueprint_to_report_through_authenticated_profile_http(tmp_path, monkey
             'version': catalog['version'], 'policy': policy, 'request_id': 'apply-acceptance', 'mode': 'enable'})
         version = applied['version']
         request('POST', '/worker/poll', {'worker': 'simulated-desktop', 'busy': True})
-        body = {'task': 'pipeline', 'version': version, 'request_id': 'http-acceptance', 'mode': mode,
+        body = {'task': 'pipeline', 'tasks': list(debug.TASKS), 'version': version, 'request_id': 'http-acceptance', 'mode': mode,
                 **({'external_actions': 'execute_once'} if mode == 'quick' else {})}
         commands = []
         live_seen = set()

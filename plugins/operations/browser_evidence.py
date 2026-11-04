@@ -13,7 +13,7 @@ from .store import encoded
 
 def command_context(store):
     return {k: v for k, v in {'run_id': store.current_run_id, 'manual_run_id': store.manual_run_id,
-                              'step_id': getattr(store, 'debug_step', None)}.items() if v}
+                              'step_id': getattr(store, 'debug_step', None), 'resume_key': getattr(store, 'resume_key', None)}.items() if v}
 
 
 def clean(value, depth=0):
@@ -47,9 +47,6 @@ def screenshot(data):
 
 
 def record_step(store, command_id, worker, body):
-    if body.get('phase') == 'started':
-        from .workspace_execution import check_running
-        check_running(store, web=True)
     sequence, phase = body.get('sequence'), body.get('phase')
     if type(sequence) is not int or not 1 <= sequence <= 100 or phase not in {'started', 'completed', 'failed'}:
         raise ValueError('步骤序号或状态无效')
@@ -67,6 +64,9 @@ def record_step(store, command_id, worker, body):
     with store.connection() as db:
         db.execute('BEGIN IMMEDIATE')
         command = db.execute('SELECT * FROM commands WHERE id=? AND worker=?', (command_id, worker)).fetchone()
+        if body.get('phase') == 'started' and command:
+            from .workspace_execution import check_running
+            check_running(store, web=command['kind'] not in {'account', 'verify'}, db=db)
         if not command:
             raise ValueError('步骤不属于当前执行者')
         key = f'browser-step:{command_id}:{sequence}:{phase}'

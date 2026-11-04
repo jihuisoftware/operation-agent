@@ -4,6 +4,7 @@ import { atom } from 'nanostores'
 export interface LoginObservation {
   state: 'logged_in' | 'logged_out' | 'verification' | 'unknown'
   account_id: string
+  loading?: boolean
 }
 export interface PlatformLogin {
   id: string

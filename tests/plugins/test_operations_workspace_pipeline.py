@@ -13,7 +13,7 @@ def test_four_topic_pipelines_are_traceable_and_do_not_cross_records(tmp_path, m
     from agent import auxiliary_client
     from tools import web_tools
     from tests.plugins.test_operations_workflow import fake_model
-    from devtools.operations_debug import execute
+    from devtools.operations_debug import TASKS, execute
     def model(**kwargs):
         response = fake_model(**kwargs)
         data = json.loads(kwargs['messages'][1]['content'])
@@ -66,7 +66,7 @@ def test_four_topic_pipelines_are_traceable_and_do_not_cross_records(tmp_path, m
         with bind_scope(scope['business_id'], scope['topic_id']):
             store = Store()
             store.claim('simulated-desktop', busy=True)
-            request = {'task': 'pipeline', 'version': store.policy()[0], 'request_id': 'same-request'}
+            request = {'task': 'pipeline', 'tasks': list(TASKS), 'version': store.policy()[0], 'request_id': 'same-request'}
             result = execute(request)
             assert result['state'] == 'completed', result['detail']
             assert execute(request) == result

@@ -1,3 +1,5 @@
+import { type BrowserExecution, evidenceDeadline } from './browser-execution'
+import { BACKEND_MS } from './browser-timeouts'
 import type { Api, BrowserCommand, Guest } from './types'
 
 export interface BrowserTrace {
@@ -5,20 +7,23 @@ export interface BrowserTrace {
 }
 export const unrecordedTrace: BrowserTrace = { step: (_name, operation) => operation() }
 
-export function createBrowserTrace(command: BrowserCommand, guest: Guest, api: Api, worker: string): BrowserTrace {
+export function createBrowserTrace(command: BrowserCommand, guest: Guest, api: Api, worker: string, execution?: BrowserExecution): BrowserTrace {
   let sequence = 0
 
   const send = (body: Record<string, unknown>) => api('/worker/steps', { command_id: command.id, worker, ...body })
 
   const capture = async () => {
     const evidence: Record<string, unknown> = {}
+    const expires = Math.min(command.expires || Infinity, Date.now() / 1000 + 3)
+
+    if (execution?.quarantined) { return { capture_error: '网页已隔离，使用已保存的步骤证据' } }
 
     try {
-      evidence.page = await guest.executeJavaScript(`({ title: document.title, summary: (document.body?.innerText || '').slice(0, 1600) })`)
+      evidence.page = await evidenceDeadline(() => guest.executeJavaScript(`({ title: document.title, summary: (document.body?.innerText || '').slice(0, 1600) })`), expires)
     } catch (error) { evidence.page_error = String(error) }
 
     try {
-      const image = await guest.capturePage!()
+      const image = await evidenceDeadline(() => guest.capturePage!(), expires)
       const data = image.resize({ width: 900 }).toDataURL()
 
       if (data.length <= 1_500_000) { evidence.screenshot = data } else { evidence.capture_error = '截图超过保存上限' }
@@ -34,20 +39,24 @@ export function createBrowserTrace(command: BrowserCommand, guest: Guest, api: A
       const tick = performance.now()
       const record = { sequence: number, name, started }
       // A durable start must precede side effects. A failed end write never retries the operation.
-      await send({ ...record, phase: 'started', url: guest.getURL() })
+      const start = () => send({ ...record, phase: 'started', url: guest.getURL() })
+
+      if (execution) { await execution.wait(start, BACKEND_MS, false, `保存步骤 ${name}`); execution.assert() } else { await start() }
 
       try {
         const result = await operation()
         const problem = result as { state?: string; error?: string; error_code?: string; publication?: { content: string; platform: string } } | null
         const failed = problem?.error || problem?.error_code || ['unknown', 'blocked'].includes(problem?.state || '') || problem?.publication?.content === 'mismatch'
-        await send({ ...record, phase: failed ? 'failed' : 'completed', ended: new Date().toISOString(),
+        const evidence = failed ? { error_code: 'PAGE_RESULT_UNCONFIRMED', ...await capture() } : {}
+        await evidenceDeadline(() => send({ ...record, phase: failed ? 'failed' : 'completed', ended: new Date().toISOString(),
           duration_ms: Math.round(performance.now() - tick), url: guest.getURL(), result,
-          ...(failed ? { error_code: 'PAGE_RESULT_UNCONFIRMED', ...await capture() } : {}) })
+          ...evidence }), Date.now() / 1000 + 3)
 
         return result
       } catch (error) {
-        await send({ ...record, phase: 'failed', ended: new Date().toISOString(), duration_ms: Math.round(performance.now() - tick),
-          url: guest.getURL(), error_code: 'BROWSER_STEP_FAILED', error: String(error), ...await capture() })
+        const evidence = await capture()
+        await evidenceDeadline(() => send({ ...record, phase: 'failed', ended: new Date().toISOString(), duration_ms: Math.round(performance.now() - tick),
+          url: guest.getURL(), error_code: 'BROWSER_STEP_FAILED', error: String(error), ...evidence }), Date.now() / 1000 + 3)
         throw error
       }
     }

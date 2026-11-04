@@ -1,7 +1,10 @@
+import type { BrowserExecution } from './browser-execution'
+import { READINESS_MS } from './browser-timeouts'
 import type { BrowserTrace } from './browser-trace'
 import { waitForRead } from './browser-wait'
 
 export interface PublicationIO {
+  execution?: BrowserExecution
   read: (operation: string, payload: Record<string, any>) => Promise<any>
   navigate: (url: string) => Promise<void>
   trace: BrowserTrace
@@ -13,7 +16,7 @@ export interface PublicationBaseline { ids: string[]; captured_at: string; accou
 export async function publicationBaseline(io: PublicationIO, payload: Record<string, any>): Promise<PublicationBaseline> {
   return io.trace.step('baseline', async () => {
     await io.navigate(`https://www.xiaohongshu.com/user/profile/${encodeURIComponent(payload.account_id)}`)
-    const list = await waitForRead(() => io.read('notes', payload), value => value.ready, 15000, false, io.sleep)
+    const list = await waitForRead(() => io.read('notes', payload), value => value.ready, READINESS_MS, false, io.sleep, io.execution)
 
     return { ids: list.notes.map((n: { id: string }) => n.id), captured_at: new Date().toISOString(), account_id: payload.account_id }
   })
@@ -39,7 +42,7 @@ export async function resolvePublication(io: PublicationIO, payload: Record<stri
 
     const found = await io.trace.step('discover', async () => {
       await io.navigate(`https://www.xiaohongshu.com/user/profile/${encodeURIComponent(payload.account_id)}`)
-      const list = await waitForRead(() => io.read('notes', payload), r => r.ready && r.notes.some((n: { id: string }) => !baseline.ids.includes(n.id)), 15000, true, io.sleep)
+      const list = await waitForRead(() => io.read('notes', payload), r => r.ready && r.notes.some((n: { id: string }) => !baseline.ids.includes(n.id)), READINESS_MS, true, io.sleep, io.execution)
 
       const candidates = (list.notes || []).filter((n: { id: string; title: string }) => !baseline.ids.includes(n.id) &&
         (n.title === payload.content.title || normalizePrefix(payload.content.body, n.title)))
@@ -57,7 +60,7 @@ export async function resolvePublication(io: PublicationIO, payload: Record<stri
 
   return io.trace.step('verify_publication', async () => {
     await io.navigate(target)
-    const detail = await waitForRead(() => io.read('inspect', payload), r => r.ready, 15000, true, io.sleep)
+    const detail = await waitForRead(() => io.read('inspect', payload), r => r.ready, READINESS_MS, true, io.sleep, io.execution)
 
     if (!detail.ready) { return { ...pending, url: target, evidence: '笔记详情尚未加载，等待后续核对' } }
     const textMatches = Object.values(detail.checks).every(Boolean)
@@ -67,7 +70,7 @@ export async function resolvePublication(io: PublicationIO, payload: Record<stri
 
     if (platform === 'unknown') {
       await io.navigate('https://creator.xiaohongshu.com/new/note-manager?source=official')
-      const manager = await waitForRead(() => io.read('manager', { ...payload, note_id: detail.id, images: detail.images }), r => r.ready, 15000, true, io.sleep)
+      const manager = await waitForRead(() => io.read('manager', { ...payload, note_id: detail.id, images: detail.images }), r => r.ready, READINESS_MS, true, io.sleep, io.execution)
       platform = manager.platform || 'unknown'
     }
 

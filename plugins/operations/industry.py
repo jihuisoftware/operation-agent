@@ -1,6 +1,6 @@
 """Evidence-bound industry interpretation; public/private generations never mix."""
 from .analysis_config import settings
-from .analytics import latest, valid
+from .analytics import valid
 from .analysis_data import business_summary
 from .model import generate
 from .model_budget import remaining_calls
@@ -40,7 +40,8 @@ def _budget(store, day, policy):
 def analyze(store, policy, day, version):
     from .analysis_runs import guard
     guard(store, policy)
-    analytics = latest(store, 'analytics_report', policy, day)
+    from .artifact_inputs import analysis as analysis_input
+    analytics = analysis_input(store, 'analytics_report', policy, day)
     if not analytics:
         raise StageSkipped('没有同主题、同范围的有效数据分析，请先执行数据分析')
     config = settings(store)
@@ -58,8 +59,11 @@ def analyze(store, policy, day, version):
         report['debug_id'] = store.debug_id
     report.update(version=version, analytics_id=analytics['id'], created=now_iso(), findings=findings, covered_ids=covered,
                   pending=pending, errors=batches['errors'], model_calls=batches['model_calls'], reused=batches['reused'], evidence=public + private,
+                  coverage=batches['coverage'],
                   detail=f'已分析 {len(covered)}/{len(public) + len(private)} 项证据，形成 {len(findings)} 条结论；未覆盖 {pending} 项；复用已完成证据 {batches["reused"]} 项',
                   state='needs_attention' if pending or not findings else 'completed')
+    if batches['coverage']['mode'] == 'sample':
+        report['detail'] += '；快速抽样验证，最多新增分析 1 批，未覆盖部分不代表已完成'
     if batches['errors']:
         report['detail'] += '；' + batches['errors'][0]
     if store.policy() != (version, policy) or not valid(store, analytics, policy, day):
@@ -72,8 +76,9 @@ def analyze(store, policy, day, version):
 def production_context(store, policy, day):
     if not any(policy['modules'].get(k) for k in ('analytics', 'industry')):
         return None
-    report = latest(store, 'industry_report', policy, day)
-    analytics = latest(store, 'analytics_report', policy, day)
+    from .artifact_inputs import analysis as analysis_input
+    report = analysis_input(store, 'industry_report', policy, day)
+    analytics = analysis_input(store, 'analytics_report', policy, day)
     if not analytics:
         store.event('analysis_fallback', {'day': day, 'reason': '没有有效分析，降级到已整理资料'})
         return None

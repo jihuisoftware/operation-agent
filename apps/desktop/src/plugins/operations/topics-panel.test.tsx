@@ -44,3 +44,22 @@ it('selects a candidate by its saved batch and shows a rejected stale selection'
   expect(rest).toHaveBeenCalledWith('/topics/select', { method: 'POST', body: { candidate_index: 0, brief_id: 'b1', version: 2 } })
   expect(screen.queryByText('用户已指定')).toBeNull()
 })
+
+it('only forces a new model result from the explicit regenerate button', async () => {
+  const data = { version: 7, day: '2026-11-04', scope_topic: '收纳', brief_id: null, candidates: [], selected: null }
+
+  const rest = vi.fn(async (path: string) => path === '/topics/generate'
+    ? { state: 'completed', detail: '选题已保存' } : data)
+
+  render(<TopicsPanel ctx={{ rest } as unknown as PluginContext} />)
+  fireEvent.click(await screen.findByRole('button', { name: '生成选题（优先复用）' }))
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/topics/generate', expect.objectContaining({
+    body: { version: 7, request_id: expect.any(String), force: false }
+  })))
+  const regenerate = screen.getByRole('button', { name: '重新生成选题' })
+  await waitFor(() => expect((regenerate as HTMLButtonElement).disabled).toBe(false))
+  fireEvent.click(regenerate)
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/topics/generate', expect.objectContaining({
+    body: { version: 7, request_id: expect.any(String), force: true }
+  })))
+})

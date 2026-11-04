@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 
 import { createBrowserTrace } from './browser-trace'
 import type { Api, BrowserCommand, Guest } from './types'
@@ -19,4 +19,19 @@ it('retains a failed completion record without retrying the submitted operation'
   await expect(trace.step('submit', operation)).rejects.toThrow('写入中断')
   expect(operation).toHaveBeenCalledTimes(1)
   expect(api).toHaveBeenLastCalledWith('/worker/steps', expect.objectContaining({ phase: 'failed', error: expect.stringContaining('写入中断') }))
+})
+
+
+afterEach(() => vi.useRealTimers())
+
+it('finishes its failure record even when page diagnostics never return', async () => {
+  vi.useFakeTimers()
+  const api = vi.fn(async () => ({}))
+  const guest = { getURL: () => 'https://www.xiaohongshu.com', executeJavaScript: () => new Promise(() => {}), capturePage: () => new Promise(() => {}) } as unknown as Guest
+  const trace = createBrowserTrace({ id: 'command', expires: Date.now() / 1000 + 120 } as BrowserCommand, guest, api as Api, 'worker')
+  const pending = trace.step('inventory', async () => { throw new Error('页面失败') })
+  const rejected = expect(pending).rejects.toThrow('页面失败')
+  await vi.advanceTimersByTimeAsync(3001)
+  await rejected
+  expect(api).toHaveBeenLastCalledWith('/worker/steps', expect.objectContaining({ phase: 'failed', page_error: expect.stringContaining('取证超时') }))
 })

@@ -12,6 +12,8 @@ def check_running(store, *, web=False, db=None):
     if store.workspace.blocked(store.scope):
         raise ValueError('当前业务、主题或全部运营已暂停/归档')
     if web:
+        from .execution_pause import guard
+        guard(store, web=True, db=db)
         from .web_control import reason_for_account
         account = store.workspace.resolve(store.scope['business_id'], store.scope['id'])['account']
         if db is None:
@@ -66,7 +68,7 @@ def reserve_action(store, db, action, identity, day):
 def claim_account(store, db, command, worker):
     if not store.workspace:
         return True
-    check_running(store, web=True, db=db)
+    check_running(store, web=command['kind'] not in {'account', 'verify'}, db=db)
     account = store.workspace.resolve(store.scope['business_id'], store.scope['id'])['account']
     row = db.execute('SELECT * FROM directory.account_leases WHERE account_id=?', (account,)).fetchone()
     if row and row['expires'] > time.time():

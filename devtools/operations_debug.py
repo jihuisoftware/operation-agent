@@ -53,17 +53,40 @@ def record(store, identity):
 
 
 def recover_interrupted(store, data):
-    if data["state"] != "running":
+    from plugins.operations.execution_resume import recover
+    from plugins.operations.execution_pause import load
+    recover(store)
+    if data['state'] not in {'running', 'paused', 'interrupted'}:
         return
     try:
-        alive = psutil.Process(data["pid"]).create_time() == data["process_started"]
+        alive = psutil.Process(data['pid']).create_time() == data['process_started']
     except psutil.NoSuchProcess:
         alive = False
+    with store.connection() as db:
+        lease = db.execute('SELECT expires FROM leases WHERE token=?', (data['id'],)).fetchone()
+    if alive and lease and lease[0] > time.time():
+        return
+    paused = load(store, data['id'])
+    if paused and paused['state'] == 'paused' and data['state'] in {'running', 'interrupted', 'paused'}:
+        original = encoded(data)
+        data.update(state='paused', revision=paused['revision'], detail=paused['error'])
+        for step in data.get('steps', []):
+            if step['state'] in {'running', 'pending', 'interrupted'}:
+                step.update(state='paused', detail=paused['error'])
+        from .operations_debug_status import persist_recovery
+        persist_recovery(store, data, original)
+        return
+    if data["state"] != "running":
+        return
     with store.connection() as db:
         lease = db.execute("SELECT expires FROM leases WHERE token=?", (data["id"],)).fetchone()
         if alive and lease and lease[0] > time.time():
             return
-        data.update(state="interrupted", ended=now_iso(), detail="执行进程退出或租约失效；外部结果需核对，不自动重发")
+        external = db.execute("SELECT 1 FROM actions WHERE json_extract(data,'$.manual_run_id')=?", (data['id'],)).fetchone()
+        detail = '执行进程退出或租约失效；外部结果需核对，不自动重发' if external else '执行进程退出或租约失效；本批次没有外部提交记录'
+        data.update(state="interrupted", ended=now_iso(), detail=detail)
+        if not alive:
+            db.execute("DELETE FROM leases WHERE id='account' AND token=?", (data['id'],))
         db.execute("UPDATE runs SET state='interrupted', detail=?, ended=? WHERE (slot=? OR substr(slot,1,?)=?) AND state='running'",
                    (data["detail"], data["ended"], data["id"], len(data["id"]) + 1, data["id"] + ":"))
     for step in data.get("steps", []):
@@ -72,11 +95,12 @@ def recover_interrupted(store, data):
     update_record(store, data)
 
 
-def previous(store, identity, task, version, mode='normal', external_actions='standing_policy'):
+def previous(store, identity, task, version, mode='normal', external_actions='standing_policy', selected_tasks=None):
     existing = record(store, identity)
     if existing and (existing["task"] != task or existing["version"] != version
                      or existing.get('mode', 'normal') != mode
-                     or existing.get('action_mode', 'standing_policy') != external_actions):
+                     or existing.get('action_mode', 'standing_policy') != external_actions
+                     or existing.get('selected_tasks') != selected_tasks):
         raise HTTPException(409, "同一请求标识不能用于不同任务、规则或执行方式")
     return existing
 
@@ -94,19 +118,27 @@ def execute(body, path=None):
     if task not in {*TASKS, "pipeline"} or mode not in {"normal", "quick"} or not isinstance(request_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", request_id):
         raise HTTPException(400, "任务或请求标识无效")
     from .operations_authorization import request_mode
-    external_actions = request_mode(body, task, mode)
+    from .operations_selection import parse
+    selected_tasks = parse(body, task, mode)
+    external_actions = request_mode(body, task, mode, selected_tasks)
     identity = "debug:" + request_id
     store = DebugStore(identity, path)
-    existing = previous(store, identity, task, body.get("version"), mode, external_actions)
+    existing = previous(store, identity, task, body.get("version"), mode, external_actions, selected_tasks)
     if existing:
         return existing
+    from .operations_selection import require_selected
+    require_selected(task, selected_tasks)
     if not store.lease(identity):
-        raise HTTPException(409, "已有任务执行中，请等待结束或先处理当前任务")
+        from .operations_debug_status import active_execution
+        occupied = active_execution(store)
+        message = occupied['message'] if occupied else '已有任务执行中'
+        raise HTTPException(409, message + '；本次调试未启动，请等待当前任务结束后重试')
     try:
         from .operations_pipeline import run_pipeline
         handler = run_pipeline if task == "pipeline" else run_task
-        return previous(store, identity, task, body.get("version"), mode, external_actions) or handler(
-            store, identity, task, body.get("version"), mode=mode, external_actions=external_actions)
+        options = {'selected_tasks': selected_tasks} if task == 'pipeline' else {}
+        return previous(store, identity, task, body.get("version"), mode, external_actions, selected_tasks) or handler(
+            store, identity, task, body.get("version"), mode=mode, external_actions=external_actions, **options)
     finally:
         store.release(identity)
 
@@ -134,6 +166,9 @@ def run_task(store, identity, task, version, *, mode="normal", external_actions=
     outcome = invoke(store, task, policy, day, version, quick=mode == "quick")
     store.finish_run(run_id, outcome["state"], outcome["detail"])
     data.update(**outcome, ended=now_iso())
+    if outcome['state'] == 'paused':
+        from plugins.operations.execution_pause import load
+        data['revision'] = load(store, identity)['revision']
     update_record(store, data)
     return data
 
@@ -148,12 +183,20 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
     started = datetime.now(UTC)
     result = None
     owns_run_options = False
+    from plugins.operations.execution_pause import ExecutionPaused
     try:
         from plugins.operations.debug_authorization import authorized
         if quick and task in EXTERNAL and not authorized(store, policy, task):
             raise StageSkipped('本次快速实测授权已失效，请重新发起')
+        if task in EXTERNAL and not getattr(store, 'start_preflight_done', False):
+            from plugins.operations.execution_preflight import verify_for_start
+            verify_for_start(store, version)
+            store.start_preflight_done = True
         if task in {"publish", "comment", "reply", "dm", "follow"} and not store.snapshot()["online"]:
-            raise StageSkipped("桌面执行器离线，请启动开发版 Desktop")
+            from plugins.operations.execution_pause import pause
+            reason = {'error_code': 'BROWSER_UNAVAILABLE', 'error': '桌面执行器离线，请启动 Desktop 后手动继续'}
+            pause(store, reason)
+            raise ExecutionPaused(reason)
         if quick:
             coverage = bool((store.run_options or {}).get("coverage"))
             # Keep the persisted policy object unchanged: workflow guards compare it exactly;
@@ -164,7 +207,11 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
                 owns_run_options = True
         handlers = {"research": workflow.research, "organize": workflow.organize, "analytics": workflow.analytics, "industry": workflow.industry, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     **{k: partial(workflow.interact, kinds=(k,)) for k in ("comment", "reply", "dm", "follow")}}
-        if task == "report":
+        from plugins.operations.resume_actions import continue_actions
+        continued = continue_actions(store, task, policy, day, version)
+        if continued is not None:
+            result = continued
+        elif task == "report":
             result = daily_report(store, day)
         elif task == "publish" and content_id:
             result = workflow.publish(store, policy, day, version, content_id=content_id)
@@ -172,6 +219,8 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
             result = handlers[task](store, policy, day, version)
         state, detail = describe(TASKS[task][1], result)
         store.event("debug_result", {"result": result})
+    except ExecutionPaused as exc:
+        state, detail, result = 'paused', str(exc), exc.result
     except StageSkipped as exc:
         state, detail = "skipped", str(exc)
     except Exception as exc:
@@ -196,12 +245,15 @@ def catalog():
         web_block = web_block_reason(db)
     for data in runs:
         recover_interrupted(store, data)
-    from .operations_debug_status import task_status
-    fields = ("id", "task", "title", "version", "day", "started", "ended", "state", "detail", "duration_ms")
+    from .operations_debug_status import active_execution, present_run, task_status
+    runs = [present_run(store, run) for run in runs]
+    fields = ("id", "task", "title", "version", "day", "started", "ended", "state", "detail", "duration_ms", "revision", "attempt", "action_mode", "selected_tasks")
     return {"version": version, "policy": policy,
             "tasks": [{"id": key, "title": value[0], "module": value[1]} for key, value in TASKS.items()],
             "runs": [{key: value for key, value in run.items() if key in fields} for run in runs],
-            "task_status": task_status(store, runs), 'web_block_reason': web_block, "pipeline_available": True}
+            "task_status": task_status(store, runs), "execution": active_execution(store), 'web_block_reason': web_block,
+            "pipeline_available": True, 'selective_quick_available': True, 'selective_pipeline_available': True,
+            'browser_check_available': True}
 
 
 @router.post("/run")
@@ -221,5 +273,28 @@ def detail(request_id: str):
             "SELECT id,at,kind,data FROM events WHERE json_extract(data,'$.debug_id')=? ORDER BY id", (request_id,))]
         actions = [dict(row) for row in db.execute(
             "SELECT * FROM actions WHERE json_extract(data,'$.manual_run_id')=? ORDER BY created", (request_id,))]
-    return {"run": data, "events": [{**row, "data": json.loads(row["data"])} for row in events],
+    from .operations_debug_status import present_run
+    return {"run": present_run(store, data), "events": [{**row, "data": json.loads(row["data"])} for row in events],
             "actions": [{**row, "data": json.loads(row["data"]), "result": json.loads(row["result"])} for row in actions]}
+
+
+@router.post('/{identity}/resume')
+def resume_run(identity: str, body: dict):
+    from .operations_resume import resume
+    from plugins.operations.execution_pause import ExecutionPaused
+    try:
+        return resume(identity, body)
+    except (ValueError, KeyError, ExecutionPaused) as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post('/browser-check')
+def check_browser(body: dict):
+    from .operations_browser_check import check
+    from plugins.operations.execution_pause import ExecutionPaused
+    try:
+        return check(body)
+    except ExecutionPaused as exc:
+        return {'state': 'paused', 'detail': str(exc), 'submitted': False}
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(409, str(exc)) from exc

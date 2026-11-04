@@ -8,6 +8,12 @@ from .publication_status import complete, display
 
 def daily_report(store, day, delayed=False):
     identity = f"report:{day}" + (f":manual:{store.manual_run_id}" if store.manual_run_id else "")
+    attempt = getattr(store, 'resume_attempt', 0)
+    if attempt:
+        identity += f':resume:{attempt}'
+    phase = getattr(store, 'report_phase', 'completed')
+    if phase == 'paused':
+        identity += ':paused'
     existing = [r for r in store.objects("report", day) if r["id"] == identity]
     if existing:
         return existing[0]
@@ -17,9 +23,11 @@ def daily_report(store, day, delayed=False):
     is_debug_scope = isinstance(run_scope, str) and run_scope.startswith("debug:")
     from .run_scope import ReportScope
     scope = ReportScope(store, day)
-    runs, actions, events = scope.runs, scope.actions, scope.events
+    from .report_execution import snapshot, observation_lines, preflight_lines
+    execution = snapshot(scope)
+    runs, actions, events = execution["runs"], scope.actions, scope.events
     version, policy = store.policy()
-    versions = sorted({r["version"] for r in runs} | {a["version"] for a in actions})
+    versions = sorted({r["version"] for r in scope.runs} | {a["version"] for a in actions})
     history = {p["version"]: p["policy"] for p in store.objects("policy")}
     goals = [history[v]["goal"] for v in versions if v in history] or [policy["goal"]]
     from .report_sources import source_lines
@@ -32,17 +40,19 @@ def daily_report(store, day, delayed=False):
     execution_runs = [run for run in runs if not preflight_only or run["stage"] not in external_stages]
     preflight_runs = [run for run in runs if preflight_only and run["stage"] in external_stages]
     lines = [f"# {day} 运营日报", "", f"目标：{'；'.join(dict.fromkeys(goals))}", f"生成时间：{now_iso()}",
-             f"规则版本：{versions or [version]}", f"延迟补生成：{'是' if delayed else '否'}", "", "## 任务与执行", ""]
+             f"规则版本：{versions or [version]}", f"延迟补生成：{'是' if delayed else '否'}", ""]
     if store.scope:
         lines.insert(2, f"业务：{store.scope['business_name']}；主题：{policy['topic']}；归属：{store.scope['business_id']} / {store.scope['id']}")
+    lines.extend(preflight_lines(scope))
+    lines.extend(["## 任务与执行", ""])
     if quick_coverage:
         action_text = {'execute_once': '外部动作直接在生产执行，每种最多 1 次，本次授权不改变日常计划',
                        'not_requested': '本次未请求外部动作'}.get(external_mode, '外部动作仅预检查，不执行')
         lines.extend(["## 快速模式限制", "", f"本次为快速模式：仅抽样 1 条来源；{action_text}。", ""])
-    lines.extend(f"- {r['stage']} · {r['state']} · {r['detail'] or '无补充说明'}" for r in execution_runs)
+    lines.extend(f"- {r['title']} · {r['state']} · {r['detail'] or '无补充说明'}" for r in execution_runs)
     if preflight_runs:
         lines.extend(["", "## 预检查结果", ""])
-        lines.extend(f"- {r['stage']} · {r['state']} · {r['detail'] or '无补充说明'}" for r in preflight_runs)
+        lines.extend(f"- {r['title']} · {r['state']} · {r['detail'] or '无补充说明'}" for r in preflight_runs)
     if not execution_runs and not preflight_runs:
         lines.append("- 当日无执行记录；未据此推断任务已完成。")
     lines.extend(f"- 临时任务：{t['text']} · {t.get('state', 'pending')}" for t in scope.objects("task"))
@@ -86,8 +96,16 @@ def daily_report(store, day, delayed=False):
     lines.append(f"- {feedback['reason']}")
     lines.extend(f"- {s['text']}；依据：{', '.join(s['metric_ids'])}。{s['caveat']}。" for s in feedback["suggestions"])
     lines.append("- 优先处理未完成任务，结合已收集来源继续验证选题；不自动扩大权限或额度。")
-    markdown = "\n".join(lines) + "\n"
+    lines.extend(observation_lines(execution))
+    full_markdown = "\n".join(lines) + "\n"
+    details_id = 'report-detail:' + identity
+    store.put('report_detail', {'day': day, 'report_id': identity, 'markdown': full_markdown,
+                               'created': now_iso(), 'resume_attempt': attempt, 'phase': phase,
+                               'pause_observations': execution['pause_observations']}, details_id)
+    from .report_summary import summarize
+    markdown = summarize(scope, full_markdown, execution=execution)
     data = {"day": day, "markdown": markdown, "delayed": delayed, "created": now_iso(),
+            "format_version": 2, "details_id": details_id, "resume_attempt": attempt, "phase": phase,
             "debug_id": run_scope if is_debug_scope else None,
             "coverage": {"quick": quick_coverage, "read_limit": coverage.get("read_limit"),
                          "query_limit": coverage.get("query_limit"),

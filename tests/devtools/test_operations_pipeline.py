@@ -81,7 +81,7 @@ def test_complete_pipeline_persists_lineage_receipts_and_report_without_replay(e
         store.put("content", {**content, "title": "其他版本"}, "other")
         return result
     monkeypatch.setattr(debug.workflow, "produce", produce)
-    body = {"task": "pipeline", "version": 1, "request_id": "full"}
+    body = {"task": "pipeline", "tasks": list(debug.TASKS), "version": 1, "request_id": "full"}
     result = debug.execute(body)
     assert result["state"] == "completed", result["detail"]
     assert [p["kind"] for p in submitted] == ["publish", "comment", "reply", "dm", "follow"]
@@ -106,7 +106,7 @@ def test_unverified_receipt_is_not_a_pipeline_pass_and_is_kept_in_report(environ
             result = {**result, "state": "submitted", "evidence": "模拟页面待审核"}
         return original(self, identity, worker, result)
     monkeypatch.setattr(Store, "acknowledge", acknowledge)
-    result = debug.execute({"task": "pipeline", "version": 1, "request_id": "unknown"})
+    result = debug.execute({"task": "pipeline", "tasks": list(debug.TASKS), "version": 1, "request_id": "unknown"})
     assert result["state"] == "needs_attention"
     assert result["external_actions"] == {"total": 5, "confirmed": 0}
     assert "已核对成功 0 次" in store.objects("report")[0]["markdown"]
@@ -124,7 +124,7 @@ def test_failed_topics_blocks_old_content_publish_but_independent_steps_and_repo
             raise ValueError("选题模型不可用")
         return model(**kwargs)
     monkeypatch.setattr(auxiliary_client, "call_llm", fail_topics)
-    result = debug.execute({"task": "pipeline", "version": 1, "request_id": "failed"})
+    result = debug.execute({"task": "pipeline", "tasks": list(debug.TASKS), "version": 1, "request_id": "failed"})
     assert result["state"] == "failed"
     steps = {s["id"]: s for s in result["steps"]}
     assert steps["topics"]["state"] == "failed"
@@ -144,7 +144,7 @@ def test_pause_during_batch_stops_following_actions_and_still_saves_diagnostic_r
         store.configure({**policy, "paused": True}, version)
         return result
     monkeypatch.setattr(debug.workflow, "research", pause)
-    result = debug.execute({"task": "pipeline", "version": 1, "request_id": "paused"})
+    result = debug.execute({"task": "pipeline", "tasks": list(debug.TASKS), "version": 1, "request_id": "paused"})
     assert result["state"] == "needs_attention"
     assert not submitted
     assert all(s["state"] == "skipped" for s in result["steps"][1:-1])
@@ -158,7 +158,7 @@ def test_disabled_modules_are_not_enabled_and_interrupted_batch_cannot_replay(en
     policy["modules"] = {k: False for k in policy["modules"]}
     policy["enabled"] = False
     store.configure(policy, version)
-    body = {"task": "pipeline", "version": 2, "request_id": "disabled"}
+    body = {"task": "pipeline", "tasks": list(debug.TASKS), "version": 2, "request_id": "disabled"}
     result = debug.execute(body)
     assert result["state"] == "needs_attention"
     assert not submitted
@@ -178,7 +178,7 @@ def test_quick_pipeline_covers_internal_modules_but_respects_disabled_external_m
     policy["modules"] = {key: key == "report" for key in policy["modules"]}
     store.configure(policy, version)
 
-    result = debug.execute({"task": "pipeline", "version": 2, "request_id": "quick-coverage", "mode": "quick", "external_actions": "execute_once"})
+    result = debug.execute({"task": "pipeline", "tasks": list(debug.TASKS), "version": 2, "request_id": "quick-coverage", "mode": "quick", "external_actions": "execute_once"})
 
     internal = {key for key, (_, module) in debug.TASKS.items() if module not in {"publish", "comments", "dm", "follow", "report"}}
     steps = {step["id"]: step for step in result["steps"]}
@@ -207,11 +207,12 @@ def test_debug_pipeline_finishes_model_stages_after_daily_budget_is_exhausted(en
         scoped.setattr(auxiliary_client, 'call_llm', lambda **kwargs: SimpleNamespace(
             usage=None, choices=[SimpleNamespace(message=SimpleNamespace(content='{}'))]))
         generate(store, policy, day, '用完常规额度', {})
-    result = debug.execute({'task': 'pipeline', 'version': 2, 'request_id': 'unlimited', 'mode': mode,
+    result = debug.execute({'task': 'pipeline', 'tasks': list(debug.TASKS), 'version': 2, 'request_id': 'unlimited', 'mode': mode,
                             **({'external_actions': 'execute_once'} if mode == 'quick' else {})})
     steps = {step['id']: step for step in result['steps']}
     for stage in ('organize', 'analytics', 'industry', 'topics', 'content'):
-        assert steps[stage]['state'] == 'completed', steps[stage]['detail']
+        expected = 'needs_attention' if stage == 'industry' and mode == 'quick' else 'completed'
+        assert steps[stage]['state'] == expected, steps[stage]['detail']
     events = debug.detail(result['id'])['events']
     assert len([event for event in events if event['kind'] == 'model_call']) > 12
     if mode == 'quick':
@@ -225,7 +226,7 @@ def test_partial_collection_preserves_usable_evidence_for_following_steps(enviro
     from tools import web_tools
     store, _ = environment
     monkeypatch.setattr(web_tools, 'web_search_tool', lambda *a, **k: '{"error":"搜索服务不可用"}')
-    result = debug.execute({'task': 'pipeline', 'version': 1, 'request_id': 'partial-research'})
+    result = debug.execute({'task': 'pipeline', 'tasks': list(debug.TASKS), 'version': 1, 'request_id': 'partial-research'})
     steps = {step['id']: step for step in result['steps']}
     assert steps['research']['state'] == 'needs_attention'
     assert steps['research']['result']['usable'] == 1
@@ -251,7 +252,7 @@ def test_quick_live_pipeline_executes_once_without_enabling_standing_permissions
         return result
 
     monkeypatch.setattr(debug.DebugStore, 'command', checked_consume)
-    body = {'task': 'pipeline', 'mode': 'quick', 'external_actions': 'execute_once', 'version': 2, 'request_id': 'live-once'}
+    body = {'task': 'pipeline', 'tasks': list(debug.TASKS), 'mode': 'quick', 'external_actions': 'execute_once', 'version': 2, 'request_id': 'live-once'}
     result = debug.execute(body)
     assert result['state'] == 'completed', result['detail']
     assert [row['kind'] for row in submitted] == ['publish', 'comment', 'reply', 'dm', 'follow']
@@ -270,7 +271,7 @@ def test_ended_quick_grant_cannot_dispatch_a_late_command(environment, monkeypat
     version, policy = store.policy()
     policy['allowed'] = {kind: False for kind in policy['allowed']}
     store.configure(policy, version)
-    debug.execute({'task': 'pipeline', 'mode': 'normal', 'version': 2, 'request_id': 'prepare'})
+    debug.execute({'task': 'pipeline', 'tasks': list(debug.TASKS), 'mode': 'normal', 'version': 2, 'request_id': 'prepare'})
     assert not submitted
     monkeypatch.setattr(debug.workflow, 'browser', lambda *args, **kwargs: {'state': 'submitted', 'evidence': '模拟等待派发'})
     result = debug.execute({'task': 'publish', 'mode': 'quick', 'external_actions': 'execute_once', 'version': 2, 'request_id': 'late'})
@@ -302,7 +303,7 @@ def test_saved_draft_completes_production_and_publish_explains_missing_material(
         return result
 
     with patch.object(auxiliary_client, 'call_llm', text_only):
-        result = debug.execute({'task': 'pipeline', 'mode': 'quick', 'external_actions': 'execute_once', 'version': 1, 'request_id': 'draft-without-image'})
+        result = debug.execute({'task': 'pipeline', 'tasks': list(debug.TASKS), 'mode': 'quick', 'external_actions': 'execute_once', 'version': 1, 'request_id': 'draft-without-image'})
     steps = {step['id']: step for step in result['steps']}
     assert steps['content']['state'] == 'completed'
     assert steps['content']['result']['content_id'] and not steps['content']['result']['ready']

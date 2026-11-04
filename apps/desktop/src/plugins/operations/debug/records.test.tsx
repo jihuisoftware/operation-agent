@@ -55,3 +55,12 @@ it('includes failed browser steps even when the failure is represented by a code
   const run = { ...detail, events: [{ id: 4, at: '', kind: 'browser_step', data: { phase: 'failed', error_code: 'PAGE_RESULT_UNCONFIRMED', evidence_id: 'shot' } }] }
   expect(errorLog(run).events).toEqual(run.events)
 })
+
+it('shows the saved explicit selection and keeps the diagnostic separate from business steps', () => {
+  render(<DebugRecord detail={{ ...detail, run: { ...detail.run, selected_tasks: ['topics'],
+    steps: [detail.run.steps![1]], diagnostic_report: { id: 'diagnostic' } } }} />)
+  expect(screen.getByText('本次所选项目（1 项）：选题策划')).toBeTruthy()
+  expect(screen.getByText('本批次诊断摘要已保存，不计为所选业务步骤。')).toBeTruthy()
+  expect(screen.queryByText(/运营日报/, { selector: 'summary' })).toBeNull()
+  expect(errorLog({ ...detail, run: { ...detail.run, selected_tasks: ['topics'] } }).run.selected_tasks).toEqual(['topics'])
+})

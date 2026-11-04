@@ -35,6 +35,8 @@ def observe(store, body):
                        (platform, worker, state, account if state == "logged_in" else "", now))
     from .workspace_execution import observe_account
     observe_account(store, body)
+    from .execution_pause import observe as observe_execution
+    observe_execution(store, body)
     return {"ok": True}
 
 

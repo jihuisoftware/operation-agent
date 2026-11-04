@@ -19,7 +19,11 @@ export interface Run {
   version?: number
   day?: string
   model_quota?: 'unlimited'
+  revision?: number
+  attempt?: number
   action_mode?: string
+  selected_tasks?: string[]
+  diagnostic_report?: { id: string }
   coverage?: { quick?: boolean; read_limit?: number; query_limit?: number; external_actions?: string }
 }
 export interface Detail {
@@ -27,8 +31,8 @@ export interface Detail {
   events: { id: number; at: string; kind: string; data: unknown }[]
   actions: unknown[]
 }
-export const states: Record<string, string> = { pending: '等待执行', running: '正在执行', completed: '完成', failed: '失败', skipped: '跳过', needs_attention: '待检查', interrupted: '已中断' }
-const problemStates = new Set(['failed', 'interrupted', 'needs_attention', 'unknown', 'blocked', 'unavailable', 'submitted'])
+export const states: Record<string, string> = { pending: '等待执行', running: '正在执行', completed: '完成', failed: '失败', skipped: '跳过', needs_attention: '待检查', interrupted: '已中断', paused: '已暂停' }
+const problemStates = new Set(['failed', 'paused', 'interrupted', 'needs_attention', 'unknown', 'blocked', 'unavailable', 'submitted'])
 const icons: Record<string, string> = { completed: 'pass', running: 'loading', failed: 'error', needs_attention: 'warning' }
 const json = (value: unknown) => JSON.stringify(value, null, 2)
 
@@ -41,7 +45,7 @@ export function hasError(value: unknown): boolean {
 
 export function errorLog(detail: Detail) {
   return {
-    run: { id: detail.run.id, title: detail.run.title, started: detail.run.started, state: detail.run.state, version: detail.run.version, day: detail.run.day },
+    run: { id: detail.run.id, title: detail.run.title, started: detail.run.started, state: detail.run.state, version: detail.run.version, day: detail.run.day, selected_tasks: detail.run.selected_tasks },
     steps: detail.run.steps?.filter(hasError) || [],
     events: detail.events.filter(event => hasError(event.data)),
     actions: detail.actions.filter(hasError)
@@ -59,6 +63,8 @@ export function DebugRecord({ detail }: { detail: Detail }) {
       {hasErrors && <CopyButton label="仅复制错误日志" text={() => json(errors)}>仅复制错误日志</CopyButton>}
     </div>
     <p className="whitespace-pre-wrap">{detail.run.detail}</p>
+    {detail.run.selected_tasks && <p className="text-sm">本次所选项目（{detail.run.selected_tasks.length} 项）：{detail.run.selected_tasks.map(id => detail.run.steps?.find(step => step.id === id)?.title || id).join('、')}</p>}
+    {detail.run.diagnostic_report && <p className="text-xs text-muted-foreground">本批次诊断摘要已保存，不计为所选业务步骤。</p>}
     {detail.run.model_quota === 'unlimited' && <p className="text-sm text-muted-foreground">本次调试模型调用次数不限，用量照常记录，不占正常运营模型额度。</p>}
     {detail.run.action_mode === 'execute_once' && <p className="text-sm text-muted-foreground">本次快速实测使用真实生产流程，每种外部动作最多 1 次；本次授权不改变日常计划。</p>}
     {detail.run.coverage?.external_actions === 'readiness_only' && <p className="text-sm text-muted-foreground">此历史批次仅预检查外部动作，未实际执行。</p>}

@@ -115,9 +115,13 @@ def _tick(store, now, *, one_stage=False):
 def _execute(store, policy, day, version, stage, identity, *, delayed=False):
     from .outcomes import StageSkipped, describe
     from .analysis_runs import AnalysisCancelled
+    from .execution_pause import ExecutionPaused
     try:
         from .plan_controls import check_cancelled
         check_cancelled(store)
+        if stage in EXTERNAL:
+            from .execution_pause import guard
+            guard(store, web=True)
         current_version, current = store.policy()
         if current_version != version or current["paused"] or not current["enabled"]:
             store.finish_run(identity, "cancelled", "规则发生变更")
@@ -129,13 +133,23 @@ def _execute(store, policy, day, version, stage, identity, *, delayed=False):
         handlers = {"research": workflow.research, "organize": workflow.organize, "analytics": workflow.analytics, "industry": workflow.industry, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     "comments": partial(workflow.interact, kinds=("comment", "reply")),
                     "dm": partial(workflow.interact, kinds=("dm",)), "follow": partial(workflow.interact, kinds=("follow",))}
-        if stage == "report":
+        from .resume_actions import continue_actions
+        continued = continue_actions(store, stage, policy, day, version)
+        if continued is not None:
+            result = continued
+        elif stage == "report":
             daily_report(store, day, delayed=delayed)
             result = "日报已生成"
         else:
             result = handlers[stage](store, policy, day, version)
         state, detail = describe(stage, result)
+        from .resume_artifacts import produced
+        produced(store, stage, result)
         store.finish_run(identity, state, detail)
+    except ExecutionPaused as exc:
+        store.finish_run(identity, 'paused', str(exc))
+        store.report_phase = 'paused'
+        daily_report(store, day)
     except AnalysisCancelled as exc:
         store.finish_run(identity, "cancelled", str(exc))
     except StageSkipped as exc:

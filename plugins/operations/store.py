@@ -298,6 +298,9 @@ class Store:
             blocked = web_block_reason(db)
             if blocked:
                 raise StageSkipped(blocked)
+            if kind not in {'account', 'verify'}:
+                from .execution_pause import guard
+                guard(self, web=True, db=db)
             db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
                        (identity, action_id, kind, encoded(payload), time.time() + 120))
         return identity
@@ -316,8 +319,13 @@ class Store:
                 return None
             if db.execute("SELECT 1 FROM commands WHERE state='running'").fetchone():
                 return None
-            row = db.execute("SELECT * FROM commands WHERE state='queued' ORDER BY rowid LIMIT 1").fetchone()
+            from .execution_pause import block
+            only_read = block(self, db) is not None
+            row = db.execute("SELECT * FROM commands WHERE state='queued' AND (?=0 OR kind IN ('account','verify')) ORDER BY rowid LIMIT 1", (int(only_read),)).fetchone()
             if not row:
+                return None
+            from .execution_pause import block
+            if block(self, db) and row['kind'] not in {'account', 'verify'}:
                 return None
             if row["action_id"]:
                 action = db.execute("SELECT * FROM actions WHERE id=?", (row["action_id"],)).fetchone()
@@ -328,24 +336,32 @@ class Store:
                 if not may_dispatch(self, db, row, action, policy['version'], cfg):
                     return None
             from .workspace_execution import claim_account
-            if not claim_account(self, db, row, worker):
+            from .browser_timing import EXECUTION_SECONDS
+            claimed = {**dict(row), 'expires': time.time() + EXECUTION_SECONDS}
+            if not claim_account(self, db, claimed, worker):
                 return None
             if row["action_id"]:
                 db.execute("UPDATE actions SET state='executing' WHERE id=?", (row["action_id"],))
-            db.execute("UPDATE commands SET state='running',worker=? WHERE id=?", (worker, row["id"]))
+                from .workspace_execution import sync_actions
+                sync_actions(self, db)
+            db.execute("UPDATE commands SET state='running',worker=?,expires=? WHERE id=?", (worker, claimed['expires'], row["id"]))
             if row['kind'] == 'verify':
                 from .review_queue import mark_running
                 mark_running(db, row)
-            return {"id": row["id"], "kind": row["kind"], "payload": json.loads(row["payload"]), "expires": row["expires"]}
+            return {"id": row["id"], "kind": row["kind"], "payload": json.loads(row["payload"]), "expires": claimed['expires']}
 
     def _expire(self, db):
+        if not db.execute("SELECT 1 FROM commands WHERE state IN ('queued','running') AND expires<? LIMIT 1", (time.time(),)).fetchone():
+            return
+        # Expiry writes both topic and account ledgers. Acquire their locks together before reading/modifying either.
+        if not db.in_transaction:
+            db.execute('BEGIN IMMEDIATE')
         from .review_queue import accept
         expired = db.execute("SELECT * FROM commands WHERE kind='verify' AND state IN ('queued','running') AND expires<?", (time.time(),)).fetchall()
         for command in expired:
             accept(db, command, {'state': 'unknown', 'error': '只读核对超时', 'evidence': '等待重新连接后核对'})
-        db.execute("UPDATE actions SET state='blocked' WHERE id IN (SELECT action_id FROM commands WHERE state='queued' AND expires<?)", (time.time(),))
-        db.execute("UPDATE actions SET state='unknown' WHERE id IN (SELECT action_id FROM commands WHERE state='running' AND expires<?)", (time.time(),))
-        db.execute("UPDATE commands SET state='unknown' WHERE state IN ('running','queued') AND expires<?", (time.time(),))
+        from .command_interruptions import expire
+        expire(self, db)
         from .workspace_execution import sync_actions
         sync_actions(self, db)
 
@@ -359,6 +375,9 @@ class Store:
             if not row:
                 from .late_receipts import recover
                 row = recover(db, identity, worker, result)
+                if not row:
+                    from .command_interruptions import late
+                    row = late(db, identity, worker, result)
             if not row:
                 duplicate = db.execute("SELECT result FROM commands WHERE id=? AND worker=? AND state='done'", (identity, worker)).fetchone()
                 from .late_receipts import same
@@ -368,6 +387,8 @@ class Store:
             db.execute("UPDATE commands SET state='done',result=? WHERE id=?", (encoded(result), identity))
             from .workspace_execution import release_account
             release_account(self, db, identity, worker)
+            from .command_interruptions import receipt
+            receipt(self, db, row, result)
             from .browser_failures import should_pause
             if should_pause(db, row, result):
                 payload = json.loads(row["payload"])
@@ -393,7 +414,7 @@ class Store:
             from .workspace_execution import sync_actions
             sync_actions(self, db)
 
-        if row['kind'] == 'account' and result.get('account_id'):
+        if row['kind'] == 'account' and result.get('account_id') and result.get('state', 'logged_in') == 'logged_in':
             from .workspace_execution import observe_account
             observe_account(self, {'platform': 'xiaohongshu', 'state': 'logged_in', 'worker': worker, 'account_id': result['account_id']})
 

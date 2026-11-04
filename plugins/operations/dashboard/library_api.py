@@ -51,3 +51,15 @@ def library(section: str, before: int = 0, filter: str = '', record: str = ''):
         if section == 'interactions':
             data.update(inbox=objects(db, 'inbox'), block=objects(db, 'block'))
     return data
+
+
+@router.get('/reports/{identity}/details')
+def report_details(identity: str):
+    store = Store()
+    with store.connection() as db:
+        row = db.execute("SELECT data FROM objects WHERE kind='report' AND id=?", (identity,)).fetchone()
+        if not row:
+            raise HTTPException(404, '日报不存在')
+        record = json.loads(row['data'])
+        details = db.execute("SELECT data FROM objects WHERE kind='report_detail' AND id=?", (record.get('details_id', ''),)).fetchone()
+    return {'id': identity, 'markdown': json.loads(details['data'])['markdown'] if details else record['markdown']}

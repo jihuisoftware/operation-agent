@@ -43,6 +43,8 @@ def initialize(store):
     name = prefix(store)
     with store.connection() as db:
         db.executescript(SCHEMA.format(prefix=name))
+        from .model_budget_recovery import initialize as initialize_recovery
+        initialize_recovery(db, name)
         imported = {row[0] for row in db.execute(f'SELECT topic_id FROM {name}model_budget_imports')}
         timezone = json.loads(db.execute("SELECT data FROM directory.preferences WHERE id='limits'").fetchone()[0]).get('_timezone', 'Asia/Shanghai') if store.workspace else store.policy()[1]['timezone']
         topics = [(topic_id(store), store.path)]
@@ -55,6 +57,9 @@ def initialize(store):
         with store.connection() as db:
             db.executemany(f'INSERT OR IGNORE INTO {name}model_budget_usage VALUES (?,?,?,?,?,?,?)', rows)
             db.execute(f'INSERT OR IGNORE INTO {name}model_budget_imports VALUES (?)', (identity,))
+
+    from .model_budget_recovery import recover
+    recover(store)
 
 
 def legacy_rows(path, identity, timezone):
@@ -113,6 +118,8 @@ def reserve(store, db, policy, day, identity, exempt):
             check(totals(store, db, shared_day, profile=True), shared['tokens'], '全部主题共享')
     db.execute(f'INSERT INTO {prefix(store)}model_budget_usage VALUES (?,?,?,?,?,0,?)',
                (identity, topic_id(store), day, shared_day, 'pending', int(exempt)))
+    from .model_budget_recovery import own
+    own(db, prefix(store), identity)
 
 
 def marker(context):

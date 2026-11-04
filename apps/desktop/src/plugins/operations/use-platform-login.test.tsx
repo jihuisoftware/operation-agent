@@ -25,19 +25,20 @@ function fixture() {
   const takeOver = vi.fn(async (): Promise<void> => undefined)
 
   const onStatus = vi.fn()
+  const onObservation = vi.fn()
 
   const openPage = async (request: { url: string }) => { await guest.loadURL(request.url) }
 
   function Monitor({ currentApi = api }: { currentApi?: Api }) {
     usePlatformLogin({ openPage, owner, worker: 'window', takeOver })
-    useLoginObservation({ api: currentApi, guest, worker: 'window', platform: 'xiaohongshu', onStatus })
+    useLoginObservation({ api: currentApi, guest, worker: 'window', platform: 'xiaohongshu', onStatus, onObservation })
 
     return null
   }
 
   const view = render(<Monitor />)
 
-  return { guest, api, takeOver, ...view, replaceApi: (currentApi: Api) => view.rerender(<Monitor currentApi={currentApi} />) }
+  return { guest, api, takeOver, onObservation, ...view, replaceApi: (currentApi: Api) => view.rerender(<Monitor currentApi={currentApi} />) }
 }
 
 afterEach(() => {
@@ -194,4 +195,46 @@ it('surfaces takeover failure without opening a page and permits a new authoriza
   expect($loginNavigation.get()).toBeNull()
   await act(async () => { $loginRequest.set({ ...request, id: 'retry' }) })
   expect(guest.loadURL).toHaveBeenCalledWith(request.url)
+})
+
+
+it('does not persist a transient login button while the same account cookies are restored', async () => {
+  vi.useFakeTimers()
+  const { guest, api, onObservation } = fixture()
+  vi.mocked(guest.executeJavaScript).mockResolvedValue({ state: 'logged_out', account_id: '' })
+  await act(async () => { guest.dispatchEvent(new Event('dom-ready')) })
+  expect(api).not.toHaveBeenCalled()
+  expect(onObservation).not.toHaveBeenCalled()
+  await act(async () => { await vi.advanceTimersByTimeAsync(2700) })
+  vi.mocked(guest.executeJavaScript).mockResolvedValue({ state: 'logged_in', account_id: 'me' })
+  await act(async () => { await vi.advanceTimersByTimeAsync(1300) })
+  expect(api).toHaveBeenCalledTimes(1)
+  expect(api).toHaveBeenLastCalledWith('/platforms/observe', expect.objectContaining({ state: 'logged_in', account_id: 'me' }))
+  expect(host.notify).not.toHaveBeenCalled()
+})
+
+
+it.each(['logged_out', 'verification'] as const)('still reports stable %s evidence after confirmation', async state => {
+  vi.useFakeTimers()
+  const { guest, api, onObservation } = fixture()
+  vi.mocked(guest.executeJavaScript).mockResolvedValue({ state, account_id: '' })
+  await act(async () => { guest.dispatchEvent(new Event('dom-ready')); await vi.advanceTimersByTimeAsync(2999) })
+  expect(api).not.toHaveBeenCalled()
+  await act(async () => { await vi.advanceTimersByTimeAsync(1001) })
+  expect(api).toHaveBeenCalledWith('/platforms/observe', { worker: 'window', platform: 'xiaohongshu', state, account_id: '' })
+  expect(onObservation).toHaveBeenCalledWith({ state, account_id: '' })
+  expect(host.notify).toHaveBeenCalledTimes(1)
+})
+
+it('does not combine negative evidence from different navigations into one logout', async () => {
+  vi.useFakeTimers()
+  const { guest, api } = fixture()
+  vi.mocked(guest.executeJavaScript).mockResolvedValue({ state: 'logged_out', account_id: '' })
+  await act(async () => { guest.dispatchEvent(new Event('dom-ready')); await vi.advanceTimersByTimeAsync(2500) })
+  await act(async () => { guest.dispatchEvent(new Event('did-start-loading')); guest.dispatchEvent(new Event('dom-ready')); await vi.advanceTimersByTimeAsync(1500) })
+  expect(api).not.toHaveBeenCalled()
+  vi.mocked(guest.executeJavaScript).mockResolvedValue({ state: 'logged_in', account_id: 'me' })
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+  expect(api).toHaveBeenCalledTimes(1)
+  expect(api).toHaveBeenLastCalledWith('/platforms/observe', expect.objectContaining({ state: 'logged_in' }))
 })

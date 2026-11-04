@@ -32,4 +32,4 @@ def test_debug_report_scopes_steps_and_separates_quick_preflight(tmp_path, monke
     assert "当前批次" in report
     assert "其他批次" not in report
     assert "## 预检查结果" in report
-    assert "仅抽样 1 条来源、外部动作不执行" in report
+    assert "仅抽样 1 条来源" in report and "外部动作仅预检查，不执行" in report

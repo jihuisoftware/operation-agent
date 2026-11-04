@@ -56,3 +56,64 @@ def test_existing_saved_draft_is_presented_as_generated_without_rewriting_histor
     assert view['content']['state'] == 'completed'
     assert '缺少获授权图片' in view['publish']['detail']
     assert run['steps'][0]['state'] == 'needs_attention'
+
+
+def test_scheduled_run_is_visible_and_rejected_debug_does_not_start(tmp_path, monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    (tmp_path / 'config.yaml').write_text('development:\n  operations_debug: true\n')
+    store = Store()
+    policy = deepcopy(DEFAULT)
+    policy.update(enabled=True, topic='占用状态', goal='显示后台任务')
+    policy['modules']['research'] = True
+    store.configure(policy, 0)
+    assert store.lease('scheduled')
+    run = store.start_run(local_day(policy), 'research', '09:00', 1)
+    store.progress('正在读取来源正文')
+    current = debug.catalog()['execution']
+    assert current['run_id'] == run
+    assert '信息采集' in current['message'] and '正在读取来源正文' in current['message']
+    with pytest.raises(HTTPException) as rejected:
+        debug.execute({'task': 'research', 'request_id': 'occupied', 'version': 1})
+    assert rejected.value.status_code == 409
+    assert '本次调试未启动' in rejected.value.detail
+    assert not store.objects('debug_run')
+    store.release('scheduled')
+    assert debug.catalog()['execution'] is None
+
+
+def test_reading_live_pause_does_not_overwrite_execution_threads_batch_snapshot(tmp_path, monkeypatch):
+    import json
+    from plugins.operations.execution_pause import pause
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    store = debug.DebugStore('debug:writer')
+    store.manual_run_id = 'debug:writer'
+    assert store.lease('debug:writer')
+    run = debug.new_record('debug:writer', 'pipeline', '执行中的批次', 0, local_day(store.policy()[1]))
+    run['steps'] = [{'id': 'research', 'state': 'running', 'detail': '开始'}]
+    store.put('debug_run', run, run['id'])
+    store.start_run(run['day'], 'research', 'debug:writer:research', 0)
+    pause(store, {'error_code': 'BROWSER_UNAVAILABLE', 'error': '读取超时'})
+    with store.connection() as db:
+        before = db.execute('SELECT data FROM objects WHERE id=?', (run['id'],)).fetchone()[0]
+    debug.record(store, run['id'])
+    with store.connection() as db:
+        after = db.execute('SELECT data FROM objects WHERE id=?', (run['id'],)).fetchone()[0]
+    assert json.loads(after) == json.loads(before)
+
+
+def test_recovery_does_not_replace_a_newer_writer_snapshot(tmp_path):
+    from devtools.operations_debug_status import persist_recovery
+    from plugins.operations.store import encoded
+    store = Store(tmp_path / 'compare.db')
+    original = {'id': 'debug:compare', 'state': 'running', 'steps': [{'id': 'research', 'state': 'running'}]}
+    store.put('debug_run', original, original['id'])
+    writer = {**original, 'state': 'paused', 'steps': [{'id': 'research', 'state': 'paused', 'run_id': 'persisted-run'}]}
+    debug.update_record(store, writer)
+    stale_recovery = {**original, 'state': 'interrupted'}
+    persist_recovery(store, stale_recovery, encoded(original))
+    assert stale_recovery == writer
+    with store.connection() as db:
+        import json
+        assert json.loads(db.execute('SELECT data FROM objects WHERE id=?', (original['id'],)).fetchone()[0]) == writer

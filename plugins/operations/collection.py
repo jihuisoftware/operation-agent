@@ -45,10 +45,11 @@ def candidates(store, policy, day, stats, previous, *, discover=True):
 
 def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
     from tools.web_tools import web_extract_tool
+    from .source_documents import EXTRACT_LIMIT, prepared
     from .source_media import capture, image_urls
     store.progress('正在读取来源正文', {'url': url, 'attempt': attempt})
     try:
-        extracted = json.loads(asyncio.run(web_extract_tool([url], char_limit=10000, include_metadata=True)))
+        extracted = json.loads(asyncio.run(web_extract_tool([url], char_limit=EXTRACT_LIMIT, include_metadata=True)))
         pages = extracted.get('results', [])
         page = pages[0] if pages else {}
         text, error = document(page, extracted.get('error'))
@@ -58,7 +59,10 @@ def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
     if error:
         from tools.web_result_cache import extract_cache_invalidate
         extract_cache_invalidate(url)
-    digest = fingerprint(text)
+    projection = prepared(text, truncated=page.get('truncated', False), original_chars=page.get('original_chars'))
+    text, digest = projection['text'], projection['fingerprint']
+    if not text and not error:
+        error = '页面仅有登录或导航内容，未取得正文'
     prior_id = fingerprints.get(digest) if digest else None
     record = {'day': day, 'url': url, 'original_url': candidate.get('url'),
               'title': page.get('title') or candidate.get('title') or url,
@@ -68,7 +72,7 @@ def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
               'error': error, 'error_hint': failure_hint(error) if error else None, 'summary': '', 'fingerprint': digest, 'attempts': attempt,
               'truncated': page.get('truncated', False), 'original_chars': page.get('original_chars', len(text)),
               'is_new': bool(text and not prior_id), 'previous_source_id': prior_id, 'scope_topic': policy['topic'],
-              'images': capture(store, image_urls(page, candidate, url, text), url) if text else []}
+              'images': capture(store, image_urls(page, candidate, url, text), url) if text else [], **projection}
     if getattr(store, 'debug_id', None):
         record['debug_id'] = store.debug_id
     identity = previous['id'] if previous else hashlib.sha256(f'{day}:{url}'.encode()).hexdigest()

@@ -9,23 +9,38 @@ from .outcomes import StageSkipped
 
 
 def browser(store, kind, payload, action_id=None):
+    from .execution_pause import guard, ExecutionPaused, CODES, pause
+    if not payload.get('resume_probe'):
+        guard(store, web=kind not in {'account', 'verify'})
     store.renew()
     store.progress("等待桌面网页执行", {"operation": kind, "action_id": action_id, "target": payload.get("target")})
     command_id = store.enqueue(kind, payload, action_id)
-    deadline = time.monotonic() + 125
-    while time.monotonic() < deadline:
+    from .browser_timing import workflow_deadline
+    deadline = None
+    admitted = False
+    while deadline is None or time.monotonic() < deadline:
         store.renew()
         command = store.command(command_id)
+        if deadline is None or (command['worker'] and not admitted):
+            deadline = workflow_deadline(command['expires'], time.time(), time.monotonic())
+            admitted = bool(command['worker'])
+        result = command["result"]
+        if result.get("error_code") in CODES:
+            pause(store, result)
+            raise ExecutionPaused(result)
         if command["state"] == "done":
-            result = command["result"]
             if result.get("error"):
                 raise ValueError(result["error"])
             store.progress("已收到桌面执行回执", {"operation": kind, "action_id": action_id, "result": result})
             return result
         if command["state"] in {"cancelled", "unknown"}:
             raise ValueError("桌面执行中断或结果不明，请核对后处理")
+        if not payload.get('resume_probe') and kind != 'verify':
+            guard(store, web=True)
         threading.Event().wait(0.5)
-    raise TimeoutError("桌面没有按时返回结果")
+    result = {'error_code': 'BROWSER_UNAVAILABLE', 'error': '桌面没有按时返回结果，请检查执行窗口后手动继续', 'interruption_scope': 'batch'}
+    pause(store, result)
+    raise ExecutionPaused(result)
 
 
 def research(store, policy, day, version):

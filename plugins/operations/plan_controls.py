@@ -30,6 +30,8 @@ def control(store, body):
 
 
 def check_cancelled(store):
+    from .execution_pause import guard
+    guard(store)
     from .workspace_execution import check_running
     check_running(store)
     if not store.manual_run_id:

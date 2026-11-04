@@ -132,14 +132,22 @@ def test_debug_report_scopes_all_artifacts_and_counts_failed_calls(tmp_path):
         for _ in range(2):
             db.execute("INSERT INTO events(at,kind,data) VALUES ('now','model_call',json_object('day',?,'run_id',?))", (day, current))
     store.event('usage', {'day': day, 'run_id': current, 'tokens': {'total_tokens': 12}})
-    report = daily_report(store, day)['markdown']
-    assert '其他' not in report
-    assert all('当前' + suffix in report for suffix in ('来源', '任务', '结论', '私信', '指标', '降级', '步骤', '错误'))
+    snapshot = daily_report(store, day)
+    report = snapshot['markdown']
+    full = next(row['markdown'] for row in store.objects('report_detail') if row['id'] == snapshot['details_id'])
+    for value in (report, full):
+        assert not any('其他' + suffix in value for suffix in ('来源', '任务', '结论', '私信', '指标', '降级', '步骤', '错误'))
+    assert all('当前' + suffix in full for suffix in ('来源', '任务', '结论', '私信', '指标', '降级', '步骤', '错误'))
+    assert all('当前' + suffix in report for suffix in ('来源', '步骤', '错误'))
     assert '模型调用 2 次' in report
     assert '历史资料复用 1 条' in report
     assert not any(row['id'] == f'review:{day}' for row in store.objects('review'))
     store.manual_run_id = None
     assert '其他任务' in daily_report(store, day)['markdown']
+    store.manual_run_id = 'debug:batch_1'
+    store.put('brief', {'day': day, 'result': {'note': '后续追加的结论'}})
+    assert daily_report(store, day)['markdown'] == report
+    assert next(row['markdown'] for row in store.objects('report_detail') if row['id'] == snapshot['details_id']) == full
 
 
 def response():

@@ -41,6 +41,8 @@ def synchronize(db, policy):
 
 
 def read(store):
+    from .model_budget_recovery import recover
+    recover(store)
     from .model_budget_ledger import totals
     with store.connection() as db:
         limits = json.loads(db.execute("SELECT data FROM directory.preferences WHERE id='limits'").fetchone()[0])
