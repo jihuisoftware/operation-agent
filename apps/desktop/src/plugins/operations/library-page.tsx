@@ -2,6 +2,7 @@ import { Button, CopyButton, formatTimestamp, host, type PluginContext } from '@
 import { useCallback, useEffect, useState } from 'react'
 
 import { AssetImage } from './asset-image'
+import { ContentReview, GenerateContent } from './content-review'
 import { EvidenceStorage } from './evidence-storage'
 import { ActionManager, ContentEditor } from './management'
 import { PausedRuns } from './paused-runs'
@@ -133,9 +134,10 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
       )}
       {section === 'content' && filter !== 'published' && (
         <>
+          <GenerateContent ctx={ctx} refresh={props.refresh} />
           <div className="grid gap-4 sm:grid-cols-2">
             {content.map(row => (
-              <ContentCard ctx={ctx} key={row.id} row={row} />
+              <ContentCard ctx={ctx} key={row.id} refresh={props.refresh} row={row} />
             ))}
           </div>
           <details>
@@ -177,21 +179,22 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
 }
 
 function matchesContent(row: RecordRow, filter: string) {
-  if (filter !== 'pending') { return !row.ready }
+  const scheduled = (row.release as { state?: string } | undefined)?.state === 'scheduled'
+  const active = ['published', 'confirmed', 'submitted', 'unknown', 'executing', 'queued'].includes(String(row.publication_state))
 
-  return row.ready === true && !['published', 'confirmed', 'submitted', 'unknown', 'executing', 'queued'].includes(String(row.publication_state))
+  return !active && (filter === 'pending' ? scheduled : !scheduled)
 }
 
 function InboxTransfers({ data, filter, ctx, refresh, onError }: Omit<ContentProps, 'section'>) {
   return (data.inbox || []).filter(row => !filter || row.kind === filter).map(row => <InboxTransfer ctx={ctx} failed={onError} key={row.id} row={row} saved={refresh} />)
 }
 
-function ContentCard({ ctx, row }: { ctx: PluginContext; row: RecordRow }) {
+function ContentCard({ ctx, row, refresh }: { ctx: PluginContext; row: RecordRow; refresh: () => Promise<unknown> }) {
   const ids = (row.asset_ids || []) as string[]
 
   return (
     <article className="min-w-0 space-y-2 rounded-lg bg-muted/30 p-3">
-      {ids.length > 0 && <AssetImage ctx={ctx} id={ids[0]} />}
+      {ids.map(id => <AssetImage ctx={ctx} id={id} key={id} />)}
       <h3 className="font-medium">{String(row.title)}</h3>
       <p className="text-xs text-muted-foreground">
         {row.publication_state
@@ -205,14 +208,20 @@ function ContentCard({ ctx, row }: { ctx: PluginContext; row: RecordRow }) {
                 cancelled: '已取消'
               } as Record<string, string>
             )[String(row.publication_state)] || '正在处理'
-          : row.ready
-            ? '待发布'
-            : '待完善草稿'}{' '}
+          : (row.release as { state?: string } | undefined)?.state === 'scheduled' ? '已排期' : '待审核'}{' '}
         · {formatTimestamp(String(row.created))}
       </p>
+      <p className="whitespace-pre-wrap break-words">{String(row.body)}</p>
+      {typeof row.parent_content_id === 'string' && <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <span>自动修订版本 · 第 {String(row.revision_index)} 轮；原稿已保留</span>
+        <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(String(row.parent_content_id))}`)} variant="link">查看上一版本</Button>
+      </div>}
+      {(row.quality as { pass?: boolean; reason?: string } | undefined)?.pass === false && <p className="text-sm text-muted-foreground">
+        自动检查提示：{String((row.quality as { reason?: string }).reason || '请核对图文内容')}
+      </p>}
+      <ContentReview ctx={ctx} refresh={refresh} row={row} />
       <details>
         <summary className="cursor-pointer">查看正文与来源</summary>
-        <p className="whitespace-pre-wrap break-words">{String(row.body)}</p>
         <Records rows={[row]} />
       </details>
       {!ids.length && (
@@ -241,6 +250,7 @@ function PublicationCard({ row, ...props }: Omit<ContentProps, 'data' | 'section
       {content && (
         <ContentCard
           ctx={props.ctx}
+          refresh={props.refresh}
           row={{ ...content, id: String(content.id || row.id), created: row.created, publication_state: row.state }}
         />
       )}

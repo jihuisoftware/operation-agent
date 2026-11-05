@@ -36,7 +36,7 @@ def requirements(policy, module, assets):
     if not policy["goal"].strip():
         missing.append("填写运营目标")
     actions = [a for a, m in ACTION_MODULE.items() if m == module]
-    if actions and not any(policy["allowed"][a] for a in actions):
+    if module != 'publish' and actions and not any(policy["allowed"][a] for a in actions):
         missing.append("选择并授权至少一个对应动作")
     if module == "publish" and not any(a.get("authorized") and not a.get("revoked") for a in assets):
         missing.append("上传获授权图片")

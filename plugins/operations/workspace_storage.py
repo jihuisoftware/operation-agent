@@ -1,5 +1,21 @@
 """Enforce ownership on SQL writes, including services using direct INSERTs."""
 
+OWNED_TABLES = (('objects', 'data'), ('events', 'data'), ('actions', 'data'), ('commands', 'payload'))
+
+
+def ready(db, scope):
+    from .storage_schema import names
+    present = names(db)
+    if 'ownership' not in present:
+        return False
+    owner = db.execute('SELECT business_id,topic_id FROM ownership').fetchone()
+    if owner and tuple(owner) != (scope['business_id'], scope['id']):
+        raise ValueError('主题数据库归属不匹配')
+    expected = {'ownership_business'}
+    for table, _ in OWNED_TABLES:
+        expected.update((table + '_scope', table + '_owner_insert', table + '_owner_update'))
+    return bool(owner) and expected <= present
+
 
 def initialize(db, scope):
     db.execute('CREATE TABLE IF NOT EXISTS ownership(business_id TEXT NOT NULL,topic_id TEXT PRIMARY KEY)')
@@ -8,7 +24,7 @@ def initialize(db, scope):
     if owner and tuple(owner) != (scope['business_id'], scope['id']):
         raise ValueError('主题数据库归属不匹配')
     db.execute('INSERT OR IGNORE INTO ownership VALUES (?,?)', (scope['business_id'], scope['id']))
-    for table, field in (('objects', 'data'), ('events', 'data'), ('actions', 'data'), ('commands', 'payload')):
+    for table, field in OWNED_TABLES:
         db.execute(f"CREATE INDEX IF NOT EXISTS {table}_scope ON {table}(json_extract({field},'$.business_id'),json_extract({field},'$.topic_id'))")
         for operation in ('INSERT', 'UPDATE'):
             db.execute(f"""CREATE TRIGGER IF NOT EXISTS {table}_owner_{operation.lower()} AFTER {operation} ON {table}

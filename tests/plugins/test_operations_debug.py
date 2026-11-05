@@ -76,9 +76,14 @@ def test_quick_external_task_requires_explicit_run_authorization(configured, mon
     assert debug.detail(result["id"])["actions"] == []
     assert configured.policy() == (2, policy)
 
-    with pytest.raises(HTTPException, match='未授权'):
-        debug.execute({**body, "mode": "normal", "external_actions": None, "request_id": task + "-normal"})
-    assert calls == [task]
+    normal = {**body, "mode": "normal", "external_actions": None, "request_id": task + "-normal"}
+    if task == 'publish':
+        assert debug.execute(normal)['action_mode'] == 'publish_once'
+        assert calls == [task, task]
+    else:
+        with pytest.raises(HTTPException, match='未授权'):
+            debug.execute(normal)
+        assert calls == [task]
 
 
 @pytest.mark.parametrize("mode", ("normal", "quick"))

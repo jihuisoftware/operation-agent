@@ -92,6 +92,9 @@ def _tick(store, now, *, one_stage=False):
     if not policy["paused"] and store.snapshot()["online"]:
         from .recovery import reconcile_pending
         reconcile_pending(store, policy, day)
+    from .publication_plan import publish_due
+    if publish_due(store, now) and one_stage:
+        return '本轮已处理审核排期'
     from .workspace_upcoming import queue_due
     for stage, due in queue_due(store, policy, now).items():
         if not readiness[stage]["ready"]:

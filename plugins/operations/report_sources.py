@@ -9,6 +9,9 @@ def source_lines(scope, actions):
     duplicate_sources = [source for source in sources if not source.get("is_new", True) and source.get("text")]
     contents = scope.objects("content")
     referenced = {source_id for c in contents for source_id in c.get("source_ids", [])}
+    for event in scope.events:
+        if event['kind'] == 'content_reused':
+            referenced.update(json.loads(event['data']).get('source_ids', []))
     referenced.update(source_id for a in actions for source_id in json.loads(a["data"]).get("content", {}).get("source_ids", []))
     collected_ids = {source["id"] for source in sources}
     reused = [s for s in scope.store.objects("source") if s["id"] in referenced and s["id"] not in collected_ids]

@@ -15,13 +15,17 @@ def request_mode(body, task, mode, selected_tasks=None):
         raise HTTPException(400, '快速实测会执行真实外部动作，请刷新调试页后点击真实执行按钮')
     if mode == 'quick' and selected_tasks is not None and not external:
         return 'not_requested'
+    if mode == 'normal' and (task == 'publish' or (task == 'pipeline' and 'publish' in (selected_tasks or []))):
+        return 'publish_once'
     return 'execute_once' if mode == 'quick' and external else 'standing_policy'
 
 
 def create(store, data):
-    if data.get('action_mode') != 'execute_once':
+    if data.get('action_mode') not in {'execute_once', 'publish_once'}:
         return
     actions = sorted(set(data.get('selected_tasks', ACTION_MODULE)) & set(ACTION_MODULE)) if data['task'] == 'pipeline' else [data['task']]
+    if data['action_mode'] == 'publish_once':
+        actions = ['publish']
     scope = ({'business_id': store.scope['business_id'], 'topic_id': store.scope['id'], 'account': store.scope['account']}
              if store.scope else None)
     grant = {'batch': data['id'], 'version': data['version'], 'day': data['day'], 'actions': actions,

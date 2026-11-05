@@ -42,6 +42,9 @@ class Workspaces:
         with self.connection() as db:
             if db.execute("SELECT 1 FROM sqlite_master WHERE name='topics'").fetchone() and db.execute('PRAGMA user_version').fetchone()[0] != 1:
                 raise ValueError('开发数据格式已变化，请清理运营数据后重新开始')
+            from .storage_schema import ready
+            if ready(db, SCHEMA) and db.execute('SELECT 1 FROM topics').fetchone():
+                return
             db.executescript(SCHEMA)
             db.execute('PRAGMA user_version=1')
             db.execute('BEGIN IMMEDIATE')
@@ -52,8 +55,8 @@ class Workspaces:
     def connection(self):
         db = sqlite3.connect(self.path, timeout=30)
         db.row_factory = sqlite3.Row
-        db.execute('PRAGMA foreign_keys=ON')
         try:
+            db.execute('PRAGMA foreign_keys=ON')
             with db:
                 yield db
         finally:

@@ -19,7 +19,7 @@ def pack(rows, count, characters):
 
 
 def history(rows):
-    return [fields(row, ('id', 'title', 'body', 'day', 'source_ids')) for row in rows[:15]]
+    return [fields(row, ('id', 'title', 'body', 'day', 'source_ids', 'publication_state', 'publication_recorded_at')) for row in rows[:15]]
 
 
 def policy(value):
@@ -27,7 +27,7 @@ def policy(value):
 
 
 def assets(rows):
-    return [fields(row, ('id', 'name', 'authorized', 'revoked')) for row in rows]
+    return [fields(row, ('id', 'name', 'authorized', 'revoked', 'generated_typography', 'cover_title')) for row in rows]
 
 
 def evidence(rows, required_ids=()):
@@ -68,19 +68,6 @@ def selected_topic(value):
 
 def tasks(rows):
     return [fields(row, ('id', 'text', 'state')) for row in rows]
-
-
-def review_sources(content, sources):
-    cited = [row for row in sources if row['id'] in content['source_ids']]
-    allowance = 20_000 // max(1, len(cited))
-    result = []
-    for row in cited:
-        text = row.get('text', '')
-        shortened = len(text) > allowance
-        excerpt = text[:allowance // 2] + '\n[中间正文省略]\n' + text[-allowance // 2:] if shortened else text
-        result.append({**fields(row, ('id', 'title', 'url', 'published_at')), 'text': excerpt,
-                       'text_truncated': shortened or row.get('truncated', False), 'original_chars': row.get('original_chars') or len(text)})
-    return result
 
 
 def checked(store, task, data):

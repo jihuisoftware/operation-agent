@@ -18,7 +18,7 @@ def check(db, action, policy, day=None):
             active[row['id']] = row['version']
     expected = {d['id']: d['version'] for d in context['datasets']}
     if (context['scope_topic'] != policy['topic'] or context['config_version'] != config['version'] or active != expected
-            or context['window'] != window(config['config'], day or local_day(policy))):
+            or context['window'] != window(config['config'], action['content']['day'] if action.get('human_review') else day or local_day(policy))):
         raise ValueError('分析依据或公开权限已变化，禁止提交旧稿件；请重新生产并检查')
 
 

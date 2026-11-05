@@ -95,21 +95,22 @@ def resolve_account(store, policy):
 
 def publish(store, policy, day, version, *, content_id=None):
     from .content import check_content, validate_content, content_digest
-    from .debug_authorization import allowed
-    if not allowed(store, policy, 'publish'):
-        raise StageSkipped("自动发布未开启")
-    drafts = [c for c in store.objects("content", day) if c.get("ready") and (content_id is None or c["id"] == content_id)]
-    if not drafts:
-        raise StageSkipped("没有选定的有效内容版本，未发布；请先生产或选择草稿")
-    content = drafts[0]
+    from .publication_plan import choose
+    content, release = choose(store, policy, day, content_id)
     sources = [s for s in store.objects("source") if s["id"] in content.get("source_ids", []) and s.get("text")]
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
     validate_content(content, sources, assets, require_assets=True)
-    quality = check_content(store, policy, day, version, content, sources, publishing=True)
-    if quality.get("pass") is not True:
-        raise StageSkipped("草稿未通过自动检查：" + str(quality.get("reason", "依据不足")))
-    account = resolve_account(store, policy)
+    if release:
+        from .content_release import validate
+        validate(store, content)
+    else:
+        quality = check_content(store, policy, day, version, content, sources)
+        if quality.get("pass") is not True:
+            raise StageSkipped("草稿未通过自动检查：" + str(quality.get("reason", "依据不足")))
+    account = release['account_id'] if release else resolve_account(store, policy)
     action = {"kind": "publish", "account_id": account, "target": content_digest(content), "content": content}
+    if release:
+        action['human_review'] = release['revision']
     identity = store.reserve_action(action, version, day)
     if not identity:
         raise StageSkipped("相同内容已有执行记录")

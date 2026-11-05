@@ -21,6 +21,8 @@ from plugins.operations.store import Store, encoded
 from .operations_pipeline import EXTERNAL
 
 router = APIRouter(prefix="/debug")
+from .operations_task_api import router as task_router
+router.include_router(task_router)
 TASKS = {
     "research": ("信息采集", "research"), "organize": ("资料整理与归类", "organize"), "analytics": ("数据分析", "analytics"), "industry": ("行业分析", "industry"), "topics": ("选题策划", "topics"), "content": ("内容生产", "content"),
     "publish": ("图文发布", "publish"), "comment": ("主动评论", "comments"),
@@ -153,10 +155,10 @@ def run_task(store, identity, task, version, *, mode="normal", external_actions=
     day = local_day(policy)
     if policy["deadline"] and day > policy["deadline"][:10] and task != "report":
         raise HTTPException(400, "运营目标已超过期限")
-    if task in EXTERNAL and mode != 'quick' and not policy["allowed"][task]:
+    if task in EXTERNAL and mode != 'quick' and external_actions != 'publish_once' and not policy["allowed"][task]:
         raise HTTPException(400, "该动作尚未授权")
     data = new_record(identity, task, TASKS[task][0], version, day)
-    data.update(mode=mode, action_mode=external_actions)
+    data.update(mode=mode, action_mode=external_actions, policy=policy)
     store.put("debug_run", data, identity)
     store.manual_run_id = identity
     from .operations_authorization import create
@@ -253,7 +255,7 @@ def catalog():
             "runs": [{key: value for key, value in run.items() if key in fields} for run in runs],
             "task_status": task_status(store, runs), "execution": active_execution(store), 'web_block_reason': web_block,
             "pipeline_available": True, 'selective_quick_available': True, 'selective_pipeline_available': True,
-            'browser_check_available': True}
+            'browser_check_available': True, 'task_details_available': True}
 
 
 @router.post("/run")

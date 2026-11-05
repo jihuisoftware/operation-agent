@@ -62,7 +62,8 @@ def checkpoint_id(policy, item):
 
 
 def organize_long(store, policy, day, version, source, budget):
-    from .organization import generate, validate, save_rows, INSTRUCTION
+    from .organization import save_rows, INSTRUCTION
+    from .organization_formats import request_rows
     pieces = segments(source)
     complete = {piece['id']: load(store, checkpoint_id(policy, piece)) for piece in pieces}
     calls = 0
@@ -70,8 +71,7 @@ def organize_long(store, policy, day, version, source, budget):
         if calls >= budget:
             return False, calls
         calls += 1
-        result = generate(store, policy, day, INSTRUCTION + '每条是长文的一段；只整理该段，不把其他段未出现的内容断言为原文缺失。', request_data(policy, group))
-        rows = validate(result, group)
+        rows = request_rows(store, policy, day, INSTRUCTION + '每条是长文的一段；只整理该段，不把其他段未出现的内容断言为原文缺失。', request_data(policy, group), group, phase='segments')
         if store.policy() != (version, policy):
             raise ValueError('整理期间规则已变更，未保存本批结果')
         for row in rows:
@@ -85,6 +85,9 @@ def organize_long(store, policy, day, version, source, budget):
     summaries = [complete[piece['id']] for piece in pieces]
     merged, used = merge_summaries(store, policy, day, version, source, summaries, budget - calls)
     if merged:
+        if any(row.get('format_incomplete') for row in summaries):
+            merged.update(format_incomplete=True, format_warnings=['部分分段存在无法兼容的字段'])
+            merged['uncertainties'].append('部分分段整理字段未完整识别，不能据此断言原文未提及相关内容。')
         save_rows(store, policy, day, version, [source], [{**merged, 'source_id': source['id']}], segments_total=len(pieces))
     return bool(merged), calls + used
 
@@ -95,6 +98,7 @@ def summary_source(source, rows):
 
 
 def merge_groups(policy, source, rows):
+    from .organization_formats import OrganizationCapacityError
     groups, current = [], []
     for row in rows:
         if current and not fits(policy, [summary_source(source, [*current, row])]):
@@ -102,19 +106,26 @@ def merge_groups(policy, source, rows):
             current = []
         current.append(row)
         if not fits(policy, [summary_source(source, current)]):
-            raise ValueError('单段摘要超过整理容量，原文和检查点已保存，请精简该段结果后重试')
+            raise OrganizationCapacityError('单段摘要超过整理容量，原文和检查点已保存')
     if current:
         groups.append(current)
     return groups
 
 
 def merge_summaries(store, policy, day, version, source, rows, budget):
-    from .organization import generate, validate, INSTRUCTION, material_id
+    from .organization import INSTRUCTION, material_id
+    from .organization_formats import request_rows, OrganizationCapacityError
     calls = 0
+    incomplete = any(row.get('format_incomplete') for row in rows)
     while rows:
-        groups = merge_groups(policy, source, rows)
-        if len(rows) > 1 and len(groups) == len(rows):
-            raise ValueError('长文分段摘要无法在单次容量内合并，已保存结果，请精简摘要后重试')
+        try:
+            groups = merge_groups(policy, source, rows)
+            if len(rows) > 1 and len(groups) == len(rows):
+                raise OrganizationCapacityError('长文分段摘要无法在单次容量内合并，检查点已保存')
+        except OrganizationCapacityError as exc:
+            store.event('organization_format', {'day': day, 'phase': 'merge', 'requested': [source['id']],
+                        'issue_count': 1, 'issues': [{'action': 'skipped', 'reason': str(exc)}]})
+            return None, calls
         reduced = []
         for group in groups:
             data = request_data(policy, [summary_source(source, group)], task='organize_merge')
@@ -126,8 +137,7 @@ def merge_summaries(store, policy, day, version, source, rows, budget):
             if calls >= budget:
                 return None, calls
             calls += 1
-            result = generate(store, policy, day, INSTRUCTION + 'sources.text 是同一文档连续分段的摘要。合并全部提供段落，保留后半部分的重要事实；未提及不能当作原文缺失。', data)
-            values = validate(result, [source])
+            values = request_rows(store, policy, day, INSTRUCTION + 'sources.text 是同一文档连续分段的摘要。合并全部提供段落，保留后半部分的重要事实；未提及不能当作原文缺失。', data, [source], phase='merge')
             if not values:
                 return None, calls
             if store.policy() != (version, policy):
@@ -136,6 +146,10 @@ def merge_summaries(store, policy, day, version, source, rows, budget):
             store.put('organization_merge', {**cached, 'day': day, 'created': now_iso()}, identity)
             reduced.append(cached)
         if len(reduced) == 1:
+            if incomplete:
+                reduced[0] = {**reduced[0], 'format_incomplete': True, 'format_warnings': ['部分分段或中间摘要存在无法兼容的字段'],
+                              'uncertainties': [*reduced[0]['uncertainties'], '部分分段或中间摘要的字段未完整识别，不能据此断言原文未提及相关内容。']}
             return reduced[0], calls
+        incomplete = incomplete or any(row.get('format_incomplete') for row in reduced)
         rows = reduced
     return None, calls

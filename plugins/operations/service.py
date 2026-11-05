@@ -26,7 +26,13 @@ def retry_action(store, identity):
             raise ValueError("只有人工确认未执行成功的动作才能重新执行；未知结果先核对")
         cfg = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
         policy, action = json.loads(cfg["data"]), json.loads(row["data"])
-        reason = permitted(policy, action)
+        effective = policy
+        if action.get('human_review'):
+            from .content_release import authorization
+            if not authorization(store, db, action, cfg['version'], policy):
+                raise ValueError('本篇稿件的人工审核授权已失效，请重新审核新版本')
+            effective = {**policy, 'allowed': {**policy['allowed'], 'publish': True}}
+        reason = permitted(effective, action)
         if reason:
             raise ValueError(reason)
         day = local_day(policy)
@@ -84,9 +90,13 @@ def add_record(store, kind, body):
         return store.put(kind, body, "metric:" + body["id"])
     if kind == "content":
         from .content import validate_content
-        validate_content(body, store.objects("source"), [a for a in store.objects("asset") if not a.get("revoked")])
+        body = {key: body[key] for key in ('title', 'body', 'asset_ids', 'source_ids')}
+        validate_content(body, store.objects("source"), [a for a in store.objects("asset") if a.get('authorized') and not a.get("revoked")])
+        from .content_cover import ensure_cover
+        body = ensure_cover(store, body)
         digest = hashlib.sha256(encoded(body).encode()).hexdigest()
-        return store.put(kind, {**body, "manual": True, "day": local_day(store.policy()[1]), "created": now_iso()}, digest)
+        return store.put(kind, {**body, "manual": True, 'ready': True, 'state': 'pending_review',
+                               'version': store.policy()[0], "day": local_day(store.policy()[1]), "created": now_iso()}, digest)
     if kind == "task":
         if not isinstance(body.get("text"), str) or not body["text"].strip():
             raise ValueError("任务不能为空")

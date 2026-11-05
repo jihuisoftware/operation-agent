@@ -179,13 +179,14 @@ def test_quick_start_complete_pipeline_reuses_analysis_and_records_receipts(tmp_
     now = datetime.now(UTC)
     runtime.tick(store, now)
     status = quick_start.status(store)
-    assert status['run']['state'] == 'completed', status
-    assert set(submissions) == {'publish', 'comment', 'reply', 'dm'}
+    assert status['run']['state'] == 'partial', status
+    assert set(submissions) == {'comment', 'reply', 'dm'}
+    assert '人工审核' in status['run']['detail']
     assert store.objects('content')[0]['analysis_context']['industry_id']
     assert '模拟网页回执' in store.objects('report')[0]['markdown']
     assert status['events'] and not status['errors']
     runtime.tick(Store(store.path), now)
-    assert len(submissions) == 4
+    assert len(submissions) == 3
 
 
 def test_cancelling_first_run_keeps_records_and_prevents_later_modules(tmp_path, monkeypatch):

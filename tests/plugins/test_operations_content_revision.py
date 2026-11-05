@@ -9,6 +9,7 @@ from plugins.operations.store import Store
 def test_publish_checks_releases_and_supplies_asset_metadata(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     store = Store()
+    store.debug_id = 'debug:asset-review'
     policy = deepcopy(DEFAULT)
     policy.update(enabled=True, topic="创作", goal="帮助创作者", account_id="me")
     policy["allowed"]["publish"] = True

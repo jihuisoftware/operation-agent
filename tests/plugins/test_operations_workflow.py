@@ -91,7 +91,8 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
         for batch in ("first-click", "first-click", "second-click"):
             store.claim("simulated-desktop", busy=True)
             tick(store, datetime(2026, 10, 31, 9, 45, tzinfo=UTC), request_id=batch)
-        assert len(store.objects("content")) == 2
+        # A new request with identical inputs reuses the unapproved manuscript and its check.
+        assert len(store.objects("content")) == 1
         assert len(store.objects("report")) == 2
     else:
         for hour, minute in ((1, 5), (1, 45), (2, 5), (3, 5), (13, 5)):
@@ -101,10 +102,11 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
     from plugins.operations.research import distinct_sources
     assert len(store.objects("source")) == 3
     assert len(distinct_sources(store, "2026-10-31")) == 1
-    assert sorted(submissions) == sorted(["comment", "dm", "follow", "publish", "reply"] * (2 if manual else 1))
+    # Daily production prepares a manuscript; publication now requires per-version human review.
+    assert sorted(submissions) == sorted(["comment", "dm", "follow", "reply"] * (2 if manual else 1))
     report = store.objects("report")[0]["markdown"]
-    assert f"已核对成功 {5 if manual else 4} 次" in report
-    assert ("confirmed" if manual else "submitted") in report and "https://example.org/result" in report
+    assert "已核对成功 4 次" in report
+    assert "confirmed" in report and "https://example.org/result" in report
     # The 21:05 recovery checks only the latest (19:00) interaction slot;
     # duplicate targets are inspected again but never submitted twice.
     assert "不可访问" in report and "模型调用" in report

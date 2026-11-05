@@ -85,6 +85,11 @@ def record_step(store, command_id, worker, body):
         from .analysis_publication import check_step
         check_step(db, command, phase)
         payload = json.loads(command['payload'])
+        if phase == 'started' and payload.get('human_review'):
+            from .content_release import authorization
+            version, policy = store.policy()
+            if not authorization(store, db, payload, version, policy):
+                raise ValueError('人工审核授权已失效，不能继续提交')
         cancelled = db.execute("SELECT 1 FROM objects WHERE id=? AND json_extract(data,'$.state')='cancelled'", (payload.get('manual_run_id', ''),)).fetchone()
         if phase == 'started' and cancelled:
             raise ValueError('快速首轮已取消，不能追加网页操作')

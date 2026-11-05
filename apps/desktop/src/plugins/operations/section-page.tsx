@@ -31,10 +31,10 @@ export const sections = {
     title: '内容',
     icon: 'file-media',
     tabs: [
-      ['topics', '选题'],
-      ['drafts', '草稿'],
-      ['pending', '待发布'],
-      ['published', '发布记录']
+      ['drafts', '待审核'],
+      ['pending', '已排期'],
+      ['published', '发布记录'],
+      ['topics', '选题']
     ]
   },
   interactions: {

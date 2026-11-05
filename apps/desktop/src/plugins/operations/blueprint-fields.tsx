@@ -135,7 +135,7 @@ export function ScheduleFields({
       )}
       {level === 'all' &&
         Object.entries(actionModules)
-          .filter(([, m]) => policy.modules[m])
+          .filter(([action, m]) => action !== 'publish' && policy.modules[m])
           .map(([action]) => (
             <label className="flex items-center gap-2" key={action}>
               <Checkbox

@@ -1,12 +1,15 @@
 import { Button, CopyButton, type CronBlueprintOwner, formatTimestamp, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 
 import { BrowserCheck } from './browser-check'
 import { hasExternalActions, QuickSelection } from './quick-selection'
 import { DebugRecord, type Detail, type Run, states } from './records'
+import { DebugTaskPage } from './task-page'
 import { type DebugTask, DebugTaskRow, type TaskStatus } from './task-row'
 
 interface Catalog {
+  task_details_available?: boolean
   browser_check_available?: boolean
   version: number
   policy: { modules: Record<string, boolean> }
@@ -20,11 +23,38 @@ interface Catalog {
 
 export function DebugPage({ ctx }: { ctx: PluginContext }) {
   const owner = useValue(host.state.requestOwner)
+  const [params, setParams] = useSearchParams()
 
-  return <DebugPanel ctx={ctx} key={JSON.stringify(owner)} owner={owner} />
+  const openTask = useCallback((task: string, run?: string) => setParams(previous => {
+    const next = new URLSearchParams(previous)
+    next.set('task', task)
+
+    if (run) { next.set('run', run) } else { next.delete('run') }
+
+    return next
+  }), [setParams])
+
+  const selectRun = useCallback((id: string) => setParams(previous => {
+    const next = new URLSearchParams(previous)
+    next.set('run', id)
+
+    return next
+  }), [setParams])
+
+  const back = () => setParams(previous => {
+    const next = new URLSearchParams(previous)
+    next.delete('task'); next.delete('run')
+
+    return next
+  })
+
+  const task = params.get('task')
+
+  return task ? <DebugTaskPage back={back} ctx={ctx} key={`${JSON.stringify(owner)}:${task}`} owner={owner} runId={params.get('run')} selectRun={selectRun} task={task} />
+    : <DebugPanel ctx={ctx} key={JSON.stringify(owner)} onOpenTask={openTask} owner={owner} />
 }
 
-export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlueprintOwner }) {
+export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; owner: CronBlueprintOwner; onOpenTask?: (task: string, run?: string) => void }) {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -125,6 +155,7 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
     <main className="space-y-6 overflow-auto p-6">
       <h1 className="text-xl font-semibold">任务调试 · 仅开发环境</h1>
       <p>每次只执行所选任务，忽略原排期。每次点击是独立批次；详细和快速两种模式都只执行下方勾选的项目；单项按钮仅执行所在行。</p>
+      <p>勾选图文发布时，由自动检查代替人工审核，立即真实发布本次稿件，最多 1 次；不会开启日常自动审核。</p>
       <p className="text-muted-foreground">调试会调用真实业务流程。网页任务使用当前内嵌账号；可在实时画面中暂停并人工接管。</p>
       <p className="text-xs text-muted-foreground">所有开发调试均不限制模型调用次数，不占用正常运营的每日模型额度；Token 用量和实际费用仍照常记录。外部动作的“快速实测”按钮只授权该项真实执行 1 次；多选快速实测中每种所选外部动作最多 1 次。本次授权不会写入日常自动运营计划。</p>
       {(error || loadError) && <div><p className="text-destructive" role="alert">{error || loadError}</p><CopyButton label="复制请求错误" text={JSON.stringify({ owner, run_id: selected, error, loadError }, null, 2)}>复制请求错误</CopyButton></div>}
@@ -136,15 +167,18 @@ export function DebugPanel({ ctx, owner }: { ctx: PluginContext; owner: CronBlue
         {catalog && <QuickSelection available={catalog.selective_pipeline_available === true} busy={busy} onRun={(tasks, mode) => void run('pipeline', mode, tasks)} tasks={catalog.tasks} />}
       </section>
       <p className="text-xs text-muted-foreground">下方单项按钮不使用上方勾选。每行右侧显示近期调试状态、步骤说明和耗时，每 2 秒刷新；最近批次未选择的项目会明确标注。点击状态可查看对应批次详情。</p>
+      {catalog && !catalog.task_details_available && <p className="text-sm text-muted-foreground">后台尚未加载详细调试接口，请在当前任务结束后重启后台，再进入任务子页面。</p>}
       {typeof catalog?.web_block_reason === 'string' && <p className="text-xs text-muted-foreground">当前网页控制：{catalog.web_block_reason || '未处于人工接管'}。下方保留最近一次运行结果；草稿生成完成不等于已满足发布条件。</p>}
       <div>
         {catalog?.tasks.map(task => (
           <DebugTaskRow
             busy={busy}
+            detailsAvailable={catalog.task_details_available === true}
             enabled={catalog.policy.modules[task.module]}
             key={task.id}
             notSelected={Boolean(currentSelection && !currentSelection.includes(task.id))}
             onInspect={id => { setSelected(id); setDetail(null) }}
+            onOpen={() => onOpenTask ? onOpenTask(task.id, catalog.task_status?.[task.id]?.run_id) : host.navigate(`/operations-debug?task=${task.id}`)}
             onRun={mode => void run(task.id, mode)}
             stale={Boolean(loadError)}
             status={catalog.task_status?.[task.id]}

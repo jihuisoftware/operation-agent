@@ -7,6 +7,10 @@ class ModelServiceUnavailable(RuntimeError):
     """Partial business results remain usable while the provider is unavailable."""
 
 
+class ModelOutputError(ValueError):
+    """A received model response cannot be decoded into the requested JSON object."""
+
+
 def service_failure(error):
     status = getattr(error, 'status_code', None)
     messages = {

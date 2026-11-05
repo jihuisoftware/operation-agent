@@ -22,6 +22,10 @@ def content_data(db, rows):
     for item in content:
         action = db.execute("SELECT state FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=? ORDER BY rowid DESC LIMIT 1", (item['id'],)).fetchone()
         item['publication_state'] = action['state'] if action else None
+        from plugins.operations.content_release import load, fingerprint
+        item['release'] = load(db, item['id'])
+        item['content_revision'] = fingerprint(item)
+        item['policy_version'] = db.execute('SELECT version FROM settings WHERE id=1').fetchone()[0]
     sources = {s['id']: s for s in objects(db, 'source')}
     sources.update({s['id']: s for s in objects(db, 'source', [identity for item in content for identity in item.get('source_ids', [])])})
     return {'content': content, 'asset': objects(db, 'asset'), 'source': list(sources.values())}

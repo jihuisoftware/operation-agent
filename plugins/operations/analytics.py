@@ -45,9 +45,11 @@ def latest(store, kind, policy, day):
         rows = db.execute("SELECT id,data FROM objects WHERE kind=? AND json_extract(data,'$.scope_topic')=? "
                           "AND json_extract(data,'$.config_version')=? AND json_extract(data,'$.window.start')=? "
                           "AND json_extract(data,'$.window.end')=? ORDER BY created DESC",
-                          (kind, policy['topic'], config['version'], period['start'], period['end']))
-        for row in rows:
-            report = {**json.loads(row['data']), 'id': row['id']}
-            if valid(store, report, policy, day):
-                return report
+                          (kind, policy['topic'], config['version'], period['start'], period['end'])).fetchall()
+    # Validation opens fresh connections. Finish the cursor and release its read lock first,
+    # so a pending writer cannot wait on this reader while blocking the validator's new reader.
+    for row in rows:
+        report = {**json.loads(row['data']), 'id': row['id']}
+        if valid(store, report, policy, day):
+            return report
     return None

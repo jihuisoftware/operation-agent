@@ -27,6 +27,8 @@ from plugins.operations.dashboard.model_budget_api import router as model_budget
 router.include_router(model_budget_router)
 from plugins.operations.dashboard.topics_api import router as topics_router
 router.include_router(topics_router)
+from plugins.operations.dashboard.content_api import router as content_router
+router.include_router(content_router)
 
 # Development tooling is absent from release payloads and wheels.
 _source_root = Path(__file__).resolve().parents[3]

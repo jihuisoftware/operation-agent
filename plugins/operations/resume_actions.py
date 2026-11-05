@@ -45,6 +45,10 @@ def _continue_action(store, row, data, policy, day, version):
     from .debug_authorization import allowed
     from .policy import permitted
     effective = {**policy, 'allowed': {**policy['allowed'], row['kind']: allowed(store, policy, row['kind'])}}
+    if data.get('human_review'):
+        from .content_release import authorization
+        with store.connection() as db:
+            effective['allowed'][row['kind']] = authorization(store, db, data, version, policy)
     reason = permitted(effective, data)
     if reason:
         raise ValueError(reason)

@@ -114,13 +114,12 @@ export function ContentEditor({
   const [body, setBody] = useState('')
   const [assetIds, setAssetIds] = useState<string[]>([])
   const [sourceIds, setSourceIds] = useState<string[]>([])
-  const [ready, setReady] = useState(false)
 
   const save = async () => {
     try {
       await props.ctx.rest('/records/content', {
         method: 'POST',
-        body: { title, body, asset_ids: assetIds, source_ids: sourceIds, ready }
+        body: { title, body, asset_ids: assetIds, source_ids: sourceIds }
       })
       await props.refresh()
       props.onError('已保存新内容版本')
@@ -150,7 +149,6 @@ export function ContentEditor({
           setBody(String(row.body))
           setAssetIds(row.asset_ids as string[])
           setSourceIds(row.source_ids as string[])
-          setReady(false)
         }}
       >
         <option value="">选择历史版本或创建新稿</option>
@@ -203,11 +201,8 @@ export function ContentEditor({
             {String(s.title)}
           </label>
         ))}
-      <label>
-        <input checked={ready} onChange={e => setReady(e.target.checked)} type="checkbox" />{' '}
-        纳入今日发布候选（仍需通过当前规则与自动检查）
-      </label>
-      <button onClick={() => void save()}>保存新版本</button>
+      <p>保存为新的待审核版本；没有配图时自动生成文字封面。已有排期绑定原版本，不会被修改。</p>
+      <button onClick={() => void save()}>保存待审核版本</button>
       {rows.map(row => (
         <button
           className="text-left"

@@ -1,5 +1,7 @@
 """Private workspace endpoints; Profile binding is supplied by the host."""
 import json
+import sqlite3
+from contextlib import asynccontextmanager
 from fastapi import APIRouter, HTTPException, Request
 
 from ..workspaces import ACTIVE_SCOPE, Workspaces
@@ -8,6 +10,18 @@ router = APIRouter()
 
 
 async def scope_dependency(request: Request):
+    try:
+        async with request_scope(request):
+            yield
+    except sqlite3.OperationalError as exc:
+        code = getattr(exc, 'sqlite_errorcode', 0) & 0xff
+        if code not in {sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED} and str(exc).lower() not in {'database is locked', 'database table is locked'}:
+            raise
+        raise HTTPException(503, '运营数据库暂时繁忙，请稍后刷新执行记录；不要重复提交执行请求。', headers={'Retry-After': '1'}) from exc
+
+
+@asynccontextmanager
+async def request_scope(request: Request):
     if '/usage/' in request.url.path:
         yield
         return

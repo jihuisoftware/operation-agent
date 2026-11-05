@@ -31,7 +31,7 @@ def _live_batch(db, grant, version, kind, policy):
     if not row:
         return False
     batch = json.loads(row[0])
-    if batch['state'] != 'running' or batch.get('mode') != 'quick' or batch.get('action_mode') != 'execute_once':
+    if batch['state'] != 'running' or batch.get('action_mode') not in {'execute_once', 'publish_once'}:
         return False
     lease = db.execute("SELECT 1 FROM leases WHERE id='account' AND token=? AND expires>?", (grant['batch'], time.time())).fetchone()
     if not lease:
@@ -89,10 +89,16 @@ def model_policy(store, policy, kind):
 def reservation_policy(store, db, policy, action, version):
     action.pop('debug_authorization', None)
     grant = current_grant(store, db, version, action['kind'], policy)
+    if action['kind'] == 'publish' and action.get('human_review'):
+        from .content_release import authorization
+        if not authorization(store, db, action, version, policy):
+            raise ValueError('稿件尚未审核、未到发布时间或审核已失效')
+        return {**policy, 'allowed': {**policy['allowed'], 'publish': True}}
     if not grant:
         batch = getattr(store, 'debug_id', None)
         row = db.execute("SELECT data FROM objects WHERE id=? AND kind='debug_run'", (batch,)).fetchone() if batch else None
-        if row and json.loads(row[0]).get('action_mode') == 'execute_once':
+        mode = json.loads(row[0]).get('action_mode') if row else None
+        if mode == 'execute_once' or (mode == 'publish_once' and action['kind'] == 'publish'):
             raise ValueError('本次快速实测授权已失效，请重新发起')
         return policy
     identity = grant_id(grant['batch'])
@@ -107,6 +113,12 @@ def may_dispatch(store, db, command, action, version, policy):
     if command['kind'] not in {'publish', 'interact'}:
         return True
     data = json.loads(action['data'])
+    if data.get('human_review'):
+        from .content_release import authorization
+        if not authorization(store, db, data, version, policy):
+            db.execute("UPDATE commands SET state='cancelled' WHERE id=?", (command['id'],))
+            db.execute("UPDATE actions SET state='cancelled' WHERE id=?", (action['id'],))
+            return False
     identity = data.get('debug_authorization')
     if not identity or read_grant(store, db, identity, version, data['kind'], policy):
         return True

@@ -271,7 +271,7 @@ def test_ended_quick_grant_cannot_dispatch_a_late_command(environment, monkeypat
     version, policy = store.policy()
     policy['allowed'] = {kind: False for kind in policy['allowed']}
     store.configure(policy, version)
-    debug.execute({'task': 'pipeline', 'tasks': list(debug.TASKS), 'mode': 'normal', 'version': 2, 'request_id': 'prepare'})
+    debug.execute({'task': 'pipeline', 'tasks': [key for key in debug.TASKS if key != 'publish'], 'mode': 'normal', 'version': 2, 'request_id': 'prepare'})
     assert not submitted
     monkeypatch.setattr(debug.workflow, 'browser', lambda *args, **kwargs: {'state': 'submitted', 'evidence': '模拟等待派发'})
     result = debug.execute({'task': 'publish', 'mode': 'quick', 'external_actions': 'execute_once', 'version': 2, 'request_id': 'late'})
@@ -283,7 +283,7 @@ def test_ended_quick_grant_cannot_dispatch_a_late_command(environment, monkeypat
     assert store.policy() == (2, policy)
 
 
-def test_saved_draft_completes_production_and_publish_explains_missing_material(environment):
+def test_text_draft_gets_original_cover_and_debug_can_publish(environment):
     store, submitted = environment
     with store.connection() as db:
         db.execute("DELETE FROM objects WHERE kind='asset'")
@@ -306,8 +306,7 @@ def test_saved_draft_completes_production_and_publish_explains_missing_material(
         result = debug.execute({'task': 'pipeline', 'tasks': list(debug.TASKS), 'mode': 'quick', 'external_actions': 'execute_once', 'version': 1, 'request_id': 'draft-without-image'})
     steps = {step['id']: step for step in result['steps']}
     assert steps['content']['state'] == 'completed'
-    assert steps['content']['result']['content_id'] and not steps['content']['result']['ready']
-    assert steps['publish']['state'] == 'skipped'
-    assert '缺少获授权图片' in steps['publish']['detail']
-    assert '未完成' not in steps['publish']['detail']
-    assert not any(row['kind'] == 'publish' for row in submitted)
+    assert steps['content']['result']['content_id'] and steps['content']['result']['ready']
+    assert steps['publish']['state'] == 'completed'
+    assert store.objects('content')[0]['cover_origin'] == 'generated_typography'
+    assert sum(row['kind'] == 'publish' for row in submitted) == 1

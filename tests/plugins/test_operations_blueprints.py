@@ -118,7 +118,7 @@ def test_removing_module_cancels_queued_action_and_preserves_history(store):
 
 
 
-def test_production_without_images_is_a_draft_and_publishing_never_generates_a_new_post(store, monkeypatch):
+def test_production_adds_cover_and_publishing_waits_for_human_review(store, monkeypatch):
     from plugins.operations import content
     body = request(store)
     blueprints.apply(store, body)
@@ -129,20 +129,21 @@ def test_production_without_images_is_a_draft_and_publishing_never_generates_a_n
     calls = []
     def generate(*args):
         calls.append(args[-1])
-        return {"title": "路线", "body": "真实资料", "asset_ids": [], "source_ids": ["source"]} if "assets" in args[-1] else {"pass": True}
+        return {"title": "路线", "body": "真实资料", "asset_ids": [], "source_ids": ["source"]} if "content" not in args[-1] else {"pass": True}
     monkeypatch.setattr(content, "generate", generate)
     result = workflow.produce(store, policy, "2026-10-31", version)
-    assert not result["ready"]
-    assert store.objects("content")[0]["state"] == "needs_material"
+    assert result["ready"]
+    assert store.objects("content")[0]["state"] == "pending_review"
     assert not store.snapshot()["actions"]
     policy["allowed"]["publish"] = True
     from plugins.operations.outcomes import StageSkipped
-    with pytest.raises(StageSkipped, match="没有选定"):
+    with pytest.raises(StageSkipped, match="人工审核"):
         workflow.publish(store, policy, "2026-10-31", version)
     assert len(calls) == 2
 
 
 def test_publication_uses_selected_version_and_rechecks_revoked_material(store, monkeypatch):
+    store.debug_id = 'debug:selected-version'
     from plugins.operations import content
     body = request(store, modules=("publish",))
     body["policy"].update(account_id="me")

@@ -4,11 +4,13 @@ import os
 
 import psutil
 
+OWNER_SCHEMA = '''CREATE TABLE IF NOT EXISTS {prefix}model_budget_owners (
+    id TEXT PRIMARY KEY, pid INTEGER NOT NULL, process_started REAL NOT NULL,
+    context TEXT, after_row INTEGER NOT NULL DEFAULT 0);'''
+
 
 def initialize(db, prefix):
-    db.execute(f'''CREATE TABLE IF NOT EXISTS {prefix}model_budget_owners (
-        id TEXT PRIMARY KEY, pid INTEGER NOT NULL, process_started REAL NOT NULL,
-        context TEXT, after_row INTEGER NOT NULL DEFAULT 0)''')
+    db.execute(OWNER_SCHEMA.format(prefix=prefix))
 
 
 def own(db, prefix, identity):

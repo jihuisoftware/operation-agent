@@ -12,7 +12,7 @@ DEPENDENCIES = {"organize": "research", "industry": "analytics", "topics": "orga
 
 def requires_account(policy, steps, quick=False):
     return any(step['id'] in EXTERNAL and policy['modules'][step['module']] and
-               (quick or policy['allowed'][step['id']]) for step in steps)
+               (quick or step['id'] == 'publish' or policy['allowed'][step['id']]) for step in steps)
 
 
 def unavailable(store, data, step, policy, *, coverage=False):

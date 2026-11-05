@@ -8,6 +8,18 @@ const owner = { connectionId: 'local', profile: 'dev' }
 const started = '2026-11-01T02:10:34.825964+00:00'
 afterEach(cleanup)
 
+it('opens a task subpage even before the task has any execution history', async () => {
+  const open = vi.fn()
+
+  const rest = vi.fn(async (_path: string) => ({ version: 1, task_details_available: true, policy: { modules: { organize: true } },
+    tasks: [{ id: 'organize', title: '资料整理', module: 'organize' }], runs: [] }))
+
+  render(<DebugPanel ctx={{ rest } as unknown as PluginContext} onOpenTask={open} owner={owner} />)
+  fireEvent.click(await screen.findByRole('button', { name: '进入资料整理调试子页面' }))
+  expect(open).toHaveBeenCalledWith('organize', undefined)
+  expect(rest.mock.calls.every(([path]) => path === '/debug')).toBe(true)
+})
+
 it('runs only the selected task and shows its saved full trace with a new ID for each click', async () => {
   const data = { version: 3, policy: { modules: { content: true, report: true } }, tasks: [
     { id: 'content', module: 'content', title: '内容生产' }, { id: 'report', module: 'report', title: '运营日报' }

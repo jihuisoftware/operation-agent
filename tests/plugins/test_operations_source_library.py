@@ -71,7 +71,10 @@ def test_collection_persists_images_text_and_provenance_and_can_reuse_across_day
     monkeypatch.setattr(content, "generate", produce)
     monkeypatch.setattr(content, "check_content", lambda *args: {"pass": True})
     result = content.produce_content(store, policy, "2026-11-01", 1)
-    assert not result["ready"]
+    assert result["ready"]
+    assert store.objects('content')[0]['cover_origin'] == 'generated_typography'
+    assert store.objects('asset')[0]['generated_typography']
+    assert source['images'][1]['authorized'] is False
     assert source_library.detail(store, source["id"])["content_versions"][0]["id"] == result["content_id"]
 
 

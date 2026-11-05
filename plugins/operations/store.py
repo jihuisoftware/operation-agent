@@ -53,30 +53,23 @@ class Store:
         self.run_options = None
         self.execution_id = None
         self.current_run_id = None
-        with self.connection() as db:
-            db.executescript(SCHEMA)
-            from .business_store import initialize as initialize_business
-            initialize_business(db)
-            db.execute("INSERT OR IGNORE INTO settings VALUES (1,0,?)", (encoded(DEFAULT),))
-            if json.loads(db.execute('SELECT data FROM settings WHERE id=1').fetchone()[0]).get('schema_version') != 5:
-                raise ValueError('不支持旧运营规则，请清理开发数据后重新开始')
-            if self.scope:
-                from .workspace_storage import initialize as initialize_workspace
-                initialize_workspace(db, self.scope)
-        from .progress import sync_plan
+        from .storage_schema import initialize_topic
+        initialize_topic(self)
         from .workspace_resources import synchronize
-        synchronize(self)
+        changed_policy = synchronize(self)
         from .model_budget_ledger import initialize
         initialize(self)
-        sync_plan(self)
+        if changed_policy:
+            from .progress import sync_plan
+            sync_plan(self)
 
     @contextmanager
     def connection(self):
         db = sqlite3.connect(self.path, timeout=15) if self.path else plugin_db("operations")
         db.row_factory = sqlite3.Row
-        if self.workspace:
-            db.execute('ATTACH DATABASE ? AS directory', (str(self.workspace.path),))
         try:
+            if self.workspace:
+                db.execute('ATTACH DATABASE ? AS directory', (str(self.workspace.path),))
             with db:
                 yield db
         finally:

@@ -25,6 +25,8 @@ interface Props {
   notSelected?: boolean
   onRun: (mode: 'normal' | 'quick') => void
   onInspect: (id: string) => void
+  onOpen: () => void
+  detailsAvailable: boolean
 }
 
 const icons: Record<string, string> = { running: 'loading', submitting: 'loading', completed: 'pass', failed: 'error', needs_attention: 'warning', interrupted: 'warning', skipped: 'circle-slash' }
@@ -40,7 +42,7 @@ function presentation({ status, submitting, notSelected }: Pick<Props, 'status' 
   }
 }
 
-export function DebugTaskRow({ task, enabled, busy, status, submitting, stale, notSelected = false, onRun, onInspect }: Props) {
+export function DebugTaskRow({ task, enabled, busy, status, submitting, stale, notSelected = false, onRun, onInspect, onOpen, detailsAvailable }: Props) {
   const { state, detail, elapsed } = presentation({ status, submitting, notSelected })
 
   const content = <>
@@ -54,6 +56,7 @@ export function DebugTaskRow({ task, enabled, busy, status, submitting, stale, n
 
   return <div aria-label={task.title} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b py-3 last:border-b-0" role="group">
     <span className="min-w-40 flex-1">{task.title}{!enabled && ' · 未启用模块'}</span>
+    <Button aria-label={`进入${task.title}调试子页面`} disabled={!detailsAvailable} onClick={onOpen} variant="ghost">进入详细调试</Button>
     <div className="flex gap-2"><Button aria-label={`详细执行${task.title}`} disabled={busy} onClick={() => onRun('normal')} variant="outline">详细执行此项</Button><Button aria-label={`快速实测${task.title}（真实执行）`} disabled={busy} onClick={() => onRun('quick')} variant="ghost">快速实测此项</Button></div>
     <div className="ml-auto w-80 min-w-0 max-w-full text-right">
       {status && !submitting && !notSelected

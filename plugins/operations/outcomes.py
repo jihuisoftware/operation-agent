@@ -17,7 +17,7 @@ def describe(stage, result):
     if stage in {"analytics", "industry", "topics"} and isinstance(result, dict):
         return result["state"], result["detail"]
     if stage == 'organize' and isinstance(result, dict):
-        return ('needs_attention' if result['pending'] else 'completed'), result['detail']
+        return ('needs_attention' if result['pending'] or result.get('format_incomplete') else 'completed'), result['detail']
     if stage in {"publish", "comments", "dm", "follow"}:
         receipts = result if isinstance(result, list) else [result]
         pending = [r for r in receipts if isinstance(r, dict) and (
@@ -30,5 +30,7 @@ def describe(stage, result):
             detail += "；" + "；".join(result["missing"])
         if result.get("reason"):
             detail += "\n自动检查：" + str(result["reason"])
+        if result.get('revision_count'):
+            detail += f"\n已尝试自动修订 {result['revision_count']} 轮（最多2轮）"
         return 'completed', detail
     return "completed", str(result or "完成")

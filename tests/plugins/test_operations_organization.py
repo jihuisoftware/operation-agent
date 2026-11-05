@@ -61,11 +61,11 @@ def test_incremental_batches_resume_and_downstream_only_receives_organized_evide
     assert view['organized'] == view['matching'] == 10 and view['pending'] == 0
 
 
-def test_invalid_references_fail_atomically_and_changed_source_or_topic_cannot_reuse(configured, monkeypatch):
+def test_invalid_references_are_skipped_and_changed_source_or_topic_cannot_reuse(configured, monkeypatch):
     store, policy, day = configured
     monkeypatch.setattr(organization, 'generate', lambda *args: {'items': [{'source_id': 'foreign'}] * 4})
-    with pytest.raises(ValueError, match='未知'):
-        organization.organize(store, policy, day, 1)
+    outcome = organization.organize(store, policy, day, 1)
+    assert outcome['organized'] == 0 and outcome['pending'] == 10
     assert not store.objects('organized_source')
     prepare_materials(store, policy, day, monkeypatch)
     with store.connection() as db:

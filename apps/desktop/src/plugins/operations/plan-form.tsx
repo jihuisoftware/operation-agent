@@ -64,7 +64,7 @@ export function PlanForm({ catalog, policy, change }: Props) {
         {Object.entries(actionLabels)
           .filter(
             ([action]) =>
-              action !== 'source' && policy.modules[{ comment: 'comments', reply: 'comments' }[action] || action]
+              action !== 'source' && action !== 'publish' && policy.modules[{ comment: 'comments', reply: 'comments' }[action] || action]
           )
           .map(([action, label]) => (
             <label className="flex items-center gap-2" key={action}>

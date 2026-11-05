@@ -42,9 +42,11 @@ def known_tokens(usage):
 def initialize(store):
     name = prefix(store)
     with store.connection() as db:
-        db.executescript(SCHEMA.format(prefix=name))
-        from .model_budget_recovery import initialize as initialize_recovery
-        initialize_recovery(db, name)
+        from .storage_schema import ready
+        from .model_budget_recovery import OWNER_SCHEMA
+        schema = (SCHEMA + OWNER_SCHEMA).format(prefix=name)
+        if not ready(db, schema, 'directory' if store.workspace else 'main'):
+            db.executescript(schema)
         imported = {row[0] for row in db.execute(f'SELECT topic_id FROM {name}model_budget_imports')}
         timezone = json.loads(db.execute("SELECT data FROM directory.preferences WHERE id='limits'").fetchone()[0]).get('_timezone', 'Asia/Shanghai') if store.workspace else store.policy()[1]['timezone']
         topics = [(topic_id(store), store.path)]
