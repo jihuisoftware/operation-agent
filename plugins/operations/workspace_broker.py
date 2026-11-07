@@ -3,7 +3,7 @@ import json
 import time
 
 
-def poll(directory, account, worker, busy, *, takeover=None):
+def poll(directory, account, worker, busy, *, takeover=None, wake_only=False):
     catalog = directory.catalog()
     businesses = {b['id']: b['name'] for b in catalog['businesses'] if b['account'] == account}
     topics = [t for t in catalog['topics'] if t['business_id'] in businesses and not t['archived']]
@@ -32,7 +32,7 @@ def poll(directory, account, worker, busy, *, takeover=None):
                 notices.append({**json.loads(row['data']), 'id': topic['id'] + ':' + str(row['id']), 'scope': scope, 'label': label})
         if command or directory.blocked(store.scope):
             continue
-        claimed = store.claim(worker, busy=busy, takeover=takeover)
+        claimed = store.claim(worker, busy=busy, takeover=takeover, wake_only=wake_only)
         if claimed:
             command = {**claimed, 'scope': scope, 'topic_name': label}
     from .execution_pause import block

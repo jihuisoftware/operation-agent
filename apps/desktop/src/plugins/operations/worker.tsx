@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type ActiveBrowserExecution, runBrowserCommand } from './browser-command'
 import { browserDockStyle, useBrowserDock } from './browser-dock'
 import type { ExecutionBlock } from './browser-execution'
+import { type BrowserPower, createBrowserPower } from './browser-power'
 import { BACKEND_MS } from './browser-timeouts'
 import { BrowserToolbar } from './browser-toolbar'
 import { createExecutionClock } from './execution-clock'
@@ -55,6 +56,8 @@ function Worker({
   const surface = useRef<HTMLElement>(null)
   const execution = useRef<ActiveBrowserExecution>({ pending: null })
   const [worker] = useState(() => crypto.randomUUID())
+  const powerControl = useRef<BrowserPower | null>(null)
+  execution.current.worker = worker
   const { guest, loading, error, reopen, replace } = useOperationsGuest(scope, container)
   const pages = usePlatformPages(guest)
 
@@ -91,6 +94,8 @@ function Worker({
 
   // Command scope is a server-issued request token, never a mirror of the selected UI scope.
 
+  // The ref exposes this effect's controller to the retry button; it does not mirror reactive state.
+  // eslint-disable-next-line no-restricted-syntax
   useEffect(() => {
     const executionState = execution.current
     let disposed = false
@@ -99,6 +104,9 @@ function Worker({
     let reportSeen = ''
     const noticeSeen = new Set<string | number>()
     let finishActivity: (() => void) | undefined
+    const powerApi: Api = (path, body, method) => ctx.rest(path, { owner: scope, method: method || (body ? 'POST' : 'GET'), body, timeoutMs: BACKEND_MS })
+    const power = createBrowserPower({ ...scope, account_id: scope.account_id || 'local' }, powerApi, execution, setStatus, replace)
+    powerControl.current = power
 
     const poll = async () => {
       if (disposed || polling || !guest.isConnected) {
@@ -108,6 +116,8 @@ function Worker({
       polling = true
 
       try {
+        if (!await power.beforePoll(manual.current)) { return }
+        const pollEpoch = power.epoch
         const observedControl = controlRevision.current
 
         // Poll also heartbeats during a command; the server serializes the account across windows.
@@ -117,7 +127,7 @@ function Worker({
           execution_block?: ExecutionBlock | null
           latest_report?: ReportNotice
           publication_notices?: { id: number | string; platform: string; action_id: string; label?: string; scope?: OperationScope }[]
-        }>('/worker/poll', { worker, busy: running || manual.current || loginBusy(scope), takeover: manual.current })
+        }>('/worker/poll', { worker, busy: running || manual.current || loginBusy(scope), takeover: manual.current, ...(power.probeOnly ? { wake_only: true } : {}) })
 
         if (!disposed) {
           reconcile(result.takeover, observedControl)
@@ -133,6 +143,7 @@ function Worker({
           return
         }
 
+        if (!await power.admit(result.command, worker, pollEpoch)) { return }
         polling = false
         running = true
         const endActivity = beginBrowserActivity(scope, result.command.kind)
@@ -151,7 +162,7 @@ function Worker({
               timeoutMs: path === '/worker/verify-images' ? 60000 : BACKEND_MS })
           }
 
-          const answer = await runBrowserCommand(command, guest, commandApi, worker, execution, clock.sleep, replace, () => !disposed)
+          const answer = await runBrowserCommand(command, guest, commandApi, worker, execution, clock.sleep, replace, () => !disposed, power)
 
           if (!disposed && !manual.current) {
             setStatus(answer.error || '本次网页任务完成')
@@ -179,6 +190,7 @@ function Worker({
       executionState.context?.abort('执行窗口已关闭或切换，停止旧任务', 'BROWSER_UNAVAILABLE')
       guest.removeEventListener('render-process-gone', unavailable)
       finishActivity?.()
+      power.dispose()
       clock.dispose()
     }
   }, [scope, api, ctx, guest, worker, manual, controlRevision, reconcile, replace])
@@ -202,8 +214,7 @@ function Worker({
       <AccountViewHeader scope={scope} taskLabel={taskLabel} />
       <PlatformPageTabs active={pages.active} opened={pages.opened} owner={scope} select={pages.select} />
       <PlatformPageFrame name="小红书" visible={visible && pages.active === 'xiaohongshu'}>
-        <BrowserToolbar
-          error={error}
+        <BrowserToolbar error={error}
           hide={() => $showOperationsBrowser.set(false)}
           loading={loading}
           login={() =>
@@ -213,6 +224,7 @@ function Worker({
           }
           release={() => void release().catch(failed)}
           reopen={() => void takeOver().then(reopen).catch(failed)}
+          retryCheck={() => { powerControl.current?.retry(); setStatus('准备重新检查账号') }}
           status={status}
           takeOver={() => void takeOver().catch(failed)}
         />

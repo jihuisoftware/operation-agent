@@ -26,6 +26,8 @@ def overview(store):
             "SELECT id,created,json_extract(data,'$.day') AS day FROM objects "
             "WHERE kind='report' ORDER BY created DESC,rowid DESC LIMIT 1").fetchone()
         online = bool(db.execute("SELECT 1 FROM workers WHERE seen>?", (time.time() - 15,)).fetchone())
+    from .pause_origin import project_runs
+    runs = project_runs(store, runs)
     scheduled = timeline(policy) if policy["enabled"] and not paused else []
     login = login_catalog(store)
     return {

@@ -624,6 +624,19 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
 
     return () => ipcRenderer.removeListener('hermes:connection:applied', listener)
   },
+  browserPower: {
+    state: owner => ipcRenderer.invoke('hermes:browser-power:state', owner),
+    begin: (entry, epoch) => ipcRenderer.invoke('hermes:browser-power:begin', entry, epoch),
+    phase: (command, epoch, phase) => ipcRenderer.invoke('hermes:browser-power:phase', command, epoch, phase),
+    finish: (command, epoch, acknowledged) => ipcRenderer.invoke('hermes:browser-power:finish', command, epoch, acknowledged),
+    acknowledged: (owner, command) => ipcRenderer.invoke('hermes:browser-power:ack', owner, command),
+    onChange: callback => {
+      const listener = (_event: Electron.IpcRendererEvent, state: Parameters<typeof callback>[0]) => callback(state)
+      ipcRenderer.on('hermes:browser-power', listener)
+
+      return () => ipcRenderer.removeListener('hermes:browser-power', listener)
+    }
+  },
   onPowerResume: callback => {
     const listener = () => callback()
     ipcRenderer.on('hermes:power-resume', listener)

@@ -1,5 +1,6 @@
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
 
+import { browserPowerWorking, installBrowserPower, sendPowerResume } from './browser-power'
 import type { GatewayEndpoint } from './local-gateway'
 import { configurePythonGatewayTicketClient, createLocalGatewayDials, createStaleGatewayRestarter, ensureLocalGateway, gatewayOwnerProfile, localGatewayDial, nativeGatewayHttpHeaders, redialLocalGateway, runGatewayEnsure, runGatewayOwnerRestart } from './local-gateway'
 import { closeGatewayTicketBridges, createGatewayTicketResolver } from './local-gateway-python'
@@ -6227,19 +6228,6 @@ function sendOpenFolderRequested() {
 // Tell the renderer the machine just woke. Sleep silently drops the
 // renderer's WebSocket to the local backend; the renderer reconnects on this
 // signal so the chat composer doesn't stay stuck on "Starting Hermes...".
-function sendPowerResume() {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return
-  }
-
-  const { webContents } = mainWindow
-
-  if (!webContents || webContents.isDestroyed()) {
-    return
-  }
-
-  webContents.send('hermes:power-resume')
-}
 
 let powerResumeRegistered = false
 
@@ -6274,14 +6262,15 @@ function registerPowerResumeListeners() {
   }
 
   powerResumeRegistered = true
+  installBrowserPower(path.join(app.getPath('userData'), 'browser-executions.json'), updateStreamThrottleFromActiveWork)
 
   try {
     // 'resume' covers sleep/wake; 'unlock-screen' covers lock/unlock without a
     // full suspend. Either can drop an idle socket.
-    powerMonitor.on('resume', sendPowerResume)
+    powerMonitor.on('resume', () => sendPowerResume(mainWindow))
     powerMonitor.on('suspend', () => keepAwake.noteSuspend(powerMonitor.getSystemIdleTime()))
     powerMonitor.on('resume', () => keepAwake.noteResume())
-    powerMonitor.on('unlock-screen', sendPowerResume)
+    powerMonitor.on('unlock-screen', () => sendPowerResume(mainWindow))
     powerMonitor.on('on-battery', () => broadcastBatteryState(true))
     powerMonitor.on('on-ac', () => broadcastBatteryState(false))
     onBatteryPower = powerMonitor.isOnBatteryPower()
@@ -16634,7 +16623,7 @@ const streamThrottle = createStreamThrottle(undefined, undefined, {
 })
 
 function isAnyTurnInFlight() {
-  return mergeActiveWork(activeWorkByWebContents.values()).count > 0
+  return mergeActiveWork(activeWorkByWebContents.values()).count > 0 || browserPowerWorking()
 }
 
 function updateStreamThrottleFromActiveWork() {

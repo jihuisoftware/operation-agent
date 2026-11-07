@@ -8,6 +8,12 @@ from plugins.operations.publication_images import verify_images
 router = APIRouter()
 
 
+@router.post('/worker/interrupted')
+def interrupted(body: dict):
+    from ..sleep_receipts import accept
+    return checked(lambda: accept(Store(), body))
+
+
 def checked(fn):
     try:
         return fn()

@@ -17,6 +17,7 @@ import { AccountsPage } from './accounts'
 import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
+import { PauseDetailsPage } from './pause-details'
 import { PlanEditor } from './plan-editor'
 import { type Section, SectionPage, sections } from './section-page'
 import { TokenUsagePage } from './token-usage/page'
@@ -32,6 +33,7 @@ export default {
   name: '每日自动运营',
   description: '目标、信息来源、规则执行与每日总结',
   register(ctx) {
+    ctx.register({ id: 'interruption', area: ROUTES_AREA, title: '原始执行记录', data: { path: '/operations-interruption' }, render: () => <WorkspacePage ctx={ctx}>{scoped => <PauseDetailsPage ctx={scoped} />}</WorkspacePage> })
     ctx.register({ id: 'workspace-picker', area: SIDEBAR_TOP_AREA, render: () => <WorkspacePicker ctx={ctx} /> })
     ctx.register({
       id: 'overview',

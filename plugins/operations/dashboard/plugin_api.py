@@ -116,7 +116,7 @@ def poll(body: dict):
     store = Store()
     from plugins.operations.web_control import state as control_state, validate_intent
     intent = checked(lambda: validate_intent(body.get('takeover')))
-    command = store.claim(worker, busy=body.get('busy') is True, takeover=intent)
+    command = store.claim(worker, busy=body.get('busy') is True, takeover=intent, wake_only=body.get('wake_only') is True)
     with store.connection() as db:
         report = db.execute("SELECT id, json_extract(data,'$.day') AS day FROM objects WHERE kind='report' ORDER BY created DESC LIMIT 1").fetchone()
         notices = [dict(r) for r in db.execute("SELECT id,data FROM events WHERE kind='publication_notice' ORDER BY id DESC LIMIT 10")]

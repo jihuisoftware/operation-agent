@@ -10,7 +10,7 @@ AUTH_CODES = {'AUTH_REQUIRED', 'VERIFICATION_REQUIRED'}
 def recoverable(reason):
     if reason.get('error_code') in AUTH_CODES:
         return True
-    return (reason.get('error_code') in {'BROWSER_UNAVAILABLE', 'COMMAND_EXPIRED'} and
+    return (reason.get('error_code') in {'BROWSER_UNAVAILABLE', 'COMMAND_EXPIRED', 'SYSTEM_SUSPENDED'} and
             reason.get('state') == 'blocked' and reason.get('submitted') is False and
             reason.get('dispatch_state') in {'not_started', 'read_only'})
 

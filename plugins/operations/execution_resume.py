@@ -202,4 +202,13 @@ def replay(store, key, body):
 def paused_runs(store):
     recover(store)
     from .execution_pause_view import describe
-    return [{**describe(store, row), 'execution_block': block(store)} for row in store.objects('execution_pause') if row['state'] == 'paused']
+    with store.connection() as db:
+        rows = [json.loads(row[0]) for row in db.execute("SELECT data FROM objects WHERE kind='execution_pause'").fetchall()]
+    result = []
+    for row in rows:
+        if row['state'] != 'paused':
+            continue
+        valid = row['day'] == local_day(store.policy()[1]) and row['version'] == store.policy()[0]
+        result.append({**describe(store, row), 'execution_block': block(store), 'can_resume': valid,
+                       'resume_reason': '' if valid else '日期或规则已变化，请按当前条件重新发起'})
+    return result

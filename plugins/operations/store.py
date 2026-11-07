@@ -298,7 +298,7 @@ class Store:
                        (identity, action_id, kind, encoded(payload), time.time() + 120))
         return identity
 
-    def claim(self, worker, busy=False, *, takeover=None):
+    def claim(self, worker, busy=False, *, takeover=None, wake_only=False):
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute("INSERT OR REPLACE INTO workers VALUES (?,?)", (worker, time.time()))
@@ -314,7 +314,7 @@ class Store:
                 return None
             from .execution_pause import block
             only_read = block(self, db) is not None
-            row = db.execute("SELECT * FROM commands WHERE state='queued' AND (?=0 OR kind IN ('account','verify')) ORDER BY rowid LIMIT 1", (int(only_read),)).fetchone()
+            row = db.execute("SELECT * FROM commands WHERE state='queued' AND (?=0 OR kind IN ('account','verify')) AND (?=0 OR json_extract(payload,'$.wake_probe') IS NOT NULL) ORDER BY CASE WHEN json_extract(payload,'$.wake_probe') IS NOT NULL THEN 0 ELSE 1 END,rowid LIMIT 1", (int(only_read), int(wake_only))).fetchone()
             if not row:
                 return None
             from .execution_pause import block
@@ -330,7 +330,7 @@ class Store:
                     return None
             from .workspace_execution import claim_account
             from .browser_timing import EXECUTION_SECONDS
-            claimed = {**dict(row), 'expires': time.time() + EXECUTION_SECONDS}
+            claimed = {**dict(row), 'expires': time.time() + (180 if json.loads(row['payload']).get('wake_probe') else EXECUTION_SECONDS)}
             if not claim_account(self, db, claimed, worker):
                 return None
             if row["action_id"]:
@@ -377,11 +377,13 @@ class Store:
                 if duplicate and same(duplicate[0], result):
                     return
                 raise ValueError("任务已过期或执行者不匹配，请核对执行结果")
+            from .command_interruptions import receipt
+            receipt(self, db, row, result)
+            if json.loads(row['payload']).get('wake_probe'):
+                result.setdefault('wake_checked_at', time.time())
             db.execute("UPDATE commands SET state='done',result=? WHERE id=?", (encoded(result), identity))
             from .workspace_execution import release_account
             release_account(self, db, identity, worker)
-            from .command_interruptions import receipt
-            receipt(self, db, row, result)
             from .browser_failures import should_pause
             if should_pause(db, row, result):
                 payload = json.loads(row["payload"])
@@ -423,6 +425,8 @@ class Store:
             tables = {name: [dict(r) for r in db.execute(f"SELECT * FROM {name} ORDER BY rowid DESC LIMIT 100")]
                       for name in ("runs", "actions", "events")}
             online = bool(db.execute("SELECT 1 FROM workers WHERE seen>?", (time.time() - 15,)).fetchone())
+        from .pause_origin import project_runs
+        tables["runs"] = project_runs(self, tables["runs"])
         tables["actions"] = [{**a, "target": json.loads(a["data"])["target"]} for a in tables["actions"]]
         if self.scope:
             owner = {'business_id': self.scope['business_id'], 'topic_id': self.scope['id']}

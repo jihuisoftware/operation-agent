@@ -127,7 +127,15 @@ export class BrowserExecution {
     }
   }
 
-  submission() { this.assert(); this.dispatchState = 'submission_started' }
+  beforeSubmission?: () => Promise<void>
+
+  async submission() {
+    this.assert()
+
+    if (this.beforeSubmission) { await this.beforeSubmission() }
+    this.assert()
+    this.dispatchState = 'submission_started'
+  }
 
   failure(error: unknown) {
     const cause = this.inheritedBlock?.cause_at

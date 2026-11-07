@@ -31,19 +31,24 @@ def expire(store, db):
         if command['action_id']:
             db.execute('UPDATE actions SET state=?,result=? WHERE id=?', ('unknown' if uncertain else 'blocked', encoded(result), command['action_id']))
         release_account(store, db, command['id'], command['worker'])
-        pause(store, result, db=db, payload=json.loads(command['payload']))
+        result['cause_command_id'] = command['id']
+        if not json.loads(command['payload']).get('wake_probe'):
+            pause(store, result, db=db, payload=json.loads(command['payload']))
 
 
 def receipt(store, db, command, result):
     if result.get('error_code') in CODES:
-        pause(store, result, db=db, payload=json.loads(command['payload']))
+        result['cause_command_id'] = command['id']
+        if not json.loads(command['payload']).get('wake_probe'):
+            pause(store, result, db=db, payload=json.loads(command['payload']))
 
 
 def late(db, identity, worker, result):
     row = db.execute("SELECT * FROM commands WHERE id=? AND worker=? AND state IN ('interrupted','unknown')", (identity, worker)).fetchone()
     if not row or result.get('error_code') not in CODES:
         return None
-    if result.get('dispatch_state') != 'read_only' or result.get('submitted') is not False:
+    sleep_unknown = result.get('error_code') == 'SYSTEM_SUSPENDED' and result.get('dispatch_state') == 'submission_started' and result.get('submitted') is True
+    if not sleep_unknown and (result.get('dispatch_state') not in {'read_only', 'not_started'} or result.get('submitted') is not False):
         return None
     if row['action_id']:
         action = db.execute('SELECT state,result FROM actions WHERE id=?', (row['action_id'],)).fetchone()

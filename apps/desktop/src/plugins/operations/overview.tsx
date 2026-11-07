@@ -17,6 +17,7 @@ import { LibraryPage } from './library-page'
 import { $loginNavigation, $loginRequest, $loginWorker } from './login-state'
 import { type OverviewData, useOverview } from './overview-data'
 import { Empty, Open, Region, ReportTime, overviewRoutes as routes, RunState, Time } from './overview-ui'
+import { PauseOriginLink } from './pause-details'
 import { PlanEditor } from './plan-editor'
 import { TokenUsageCard } from './token-usage/card'
 import { $workspaces, ownerKey } from './workspace-state'
@@ -277,6 +278,7 @@ function RecentRuns({ data }: { data: OverviewData }) {
             {run.detail || '暂无结果说明'}
             {run.detail.length >= 600 && '…'}
           </p>
+          <PauseOriginLink pause={run.pause} />
           <Open to={routes.tasks}>完整执行记录</Open>
         </details>
       ))}

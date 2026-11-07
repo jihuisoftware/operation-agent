@@ -1,6 +1,58 @@
 # 当前开发交接记录
 
-## 当前完成：质量检查纠偏与两轮自动修订（2026-11-05）
+## 当前完成：网页任务睡眠管理与唤醒重验（2026-11-07）
+
+基准c6e70eacc5；保留既有打包脚本/README和用户新增skills/media文件，未委派代理。按确认选择复用现有while-working/off/always设置，醒来只读检查、手动继续。
+Electron新增browser-power主进程桥接与私有journal；登记命令归属、截止及提交阶段后才派发，校验guest属于sender。网页任务纳入原生保持唤醒判定，睡眠保存SYSTEM_SUSPENDED并关闭旧guest；唤醒/重启重建同partition，旧代次拒绝提交，未回执事实保留补报，正常结束释放。既有聊天resume/unlock重连保留。
+运营worker先补中断回执再请求账号级/workspaces/worker/revalidate；同账号/唤醒代次去重，account命令领取后180秒，检查期间仅领取探测命令，最多三次连接失败后显示重试。人工接管保留busy心跳且不抢占；自动检查不清block、不resume，不调用模型。
+后端增加来源字段、SYSTEM_SUSPENDED分类和迟到事实接口；已成功/人工结论只追加事实，clear_block记录解除水位，旧过期命令不得重新锁账号。暂停列表返回原批次ID，跨天/规则变化禁用继续。共享投影覆盖首页、状态、调试和日报；新增只读原始任务页，历史缺暂停对象也能说明“本次尚未执行”，无法证明来源或睡眠时不补造。
+验证：修复前3条回归失败。后端全运营58文件首跑323通过、2项因并发负载导致模拟心跳过期，单线程复测相关21项全过；最终旧历史与迟到事实专项分别19项、33项通过。桌面44文件首跑195通过、1项计划编辑超15秒，降并发复测相关4文件19项全过；新增native journal/唤醒/恢复按钮专项7项通过。完整类型检查、ESLint、12项仓库检查和差异检查通过。
+原生隔离Electron smoke通过真实IPC、powerSaveBlocker释放、guest关闭和partition cookie保留；powerMonitor睡眠/唤醒是模拟事件，未强制本机物理睡眠。真实开发Profile只读账号探测b7183c91e18444268018ba2732425f7f于13:54:21确认logged_in；journal清空，闲置时PreventUserIdleSystemSleep=0，原生产COMMAND_EXPIRED阻塞仍active。
+上线先退出旧Desktop、正常stop再ensure。首次Desktop启动漏HERMES_HOME，已退出并正常停止其默认Profile后台；随后显式HERMES_HOME=/Users/dm/hermes-operations-dev重启正确桌面。最后补丁加载时遇活跃Cron，遵守拒绝未强制中断，等待后正常stop/ensure完成：epoch106，实例035735ee4b5f4aca9ce1ac9187e9922b，http://127.0.0.1:64066。Desktop dev会话37515，日志/tmp/operations-sleep-desktop-scoped.log。
+未清除/恢复历史生产阻塞，未发文、评论或发送消息。物理合盖/睡眠验收尚未做；CUA后续出现cgWindowNotFound，改以执行器心跳、真实只读命令和后端投影验收。之前发现的笔记URL规范跳转误判不属于本轮修复，仍保留后续项。
+
+## 当前分析：睡眠导致账号命令到期并阻塞次日发布（2026-11-07）
+
+用户询问11:32:50“网页任务已到期”。本轮只读，无恢复或发布。11月7日publish 30765b...耗时约0.84s，11:18的87421c...约0.06s，均继承11月6日18:47:09的COMMAND_EXPIRED，并未重新网页超时。
+原始命令7a5ea5b88f264a19b85c4c1fb276c8b3为11月6日主动评论debug:02d034b2的account检查：18:29:40开始，expires18:39:40，18:47:09返回read_only/submitted=false。步骤performance耗时约15.4s，而墙钟17分29秒。
+pmset -g log确认18:29:53进入Maintenance Sleep，持续1036s（17分16秒），18:47:09 DarkWake，紧接着应用报告到期；因此本次到期有系统睡眠的直接证据，不是模型额度/账号有效期或已证实代理问题。BrowserExecution使用Date.now与命令绝对expires比较，领取后预算600秒，睡眠不暂停截止时间。既有手动恢复约束使账号阻塞跨日保留。
+未修改代码或清除阻塞；后续改善可针对执行期间睡眠管理、唤醒后的只读重验及历史阻塞说明，不能自动重发未知提交。
+
+## 当前完成：解除阻塞并实际发布新稿（2026-11-06）
+
+用户明确授权“清除阻塞 重跑任务 发布内容”。通过桌面实际网页核对旧稿《企业级Agent上线验收清单》在pierre创作者后台已发布列表，标题/封面吻合；用UI人工核对将旧动作aacbf20a...标为published，未重发。
+UI“检查账号并继续”报没有可恢复记录：Store.objects覆盖data.id为execution-pause前缀主键，paused_runs直接返回，前端传此ID；runtime_resume.load又加一次前缀。未修改代码，改用正确批次b00ed29d...调用现有runtime_resume.resume，request_id=user-resume-publish-20261106、expected_revision=1；账号探测成功，旧block清除，原批次新增attempt1跳过（排期此前因未核对旧稿变为needs_attention）。
+沿用新稿f5632bfd788d4ef3b7c26ed95c6eb97a《Go版kbot企业级Agent平台拆解》正文及自动文字封面，核对固定指纹后调用content_release.review，将原排期revision1更新为2、到期11:51:36。Cron于11:53:15执行，发布命令295b54f8...平台返回发布成功，新动作d936617e0aac9c54fc6e7de26b84a44afb8e56760a26abebbd123803960e2f39。
+新笔记https://www.xiaohongshu.com/explore/6aed4f48000000000901ce14。桌面真实主页出现新笔记，点击后看见作者/正文/封面。自动verify 6b8f0ee3...却在120s后报旧/user/profile/<account>/<note>加载超时：实际页面已到/explore/<note>；现场确认合法同笔记路径跳转不被matchesDocument接受，是本次发布后假超时的具体根因（不据此断言昨日search_result同因）。
+随后人工核对表单遇CUA窗口失效，使用相同service.resolve_action按已见页面证据写回published，保留自动回执，取消后续排队核对；readiness.takeover释放本次接管，再verify_for_start只读检查成功（12:07:19），最终execution_block=null。两篇动作均published；只新发1篇，无评论/私信/回关，无模型重生成，无重启或代码提交。
+未修复的代码问题：暂停列表ID前缀、笔记规范URL重定向识别、自动图片转码核对过严。历史暂停/needs_attention执行记录保留，不伪造历史完成；当前发布动作已追加人工成功结论。
+
+## 当前分析：发布沿用昨日搜索页超时（2026-11-06）
+
+基准仍c6e70eacc5，保留打包工作树。用户截图11:13:15 publish暂停；只读生产SQLite与代码核查，未重启、恢复任务或触发平台动作。
+真实run b00ed29dd5e34c41aae7626fd814fd46于03:13:15.675—.723 UTC运行约48ms，没有对应网页命令；guard沿用工作区账号execution-block，原始at为11月5日06:53:33 UTC，非今日新导航失败。
+原始失败是debug:3718c823的comment命令4dfcf666：同批前一inbox于14:50:34—14:51:03成功读取搜索页（28.4s）；interact随后强制回explore核对账号（18.4s成功），再入search_result等120002ms失败。回执read_only/submitted=false。此精确搜索加载超时文案当前只找到1条原始命令，历史还有4条评论输入框0匹配与其他超时，不能统称同一原因。
+11月6日08:59/10:57后续verify仍能完成账号读取和创作者页面检查（发布结果仍submitted/incomplete/unknown，不代表发文核对成功），但按手动继续设计不会清旧block。runtime._execute对外部任务先guard，直接复制旧error显示在发布行；execution_pause_view只对AUTH类解释历史/当前差别，网页超时没有对应展示。
+导航根因未被历史证据完全捕获：browser-navigation等待匹配URL的就绪事件，忽略ERR_ABORTED/-3；诊断page是此前脚本保存的explore快照，不能当作120秒结束时实际页面。缺少最终URL/重定向/导航取消及网络时序，不能断言代理、平台拦截或事件匹配哪一个导致。后续整改方向是区分历史阻塞、减少重复回首页、补导航证据与只读恢复；继续保留手动恢复及已提交未知不重发约束。本轮仅分析未修复。
+
+## 当前完成：本机打包入口与签名配置流程（2026-11-05）
+
+基准c6e70eacc5；保留上一轮README与交接改动。新增scripts/package_desktop.py和bundles/local_signing.py，复用现有完整构建器，提供init/check/build/setup-signing；本机默认darwin-arm64、bundled，固定已安装PM Python及Xcode路径，发行仓库从origin解析。
+已生成被忽略的.desktop-packaging/config.json（600）和package.sh（700），目录700；.gitignore同时忽略p12/pfx/p8。配置不保存密码/私钥；setup-signing选择有效Developer ID Application，交互凭据由Apple工具写入钥匙串。CSC_NAME按electron-builder契约去除证书类型前缀。
+用户明确表示尚无分发证书和公证凭据：本机只有开发证书，operations-notary尚不存在；signing_identity保持空值，没有假装签名就绪。签名预检拒绝缺失凭据、不匹配版本/标签及脏工作区，构建后验证.app签名、Gatekeeper和票据；普通构建清除继承的签名凭据。
+从历史9ba5d399e5逐字恢复构建元数据引用的原MIT LICENSE；README加入本机命令和未来证书配置步骤，并修正缺少许可证的旧说明。
+验证：打包脚本10项隔离回归通过、12项仓库检查通过、差异与shell语法检查通过；Git忽略规则及本机文件权限已验证。实际check正确报告未提交源码；check --signed另外报告当前0.0.0/无发行标签、缺分发身份和公证配置。未进行真实构建，安装/更新验收未执行。
+后续：核对并提交源码后运行.desktop-packaging/package.sh build测试完整包；拿到分发证书并导入钥匙串后运行setup-signing，再按README设置发行版本/标签及签名构建。没有创建提交/标签、修改产品名、上传软件或重启后台。
+
+## 前项完成：README桌面打包与分发指南（2026-11-05）
+
+本轮基准c6e70eacc5，开始时工作树干净。用户仅要求把打包分发方法写入README，未执行构建或发行。
+README开发者区新增“打包并分发 macOS 应用”，并加入顶部导航：区分普通dist外壳、本地完整bundled包和签名公证版本；覆盖Python/Xcode准备、原生架构、干净HEAD、版本/品牌/更新地址/缺失LICENSE、签名与钥匙串公证凭据、DMG/ZIP验证、干净机器安装及更新验收。
+命令核对现有build-bundle.sh、bundles/desktop.py、electron-builder配置与notarize钩子；特别说明bundled默认显示名仍是Hermes Agent、local脚本会清除签名凭据、完整构建器不自动上传发行产物。
+验证：新增5个shell代码块均通过bash/zsh语法检查，本地链接无缺失；构建脚本help与notarytool凭据help核对通过；12项仓库检查与差异检查通过。
+没有改代码/版本/产品标识、没有创建tag或提交、没有生成安装包、没有签名公证/上传，也没有重启后台。
+
+## 前项完成：质量检查纠偏与两轮自动修订（2026-11-05）
 
 用户确认实现“依据完整送检、未发布草稿不算重复、文字封面规则明确、失败自动修订复检最多两轮”。基准381f6677ad，保留整个已有工作树，未委派代理。
 content_evidence.py将审核正文预算设为32,000字符，短文空间让给长文；能放入则完整提供，超长按稿件词句选择原文区间，保留正文哈希/ranges并区分source_truncated与excerpted。

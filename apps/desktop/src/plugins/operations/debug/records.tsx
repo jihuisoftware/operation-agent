@@ -1,5 +1,7 @@
 import { Codicon, CopyButton, formatTimestamp, LogView } from '@hermes/plugin-sdk'
 
+import { type PauseOrigin, PauseOriginLink } from '../pause-details'
+
 export interface Step {
   id: string
   title: string
@@ -9,6 +11,7 @@ export interface Step {
   duration_ms?: number
 }
 export interface Run {
+  pause_status?: PauseOrigin
   id: string
   title: string
   state: string
@@ -63,6 +66,7 @@ export function DebugRecord({ detail }: { detail: Detail }) {
       {hasErrors && <CopyButton label="仅复制错误日志" text={() => json(errors)}>仅复制错误日志</CopyButton>}
     </div>
     <p className="whitespace-pre-wrap">{detail.run.detail}</p>
+    <PauseOriginLink pause={detail.run.pause_status} />
     {detail.run.selected_tasks && <p className="text-sm">本次所选项目（{detail.run.selected_tasks.length} 项）：{detail.run.selected_tasks.map(id => detail.run.steps?.find(step => step.id === id)?.title || id).join('、')}</p>}
     {detail.run.diagnostic_report && <p className="text-xs text-muted-foreground">本批次诊断摘要已保存，不计为所选业务步骤。</p>}
     {detail.run.model_quota === 'unlimited' && <p className="text-sm text-muted-foreground">本次调试模型调用次数不限，用量照常记录，不占正常运营模型额度。</p>}
