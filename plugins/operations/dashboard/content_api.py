@@ -7,6 +7,40 @@ from .. import content_release
 router = APIRouter(prefix='/content')
 
 
+@router.get('/editor-options')
+def options():
+    from ..content_library import editor_options
+    with Store().connection() as db:
+        return editor_options(db, {})
+
+
+@router.post('/{identity}/versions')
+def save_version(identity: str, body: dict):
+    from ..content_versions import create
+    try:
+        return create(Store(), identity, body)
+    except (ValueError, KeyError, TypeError, OSError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get('/{identity}/details')
+def details(identity: str):
+    from ..content_library import detail
+    try:
+        return detail(Store(), identity)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get('/publications/{identity}')
+def publication(identity: str):
+    from ..content_library import detail
+    try:
+        return detail(Store(), identity, publication=True)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
 @router.post('/generate')
 def generate(body: dict):
     from ..content_runs import generate as create

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, day TEXT NOT NULL, stage T
 CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, day TEXT NOT NULL, version INTEGER NOT NULL,
  kind TEXT NOT NULL, target TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL, result TEXT NOT NULL,
  created TEXT NOT NULL, UNIQUE(kind, target));
+CREATE INDEX IF NOT EXISTS actions_content ON actions(kind,json_extract(data,'$.content.id'));
 CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, action_id TEXT, kind TEXT NOT NULL, payload TEXT NOT NULL,
  state TEXT NOT NULL, worker TEXT, expires REAL NOT NULL, result TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS commands_action ON commands(action_id);

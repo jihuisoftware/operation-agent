@@ -1,8 +1,9 @@
-import type { PluginContext } from '@hermes/plugin-sdk'
+import { Button, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
 import { ActionEvidence, PublicationStatus } from './action-evidence'
 import { ActionInspector } from './action-inspector'
+import { versionRequest } from './content-version-actions'
 import type { RecordRow } from './types'
 
 interface ManagementProps {
@@ -23,6 +24,8 @@ const states: Record<string, string> = {
   cancelled: '已取消',
   confirmed_not_published: '人工确认未成功'
 }
+
+const kinds: Record<string, string> = { publish: '图文发布', comment: '主动评论', reply: '评论回复', dm: '私信处理', follow: '回关' }
 
 export function ActionManager({ rows, ...props }: ManagementProps & { rows: RecordRow[] }) {
   return (
@@ -56,13 +59,13 @@ function ActionCard({ ctx, row, refresh, onError }: ManagementProps & { row: Rec
   return (
     <article className="grid gap-2 rounded border p-3">
       <strong>
-        {String(row.kind)} · {states[state] || state}
+        {kinds[String(row.kind)] || String(row.kind)} · {states[state] || state}
       </strong>
       <p className="break-all text-xs">
         动作 {row.id} · 规则 v{String(row.version)} · {String(row.day)}
       </p>
       {row.kind === 'publish' && <PublicationStatus result={typeof row.result === 'string' ? JSON.parse(row.result) : row.result} />}
-      <pre className="whitespace-pre-wrap text-xs">{String(row.result)}</pre>
+      <details><summary className="cursor-pointer">原始执行回执</summary><pre className="whitespace-pre-wrap text-xs">{typeof row.result === 'string' ? row.result : JSON.stringify(row.result, null, 2)}</pre></details>
       <ActionInspector ctx={ctx} refresh={refresh} row={row} />
       <ActionEvidence ctx={ctx} row={row} />
       {['unknown', 'blocked', 'submitted', 'failed'].includes(state) && (
@@ -110,22 +113,34 @@ export function ContentEditor({
   sources,
   ...props
 }: ManagementProps & { rows: RecordRow[]; assets: RecordRow[]; sources: RecordRow[] }) {
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [assetIds, setAssetIds] = useState<string[]>([])
-  const [sourceIds, setSourceIds] = useState<string[]>([])
+  const [original, setOriginal] = useState<RecordRow | null>(rows.length === 1 ? rows[0] : null)
+  const [title, setTitle] = useState(String(original?.title || ''))
+  const [body, setBody] = useState(String(original?.body || ''))
+  const [assetIds, setAssetIds] = useState<string[]>((original?.asset_ids || []) as string[])
+  const [sourceIds, setSourceIds] = useState<string[]>((original?.source_ids || []) as string[])
+  const [pending, setPending] = useState(false)
+  const [cancelOriginal, setCancelOriginal] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [savedId, setSavedId] = useState('')
+  const release = original?.release as { state: string; publish_at: string } | undefined
 
   const save = async () => {
+    setPending(true); setNotice('')
+
     try {
-      await props.ctx.rest('/records/content', {
+      const changes = { title, body, asset_ids: assetIds, source_ids: sourceIds }
+
+      const result = await props.ctx.rest<{ id: string; original_schedule_retained?: boolean }>(original ? `/content/${original.id}/versions` : '/records/content', {
         method: 'POST',
-        body: { title, body, asset_ids: assetIds, source_ids: sourceIds }
+        body: original ? versionRequest(original, changes, cancelOriginal) : changes
       })
+
       await props.refresh()
-      props.onError('已保存新内容版本')
+      setSavedId(result.id)
+      setNotice(result.original_schedule_retained ? '已保存新版本；旧版本排期仍然有效，请留意发布时间。' : '已保存待审核版本，请审核后排期。')
     } catch (error) {
       props.onError(String(error))
-    }
+    } finally { setPending(false) }
   }
 
   const toggle = (values: string[], id: string) =>
@@ -137,19 +152,17 @@ export function ContentEditor({
       <select
         aria-label="加载内容版本"
         className="border bg-background"
-        defaultValue=""
+        disabled={pending}
         onChange={e => {
           const row = rows.find(r => r.id === e.target.value)
 
-          if (!row) {
-            return
-          }
-
-          setTitle(String(row.title))
-          setBody(String(row.body))
-          setAssetIds(row.asset_ids as string[])
-          setSourceIds(row.source_ids as string[])
+          setOriginal(row || null); setCancelOriginal(false); setNotice('')
+          setTitle(String(row?.title || ''))
+          setBody(String(row?.body || ''))
+          setAssetIds((row?.asset_ids || []) as string[])
+          setSourceIds((row?.source_ids || []) as string[])
         }}
+        value={original?.id || ''}
       >
         <option value="">选择历史版本或创建新稿</option>
         {rows.map(r => (
@@ -161,6 +174,7 @@ export function ContentEditor({
       <input
         aria-label="内容标题"
         className="border bg-transparent p-2"
+        disabled={pending}
         maxLength={20}
         onChange={e => setTitle(e.target.value)}
         placeholder="标题（20 字以内）"
@@ -169,6 +183,7 @@ export function ContentEditor({
       <textarea
         aria-label="内容正文"
         className="border bg-transparent p-2"
+        disabled={pending}
         maxLength={900}
         onChange={e => setBody(e.target.value)}
         placeholder="正文、话题和来源说明"
@@ -182,6 +197,7 @@ export function ContentEditor({
           <label key={a.id}>
             <input
               checked={assetIds.includes(a.id)}
+              disabled={pending}
               onChange={() => setAssetIds(toggle(assetIds, a.id))}
               type="checkbox"
             />{' '}
@@ -195,14 +211,19 @@ export function ContentEditor({
           <label key={s.id}>
             <input
               checked={sourceIds.includes(s.id)}
+              disabled={pending}
               onChange={() => setSourceIds(toggle(sourceIds, s.id))}
               type="checkbox"
             />{' '}
             {String(s.title)}
           </label>
         ))}
-      <p>保存为新的待审核版本；没有配图时自动生成文字封面。已有排期绑定原版本，不会被修改。</p>
-      <button onClick={() => void save()}>保存待审核版本</button>
+      <p>保存为新的待审核版本；没有配图时自动生成文字封面。已有排期不会自动转移到新版本。</p>
+      {release?.state === 'scheduled' && <div className="rounded border p-3"><p>旧版本仍计划于 {formatTimestamp(release.publish_at)} 发布。</p>
+        <label><input checked={cancelOriginal} disabled={pending} onChange={event => setCancelOriginal(event.target.checked)} type="checkbox" /> 保存时同时取消旧版本排期，新版本重新审核</label></div>}
+      <Button disabled={pending || !title.trim() || !body.trim()} onClick={() => void save()}>保存待审核版本</Button>
+      {notice && <p role="status">{notice}</p>}
+      {savedId && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(savedId)}`)} variant="link">查看新版本</Button>}
       {rows.map(row => (
         <button
           className="text-left"

@@ -32,13 +32,17 @@ def content_data(db, rows):
 
 
 @router.get('/library/{section}')
-def library(section: str, before: int = 0, filter: str = '', record: str = ''):
+def library(section: str, before: int = 0, filter: str = '', record: str = '', compact: bool = False, status: str = 'all'):
     if section not in PRIMARY or before < 0 or filter not in {'', 'published', 'pending', 'drafts', 'comment', 'reply', 'dm', 'follow'}:
         raise HTTPException(400, '资料筛选条件无效')
     store = Store()
+    if section == 'content':
+        from ..content_library import listing
+        try:
+            return listing(store, before, filter, record, status, compact)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
     table, condition = PRIMARY[section]
-    if section == 'content' and filter == 'published':
-        table, condition = 'actions', "kind='publish'"
     with store.connection() as db:
         rows = list(db.execute(f"SELECT rowid AS cursor,* FROM {table} WHERE {condition} AND (?='' OR id=?) AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100", (record, record, before, before)))
         data = {'actions': [], 'next': str(rows[-1]['cursor']) if len(rows) == 100 else None}
