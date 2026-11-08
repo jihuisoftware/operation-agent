@@ -125,6 +125,7 @@ function Worker({
           command: (BrowserCommand & { scope?: OperationScope; topic_name?: string }) | null
           takeover?: WebControlState
           execution_block?: ExecutionBlock | null
+          cancel_commands?: string[]
           latest_report?: ReportNotice
           publication_notices?: { id: number | string; platform: string; action_id: string; label?: string; scope?: OperationScope }[]
         }>('/worker/poll', { worker, busy: running || manual.current || loginBusy(scope), takeover: manual.current, ...(power.probeOnly ? { wake_only: true } : {}) })
@@ -132,6 +133,7 @@ function Worker({
         if (!disposed) {
           reconcile(result.takeover, observedControl)
           execution.current.context?.block(result.execution_block)
+          execution.current.context?.cancel(result.cancel_commands)
           setStatus(previous => previous === '等待连接' ? '执行窗口已连接，等待任务' : previous)
         }
 

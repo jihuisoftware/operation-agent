@@ -24,14 +24,17 @@ const content: Record<string, string> = { matched: '内容一致', mismatch: '�
 
 export function PublicationStatus({ result }: { result: Record<string, any> }) {
   const status = result.publication
+  const history = (field: string) => result.publication_inherited?.includes(field) ? '（历史核对）' : ''
 
   if (!status) { return <p className="text-sm text-muted-foreground">历史记录未分别记录平台审核与内容核对状态</p> }
 
   return <div aria-label="发布状态" className="flex flex-wrap gap-3 text-sm">
     {result.manual_verification && <span>人工已核对：{result.manual_verification.evidence}（以下保留自动核对结果）</span>}
-    <span>执行：{execution[status.execution] || '待核对'}</span>
-    <span>平台：{platform[status.platform] || '待确认'}</span>
-    <span>内容：{content[status.content] || '待核对'}</span>
+    <span>执行：{execution[status.execution] || '待核对'}{history('execution')}</span>
+    <span>平台：{platform[status.platform] || '待确认'}{history('platform')}</span>
+    <span>内容：{content[status.content] || '待核对'}{history('content')}</span>
+    {result.verification_stale && <p className="w-full text-muted-foreground">本次检查未完成，部分状态保留此前核对结果，不计为本次核对成功。</p>}
+    {result.last_check && <p className="w-full text-muted-foreground">最近检查{result.last_check.at && `（${formatTimestamp(result.last_check.at)}）`}：{result.last_check.error || result.last_check.evidence || '未取得完整回执'}</p>}
   </div>
 }
 

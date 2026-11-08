@@ -23,6 +23,7 @@ export interface BrowserPowerState {
   epoch: string
   suspended: boolean
   slept: boolean
+  recovery_error?: string
   entries: BrowserPowerEntry[]
 }
 

@@ -1,332 +1,64 @@
 # 当前开发交接记录
 
-## 当前完成：完整移除终端聊天前端（2026-11-07）
+## 调试批次取消、历史管理与执行可靠性整改（2026-11-08）
 
-用户明确选择完整移除ui-tui源码、终端聊天入口及专属构建测试。基准b02807cc4e，开始时工作树干净，先前睡眠和打包修复已提交；未委派代理。
-删除ui-tui、Ink包、TUI编译器、Python启动器、Desktop外部终端会话菜单/IPC和旧/api/pty聊天路由；保留tui_gateway、canonical gateway、私有HTTP/WS、Desktop内嵌终端工具与管理命令。chat/cli.py仅允许单次批处理或机器协议，旧HERMES_TUI/display.interface不会重新启动终端客户端。
-bundled构建和source update仅准备Desktop，后端AgentInputs拒绝非空终端frontend产品。同步Docker/Nix/Termux后台装配、npm工作区/锁文件、CI和文档；PM锁定Node26.12.1/npm12.0.2以package-lock-only/ignore-scripts/offline更新并prune，锁中无ui-tui/@hermes/ink/ink-text-input。
-专属TUI/PTy测试移除；原terminal目录中多客户端会话和审批往返E2E迁到tests/e2e/core/gateway，原生插件WS鉴权、跨Origin拒绝、广播和启动环境合同保留。同步旧测试夹具，修正已退役Windows CI引用及macOS临时目录canonical路径断言。
-验证：后端/装配/CI/共享RPC相关7文件188项通过；共享启动/HTTP/广播4文件204项通过；批处理/恢复/更新4文件33项通过（1项Linux限定跳过）；调用方6文件初跑53项通过、参数旧断言4项失败，更新为单次请求后参数文件10项通过；独立入口实际子进程4项通过。Node构建/依赖19项、桌面菜单12项、完整Desktop类型检查与ESLint通过；12项仓库检查通过。
-实际npm run build --workspace apps/desktop成功，Vite渲染界面、Electron主进程/preload均已生成，无TUI构建。未做DMG/ZIP正式打包、签名、公证；未提交变更，完整发行仍需干净HEAD。未主动调用生产模型、发布、恢复任务或重启生产后台。
-系统临时目录中的验收日志：desktop-only-build.log、desktop-only-final-python.log、desktop-only-shared-regression.log、desktop-only-cli-update2.log、desktop-only-helper-callers.log、desktop-only-argparse-final.log、desktop-only-legacy-smoke.log、desktop-only-js3.log、desktop-only-desktop-ui.log。保留先前发布URL重定向误判等未解决业务项，本次不处理。
+基准提交 `803b13829063`，开始时工作树干净。本轮改动尚未提交，未委派代理。
+用户授权整改上一轮分析确认的问题，随后明确要求历史未成功发布不能阻塞新任务。保留上一轮未提交修复及仅 macOS / 简体中文桌面定位。期间发现 debug/panel.tsx 另有外部编辑（移除提示与继续按钮），未回滚或改写。
 
-## 前项完成：网页任务睡眠管理与唤醒重验（2026-11-07）
+### 最新修复：启动预检查遗漏的全局历史动作拦截
 
-基准c6e70eacc5；保留既有打包脚本/README和用户新增skills/media文件，未委派代理。按确认选择复用现有while-working/off/always设置，醒来只读检查、手动继续。
-Electron新增browser-power主进程桥接与私有journal；登记命令归属、截止及提交阶段后才派发，校验guest属于sender。网页任务纳入原生保持唤醒判定，睡眠保存SYSTEM_SUSPENDED并关闭旧guest；唤醒/重启重建同partition，旧代次拒绝提交，未回执事实保留补报，正常结束释放。既有聊天resume/unlock重连保留。
-运营worker先补中断回执再请求账号级/workspaces/worker/revalidate；同账号/唤醒代次去重，account命令领取后180秒，检查期间仅领取探测命令，最多三次连接失败后显示重试。人工接管保留busy心跳且不抢占；自动检查不清block、不resume，不调用模型。
-后端增加来源字段、SYSTEM_SUSPENDED分类和迟到事实接口；已成功/人工结论只追加事实，clear_block记录解除水位，旧过期命令不得重新锁账号。暂停列表返回原批次ID，跨天/规则变化禁用继续。共享投影覆盖首页、状态、调试和日报；新增只读原始任务页，历史缺暂停对象也能说明“本次尚未执行”，无法证明来源或睡眠时不补造。
-验证：修复前3条回归失败。后端全运营58文件首跑323通过、2项因并发负载导致模拟心跳过期，单线程复测相关21项全过；最终旧历史与迟到事实专项分别19项、33项通过。桌面44文件首跑195通过、1项计划编辑超15秒，降并发复测相关4文件19项全过；新增native journal/唤醒/恢复按钮专项7项通过。完整类型检查、ESLint、12项仓库检查和差异检查通过。
-原生隔离Electron smoke通过真实IPC、powerSaveBlocker释放、guest关闭和partition cookie保留；powerMonitor睡眠/唤醒是模拟事件，未强制本机物理睡眠。真实开发Profile只读账号探测b7183c91e18444268018ba2732425f7f于13:54:21确认logged_in；journal清空，闲置时PreventUserIdleSystemSleep=0，原生产COMMAND_EXPIRED阻塞仍active。
-上线先退出旧Desktop、正常stop再ensure。首次Desktop启动漏HERMES_HOME，已退出并正常停止其默认Profile后台；随后显式HERMES_HOME=/Users/dm/hermes-operations-dev重启正确桌面。最后补丁加载时遇活跃Cron，遵守拒绝未强制中断，等待后正常stop/ensure完成：epoch106，实例035735ee4b5f4aca9ce1ac9187e9922b，http://127.0.0.1:64066。Desktop dev会话37515，日志/tmp/operations-sleep-desktop-scoped.log。
-未清除/恢复历史生产阻塞，未发文、评论或发送消息。物理合盖/睡眠验收尚未做；CUA后续出现cgWindowNotFound，改以执行器心跳、真实只读命令和后端投影验收。之前发现的笔记URL规范跳转误判不属于本轮修复，仍保留后续项。
+- 用户日志在 account_preflight 返回 RESULT_UNCERTAIN，尚未到发布预留；此前只改预留层，漏了 `execution_preflight._snapshot` 的两处全局 unresolved 查询。
+- 已移除只读预检查的历史动作全局门槛；新任务可对历史登录/网页/睡眠中断做账号重验（包括旧提交未知的网络中断），确认当前账号和规则后仅解除执行窗口阻塞。旧动作、回执与原暂停记录不改写、不重发。
+- `execution_resume.validate` 仅检查本批次的未决动作；`resume_actions` 和 `service.retry_action` 在原子重入队前复用同稿/共享账号准入，仍拒绝另一条同稿未知提交。额度、账号互斥、人工接管及规则/日期检查保留。
+- 新回归覆盖 run_step→账号预检查→真实动作预留、共享账号、同稿拒绝和原批恢复。新增首批 6 个场景在旧实现失败，修复后通过；相关 7 文件 65 项通过；仓库 12 项检查及差异检查通过，代码健康零阻塞/建议。本轮未修改前端，无需重跑 Desktop 检查。
+- 没有清除生产未知动作、继续批次、重启服务或发布。需先停止再启动后台加载新 Python 代码；可重新发起新任务，同日条件仍有效时也可手动继续原暂停批次。
 
-## 当前分析：睡眠导致账号命令到期并阻塞次日发布（2026-11-07）
+### 最新追加：取消所有调试批次
 
-用户询问11:32:50“网页任务已到期”。本轮只读，无恢复或发布。11月7日publish 30765b...耗时约0.84s，11:18的87421c...约0.06s，均继承11月6日18:47:09的COMMAND_EXPIRED，并未重新网页超时。
-原始命令7a5ea5b88f264a19b85c4c1fb276c8b3为11月6日主动评论debug:02d034b2的account检查：18:29:40开始，expires18:39:40，18:47:09返回read_only/submitted=false。步骤performance耗时约15.4s，而墙钟17分29秒。
-pmset -g log确认18:29:53进入Maintenance Sleep，持续1036s（17分16秒），18:47:09 DarkWake，紧接着应用报告到期；因此本次到期有系统睡眠的直接证据，不是模型额度/账号有效期或已证实代理问题。BrowserExecution使用Date.now与命令绝对expires比较，领取后预算600秒，睡眠不暂停截止时间。既有手动恢复约束使账号阻塞跨日保留。
-未修改代码或清除阻塞；后续改善可针对执行期间睡眠管理、唤醒后的只读重验及历史阻塞说明，不能自动重发未知提交。
+- 新增私有 `POST /debug/cancel-all` 与历史区按钮，限定当前主题未结束的 debug 批次，含暂停/等待及启动中的执行；请求 ID 幂等，不影响其他主题和日常计划。
+- `batch_cancellation.py` 持久标记、保护最终取消状态、取消尚未领取命令，保留成果与用量。模型返回后/后续调用前、步骤切换、入队及提交步骤记录均检查取消；已提交或不确定动作只核对，verify 不被取消。
+- 两种 worker poll 返回目标命令 ID，Desktop 中断对应上下文和等待，旧结果不能再触发提交。执行中命令仍持有账号互斥至回执/到期；已取消批次产生的命令到期不新增账号全局阻塞。
+- 取消后的调试和恢复记录不能被迟到完成改写、不能手动续跑；进程还活着时保留模型执行占用，重启后按 PID 与启动时间回收死亡执行者的取消租约。未开始/只读取消与提交未知分别保留事实。
+- Python 6 文件 45 项加后续 5 文件 32 项回归通过，去重并计入新增租约恢复用例共 70 项；Desktop 3 文件 17 项通过，完整 worker 取消追加用例通过（该文件 10 项），本轮共 18 个不同 Desktop 用例；修改文件 ESLint、差异检查通过。完整类型检查、12 项仓库检查通过；零代码健康阻塞/建议。
+- 仅增加功能并使用隔离数据测试，未调用生产取消接口、清除历史、停止后台或执行真实发布。
 
-## 当前完成：解除阻塞并实际发布新稿（2026-11-06）
+### 最新追加：调试历史默认折叠、一键清除
 
-用户明确授权“清除阻塞 重跑任务 发布内容”。通过桌面实际网页核对旧稿《企业级Agent上线验收清单》在pierre创作者后台已发布列表，标题/封面吻合；用UI人工核对将旧动作aacbf20a...标为published，未重发。
-UI“检查账号并继续”报没有可恢复记录：Store.objects覆盖data.id为execution-pause前缀主键，paused_runs直接返回，前端传此ID；runtime_resume.load又加一次前缀。未修改代码，改用正确批次b00ed29d...调用现有runtime_resume.resume，request_id=user-resume-publish-20261106、expected_revision=1；账号探测成功，旧block清除，原批次新增attempt1跳过（排期此前因未核对旧稿变为needs_attention）。
-沿用新稿f5632bfd788d4ef3b7c26ed95c6eb97a《Go版kbot企业级Agent平台拆解》正文及自动文字封面，核对固定指纹后调用content_release.review，将原排期revision1更新为2、到期11:51:36。Cron于11:53:15执行，发布命令295b54f8...平台返回发布成功，新动作d936617e0aac9c54fc6e7de26b84a44afb8e56760a26abebbd123803960e2f39。
-新笔记https://www.xiaohongshu.com/explore/6aed4f48000000000901ce14。桌面真实主页出现新笔记，点击后看见作者/正文/封面。自动verify 6b8f0ee3...却在120s后报旧/user/profile/<account>/<note>加载超时：实际页面已到/explore/<note>；现场确认合法同笔记路径跳转不被matchesDocument接受，是本次发布后假超时的具体根因（不据此断言昨日search_result同因）。
-随后人工核对表单遇CUA窗口失效，使用相同service.resolve_action按已见页面证据写回published，保留自动回执，取消后续排队核对；readiness.takeover释放本次接管，再verify_for_start只读检查成功（12:07:19），最终execution_block=null。两篇动作均published；只新发1篇，无评论/私信/回关，无模型重生成，无重启或代码提交。
-未修复的代码问题：暂停列表ID前缀、笔记规范URL重定向识别、自动图片转码核对过严。历史暂停/needs_attention执行记录保留，不伪造历史完成；当前发布动作已追加人工成功结论。
+- `debug/history.tsx` 按批次折叠，用户展开才读取详情；新任务不自动展开。`records.tsx` 的失败/运行中步骤及单任务完整事件也默认关闭，轮询不强制重开。
+- 私有 `POST /debug/history/clear` 按当前 Profile/主题归档所有已结束批次，使用独立 `debug_history_hidden` 标记，不改原始执行记录或删除业务数据。运行/等待/暂停记录保留；主目录和子任务历史都过滤归档记录，原证据链接仍可访问。
+- 清除按钮显示清除/保留数量，失败保留原列表；旧后台缺能力标记时不发送不支持的请求。清除期间的旧轮询响应不能恢复旧列表。
+- 保留用户在调试面板及 browser-check.tsx 的其他编辑，没有恢复已删除的继续按钮或说明。
+- 本轮 Python 历史接口/详情/状态 3 文件 11 项通过；Desktop history/records 7 项及定向面板 2 项通过（面板其余 13 项未运行；其中已有继续按钮测试与用户先前删除按钮的编辑不一致，未覆盖或恢复用户编辑）。完整类型检查、仓库 12 项检查通过，ESLint 零错误，差异检查通过。历史清除并发响应修正后专项 2 项复验通过；旧版可继续中断记录保护用例复验通过。尚未清除真实历史、重启后台或执行发布。
 
-## 当前分析：发布沿用昨日搜索页超时（2026-11-06）
+### 本轮追加：独立发布与核对证据
 
-基准仍c6e70eacc5，保留打包工作树。用户截图11:13:15 publish暂停；只读生产SQLite与代码核查，未重启、恢复任务或触发平台动作。
-真实run b00ed29dd5e34c41aae7626fd814fd46于03:13:15.675—.723 UTC运行约48ms，没有对应网页命令；guard沿用工作区账号execution-block，原始at为11月5日06:53:33 UTC，非今日新导航失败。
-原始失败是debug:3718c823的comment命令4dfcf666：同批前一inbox于14:50:34—14:51:03成功读取搜索页（28.4s）；interact随后强制回explore核对账号（18.4s成功），再入search_result等120002ms失败。回执read_only/submitted=false。此精确搜索加载超时文案当前只找到1条原始命令，历史还有4条评论输入框0匹配与其他超时，不能统称同一原因。
-11月6日08:59/10:57后续verify仍能完成账号读取和创作者页面检查（发布结果仍submitted/incomplete/unknown，不代表发文核对成功），但按手动继续设计不会清旧block。runtime._execute对外部任务先guard，直接复制旧error显示在发布行；execution_pause_view只对AUTH类解释历史/当前差别，网页超时没有对应展示。
-导航根因未被历史证据完全捕获：browser-navigation等待匹配URL的就绪事件，忽略ERR_ABORTED/-3；诊断page是此前脚本保存的explore快照，不能当作120秒结束时实际页面。缺少最终URL/重定向/导航取消及网络时序，不能断言代理、平台拦截或事件匹配哪一个导致。后续整改方向是区分历史阻塞、减少重复回首页、补导航证据与只读恢复；继续保留手动恢复及已提交未知不重发约束。本轮仅分析未修复。
+- `action_admission.py`：主题与共享账号两层待核对栅栏均改为只拦同一内容，允许不同稿件各自创建动作。网页仍由账号租约串行执行，额度、权限及真实账号暂停不放宽；不清除或宣称旧记录成功。
+- 同稿待核对抛出有原动作 ID/主题归属的 `ActionDeferred`；正式和调试记为 skipped/本次未执行，调试详情提供跳转原发布记录入口，不再作为程序异常。
+- `publication_observations.py`：最近检查与历史事实分别保存；unknown 不抹掉已知事实，标记继承字段和检查时间。旧回执从原始命令按字段懒恢复，不改旧命令/日报。新明确拒绝或不一致覆盖旧观察，人工结论仍优先。
+- 继承历史证据不构成一次完整核对，`verification_stale` 阻止拼接多个不完整回执后误判成功。重试预算按最新检查计算，避免历史“审核中”使页面不可用检查无限延续。
+- Python 新增 7 个参数化场景在旧代码失败；本轮相关 9 文件 58 项通过，另整链路/任务详情及新回归 3 文件 26 项通过（其中 10 项重叠）。Desktop 3 文件 8 项通过，历史标注更新后专项 2 项复验通过。完整类型检查、修改文件 ESLint、仓库 12 项检查和差异空白检查通过，代码健康零阻塞/建议。只读比较用户日志的当前稿件与历史阻塞稿件，确认内容指纹不同，属于此次放行范围。
 
-## 当前完成：本机打包入口与签名配置流程（2026-11-05）
+### 上一轮已实现
 
-基准c6e70eacc5；保留上一轮README与交接改动。新增scripts/package_desktop.py和bundles/local_signing.py，复用现有完整构建器，提供init/check/build/setup-signing；本机默认darwin-arm64、bundled，固定已安装PM Python及Xcode路径，发行仓库从origin解析。
-已生成被忽略的.desktop-packaging/config.json（600）和package.sh（700），目录700；.gitignore同时忽略p12/pfx/p8。配置不保存密码/私钥；setup-signing选择有效Developer ID Application，交互凭据由Apple工具写入钥匙串。CSC_NAME按electron-builder契约去除证书类型前缀。
-用户明确表示尚无分发证书和公证凭据：本机只有开发证书，operations-notary尚不存在；signing_identity保持空值，没有假装签名就绪。签名预检拒绝缺失凭据、不匹配版本/标签及脏工作区，构建后验证.app签名、Gatekeeper和票据；普通构建清除继承的签名凭据。
-从历史9ba5d399e5逐字恢复构建元数据引用的原MIT LICENSE；README加入本机命令和未来证书配置步骤，并修正缺少许可证的旧说明。
-验证：打包脚本10项隔离回归通过、12项仓库检查通过、差异与shell语法检查通过；Git忽略规则及本机文件权限已验证。实际check正确报告未提交源码；check --signed另外报告当前0.0.0/无发行标签、缺分发身份和公证配置。未进行真实构建，安装/更新验收未执行。
-后续：核对并提交源码后运行.desktop-packaging/package.sh build测试完整包；拿到分发证书并导入钥匙串后运行setup-signing，再按README设置发行版本/标签及签名构建。没有创建提交/标签、修改产品名、上传软件或重启后台。
+- `browser-navigation.ts`：同源同笔记 ID 的个人页、explore、discovery/item 跳转可完成导航，允许平台更新追踪参数；不同笔记、不同搜索条件和跨站地址仍拒绝。账号与内容核验不变。
+- `wake_revalidation.py`、`Store.claim`、`workspace_broker.py`、`workspace_execution.py`：只读唤醒探测独立于主题启用及计划暂停；只允许无外部动作关联的 account 命令，保留人工接管、账号互斥和归档限制。检查通过不清阻塞、不恢复业务。
+- `store_reads.py`：从 Store 门面分离查询；调度/手动/排期改用轻量 online 查询；快照在 SQL 层限制每类 100 条，并新增 kind/created 索引。旧历史不删除，模型缓存及预算不变。
+- `browser-power-storage.ts`：恢复日志解析和结构校验独立成模块，坏文件隔离保留，混合数据保留有效记录及提交未知状态。文件读取/隔离失败不阻断应用启动，显示错误并禁止网页派发；电源事件保持可处理。
+- `publication_status.py`、`outcomes.py`、`action_details.py`：摘要明确区分平台发布与内容核对，图片转码不会显示成笼统发布失败；只读核对、人工确认和不重复发送的准入保持不变。历史记录不重写。
+- 使用说明与代码导航同步至 `docs/operations-reference.md`、`docs/code-map.md`。
 
-## 前项完成：README桌面打包与分发指南（2026-11-05）
+### 验证
 
-本轮基准c6e70eacc5，开始时工作树干净。用户仅要求把打包分发方法写入README，未执行构建或发行。
-README开发者区新增“打包并分发 macOS 应用”，并加入顶部导航：区分普通dist外壳、本地完整bundled包和签名公证版本；覆盖Python/Xcode准备、原生架构、干净HEAD、版本/品牌/更新地址/缺失LICENSE、签名与钥匙串公证凭据、DMG/ZIP验证、干净机器安装及更新验收。
-命令核对现有build-bundle.sh、bundles/desktop.py、electron-builder配置与notarize钩子；特别说明bundled默认显示名仍是Hermes Agent、local脚本会清除签名凭据、完整构建器不自动上传发行产物。
-验证：新增5个shell代码块均通过bash/zsh语法检查，本地链接无缺失；构建脚本help与notarytool凭据help核对通过；12项仓库检查与差异检查通过。
-没有改代码/版本/产品标识、没有创建tag或提交、没有生成安装包、没有签名公证/上传，也没有重启后台。
+- 新增四项 Python 回归在旧实现全部失败；导航跳转及日志损坏新增用例在旧实现失败，修复后通过。
+- `scripts/run_tests.sh`：review_fixes、sleep、workspaces、workspace_pipeline、storage_concurrency、publication_evidence、manual、dispatch、recovery_gaps、recovery_retry，共 10 文件 58 项通过。
+- Desktop：browser-navigation、browser-power、action-inspector、browser-power-journal，共 4 文件 19 项通过。
+- Desktop 完整 typecheck、修改文件 ESLint、差异空白检查通过。仓库 `scripts/check --base HEAD` 12 项通过；代码健康零阻塞/建议。恢复日志改为先备份再原子替换后，8 项日志回归再次通过。
+- Python 测试通过标准 runner 在隔离临时目录执行；受限进程权限不足，已通过执行审批在沙箱外运行。未调用真实模型或平台。
 
-## 前项完成：质量检查纠偏与两轮自动修订（2026-11-05）
+### 运行与剩余边界
 
-用户确认实现“依据完整送检、未发布草稿不算重复、文字封面规则明确、失败自动修订复检最多两轮”。基准381f6677ad，保留整个已有工作树，未委派代理。
-content_evidence.py将审核正文预算设为32,000字符，短文空间让给长文；能放入则完整提供，超长按稿件词句选择原文区间，保留正文哈希/ranges并区分source_truncated与excerpted。
-实际失败稿97c901...的四份来源合计23,849字符，现在均完整送检，Skill Runtime所在段落可见；只做本地读取验证，没有真实模型检查。
-content_history.py仅提供实际已发布稿件作为重复依据；未发布原稿/修订不混入。文字封面提供generated_typography和cover_title，检查规则明确不要求正文声明封面引用、不得混淆采集/统计窗口与原文发布日期。
-content_revision.py持久化每个原稿最多两次修订尝试，调用模型前记录次数，另存parent/root/index关联的新版本；标题变化时重绘系统文字封面，保留用户图片。服务/格式失败保留原稿，复检失败保留新稿；中断后只继续检查，不重复生成已保存修订。
-content_recovery复用同输入的最新未授权/未提交稿与有效检查，重复点击不重置两轮上限；已排期/已有动作的版本不自动改写，规则/权限/暂停变化仍停止。保存检查时保留原始run/manual归属，不再丢失生产元数据。
-通过检查的缓存绑定检查指令、版本、完整稿件、来源全文哈希、素材与已发布历史；提交前条件未变可复用。普通流程仍人工审核排期；调试只有ready=true才继续发布，不强制通过。
-UI显示自动修订轮数并可查看上一版本，调试时间线展示修订/复检/复用事件；日报从content_reused事件计入复用来源。
-验证：初始3条合同先红后绿；最终8条专项+1条发布回归通过。全运营后端63文件初跑363通过、2条旧的“新批次必生成新稿”断言失败，改成同输入复用后，相关4文件30项全通过。相关UI5文件27项、完整类型检查、ESLint与12项静态检查通过，代码健康74文件零阻塞/建议。
-后台空闲（run/command/lease均0）后先stop成功，再ensure ready epoch101，实例73ae0e56ea8e41a9b1f805281289f383，http://127.0.0.1:49991。
-未真实生成、审核或发布稿件，也未继续历史暂停批次。用户应新建调试批次选择“内容生产＋图文发布”；旧批次中已completed的内容步骤不会因为新代码自动重跑。
-
-## 前项完成：分析报告游标与嵌套读取锁循环（2026-11-05）
-
-用户11:50:58日志显示content→production_context→analytics.latest→valid→settings→Store.objects，在嵌套连接ATTACH处锁超时，随后debug_exception写入提交也超时。前轮初始化修复未覆盖此路径。
-此前仅分析时已在临时库稳定复现：未读完的外层报告游标持读锁，写事务进入提交等待阻止新读，校验新连接又等写入；traceback保留游标还使错误日志提交失败。当前两个生产库journal_mode均为DELETE。
-本轮用户授权后仅修改analytics.latest：当前范围的候选报告fetchall并退出连接，再逐一执行原valid校验；不放宽配置、窗口与数据权限检查。检查了分析视图、来源汇总、行业缓存等相邻路径，已有完整读取或同连接查询，不额外重写。
-新增test_operations_analysis_concurrency.py五项合同：统计/行业报告并发提交、保留异常traceback时错误日志写入、并发修改分析配置/数据集后拒用旧报告；旧代码五项全失败，修复后全通过。
-相关5文件36项回归、12项静态检查通过，代码健康68文件零阻塞/建议，差异检查通过。
-正常gateway stop成功后ensure ready epoch100，实例2b2092f88b274cd8ae80963d7c2fa221，http://127.0.0.1:55167。
-实际Profile只读production_context连续三次成功（72条结论，29.5/20.8/20.9ms）；没有调用模型、生成草稿、发布或自动重跑业务任务。基准仍381f6677ad，保留此前全部工作树。
-
-## 前项完成：SQLite打开与轮询抢锁修复（2026-11-05）
-
-基准381f6677ad，保留全部现有工作树，未委派代理。用户完整日志为Store.connection ATTACH directory时database is locked，伴随Desktop请求超时。
-定位：Workspaces/Store构造每次都执行DDL、默认记录写入、无差异资源镜像和Cron定义同步，读状态也抢写锁；ATTACH在try/finally外，失败连接没有立即关闭。
-新增storage_schema.py只读核对声明结构；已有目录/主题/预算表和归属齐全时跳过DDL与默认记录写入，仍每次验证归属和规则schema版本，不用跨Profile全局初始化缓存。
-workspace_resources先计算已提交差异，无变化直接返回；需要同步时BEGIN IMMEDIATE后重新读取。镜像比较按目标topic_id规范化，保留共享素材撤回和知识规则版本更新。Store仅在共享策略实际改变时同步Cron定义；configure/ensure_schedule原有同步入口保留。
-Store的ATTACH、Workspaces的连接设置纳入finally关闭。共享额度/账号预留/动作与命令原子事务保持不变，没有切换跨库WAL模式或清库。
-运营scope依赖只把SQLite BUSY/LOCKED转换为503+Retry-After，其他数据库异常继续暴露；不自动重放写请求。
-3个新并发用例在旧代码失败、修复后通过；增加附加库失败关闭连接和HTTP临时忙合同。全运营后端61文件354项通过；12项静态检查、代码健康66文件零阻塞/建议通过。
-台账发现旧debug:88ca842b-baea-4a83-855c-c1cbfdd5b23b长时间停在content“开始执行”，无模型请求或网页命令运行；正常gateway stop成功，再ensure ready epoch98，实例b2242a7a7db34d2da9bdf396aacfdd7a，http://127.0.0.1:53090。
-实际Profile连续Store打开/配置读取161.5/4.3/3.7ms；直接读取debug.catalog耗时372.9ms，返回12任务、30批记录、execution=None、task_details_available=True。没有调用真实模型、发布或重跑旧任务。
-
-## 前项完成：每任务调试子页面与人工参考（2026-11-05）
-
-基准381f6677ad，保留全部已有工作树；本轮未委派代理。用户要求每个调试任务独立子页面，展示完整过程并帮助人工排查。
-Desktop DebugPage以task/run查询参数进入独立TaskPage；每行新增“进入详细调试”。子页面包含12类任务检查提示、预期流程、历史批次、实际事件时间线、原始步骤结果、历次继续尝试、模型重试/耗时/Token、按需产物与截图、既有动作核对面板和追加备注。
-新建执行仅运行当前任务；继续按钮明确恢复原批次未完成项。页面打开/刷新不执行任务；备注不改变状态与授权。Profile/业务切换与批次迟到响应保持隔离。
-新增devtools/operations_task_details.py与operations_task_api.py，接口仅源码开发开启后可用；按任务slot/run_id隔离同模块的comment/reply；事件ID增量分页，全量复制显式请求；产物详情校验同任务归属，备注request_id幂等。
-plugins/operations/model_trace.py只为DebugStore记录业务指令、输入、选项、原始返回、结构化结果或错误；凭据字段隐藏，原模型请求不变，普通运营不新增快照。历史缺失的输入明确不补造。
-接口能力task_details_available避免新前端误入旧后台404。新快照仍使用REQUEST_TIMEOUT=360、MAX_OUTPUT_TOKENS=4000。
-验证：调试UI4文件25项通过；后端主回归4文件53项与最终预算/恢复/发行隔离4文件17项通过（有重叠）；另初轮状态和格式回归通过。完整类型检查、ESLint、12项仓库检查通过，代码健康57文件零阻塞/建议，差异检查通过。
-曾遇当前业务SQLite占锁，未强制终止任务；最终正常gateway stop成功，再ensure ready epoch96，实例a04524a3aaba4170adc8e3c790588e4c，http://127.0.0.1:50264。此前待加载的360秒模型等待和整理格式兼容同步加载。
-仅用隔离数据与模拟模型验证；未触发生产调试、发文或互动，未做本轮完整原生窗口视觉验收。
-
-## 前项修复：整理输出格式兼容与局部跳过（2026-11-05）
-
-基准381f6677ad，保留整个已有工作树。用户09:36整理记录在10:24因keywords格式错误失败，要求可转换格式兼容、不可兼容条目跳过。
-新增organization_formats.py统一短文、长文分段和合并三条路径：明确的文本/JSON列表/关键词分隔串/文本包装/null/布尔表示规范化；坏可选元素丢弃，坏必填字段跳过来源。未知或重复来源ID拒收对应条目，不按位置猜引用、不丢其他有效来源。
-字段丢失写入下游可见uncertainties与format_incomplete；coverage继续只表示原文覆盖。结果显示格式兼容数量，有字段丢失或未整理来源时needs_attention，usable资料可继续下游。
-长文缺段不整合，保留有效检查点；坏合并结果/无法收缩的摘要不使其他来源失败。model_output.py将空choices、非文本、坏围栏和无效JSON分类为ModelOutputError，整理单独捕获；不吞规则/权限/取消异常。既有360秒等待保留。
-委派review_organization_formats做两轮只读边界审查，未由子代理修改文件。
-2项主要行为回归先红后绿；后端相关7文件44项不同测试通过（含新增8项），12项仓库检查、代码健康46文件零阻塞/建议通过。
-当时没有真实模型/发布操作，也没有自动重跑失败批次；10:36定时整理运行导致暂缓重启。已在上述epoch96正常重启时加载。
-
-## 前项调整：运营模型单次等待360秒（2026-11-05）
-
-按用户明确要求，将plugins/operations/model.py的call_llm(timeout=90)改为timeout=360，所有运营模型任务共用；现有两次重试不变，连续超时合计约18分钟。
-12项静态检查通过。当时09:00定时信息采集仍在运行，暂缓重启；已在上述epoch96正常重启时加载。
-
-## 前项完成：完整图文、人工审核排期与调试自动发布（2026-11-04）
-
-本轮开始时用户已将前项工作提交到381f6677ad；以此为基准，保留本轮未提交改动，未委派代理。
-用户要求日常先生成可发布图文，人工审核后定时发布；任务调试代替人工审核直接发布。已确认无图时自动制作文字封面，可在审核页替换。
-新增content_cover.py（Pillow中文排版，字体由hermes_platform/fonts.py解析），无图生成1080×1440原创封面；生成封面不进入其他稿件模型素材候选，不破坏待检查草稿缓存。
-新增content_runs.py与私有/content/generate，缺少选题时先规划，再生成完整图文。前端内容页默认待审核，显示全部图片与正文，可生成、换封面、保存新版本、审核排期和取消排期。
-content_release.py绑定稿件指纹、规则版本、账号分区/实际账号、来源签名与UTC时间；审批和取消有revision并发控制。publication_plan.py复用每分钟Cron和执行租约，到期消费准确版本，普通workflow.publish不再自行挑未审核稿发布。
-人工审核是单篇授权，不开启长期allowed.publish；自动质检提示供人判断。预留、领取、网页步骤开始都核验本篇授权，分析数据权限仍检查；跨天分析保留原稿的证据窗口。
-普通调试新增publish_once授权，仅发布一次；快速实测维持execute_once。均自动质量检查后执行，不扩展其他互动权限或日常审核授权。已提交/未知动作不重发；人工确认未发布后可凭仍有效的本篇审核授权重试。
-排期记录可跨重启读取；改稿另存新版本，不继承审核。原版本排期保持并在界面提示可取消；历史ready草稿不会自动当成人工批准。
-验证：全运营后端59文件初跑332通过、3条旧行为断言失败，更新契约后35项相关复测通过；随后新增重启、封面复用、人工核对重试合同10项通过，覆盖337项不同后端测试。
-全运营Desktop40文件181项通过；完整类型检查、ESLint、12项仓库检查通过，代码健康37文件零阻塞/建议，git diff --check通过。真实生成的中文封面已视觉检查。
-确认无活动run/command/lease后先gateway stop成功，再ensure ready epoch94，实例40ea2a43fd5343c3811bd89fb64afcc8，http://127.0.0.1:55590。
-验证使用隔离数据与模拟平台；未调用真实模型、未创建生产排期、未真实发布或发送互动。未做本轮完整原生App实机验收。
-
-## 前项修复：部分有效选题继续内容生产（2026-11-04）
-
-基准仍为3caa71ef4e，保留现有未提交工作树，未委派代理。
-用户要求选题部分完成时不阻断后续。只读核对最新失败批次：本次模型调用未保存新brief，已有同日12候选的旧brief；错误中的“保留完成结果”为通用提示。
-新增topic_recovery.py：只捕获ModelServiceUnavailable，重读当前依据，逐项验证同日/同主题/同规则、来源整理签名及新快照、分析配置/数据权限和分析引用来源。
-有效候选另存为本批brief，保留reused_from与错误，旧brief不改写；不写完整input_signature，避免部分复用冒充完整缓存命中。
-topics步骤返回needs_attention/usable；debug依赖允许部分topics继续content。独立topic_runs入口共用describe，保留失败提示。
-正常生成新增organized_evidence快照；无有效候选保持失败且阻断content；发布仍受草稿质量检查和原授权限制。
-相关9文件57项回归通过（新增8项，包括有效1/2候选进入真实内容生产、无效来源/整理/日期/规则/主题拒绝、分析范围变化拒绝、显式重生成幂等）。
-核心链路用例已在修复前证实失败；最终12项静态检查、代码健康126文件零阻塞/建议、差异检查通过。
-确认无运行任务/网页命令/有效执行租约后，gateway stop成功，再ensure ready epoch93，实例72951ab75b6a416fae4a19d2c211fa2c，http://127.0.0.1:52401。
-未触发真实模型、发布、评论、私信或历史批次继续；新行为用于之后执行，历史失败记录不重写。
-
-## 前项修复：代理慢网络分层等待（2026-11-04）
-
-用户要求修复，明确有时代理使网络很慢。本轮不委派代理，保留整个未提交工作树。
-新增browser-document.ts，在实际调用executeJavaScript前等待isLoadingMainFrame=false；页面加载120秒与脚本10秒分别计时。
-BrowserExecution记录加载耗时；登录45秒/内容就绪90秒轮询不计入加载时间，外层不再用5秒截断组合操作；各阶段仍受命令硬截止约束。
-pageScript在真正派发前再次检查平台URL；提交路径加载结束后重查规则/接管，再标记submission_started，不提前把等待算作提交。
-被动登录观察在主页面加载时不排队执行脚本，不凭慢加载上报退出；发布核对同样传递执行上下文。
-排队期限保持原120/180秒；Store.claim领取时统一给600秒执行预算，账户租约同步，busy heartbeat不延长；workflow等待跟随实际expires。
-
-45秒代理加载场景先红后绿，验证加载时零脚本派发；加载中取消没有迟到提交，脚本自身卡死仍按10秒隔离。
-网页相关7文件52项通过；全运营UI39文件177项通过；后端全量318项通过，唯一失败为旧多主题测试未携带强制tasks参数，补明确选择后含新预算测试3项通过。
-最终完整类型检查、ESLint、git diff --check及scripts/check的12项检查通过，代码健康123文件零阻塞/建议。
-确认后台空闲后严格先stop再ensure，最终ready epoch92，实例bb6b677c24024f10b46127ec6db6079a，地址http://127.0.0.1:60665。
-真实只读复测未完成：运行中的Electron窗口持续cgWindowNotFound；再次启动被单实例锁正常拒绝。
-随后Finder窗口读取异常阻塞约52分钟，未再进行真实网页操作。不能据模拟测试声称当前代理环境已验收。
-后续从应用“只读检查账号与搜索页”验收新加载预算；不重跑整链路，不自动恢复历史暂停批次。
-未发文/评论/私信/回关，未调用真实模型。保留全部先前工作树改动。
-
-## 前项定位：实机搜索页脚本超时（2026-11-04）
-
-用户明确要求定位持续超时。本轮没有委派代理，未修复执行通道根因；增加有界等待耗时证据并完成真实只读复现。
-启动时确认gateway和实际桌面均已退出，DB仍有死进程拥有的running批次；依次gateway stop（无存活进程）→ensure ready epoch91，
-实例872e55ceca8a42ed8045f3c71576d9ec，http://127.0.0.1:65322。
-桌面按README开发命令启动；工具环境继承ELECTRON_RUN_AS_NODE造成首轮启动错误，只在该子进程env中去除此变量后成功。
-桌面开发会话23791已失败退出，正常开发会话75691继续运行，日志为系统临时目录operations-pinpoint-desktop-clean.log。
-
-新增browser-wait-diagnostics记录最近16个等待和超时中的嵌套等待；API、脚本、轮询时钟分别标记，页面只记录origin/path/main_frame_loading，不保存query。
-实机通过应用“只读检查账号与搜索页”触发命令4c78364c7c04438e915dcecf8489e7c8：
-- 账号阶段成功105ms；搜索页导航11089ms；随后后台/policy正常32ms。
-- /search_result/的main_frame_loading=true，网页脚本“登录识别”仍pending4969ms；外层“只读就绪轮询”在5002ms先超时。
-- 总等待约16316ms，尚未到候选DOM读取，更未提交任何平台动作。
-- Electron官方实现waitTillCanExecuteJavaScript：有URL但isLoadingMainFrame=true时，executeJavaScript仍await did-stop-loading。
-  来源：https://raw.githubusercontent.com/electron/electron/main/lib/browser/api/web-contents.ts（39–57行）。
-结论：DOM-ready不等于Electron脚本可执行；页面加载等待被计入5秒脚本预算，外层5秒又覆盖API+内部5秒，预算层级冲突。
-这是本次实机确切卡点；另见过真实DB锁冲突，但该次/policy只32ms，不是这次直接超时点。
-下一步应修执行通道/脚本可执行准备与分层预算，不能再仅延长统一超时或说登录失效。当前仅定位，尚未宣称修复此根因。
-
-诊断相关3文件26项通过；12项静态检查、ESLint、完整类型检查及差异检查通过。补充测试的never类型已修。
-实际UI显示只读就绪轮询超时，已记录以上wait_diagnostics；没有恢复历史批次、没有模型或外部提交。
-
-## 前项修复：只读网页超时与日报重复步骤（2026-11-04）
-
-用户贴15:08日报。真实debug:8a67422c-cc96-4884-8ad6-aa56f1650eaf全选12项，未创建新网页命令；继承15:04:52的BROWSER_UNAVAILABLE。
-该旧回执明确state=blocked、submitted=false、dispatch_state=read_only；15:04账号已核对成功，inbox/comment进入inventory后约30秒超时。
-前版新启动只允许重查旧AUTH/VERIFICATION，因此只读网页超时又形成永久新任务阻挡。
-
-已修：新明确启动可重查有可靠未提交证据的旧网页超时（含COMMAND_EXPIRED），unknown/提交已开始仍不放行。
-导航不再await loadURL完成后才看就绪，改以匹配目标文档的dom-ready/SPA导航/停止加载事件继续；主frame/请求参数仍校验，错误登录重定向交账号检查。
-同URL仍加载时等待DOM；超时回执注明导航路径；取消与迟到回调保护继续生效。
-日报重复由读状态与执行线程竞争暴露：存活批次读取不能写回旧snapshot，失主恢复使用比较后更新；日报按稳定slot关联，避免暂缺run_id时再补一条未开始。
-上述导航2项、日报/并发2项、只读恢复2项已先红后绿；后端6文件57项、网页5文件37项通过，诊断/回执最终3文件13项通过。
-新增私有只读browser-check入口（仅account命令携带readonly_inventory=comment），UI明确不生成/不提交；不会清旧暂停或恢复历史批次。
-实机检查中发现诊断入口的ready未绑定comment类型，真实DOM模拟先红后绿后修复；随后又证实waitForRead在阶段截止后仍以近零IPC超时读取，
-会把健康页面误当卡死并隔离，导致丢失失败取证。已改在只读探测之间判断阶段截止，单次读取仍5秒且受命令总截止约束；该回归先红后绿。
-最终相关4文件28项、完整类型检查、ESLint和12项静态检查通过，代码健康零阻塞/建议。
-
-后台已确认空闲后先stop再ensure，ready epoch89，实例fe3a1f6f5d704eeea0c54b1297bcc59e，http://127.0.0.1:64916。
-后续变更仅renderer诊断ready/等待逻辑，开发模式热更新；后台Python无后续改动。
-实机只读两次（d68ba1b9b6b44dd5acb0a2f0bfe390ff、4fc4fe52dd5c410296592a34001958ee）均已读到账号，inventory未通过。
-第二次失败后才修复阶段截止误判；但窗口随后cgWindowNotFound，尚未完成最终修复后的搜索页实机复测，不可声称平台已恢复。
-临时结束接管前确认无待执行/未知动作且旧execution_block仍有效；每次检查后恢复人工接管。只切换到小红书做读取，未继续任何历史批次。
-已确认诊断期间运营模型调用0、外部动作新增0、当前待执行命令0。未委派代理。
-后续优先让用户重新打开应用使用“只读检查账号与搜索页”；若仍失败，读取新的inventory failed证据（现在普通就绪超时不应销毁网页），
-核对实际搜索空状态/DOM适配，而不是继续重跑整链路或猜测已退出登录。
-
-## 前项修复：新启动被旧登录锁立即挡住与日报错误原因（2026-11-04）
-
-用户贴14:24新日报，核对最近3批均selected_tasks=发布/评论/回复/私信/回关且commands为空。
-最新debug:60c7246f-d240-4616-b3db-609e833f0e56，14:24:12被旧AUTH锁立即暂停；当前同账号logged_in，旧共享锁仍为13:50的记录。
-前项只修显示/识别，缺少新显式启动的旧登录锁核对路径。
-
-新增execution_preflight.verify_for_start：仅在明确启动的新debug批次/外部单项遇到旧AUTH或VERIFICATION时，只读account/resume_probe。
-持有执行租约并归属新批次；前后验证规则/日期/动态账号关联/实际账号/新负观察，以及人工接管和未完成、未知动作。
-核对通过后事务清旧登录锁，只执行这次所选任务；历史paused批次不自动恢复，其他锁不清，自动Cron未接此路径。
-恢复prepare完成后标记已核对，防刚出现的新失败被同次点击再次自动清除；上下文变化暂停须新建批次。
-
-新日报按生成时当前登录观察解释阻塞，补齐同批未开始的paused项目；原始错误与时间留完整详情，旧报告不重写。
-17项启动预检合同（含四条真实私有HTTP模拟链路）先红后绿；9文件64项相关回归、12项静态检查通过。
-最终日报加入“启动前账号核对”段：取同批最新结果，明确核对通过不等于发布成功，不输出完整账号ID；新增合同先红后绿，报告3文件11项通过。
-最终12项静态检查及差异检查通过。因补充日报段后需重新加载，确认仍空闲后再次先stop再ensure ready；最终epoch86，
-实例7f5eee6f8ded47d69bd077d46ee306e4，http://127.0.0.1:58684。此前中间部署epoch84已被替换。
-真实网页执行的该预检路径尚未用用户5项任务实发验收；私有HTTP+模拟账号回执的17项合同及相关64项回归通过。
-未手动继续或执行用户5项外部任务，未调用真实模型。保留所有先前工作树改动。
-
-## 前项修复：当前已登录却显示旧退出原因（2026-11-04）
-
-用户截图批次debug:afd44b36-5a29-45d5-927a-16f7731aa6c6选择发布/评论/回复/私信/回关，13:50:41因旧AUTH_REQUIRED立即暂停，commands为空。
-只读证据：13:45:58旧worker曾上报logged_out，13:46:01另一个worker已上报同账号logged_in，最新13:50:56仍logged_in。
-旧共享execution-block仍存在，并被guard重复传播刷新at/revision；因此旧失败看起来像当前退出。
-
-修复：execution_pause_view按最新同账号观察派生当前提示，历史错误与手动恢复锁不改写；新cause_at只记录真实失效，guard只传播既有锁不重置时间或覆盖更新的共享原因。
-新cause晚于positive观察时不误报恢复；legacy只能说“最近已确认登录”。调试目录/详情和正式暂停列表都用派生提示。
-Desktop加入同页3秒稳定负证据确认，加载瞬态不再立刻报退出；操作边界确认期间不提交，未知不当退出。
-修正idle首次连接及加载结束提示；历史block经回执传播保留cause_at，真实DOM新退出不借旧时间。
-后端6文件32项及最终3文件19项复测通过；Desktop相关66项通过，新增5种隐藏登录面板场景先红后绿，登录相关3文件41项复测通过。
-完整类型检查、ESLint、12项静态检查与差异检查通过，健康零阻塞/建议。
-确认无活动run/command/lease后先stop再ensure，ready epoch82，实例1addcbe51d3b4ea1bb41a3933ae21262，地址http://127.0.0.1:52484。
-实际Electron验收：首页显示小红书已登录；进入调试页，当前5项暂停行和恢复卡均显示“最近已确认登录；本批次保留此前的暂停状态，请核对账号后手动继续”。
-页面另显示人工接管，保持该用户控制未解除。未清除暂停锁、未点击继续、未调用真实模型或发文/发送消息。
-
-## 前项修复：普通整链路入口绕过勾选（2026-11-04）
-
-用户实报勾选后仍执行全部。只读查实最新 `debug:6538b1ee-f2ad-4ce5-80a7-301b185e1bc4` 为 mode=normal、selected_tasks缺失，
-13:31:33从research开始，其余11步pending。原因是上轮保留了独立普通整链路按钮，不使用旁边checkbox；不是用户选择被服务端多选分支丢弃。
-已立即 gateway stop（完成），阻止非预期后续流程；该批 model_call=0、commands=[]、actions=[]。
-
-修复为唯一批次执行入口+快速/详细模式，两模式都必须提交tasks。新无tasks pipeline请求拒绝，已有历史请求可幂等读取原结果。
-未选行显示“本次未选择”；单行按钮明确“此项”；已退出debug进程对应的执行租约按token释放，避免停止后空占通道。
-回归：后端选择23项及相关36项通过，UI20项通过，最后历史续跑文案调整后panel13项复测通过；类型检查、ESLint与代码健康通过。
-已先stop旧进程，再ensure返回ready，epoch81，实例4690cc9ced3247dbba8c2628e19d3dbd，地址http://127.0.0.1:63542。
-通过既有recover_interrupted核对旧批次为interrupted，并确认其租约已释放、模型调用仍0。
-本轮实际Electron窗口验收成功：在详细模式只勾选运营日报并点击唯一批次入口，批次debug:abf3d394-c100-491b-8248-78c81a100176
-只含selected_tasks=['report']、started_steps=['report']，完成1/1，模型调用0、网页命令0；其余11行显示本次未选择。
-已恢复界面默认快速模式与空选；未触发发布、评论、私信、回关。保留全部先前工作树改动。
-
-## 前项实现：快速实测多选（2026-11-04）
-
-用户要求每次自行勾选执行项目。新增 QuickSelection 默认空选、不持久化，提供全选/清空/仅内部；空选、忙碌及旧后台不支持时不能启动。
-`tasks` 仅接受快速 pipeline 的非空、无重复、有效 ID 数组，服务端按原流程顺序执行。保存 selected_tasks，幂等和暂停继续保持原选择。
-外部动作 grant 只覆盖勾选的项目；内部选择不创建外部授权。不自动补依赖，未选上游可复用有效现有资料/草稿；已选上游失败不能借旧产物。
-仅发布时在批次开始绑定当天同规则的有效旧稿；未选 report 只保存诊断摘要，不增加业务步骤。正常全链路和单行快速保留。
-
-验证：7 文件 56 项后端回归通过，新增私有 HTTP 契约使多选测试最终为 16 项（全部关闭失败重试）；UI 3 文件 17 项先红后绿，完整类型检查、ESLint、静态健康通过。
-旧编排隔离副本已证明会额外执行 10 个未勾选项目，当前实现只执行所选。未调用真实模型或外部动作。
-最终 12 项静态检查通过，代码健康零阻塞/零建议，差异检查通过。
-已确认无活动任务/命令/租约后先 gateway stop（完成），再 gateway ensure --json 返回 ready；epoch 80，
-实例 8981cb275ecf491fb2e2e5c57997236f，地址 http://127.0.0.1:61467。
-尝试 Computer Use 读取 Electron 超时并重置，未完成本轮原生窗口验收；UI 行为由 17 项组件测试覆盖，没有实际触发调试任务。
-
-## 前项实现：登录中断、资料质量与 Token 复用联合修复（2026-11-04）
-
-基准 `3caa71ef4e`。保留此前未提交的草稿质检恢复、预算回执恢复、调试占用提示；本轮用户明确批准完整方案。
-未提交或推送代码。所有操作仍在同一工作树，不得回退其他已授权改动。
-
-## 本轮实现
-
-- Desktop 的每条网页命令有取消上下文、代次和绝对截止时间；导航 30 秒、DOM 5 秒、取证 3 秒。
-  登录退出/验证/账号改变及后台阻塞会中断；迟到异步链不能继续提交，挂起 guest 隔离后以原分区重建。
-- `execution_pause.py` 保持账号阻塞与批次暂停，不修改计划总开关；重新登录不自动恢复发送。
-  读命令未领取/只读中断可区分；旧写命令缺可靠回执仍保守未知。确认未提交的恢复沿用原 action、额度和授权计数。
-- `execution_resume.py` 使用 checking 请求日志、版本校验、只读账号探测、并发状态核对与 PID/启动时间恢复。
-  调试 `/debug/{id}/resume`、正式 `/runs/{id}/resume` 共享契约；双击幂等、跨天/规则/账号变更拒绝旧批继续。
-  普通 comments 的 comment/reply 子步骤不会漏跑或重复；quick 首轮保留原选项及所有尝试。
-- `resume_artifacts.py` 捕获原批次产物；恢复时冻结已完成分析/选题，核对权限与正文，不用新批次的 latest 偷换。
-- `source_documents.py` 使用已有完整提取接口（50 万字符），分开原文/清洗文本、保留来源修订；只修复受影响旧资料。
-  24k 字符请求最多四篇短文，长文按段落检查点与分层合并；抓取缺失不能写成原文缺失，未完整资料不冒充已整理。
-- `industry_cache.py` 固定批次成员，只补新增/变化证据；验证旧指纹后懒升级，保留历史窗口与原引用。
-  业务指标仍绑定窗口和权限。快速实测最多新增一批，模型调试不限额；同日精确选题可复用并可显式重新生成。
-- 日报 v2 默认摘要，完整依据单独按 ID 读取；暂停/恢复快照分别保存，旧报告不重写。
-  Token 按 budget_id 的完整提供方尝试回执计量一次，未知用量保留已知部分，不重复加最终 usage。
-- 修复全量联调发现的 SQLite 锁环：无过期命令/无恢复候选时纯读，真正写入时统一事务锁；已有事务内复用账号查询。
-
-## 验证证据
-
-- 登录取消/迟到结果、草稿与预算恢复、缓存与分段、暂停/继续与跨账号等行为测试均有先红后绿证据。
-- Desktop 全量运营 UI 36 文件 140 项通过；最终暂停/调试/日报三文件 11 项复测通过，完整类型检查与修改文件 ESLint 通过。
-- 原私有 HTTP 锁问题抓到双方线程栈，修复后关闭失败重试的四次真实 HTTP 模拟流程 4/4 首次通过；三个并发契约从红到绿。
-- 最终全量后端关闭自动重试：51 文件中 252 项通过，当时新增冻结输入 3 项处于预期红测试；实现后冻结/分析/选题/缓存 27 项通过。
-  最终暂停、冻结、HTTP 恢复、竞争与普通续跑 5 文件 25 项全部通过（含新增跨批次产物归属）。累计覆盖 256 项。
-  12 项静态检查通过，代码健康零阻塞/零建议，差异检查通过。
-- 临时日志在系统临时目录，名称为 operations-joint-*、operations-resume-*、operations-runtime-resume-*、operations-documents-*。
-  测试只用隔离 Profile、模拟提供方与平台，未调用真实模型或发送/发布/回关。
-
-## 实际环境与上线
-
-开发 Profile：`/Users/dm/hermes-operations-dev`；主题 `c8377b18b6954d89b981fcbfac7b3efe`。
-重启前只读确认主题无 running run、无 queued/running command、无有效执行租约。
-已先 gateway stop（完成），再 gateway ensure --json，返回 ready，epoch 78，实例 1f45c15246874652b82cbba9ab4fa0f4；
-地址 http://127.0.0.1:56679，后续 gateway status 确认 PID 74733 运行中。
-Computer Use 本轮曾读取 Electron（显示连接中），重启后两次返回 cgWindowNotFound；浏览器访问宿主也不可用。
-因此真实登录退出与只读继续未完成实机验收，不能把模拟测试宣称为平台通过；没有主动重跑整链路或提交外部动作。
-
-## 保留边界
-
-正常默认预算仍是 200 次/天或可选 Token；调试不限额并照常记录实际用量。
-图片授权、回复知识、回关条件、账号匹配及未知提交保护继续生效。旧失败批次与旧日报不自动重写或重放。
-正式版本数据升级、最小化/全天运行、多平台兼容与分发签名公证仍是独立后续验收项。
+- 本轮未停止/启动生产后台，未重启 Desktop，未清除历史阻塞、继续批次、发布或发送消息。
+- 新代码需重新加载后台及 Desktop 后生效；后台必须确认空闲并先 stop 再启动，不能直接叠加实例。
+- 单次真实发布的历史验收不能替代本轮真实网站、睡眠唤醒或全天无人值守验收；本轮是隔离回归。
+- 正式签名、公证仍需要用户提供 Developer ID 分发证书和公证配置；上次用户明确表示尚未具备。未创建版本标签、修改版本、提交或分发安装包。
+- 大型主入口继续按具体职责逐步拆分，本轮分离状态查询和日志存储，不进行无关的整体重写。

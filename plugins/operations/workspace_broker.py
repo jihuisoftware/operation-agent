@@ -18,26 +18,28 @@ def poll(directory, account, worker, busy, *, takeover=None, wake_only=False):
     if topics:
         start = cursor % len(topics)
         topics = topics[start:] + topics[:start]
-    command, reports, notices = None, [], []
+    command, reports, notices, cancellations = None, [], [], []
     for topic in topics:
         store = directory.store(topic['business_id'], topic['id'])
         scope = {'business_id': topic['business_id'], 'topic_id': topic['id']}
         label = businesses[topic['business_id']] + ' / ' + topic['name']
         with store.connection() as db:
+            from .batch_cancellation import worker_commands
+            cancellations.extend(worker_commands(db, worker))
             db.execute('INSERT OR REPLACE INTO workers VALUES (?,?)', (worker, time.time()))
             report = db.execute("SELECT id,created,json_extract(data,'$.day') AS day FROM objects WHERE kind='report' ORDER BY created DESC LIMIT 1").fetchone()
             if report:
                 reports.append({**dict(report), 'record_id': report['id'], 'id': topic['id'] + ':' + report['id'], 'scope': scope, 'label': label})
             for row in db.execute("SELECT id,data FROM events WHERE kind='publication_notice' ORDER BY id DESC LIMIT 10"):
                 notices.append({**json.loads(row['data']), 'id': topic['id'] + ':' + str(row['id']), 'scope': scope, 'label': label})
-        if command or directory.blocked(store.scope):
+        if command or (directory.blocked(store.scope) and not wake_only):
             continue
         claimed = store.claim(worker, busy=busy, takeover=takeover, wake_only=wake_only)
         if claimed:
             command = {**claimed, 'scope': scope, 'topic_name': label}
     from .execution_pause import block
     execution_block = block(directory.store(topics[0]['business_id'], topics[0]['id'])) if topics else None
-    return {'command': command, 'execution_block': execution_block, 'latest_report': max(reports, key=lambda r: r['created']) if reports else None,
+    return {'command': command, 'cancel_commands': cancellations, 'execution_block': execution_block, 'latest_report': max(reports, key=lambda r: r['created']) if reports else None,
             'publication_notices': notices, 'takeover': control}
 
 

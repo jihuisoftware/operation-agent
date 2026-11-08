@@ -31,6 +31,7 @@ it('copies the entire batch, only errors, or one step without mixing successful 
   expect(errors.events.map((e: { id: number }) => e.id)).toEqual([2, 3])
   expect(errors.actions).toHaveLength(1)
   expect(write.mock.calls[1][0]).not.toContain('成功采集')
+  fireEvent.click(screen.getByText(/2\. 选题策划/, { selector: 'summary' }))
   fireEvent.click(screen.getByRole('button', { name: '复制选题策划日志' }))
   await waitFor(() => expect(write).toHaveBeenCalledTimes(3))
   expect(JSON.parse(write.mock.calls[2][0]).events).toEqual([detail.events[1]])
@@ -40,6 +41,19 @@ it('copies the entire batch, only errors, or one step without mixing successful 
   await waitFor(() => expect(write).toHaveBeenCalledTimes(4))
   expect(JSON.parse(write.mock.calls[3][0]).data.traceback).toBe('ValueError: 模型连接失败')
   vi.unstubAllGlobals()
+})
+
+it('keeps all steps and events collapsed until explicitly expanded, including failures and single tasks', () => {
+  const { container, rerender } = render(<DebugRecord detail={detail} />)
+  expect([...container.querySelectorAll('details')].every(item => !item.open)).toBe(true)
+  const summary = screen.getByText(/2\. 选题策划/, { selector: 'summary' })
+  fireEvent.click(summary)
+  expect(summary.closest('details')!.open).toBe(true)
+  rerender(<DebugRecord detail={{ ...detail, run: { ...detail.run, state: 'running' } }} />)
+  expect(summary.closest('details')!.open).toBe(true)
+  fireEvent.click(summary)
+  rerender(<DebugRecord detail={{ ...detail, run: { ...detail.run, steps: undefined } }} />)
+  expect([...container.querySelectorAll('details')].every(item => !item.open)).toBe(true)
 })
 
 it('does not treat ordinary result text mentioning an error as an actual failure', () => {

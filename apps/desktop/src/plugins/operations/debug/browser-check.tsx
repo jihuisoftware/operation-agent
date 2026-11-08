@@ -19,7 +19,6 @@ export function BrowserCheck({ busy, onCheck }: Props) {
 
   return <div className="space-y-2">
     <Button disabled={busy || checking} onClick={() => void check()} variant="outline">只读检查账号与搜索页</Button>
-    <p className="text-xs text-muted-foreground">只读取登录和搜索候选，不调用模型、不发布或回复，也不恢复历史批次。</p>
     {detail && <p className="text-sm" role="status">{detail}</p>}
   </div>
 }

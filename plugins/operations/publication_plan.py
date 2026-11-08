@@ -27,7 +27,7 @@ def choose(store, policy, day, content_id):
 
 def publish_due(store, now):
     version, policy = store.policy()
-    if not policy['enabled'] or policy['paused'] or not policy['modules']['publish'] or not store.snapshot()['online']:
+    if not policy['enabled'] or policy['paused'] or not policy['modules']['publish'] or not store.online():
         return False
     due = sorted((row for row in store.objects('content_release') if row['state'] == 'scheduled'
                   and datetime.fromisoformat(row['publish_at']) <= now), key=lambda row: row['publish_at'])

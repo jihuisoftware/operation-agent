@@ -91,8 +91,11 @@ def record_step(store, command_id, worker, body):
             if not authorization(store, db, payload, version, policy):
                 raise ValueError('人工审核授权已失效，不能继续提交')
         cancelled = db.execute("SELECT 1 FROM objects WHERE id=? AND json_extract(data,'$.state')='cancelled'", (payload.get('manual_run_id', ''),)).fetchone()
-        if phase == 'started' and cancelled:
-            raise ValueError('快速首轮已取消，不能追加网页操作')
+        if phase == 'started' and command['kind'] != 'verify':
+            from .batch_cancellation import check
+            check(store, db=db, batch=payload.get('manual_run_id'))
+            if cancelled:
+                raise ValueError('批次已取消，不能追加网页操作')
         data.update(command_id=command_id, action_id=command['action_id'] or payload.get('verification_action_id'),
                     policy_version=payload['policy_version'], account_id=payload.get('account_id'),
                     debug_id=payload.get('manual_run_id'), run_id=payload.get('run_id'),

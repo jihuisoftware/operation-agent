@@ -95,7 +95,7 @@ def new_attempt(store, policy, code='AUTH_REQUIRED'):
 
 
 @pytest.mark.parametrize('state', ['unknown', 'submitted', 'executing', 'queued'])
-def test_new_click_does_not_clear_auth_or_probe_before_an_uncertain_action_is_resolved(configured, monkeypatch, state):
+def test_new_click_can_probe_without_changing_uncertain_action_records(configured, monkeypatch, state):
     from plugins.operations.execution_preflight import verify_for_start
     import json
     store, policy = configured
@@ -103,11 +103,11 @@ def test_new_click_does_not_clear_auth_or_probe_before_an_uncertain_action_is_re
     with store.connection() as db:
         db.execute('INSERT INTO actions VALUES (?,?,?,?,?,?,?,?,?)', ('outstanding', local_day(policy), 1,
                    'comment', 'target', state, json.dumps({'account_id': 'me'}), '{}', old['at']))
-    monkeypatch.setattr(workflow, 'browser', lambda *args, **kwargs: pytest.fail('未知动作不能用新批次绕过'))
-    with pytest.raises(execution_pause.ExecutionPaused) as paused:
-        verify_for_start(store, 1)
-    assert paused.value.result['error_code'] == 'RESULT_UNCERTAIN'
-    assert execution_pause.block(store) == old
+    probes = []
+    monkeypatch.setattr(workflow, 'browser', lambda _store, kind, payload: probes.append((kind, payload)) or {'state': 'logged_in', 'account_id': 'me'})
+    assert verify_for_start(store, 1)['state'] == 'logged_in'
+    assert probes == [('account', {'resume_probe': True, 'preflight': 'explicit_start'})]
+    assert execution_pause.block(store) is None
     with store.connection() as db:
         assert db.execute('SELECT state FROM actions WHERE id=?', ('outstanding',)).fetchone()[0] == state
 
@@ -167,8 +167,8 @@ def test_new_probe_revalidates_rules_and_account_ownership_before_clearing(confi
         assert row and old['error'] in row[0]
 
 
-@pytest.mark.parametrize('code', ['BROWSER_UNAVAILABLE', 'ACCOUNT_CHANGED', 'COMMAND_EXPIRED'])
-def test_start_preflight_does_not_clear_non_login_interruptions(configured, monkeypatch, code):
+@pytest.mark.parametrize('code', ['ACCOUNT_CHANGED', 'REVALIDATION_REQUIRED'])
+def test_start_preflight_does_not_clear_account_or_context_changes(configured, monkeypatch, code):
     from plugins.operations.execution_preflight import verify_for_start
     store, policy = configured
     old = new_attempt(store, policy, code)
@@ -196,13 +196,18 @@ def test_explicit_start_rechecks_proved_read_only_interruption(configured, monke
     assert execution_pause.block(store) is None
 
 
-def test_uncertain_browser_timeout_is_not_cleared_by_a_new_start(configured, monkeypatch):
+def test_uncertain_browser_timeout_allows_only_a_fresh_account_probe(configured, monkeypatch):
     from plugins.operations.execution_preflight import verify_for_start
     store, policy = configured
     new_attempt(store, policy, 'BROWSER_UNAVAILABLE')
     with store.connection() as db:
         execution_pause.set_block(store, db, {'error_code': 'BROWSER_UNAVAILABLE', 'error': '提交超时',
             'state': 'unknown', 'submitted': True, 'dispatch_state': 'submission_started'})
-    monkeypatch.setattr(workflow, 'browser', lambda *args: pytest.fail('不能重新派发提交结果未知的请求'))
-    assert verify_for_start(store, 1) is None
-    assert execution_pause.block(store)['submitted'] is True
+        db.execute("INSERT INTO actions VALUES ('old',?,1,'publish','draft','unknown','{}','{}',?)", (local_day(policy), '2026-11-08'))
+    probes = []
+    monkeypatch.setattr(workflow, 'browser', lambda _store, kind, payload: probes.append((kind, payload)) or {'state': 'logged_in', 'account_id': 'me'})
+    assert verify_for_start(store, 1)['state'] == 'logged_in'
+    assert probes == [('account', {'resume_probe': True, 'preflight': 'explicit_start'})]
+    assert execution_pause.block(store) is None
+    with store.connection() as db:
+        assert db.execute("SELECT state FROM actions WHERE id='old'").fetchone()[0] == 'unknown'

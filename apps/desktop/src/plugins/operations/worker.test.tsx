@@ -135,6 +135,41 @@ it('opens the operating homepage in the persistent login partition after mountin
   expect(guest.getAttribute('partition')).toBe('persist:operations-0102')
 })
 
+it('receives batch cancellation during execution and acknowledges it without starting another command', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  let finish!: (value: { state: string }) => void
+  vi.mocked(executeBrowser).mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  let delivered = false
+
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/workspaces') { return catalog }
+
+    if (path === '/workspaces/worker/poll') {
+      if (delivered) { return { command: null, cancel_commands: ['task'] } }
+      delivered = true
+
+      return { command: { id: 'task', kind: 'publish', payload: {}, expires: Date.now() / 1000 + 120 } }
+    }
+
+    return { ok: true }
+  })
+
+  const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1)
+    Object.assign(container.querySelector('webview')!, { getURL: () => 'https://www.xiaohongshu.com/explore' })
+    await vi.advanceTimersByTimeAsync(3999)
+  })
+  expect(rest).toHaveBeenCalledWith('/worker/ack?business_id=b&topic_id=t', expect.objectContaining({ body: expect.objectContaining({
+    id: 'task', result: expect.objectContaining({ error_code: 'BATCH_CANCELLED', submitted: false })
+  }) }))
+  await act(async () => { finish({ state: 'submitted' }); await vi.advanceTimersByTimeAsync(1) })
+  expect(rest.mock.calls.filter(([path]) => path.includes('/worker/ack'))).toHaveLength(1)
+  expect(executeBrowser).toHaveBeenCalledTimes(1)
+  expect($operationsBrowserActivity.get()).toBeNull()
+})
+
 it('retains the page and login partition when the same owner receives a new API context', async () => {
   vi.useFakeTimers()
   vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })

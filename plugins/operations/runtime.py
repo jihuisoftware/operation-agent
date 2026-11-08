@@ -89,7 +89,7 @@ def _tick(store, now, *, one_stage=False):
     from .readiness import refresh
     readiness = refresh(store, now)
     day = local_day(policy, now)
-    if not policy["paused"] and store.snapshot()["online"]:
+    if not policy["paused"] and store.online():
         from .recovery import reconcile_pending
         reconcile_pending(store, policy, day)
     from .publication_plan import publish_due
@@ -99,7 +99,7 @@ def _tick(store, now, *, one_stage=False):
     for stage, due in queue_due(store, policy, now).items():
         if not readiness[stage]["ready"]:
             continue
-        if stage in EXTERNAL and not store.snapshot()["online"]:
+        if stage in EXTERNAL and not store.online():
             continue
         scheduled_day, slot = due.date().isoformat(), due.strftime('%H:%M')
         if stage == 'report' and scheduled_day < day and store.objects('report', scheduled_day):
@@ -157,6 +157,8 @@ def _execute(store, policy, day, version, stage, identity, *, delayed=False):
         store.finish_run(identity, "cancelled", str(exc))
     except StageSkipped as exc:
         store.finish_run(identity, "skipped", str(exc))
+        if getattr(exc, 'result', None):
+            store.event('action_deferred', exc.result)
     except Exception as exc:
         # A stage failure is durable and does not prevent the independent daily report.
         logging.getLogger(__name__).exception("Operations stage failed: %s", stage)

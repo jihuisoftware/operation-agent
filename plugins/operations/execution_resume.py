@@ -22,10 +22,8 @@ def validate(store, data, body, db):
         raise ValueError('账号关联已变化，不能继续旧批次')
     if not policy['enabled'] or policy['paused']:
         raise ValueError('请先解除计划暂停')
-    if db.execute("SELECT 1 FROM actions WHERE state IN ('unknown','submitted','executing','queued')").fetchone():
-        raise ValueError('仍有未完成或结果未知的外部动作，请先核对')
-    if store.workspace and db.execute("SELECT 1 FROM directory.account_actions WHERE account_id=? AND state IN ('unknown','submitted','executing','queued')", (account_key(store, db),)).fetchone():
-        raise ValueError('共用账号仍有待核对动作，请先处理')
+    from .action_admission import check_resume
+    check_resume(db, data)
     return policy
 
 

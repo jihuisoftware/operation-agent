@@ -106,6 +106,8 @@ export function createBrowserPower(owner: Owner, api: Api, active: { current: Ac
 
         if (disposed || snapshot.suspended) { return false }
 
+        if (snapshot.recovery_error) { throw new Error(snapshot.recovery_error) }
+
         if (active.current.pending && snapshot.entries.some(entry => entry.interrupted)) { return false }
         await recover(snapshot)
 

@@ -6,6 +6,19 @@ PLATFORM = {'unknown', 'reviewing', 'published', 'rejected'}
 CONTENT = {'unknown', 'matched', 'mismatch', 'incomplete'}
 
 
+def summary(result):
+    """Describe independent evidence without promoting a partial check to success."""
+    status = result.get('publication', {})
+    if not status:
+        return '发布结果待核对；仅核对原动作，不重新发布'
+    platform = {'published': '平台已发布', 'reviewing': '平台审核中', 'rejected': '平台审核未通过', 'unknown': '平台发布状态待确认'}
+    content = {'matched': '内容核对一致', 'mismatch': '内容不一致，需人工核对', 'incomplete': '内容核对不完整，需继续核对', 'unknown': '内容尚未核对'}
+    detail = platform.get(status.get('platform'), platform['unknown']) + '；' + content.get(status.get('content'), content['unknown'])
+    if result.get('verification_stale'):
+        detail += '（部分为历史核对结果，本次检查未完成）'
+    return detail + '。仅核对原动作，不重新发布'
+
+
 def normalize(result, previous=None):
     value = {**(previous or {}), **result}
     if 'publication' not in value:
@@ -16,7 +29,8 @@ def normalize(result, previous=None):
     for key, allowed in [('execution', EXECUTION), ('platform', PLATFORM), ('content', CONTENT)]:
         if status.get(key) not in allowed:
             raise ValueError('发布状态字段无效：' + key)
-    success = status['execution'] == 'verified' and status['platform'] == 'published' and status['content'] == 'matched'
+    success = (status['execution'] == 'verified' and status['platform'] == 'published' and status['content'] == 'matched'
+               and not value.get('verification_stale'))
     if value.get('state') in {'published', 'submitted', 'unknown'}:
         value['state'] = 'published' if success and value.get('evidence') else (
             'submitted' if status['execution'] in {'submitted', 'verified'} else 'unknown')

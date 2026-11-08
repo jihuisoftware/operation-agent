@@ -153,6 +153,8 @@ def cancel_pending(store, db, key, result):
 
 
 def guard(store, *, web=False, db=None):
+    from .batch_cancellation import check
+    check(store, db=db)
     paused = load(store, identity(store), db)
     reason = paused if paused and paused['state'] == 'paused' else None
     if web or (store.run_options or {}).get('account_required') or getattr(store, 'account_required', False):

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { readBrowserPowerJournal } from './browser-power-storage'
 import type { BrowserPowerEntry, BrowserPowerOwner, BrowserPowerState } from './browser-power-types'
 
 export function samePowerOwner(a: BrowserPowerOwner, b: BrowserPowerOwner) {
@@ -12,22 +13,20 @@ export function samePowerOwner(a: BrowserPowerOwner, b: BrowserPowerOwner) {
 export function createBrowserPowerJournal(file: string, destroy: (id: number) => void, changed: () => void) {
   let epoch = randomUUID()
   let suspended = false
-  let slept = false
-  let entries: BrowserPowerEntry[] = []
-
-  if (fs.existsSync(file)) {
-    const saved = JSON.parse(fs.readFileSync(file, 'utf8')) as BrowserPowerEntry[]
-    entries = saved.map(entry => ({ ...entry, interrupted: true, reason: entry.reason || 'BROWSER_UNAVAILABLE' }))
-    slept = entries.length > 0
-  }
+  const saved = readBrowserPowerJournal(file)
+  let slept = saved.slept
+  let entries: BrowserPowerEntry[] = saved.entries.map(entry => ({ ...entry, interrupted: true, reason: entry.reason || 'BROWSER_UNAVAILABLE' }))
 
   const persist = () => {
+    // A read failure keeps the journal read-only; begin() and the worker expose
+    // the error and prohibit dispatch, while power events can still be handled.
+    if (saved.error) { return }
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
     fs.writeFileSync(file + '.tmp', JSON.stringify(entries), { mode: 0o600 })
     fs.renameSync(file + '.tmp', file)
   }
 
-  const state = (owner?: BrowserPowerOwner): BrowserPowerState => ({ epoch, suspended, slept,
+  const state = (owner?: BrowserPowerOwner): BrowserPowerState => ({ epoch, suspended, slept, recovery_error: saved.error,
     entries: entries.filter(entry => !owner || samePowerOwner(entry, owner)).map(entry => ({ ...entry })) })
 
   const find = (command: string, expected: string) => {
@@ -42,6 +41,8 @@ export function createBrowserPowerJournal(file: string, destroy: (id: number) =>
     state,
     working: () => entries.some(entry => !entry.interrupted && entry.expires * 1000 > Date.now()),
     begin(input: Omit<BrowserPowerEntry, 'epoch' | 'phase'>, expected: string) {
+      if (saved.error) { throw new Error(saved.error) }
+
       if (suspended || expected !== epoch || input.expires * 1000 <= Date.now()) { throw new Error('电源代次已变化，禁止旧任务派发') }
 
       if (entries.some(entry => entry.command_id === input.command_id)) { throw new Error('网页命令已登记') }

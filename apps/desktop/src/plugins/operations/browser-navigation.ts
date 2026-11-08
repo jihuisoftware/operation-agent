@@ -4,14 +4,26 @@ import { PAGE_LOAD_MS } from './browser-timeouts'
 import { BrowserReadinessError, waitForRead } from './browser-wait'
 import type { Guest } from './types'
 
+function noteIdentity(url: URL) {
+  if (url.origin !== 'https://www.xiaohongshu.com') { return undefined }
+
+  return url.pathname.match(/^\/(?:explore|discovery\/item|user\/profile\/[^/]+)\/([a-f\d]{24})\/?$/i)?.[1].toLowerCase()
+}
+
 function matchesDocument(actual: string, target: URL) {
-  if (!actual) { return false }
+  if (!URL.canParse(actual)) { return false }
   const current = new URL(actual)
 
   if (current.origin !== target.origin) { return false }
 
   // A same-origin login/error redirect must reach the login inspector, not masquerade as a load timeout.
   if (/^\/(login|404)(\/|$)/.test(current.pathname)) { return true }
+
+  // Canonical note redirects can replace tracking/security parameters. The note
+  // identity must survive; account and content checks still run after navigation.
+  const note = noteIdentity(target)
+
+  if (note && note === noteIdentity(current)) { return true }
 
   return current.pathname.replace(/\/$/, '') === target.pathname.replace(/\/$/, '') &&
     [...target.searchParams].every(([key, value]) => current.searchParams.getAll(key).includes(value))

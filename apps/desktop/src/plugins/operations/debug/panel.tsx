@@ -1,14 +1,17 @@
-import { Button, CopyButton, type CronBlueprintOwner, formatTimestamp, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Button, CopyButton, type CronBlueprintOwner, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 
 import { BrowserCheck } from './browser-check'
+import { DebugHistory } from './history'
 import { hasExternalActions, QuickSelection } from './quick-selection'
-import { DebugRecord, type Detail, type Run, states } from './records'
+import { type Detail, type Run } from './records'
 import { DebugTaskPage } from './task-page'
 import { type DebugTask, DebugTaskRow, type TaskStatus } from './task-row'
 
 interface Catalog {
+  cancel_all_available?: boolean
+  history_clear_available?: boolean
   task_details_available?: boolean
   browser_check_available?: boolean
   version: number
@@ -62,6 +65,10 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
   const [loadError, setLoadError] = useState('')
   const [pending, setPending] = useState<{ task: string; id: string; tasks?: string[] } | null>(null)
   const [revision, setRevision] = useState(0)
+  const [clearing, setClearing] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [notice, setNotice] = useState('')
+  const generation = useRef(0)
 
   const api = useMemo(() => <T,>(path: string, body?: unknown) => ctx.rest<T>(path, {
     owner, method: body ? 'POST' : 'GET', body, timeoutMs: body ? 1_800_000 : 15000
@@ -76,16 +83,17 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
     const refresh = async () => {
       if (busy) { return }
       busy = true
+      const current = generation.current
 
       try {
         const next = await api<Catalog>('/debug')
 
-        if (!disposed) { setCatalog(next); setLoadError('') }
+        if (!disposed && current === generation.current) { setCatalog(next); setLoadError('') }
 
-        if (selected && next.runs.some(run => run.id === selected)) {
+        if (current === generation.current && selected && next.runs.some(run => run.id === selected)) {
           const log = await api<Detail>(`/debug/${encodeURIComponent(selected)}`)
 
-          if (!disposed) { setDetail(log) }
+          if (!disposed && current === generation.current) { setDetail(log) }
         }
 
         failures = 0
@@ -94,7 +102,7 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
 
         if (failures >= 3) { clearInterval(timer) }
 
-        if (!disposed) { setLoadError(String(reason)) }
+        if (!disposed && current === generation.current) { setLoadError(String(reason)) }
       } finally { busy = false }
     }
 
@@ -111,7 +119,7 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
     const requestId = crypto.randomUUID()
     setPending({ task, id: `debug:${requestId}`, ...(tasks ? { tasks } : {}) })
     setError('')
-    setSelected(`debug:${requestId}`)
+    setSelected(null)
     setDetail(null)
 
     try {
@@ -151,13 +159,44 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
   const currentSelection = pending ? pending.tasks : currentBatch?.selected_tasks
   const busy = Boolean(pending) || Boolean(catalog?.execution) || Boolean(catalog?.runs.some(item => item.state === 'running'))
 
+  const clearHistory = async () => {
+    if (clearing || !catalog?.history_clear_available) { return }
+    setClearing(true); setError(''); setNotice('')
+    generation.current += 1
+
+    try {
+      const result = await ctx.rest<{ cleared: number; retained: number }>('/debug/history/clear', {
+        owner, method: 'POST', body: {}, timeoutMs: 15000
+      })
+
+      generation.current += 1
+      setSelected(null); setDetail(null)
+      setNotice(`已清除 ${result.cleared} 条历史记录，保留 ${result.retained} 条未结束记录。`)
+      const next = await api<Catalog>('/debug')
+      setCatalog(next)
+    } catch (reason) { setError(String(reason)) }
+    finally { setClearing(false); setRevision(value => value + 1) }
+  }
+
+  const cancelAll = async () => {
+    if (cancelling || clearing || !catalog?.cancel_all_available) { return }
+    setCancelling(true); setError(''); setNotice('')
+    generation.current += 1
+
+    try {
+      const result = await ctx.rest<{ cancelled: number; detail: string }>('/debug/cancel-all', {
+        owner, method: 'POST', body: { request_id: crypto.randomUUID() }, timeoutMs: 15000
+      })
+
+      generation.current += 1
+      setNotice(`已取消 ${result.cancelled} 个批次。${result.detail}`)
+    } catch (reason) { setError(String(reason)) }
+    finally { setCancelling(false); setRevision(value => value + 1) }
+  }
+
   return (
     <main className="space-y-6 overflow-auto p-6">
       <h1 className="text-xl font-semibold">任务调试 · 仅开发环境</h1>
-      <p>每次只执行所选任务，忽略原排期。每次点击是独立批次；详细和快速两种模式都只执行下方勾选的项目；单项按钮仅执行所在行。</p>
-      <p>勾选图文发布时，由自动检查代替人工审核，立即真实发布本次稿件，最多 1 次；不会开启日常自动审核。</p>
-      <p className="text-muted-foreground">调试会调用真实业务流程。网页任务使用当前内嵌账号；可在实时画面中暂停并人工接管。</p>
-      <p className="text-xs text-muted-foreground">所有开发调试均不限制模型调用次数，不占用正常运营的每日模型额度；Token 用量和实际费用仍照常记录。外部动作的“快速实测”按钮只授权该项真实执行 1 次；多选快速实测中每种所选外部动作最多 1 次。本次授权不会写入日常自动运营计划。</p>
       {(error || loadError) && <div><p className="text-destructive" role="alert">{error || loadError}</p><CopyButton label="复制请求错误" text={JSON.stringify({ owner, run_id: selected, error, loadError }, null, 2)}>复制请求错误</CopyButton></div>}
       {loadError && <Button onClick={() => setRevision(value => value + 1)} variant="outline">重新连接调试服务</Button>}
       {catalog?.execution && <p className="text-sm text-muted-foreground" role="status">{catalog.execution.message}</p>}
@@ -166,9 +205,8 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
       <section className="space-y-3 rounded-xl bg-muted/40 p-4">
         {catalog && <QuickSelection available={catalog.selective_pipeline_available === true} busy={busy} onRun={(tasks, mode) => void run('pipeline', mode, tasks)} tasks={catalog.tasks} />}
       </section>
-      <p className="text-xs text-muted-foreground">下方单项按钮不使用上方勾选。每行右侧显示近期调试状态、步骤说明和耗时，每 2 秒刷新；最近批次未选择的项目会明确标注。点击状态可查看对应批次详情。</p>
       {catalog && !catalog.task_details_available && <p className="text-sm text-muted-foreground">后台尚未加载详细调试接口，请在当前任务结束后重启后台，再进入任务子页面。</p>}
-      {typeof catalog?.web_block_reason === 'string' && <p className="text-xs text-muted-foreground">当前网页控制：{catalog.web_block_reason || '未处于人工接管'}。下方保留最近一次运行结果；草稿生成完成不等于已满足发布条件。</p>}
+
       <div>
         {catalog?.tasks.map(task => (
           <DebugTaskRow
@@ -187,20 +225,10 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
           />
         ))}
       </div>
-      <section className="space-y-3">
-        <h2 className="font-semibold">调试记录</h2>
-        <p className="text-xs text-muted-foreground">时间按当前电脑的本地时区显示，精确到秒。</p>
-        {catalog?.runs.length === 0 && <p>尚无调试记录。</p>}
-        {catalog?.runs.map(item => <Button key={item.id} onClick={() => { setSelected(item.id); setDetail(null) }} variant="ghost">
-          {item.title} · {states[item.state] || item.state} · <time dateTime={item.started} title={item.started}>{formatTimestamp(item.started)}</time>
-        </Button>)}
-      </section>
-      {catalog?.runs.filter(item => item.state === 'paused').map(item => <div className="space-y-2" key={`resume:${item.id}`}>
-        <p>{item.title}已暂停：{item.detail}</p>
-        <p className="text-sm text-muted-foreground">继续原批次的未完成项目；上方勾选仅用于新批次，不会改变这次续跑。</p>
-        <Button disabled={busy} onClick={() => void resume(item)} variant="outline">{item.selected_tasks ? '继续原批次所选项目（真实执行）' : '继续历史批次未完成项目（真实执行）'}</Button>
-      </div>)}
-      {detail && <DebugRecord detail={detail} />}
+      <DebugHistory cancelAvailable={catalog?.cancel_all_available === true} cancelling={cancelling}
+        clearAvailable={catalog?.history_clear_available === true} clearing={clearing} detail={detail}
+        notice={notice} onCancel={() => void cancelAll()} onClear={() => void clearHistory()} onSelect={id => { setSelected(id); setDetail(null) }}
+        runs={catalog?.runs || []} selected={selected} />
     </main>
   )
 }

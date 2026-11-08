@@ -121,9 +121,11 @@ def poll(body: dict):
         report = db.execute("SELECT id, json_extract(data,'$.day') AS day FROM objects WHERE kind='report' ORDER BY created DESC LIMIT 1").fetchone()
         notices = [dict(r) for r in db.execute("SELECT id,data FROM events WHERE kind='publication_notice' ORDER BY id DESC LIMIT 10")]
         control = control_state(store, db, worker)
+        from plugins.operations.batch_cancellation import worker_commands
+        cancellations = worker_commands(db, worker)
     import json
     from plugins.operations.execution_pause import block
-    return {"command": command, "execution_block": block(store), 'takeover': control, "latest_report": dict(report) if report else None,
+    return {"command": command, 'cancel_commands': cancellations, "execution_block": block(store), 'takeover': control, "latest_report": dict(report) if report else None,
             'publication_notices': [{**json.loads(n['data']), 'id': n['id']} for n in notices]}
 
 

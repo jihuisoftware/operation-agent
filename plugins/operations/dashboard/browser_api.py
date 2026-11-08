@@ -15,8 +15,11 @@ def interrupted(body: dict):
 
 
 def checked(fn):
+    from ..batch_cancellation import BatchCancelled
     try:
         return fn()
+    except BatchCancelled as exc:
+        raise HTTPException(409, str(exc)) from exc
     except (ValueError, KeyError, TypeError, OSError) as exc:
         raise HTTPException(400, str(exc)) from exc
 

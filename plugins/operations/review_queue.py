@@ -26,9 +26,10 @@ def schedule(db, identity, result, *, initial=False, now=None):
     now = now or datetime.now(UTC)
     previous = {} if initial else load(db, identity)
     attempts = previous.get('attempts', 0) + (0 if initial else 1)
-    publication = result.get('publication', {})
-    reason = 'network' if result.get('error') else 'unconfirmed'
-    if publication.get('platform') == 'reviewing' and not result.get('error'):
+    observation = result.get('last_check', result)
+    publication = observation.get('publication', {})
+    reason = 'network' if observation.get('error') else 'unconfirmed'
+    if publication.get('platform') == 'reviewing' and not observation.get('error'):
         reason = 'reviewing'
     if publication.get('content') == 'mismatch' or publication.get('platform') == 'rejected':
         reason = 'mismatch' if publication.get('content') == 'mismatch' else 'rejected'
@@ -42,7 +43,7 @@ def schedule(db, identity, result, *, initial=False, now=None):
             'started_at': first, 'checked_at': now.isoformat(),
             'next_check_at': (now + timedelta(minutes=0 if initial else minutes)).isoformat() if state == 'active' else None}
     old_status = previous.get('platform')
-    status = publication.get('platform')
+    status = result.get('publication', {}).get('platform')
     data['platform'] = status
     save(db, identity, data)
     if status in {'published', 'rejected'} and status != old_status:
@@ -83,7 +84,7 @@ def queue(db, row, version, *, now=None, force=False):
 
 
 def accept(db, command, result):
-    from .publication_status import normalize
+    from .publication_observations import merge, previous_facts
     payload = json.loads(command['payload'])
     identity = payload.get('verification_action_id')
     if not identity:
@@ -91,13 +92,14 @@ def accept(db, command, result):
     row = db.execute('SELECT * FROM actions WHERE id=?', (identity,)).fetchone()
     if not row or row['state'] not in {'submitted', 'unknown'} or fingerprint(json.loads(row['result'])) != payload.get('verification_revision'):
         return  # A later human decision always wins over an in-flight read.
-    previous = json.loads(row['result'])
+    previous = previous_facts(db, row)
     if not result.get('error') and result.get('state') in {'submitted', 'published', 'confirmed'}:
         previous = {k: v for k, v in previous.items() if k not in {'error', 'error_code'}}
-    merged = normalize(result, previous)
+    checked_at = now_iso()
+    merged = merge(previous, result, checked_at)
     if merged.get('state') not in {'published', 'confirmed', 'submitted', 'unknown'}:
         merged['state'] = row['state']
-    merged.update(verified_at=now_iso(), verified_by='page')
+    merged.update(verified_at=checked_at, verified_by='page')
     db.execute('UPDATE actions SET state=?,result=? WHERE id=?', (merged['state'], encoded(merged), identity))
     schedule(db, identity, merged)
 

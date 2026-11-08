@@ -23,6 +23,34 @@ function fixture() {
   return { journal, file, destroy, input, dir }
 }
 
+it.each(['{', '{}', '[null]'])('quarantines damaged recovery data and requires a fresh account check: %s', contents => {
+  const { file, dir } = fixture()
+  fs.writeFileSync(file, contents)
+  const recovered = createBrowserPowerJournal(file, vi.fn(), vi.fn())
+  expect(recovered.state()).toMatchObject({ slept: true, entries: [] })
+  const backup = fs.readdirSync(dir).find(name => name.startsWith('journal.json.invalid-'))!
+  expect(fs.readFileSync(path.join(dir, backup), 'utf8')).toBe(contents)
+})
+
+it('retains valid uncertain submissions when another recovery entry is malformed', () => {
+  const { file, journal, input } = fixture()
+  const entry = journal.begin(input, journal.state().epoch)
+  journal.phase(entry.command_id, entry.epoch, 'submission_started')
+  fs.writeFileSync(file, JSON.stringify([...journal.state().entries, null]))
+  const recovered = createBrowserPowerJournal(file, vi.fn(), vi.fn())
+  expect(recovered.state().entries).toEqual([expect.objectContaining({ command_id: input.command_id, phase: 'submission_started', interrupted: true })])
+  expect(createBrowserPowerJournal(file, vi.fn(), vi.fn()).state().entries).toHaveLength(1)
+})
+
+it('allows startup with unreadable storage but prohibits dispatch and preserves the original path', () => {
+  const { dir, input } = fixture()
+  const recovered = createBrowserPowerJournal(dir, vi.fn(), vi.fn())
+  expect(recovered.state().recovery_error).toContain('无法读取')
+  expect(() => recovered.begin(input, recovered.state().epoch)).toThrow('无法读取')
+  expect(() => { recovered.suspend(); recovered.resume() }).not.toThrow()
+  expect(fs.statSync(dir).isDirectory()).toBe(true)
+})
+
 it('persists submission uncertainty before suspend and rejects a late dispatch after wake', () => {
   const { journal, input, file, destroy } = fixture()
   const entry = journal.begin(input, journal.state().epoch)

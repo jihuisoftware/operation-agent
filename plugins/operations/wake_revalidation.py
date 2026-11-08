@@ -16,6 +16,12 @@ def _text(body, key):
     return value
 
 
+def is_probe(command):
+    """Only durable, read-only account probes may bypass a paused plan."""
+    return (command['kind'] == 'account' and not command['action_id']
+            and bool(json.loads(command['payload']).get('wake_probe')))
+
+
 def revalidate(directory, body):
     account, worker, epoch, request = (_text(body, key) for key in ('account_id', 'worker', 'wake_epoch', 'request_id'))
     catalog = directory.catalog()
@@ -37,8 +43,7 @@ def revalidate(directory, body):
         else:
             settings = db.execute('SELECT version,data FROM settings WHERE id=1').fetchone()
             version, policy = settings['version'], json.loads(settings['data'])
-            if not policy['enabled'] or policy['paused']:
-                return {'state': 'deferred', 'detail': '计划已暂停，等待手动检查'}
+            # Plan switches govern business actions, not account observations.
             identity = db.execute('SELECT identity FROM directory.accounts WHERE id=?', (account,)).fetchone()[0]
             command = uuid.uuid4().hex
             payload = {'wake_probe': epoch, 'resume_probe': True, 'policy_version': version,

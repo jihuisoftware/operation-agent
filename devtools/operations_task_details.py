@@ -34,7 +34,8 @@ def history(store, task, before=0):
     if task not in TASKS or before < 0:
         raise HTTPException(400, '调试任务或游标无效')
     with store.connection() as db:
-        rows = db.execute("SELECT rowid,data FROM objects WHERE kind='debug_run' AND (?=0 OR rowid<?) AND "
+        rows = db.execute("SELECT r.rowid,r.data FROM objects r WHERE r.kind='debug_run' AND NOT EXISTS(SELECT 1 FROM objects h "
+                          "WHERE h.id='debug-history-hidden:'||r.id AND h.kind='debug_history_hidden') AND (?=0 OR r.rowid<?) AND "
                           "(json_extract(data,'$.task')=? OR EXISTS(SELECT 1 FROM json_each(data,'$.steps') s WHERE json_extract(s.value,'$.id')=?)) "
                           'ORDER BY rowid DESC LIMIT 31', (before, before, task, task)).fetchall()
     records = []

@@ -40,6 +40,8 @@ def retry_action(store, identity):
                            (day, row["kind"], identity)).fetchone()[0]
         if count >= policy["limits"][row["kind"]]:
             raise ValueError("达到每日额度")
+        from .action_admission import check_replay
+        check_replay(store, db, action, identity)
         from .publication_snapshot import capture
         action = capture(db, action, cfg['version'], policy)
         db.execute('UPDATE actions SET data=? WHERE id=?', (encoded(action), identity))
@@ -49,6 +51,8 @@ def retry_action(store, identity):
         kind = "publish" if row["kind"] == "publish" else "interact"
         db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
                    (command, identity, kind, encoded(payload), time.time() + 120))
+        from .workspace_execution import sync_actions
+        sync_actions(store, db)
     store.event("manual_retry", {"day": day, "action_id": identity, "command_id": command})
     return command
 

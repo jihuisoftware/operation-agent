@@ -23,6 +23,10 @@ from .operations_pipeline import EXTERNAL
 router = APIRouter(prefix="/debug")
 from .operations_task_api import router as task_router
 router.include_router(task_router)
+from .operations_debug_history import router as history_router
+router.include_router(history_router)
+from .operations_debug_cancel import router as cancel_router
+router.include_router(cancel_router)
 TASKS = {
     "research": ("信息采集", "research"), "organize": ("资料整理与归类", "organize"), "analytics": ("数据分析", "analytics"), "industry": ("行业分析", "industry"), "topics": ("选题策划", "topics"), "content": ("内容生产", "content"),
     "publish": ("图文发布", "publish"), "comment": ("主动评论", "comments"),
@@ -111,6 +115,9 @@ def update_record(store, data):
     if store.scope:
         data.update(business_id=store.scope['business_id'], topic_id=store.scope['id'])
     with store.connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        from plugins.operations.batch_cancellation import preserve
+        preserve(db, data)
         db.execute("UPDATE objects SET data=? WHERE id=? AND kind='debug_run'", (encoded(data), data["id"]))
 
 
@@ -135,12 +142,23 @@ def execute(body, path=None):
         occupied = active_execution(store)
         message = occupied['message'] if occupied else '已有任务执行中'
         raise HTTPException(409, message + '；本次调试未启动，请等待当前任务结束后重试')
+    from plugins.operations.batch_cancellation import BatchCancelled, check, mark
     try:
+        check(store, batch=identity)
         from .operations_pipeline import run_pipeline
         handler = run_pipeline if task == "pipeline" else run_task
         options = {'selected_tasks': selected_tasks} if task == 'pipeline' else {}
         return previous(store, identity, task, body.get("version"), mode, external_actions, selected_tasks) or handler(
             store, identity, task, body.get("version"), mode=mode, external_actions=external_actions, **options)
+    except BatchCancelled:
+        data = record(store, identity) or new_record(identity, task, TASKS.get(task, ('整链路测试',))[0], body.get('version'), local_day(store.policy()[1]))
+        data.setdefault('mode', mode)
+        data.setdefault('action_mode', external_actions)
+        if selected_tasks is not None:
+            data.setdefault('selected_tasks', selected_tasks)
+        mark(data, data.get('cancellation_requested_at') or now_iso())
+        store.put('debug_run', data, identity)
+        return data
     finally:
         store.release(identity)
 
@@ -186,7 +204,9 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
     result = None
     owns_run_options = False
     from plugins.operations.execution_pause import ExecutionPaused
+    from plugins.operations.batch_cancellation import BatchCancelled, check
     try:
+        check(store)
         from plugins.operations.debug_authorization import authorized
         if quick and task in EXTERNAL and not authorized(store, policy, task):
             raise StageSkipped('本次快速实测授权已失效，请重新发起')
@@ -194,7 +214,7 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
             from plugins.operations.execution_preflight import verify_for_start
             verify_for_start(store, version)
             store.start_preflight_done = True
-        if task in {"publish", "comment", "reply", "dm", "follow"} and not store.snapshot()["online"]:
+        if task in {"publish", "comment", "reply", "dm", "follow"} and not store.online():
             from plugins.operations.execution_pause import pause
             reason = {'error_code': 'BROWSER_UNAVAILABLE', 'error': '桌面执行器离线，请启动 Desktop 后手动继续'}
             pause(store, reason)
@@ -219,12 +239,18 @@ def invoke(store, task, policy, day, version, *, content_id=None, quick=False):
             result = workflow.publish(store, policy, day, version, content_id=content_id)
         else:
             result = handlers[task](store, policy, day, version)
+        check(store)
         state, detail = describe(TASKS[task][1], result)
         store.event("debug_result", {"result": result})
+    except BatchCancelled as exc:
+        state, detail = 'cancelled', str(exc)
     except ExecutionPaused as exc:
         state, detail, result = 'paused', str(exc), exc.result
     except StageSkipped as exc:
         state, detail = "skipped", str(exc)
+        result = getattr(exc, 'result', None)
+        if result:
+            store.event('action_deferred', result)
     except Exception as exc:
         logging.getLogger(__name__).exception("Development task failed: %s", task)
         state, detail = "failed", str(exc)
@@ -242,7 +268,8 @@ def catalog():
     version, policy = store.policy()
     with store.connection() as db:
         runs = [json.loads(row[0]) for row in db.execute(
-            "SELECT data FROM objects WHERE kind='debug_run' ORDER BY created DESC LIMIT 30")]
+            "SELECT r.data FROM objects r WHERE r.kind='debug_run' AND NOT EXISTS(SELECT 1 FROM objects h "
+            "WHERE h.id='debug-history-hidden:'||r.id AND h.kind='debug_history_hidden') ORDER BY r.created DESC LIMIT 30")]
         from plugins.operations.readiness import web_block_reason
         web_block = web_block_reason(db)
     for data in runs:
@@ -255,7 +282,7 @@ def catalog():
             "runs": [{key: value for key, value in run.items() if key in fields} for run in runs],
             "task_status": task_status(store, runs), "execution": active_execution(store), 'web_block_reason': web_block,
             "pipeline_available": True, 'selective_quick_available': True, 'selective_pipeline_available': True,
-            'browser_check_available': True, 'task_details_available': True}
+            'browser_check_available': True, 'task_details_available': True, 'history_clear_available': True, 'cancel_all_available': True}
 
 
 @router.post("/run")
