@@ -1,7 +1,7 @@
 import { Button, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
-import { localInput, versionRequest } from './content-version-actions'
+import { coverAssetIds, localInput, versionRequest } from './content-version-actions'
 import type { RecordRow } from './types'
 
 interface Props {
@@ -49,7 +49,7 @@ export function ContentReview({ ctx, row, refresh }: Props) {
       const asset = await ctx.rest<{ id: string }>('/assets', { method: 'POST', body: { name: file.name, data, authorized: true } })
 
       const result = await ctx.rest<{ id: string; original_schedule_retained: boolean }>(`/content/${row.id}/versions`, { method: 'POST', body: versionRequest(row, {
-        asset_ids: [asset.id, ...((row.asset_ids || []) as string[]).slice(1)]
+        asset_ids: coverAssetIds(row, asset.id)
       }, cancelOriginal) })
 
       await refresh()

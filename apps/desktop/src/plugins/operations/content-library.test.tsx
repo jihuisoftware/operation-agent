@@ -1,4 +1,4 @@
-import type { PluginContext } from '@hermes/plugin-sdk'
+import { host, type PluginContext } from '@hermes/plugin-sdk'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
@@ -35,17 +35,12 @@ it('sends the publication-state filter to the server rather than hiding rows aft
   await waitFor(() => expect(rest).toHaveBeenCalledWith(expect.stringContaining('status=failed')))
 })
 
-it('edits a failed publication as a source-bound new version without rewriting the old manuscript', async () => {
-  const rest = vi.fn(async () => ({ id: 'new-version' }))
-  render(<ContentEditor assets={[]} ctx={{ rest } as unknown as PluginContext} onError={vi.fn()} refresh={async () => {}} rows={[{ id: 'old', title: '原稿', body: '原正文', source_ids: ['source'], asset_ids: ['cover'],
-      policy_version: 3, content_revision: 'original-fingerprint', publication_state: 'failed', analysis_context: { private: 'server-owned' } }]}
-    sources={[]} />)
-  fireEvent.change(screen.getByLabelText('内容正文'), { target: { value: '修改后的正文' } })
-  fireEvent.click(screen.getByRole('button', { name: '保存待审核版本' }))
-  await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/old/versions', { method: 'POST', body: {
-    title: '原稿', body: '修改后的正文', source_ids: ['source'], asset_ids: ['cover'], version: 3,
-    content_revision: 'original-fingerprint', request_id: expect.any(String), cancel_original_schedule: false
-  } }))
+it('opens a source-bound writing copy for a failed publication', () => {
+  const navigate = vi.spyOn(host, 'navigate').mockImplementation(() => {})
+  render(<ContentEditor assets={[]} ctx={{} as PluginContext} onError={vi.fn()} refresh={async () => {}} rows={[{ id: 'old', title: '原稿', publication_state: 'failed' }]} sources={[]} />)
+  fireEvent.click(screen.getByRole('button', { name: '打开独立写稿页' }))
+  expect(navigate).toHaveBeenCalledWith(expect.stringContaining('/content/write?from_content=old&new='))
+  navigate.mockRestore()
 })
 
 it('keeps manual writing available when the review queue is empty', async () => {
@@ -54,9 +49,11 @@ it('keeps manual writing available when the review queue is empty', async () => 
 
   render(<ContentLibrary ctx={{ rest } as unknown as PluginContext} tab="drafts" />)
   await screen.findByText('暂无待审核稿件，可以生成图文或选择其他分类。')
+  const navigate = vi.spyOn(host, 'navigate').mockImplementation(() => {})
   fireEvent.click(screen.getByRole('button', { name: '手动写稿' }))
-  expect(await screen.findByLabelText('内容标题')).toBeTruthy()
-  expect(rest).toHaveBeenCalledWith('/content/editor-options')
+  expect(navigate).toHaveBeenCalledWith(expect.stringContaining('/content/write?new='))
+  expect(rest.mock.calls.every(([path]) => path.startsWith('/library/') || path === '/policy')).toBe(true)
+  navigate.mockRestore()
 })
 
 it.each([false, true])('distinguishes platform publication from incomplete content checks, historical=%s', async historical => {

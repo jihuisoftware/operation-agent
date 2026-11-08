@@ -17,7 +17,8 @@ def validate_content(content, sources, assets, *, require_assets=False):
     if not isinstance(content.get("title"), str) or not isinstance(content.get("body"), str) or not 0 < len(content["title"]) <= 20 or not 0 < len(content["body"]) <= 900:
         raise ValueError("内容长度或格式不符合要求")
     source_ids = content.get('source_ids')
-    if not isinstance(source_ids, list) or not source_ids or any(not isinstance(identity, str) for identity in source_ids) or not set(source_ids) <= {s["id"] for s in sources}:
+    from .writing_origin import original
+    if not isinstance(source_ids, list) or (not source_ids and not original(content)) or any(not isinstance(identity, str) for identity in source_ids) or not set(source_ids) <= {s["id"] for s in sources}:
         raise ValueError("内容引用来源不匹配")
     ids = content.get("asset_ids", [])
     if not isinstance(ids, list) or not set(ids) <= {a["id"] for a in assets}:
@@ -44,6 +45,8 @@ def check_content(store, policy, day, version, content, sources):
         '"quote":"稿件中有问题的原句","source_ids":[],"message":"原因","suggestion":"具体修改建议"}]}。通过时issues为空。'
         '不确定时pass为false；这是自动检查，不是人工审核。source_truncated表示抓取缺失，excerpted表示本轮节选；'
         '不能把未提供的原文当作已经核对或断言原文没有相关内容，证据不足时指出具体需补证的句子。')
+    if any(asset.get('cover_spec') for asset in assets):
+        instruction += 'cover_spec是实际绘制的封面文案，也应核对是否含有无依据的数字、承诺或实测说法；不评价图片视觉质量。'
     data = inputs.checked(store, 'content_check', {"policy": inputs.policy(policy),
          "content": {**inputs.fields(content, ('id', 'title', 'body', 'source_ids', 'asset_ids')), 'selected_topic': inputs.selected_topic(content.get('selected_topic'))},
          "sources": review_sources(content, sources), "assets": inputs.assets(assets), "history": inputs.history(history)})
@@ -94,7 +97,11 @@ def produce_content(store, policy, day, version):
         store.progress('复用已保存图文，继续尚未完成的检查或修订', {'content_id': draft['id']})
         return review(store, policy, day, version, draft, sources)
     content = generate(store, policy, day,
-        '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":""}。'
+        '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":"",'
+        '"cover":{"title":"短封面主标题","subtitle":"副标题","eyebrow":"栏目短标签","keywords":[],"template":"editorial","palette":"blue"}}。'
+        '封面title建议8至18字、最多36字，可用换行分开完整词组，英文工具名不要拆开；subtitle最多60字，eyebrow最多12字，keywords最多3项、每项12字。'
+        '封面只能概括本稿，不把未核实数据写成确定结论，不编造实测、百分比或承诺，不使用emoji。'
+        'template可选editorial/comparison/checklist/spotlight，palette可选blue/mint/sand/plum；封面信息与正文一起返回，不另行生成图片。'
         '标题不超过20字，正文不超过900字。只能使用提供的来源和素材，缺少图片时保留文本草稿。'
         'selected_topic 不为空时必须围绕指定选题写作，不得另换题目；标题可精炼但保持原主题。'
         'analysis 非空时优先参考其可公开结论与指标，保留适用范围；不使用内部经营数据。'
@@ -105,7 +112,10 @@ def produce_content(store, policy, day, version):
         data)
     if not content.get("title"):
         raise StageSkipped(content.get("reason", "无合适选题"))
-    content = inputs.fields(content, ('title', 'body', 'source_ids', 'asset_ids', 'reason'))
+    content = inputs.fields(content, ('title', 'body', 'source_ids', 'asset_ids', 'reason', 'cover'))
+    from .cover_design import normalized
+    if 'cover' in content:
+        content['cover'] = normalized(content['cover'], content['title'])
     content["analysis_context"] = analysis
     content["selected_topic"] = topic
     validate_content(content, sources, assets)

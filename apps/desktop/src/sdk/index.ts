@@ -1,3 +1,5 @@
+/** Pane, status bar and titlebar slots; see `./areas` for the mount rules. */
+export * from './areas'
 /**
  * @hermes/plugin-sdk — THE plugin language. The vscode-module model: plugin
  * authors import exactly one module and get everything — they never touch
@@ -123,12 +125,11 @@ import { desktopSettings } from './settings'
 import { spellcheckHost } from './spellcheck'
 import { $viewport, type ViewportRect } from './viewport'
 
-/** Pane, status bar and titlebar slots; see `./areas` for the mount rules. */
-export * from './areas'
 export { CRON_BLUEPRINTS_AREA, type CronBlueprintContribution, type CronBlueprintOwner } from './cron'
 /** The plugin authoring contract (`HermesPlugin`, `PluginContext`, `ctx.*` door types). */
 export type * from './plugin-contract'
 export type { PluginProfileRequestOptions, PluginProfileRoute } from './profile-request'
+export type { DesktopSettingKey, DesktopSettingValues } from './settings'
 
 // -- state: readonly views over the app's live atoms -------------------------
 
@@ -1510,11 +1511,10 @@ export const host = {
 
 // -- react bridge -------------------------------------------------------------
 
-export type { DesktopSettingKey, DesktopSettingValues } from './settings'
+export type { ViewportRect } from './viewport'
 
 // -- ui: the design language --------------------------------------------------
 
-export type { ViewportRect } from './viewport'
 /** THE whole Capabilities surface (Skills / Tools / MCP tabs, installed
  *  lists, full-skill detail pane, embedded hub picker with one-click
  *  installs). For plugin dialogs pass `embedded` (tab state stays local —
@@ -1603,7 +1603,6 @@ export {
   PanelRowMenu,
   PanelSectionLabel
 } from '@/app/overlays/panel'
-
 export {
   type ProfileGroupHeaderContribution,
   type ProfileGroupRoute,
@@ -1615,6 +1614,7 @@ export {
   type SidebarNavContribution,
   WORKSPACE_PAGE_HEADER_AREA
 } from '@/app/routes'
+
 /** Appearance settings' plugin seam: register a render contribution at
  *  `APPEARANCE_AREAS.extra` to add controls at the end of the Appearance page.
  *  `ColorSwatches` is the app's own swatch grid (profile rail / project dialog
@@ -1753,10 +1753,10 @@ export type { GatewayEventListener } from '@/contrib/events'
 export { Contribute, type ContributeProps } from '@/contrib/react/contribute'
 /** Settings ▸ Plugins entries (`ctx.registerSettingsPage`); `pluginSettingsHref` deep-links one. */
 export { pluginSettingsHref, SETTINGS_PLUGINS_AREA } from '@/contrib/settings-pages'
+export type { Contribution } from '@/contrib/types'
 
 // -- contracts ----------------------------------------------------------------
 
-export type { Contribution } from '@/contrib/types'
 /** The live gateway instance type — for typing the `gateway` prop `ConnectorsTab`
  *  takes; obtain the instance from `host.getGateway()`. */
 export type { HermesGateway } from '@/hermes'
@@ -1839,7 +1839,6 @@ export { queryClient } from '@/lib/query-client'
 /** Compact labels for the reasoning levels exported from @hermes/shared, so a
  *  plugin surfacing a thinking depth uses the same spelling as the app. */
 export { reasoningEffortLabel } from '@/lib/reasoning-effort'
-
 /** The app's own gateway-readiness evaluation (setup.status +
  *  setup.runtime_check, reconciled) — pass `host.request`. Don't hand-roll
  *  readiness from raw RPC shapes. */
@@ -1849,6 +1848,7 @@ export { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/run
  *  `SESSION_ROW_AREAS.leading` / `.trailing` to decorate sidebar session rows
  *  (the props carry the row's stored session id). */
 export { SESSION_ROW_AREAS, type SessionRowSlotContribution, type SessionRowSlotProps } from '@/lib/session-row-slots'
+
 /** A sibling WebSocket beside the route's `/api/ws` (voice PCM, Bot Screen RFB):
  *  same origin, same auth resolution as chat. */
 export { resolveSiblingWsUrl, type SiblingWsRoute } from '@/lib/sibling-ws-url'
@@ -1868,6 +1868,7 @@ export {
 } from '@/lib/transcript-directives'
 export { cn } from '@/lib/utils'
 export { gatewayActivationEpoch } from '@/store/gateway'
+export { onProfileCacheChange } from '@/store/profile-cache-events'
 /** THE unread store behind `SessionStatusDot`'s emerald dot. A plugin that
  *  learns out-of-band that a session produced something the user hasn't seen
  *  (a roster poll's activity watermark, say) writes HERE rather than keeping

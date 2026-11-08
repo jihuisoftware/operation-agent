@@ -2,6 +2,7 @@ import { Button, Codicon, host, type PluginContext, useValue } from '@hermes/plu
 import { lazy, Suspense, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 
+const WritingList = lazy(() => import('./writing/list').then(m => ({ default: m.WritingList })))
 const SourceLibrary = lazy(() => import('./source-library').then(m => ({ default: m.SourceLibrary })))
 const OrganizedLibrary = lazy(() => import('./organized-library').then(m => ({ default: m.OrganizedLibrary })))
 const TopicsPanel = lazy(() => import('./topics-panel').then(m => ({ default: m.TopicsPanel })))
@@ -33,6 +34,7 @@ export const sections = {
     icon: 'file-media',
     tabs: [
       ['drafts', '待审核'],
+      ['writing', '写作草稿'],
       ['pending', '已排期'],
       ['published', '发布记录'],
       ['topics', '选题']
@@ -130,7 +132,7 @@ export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Sec
             />
           ) : tab === 'topics' ? (
             <TopicsPanel ctx={bound} />
-          ) : section === 'content' ? (
+          ) : tab === 'writing' ? (<WritingList ctx={bound} />) : section === 'content' ? (
             <ContentLibrary ctx={bound} key={params.toString()} record={params.get('record') || ''} tab={tab} />
           ) : tab === 'business' ? (
             <BusinessPage ctx={bound} />

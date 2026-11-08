@@ -1,10 +1,10 @@
-import { Button, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
+import { Button, type PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
 import { ActionEvidence, PublicationStatus } from './action-evidence'
 import { ActionInspector } from './action-inspector'
-import { versionRequest } from './content-version-actions'
 import type { RecordRow } from './types'
+import { openWriter } from './writing/navigation'
 
 interface ManagementProps {
   ctx: PluginContext
@@ -107,145 +107,14 @@ function ActionCard({ ctx, row, refresh, onError }: ManagementProps & { row: Rec
   )
 }
 
-export function ContentEditor({
-  rows,
-  assets,
-  sources,
-  ...props
-}: ManagementProps & { rows: RecordRow[]; assets: RecordRow[]; sources: RecordRow[] }) {
-  const [original, setOriginal] = useState<RecordRow | null>(rows.length === 1 ? rows[0] : null)
-  const [title, setTitle] = useState(String(original?.title || ''))
-  const [body, setBody] = useState(String(original?.body || ''))
-  const [assetIds, setAssetIds] = useState<string[]>((original?.asset_ids || []) as string[])
-  const [sourceIds, setSourceIds] = useState<string[]>((original?.source_ids || []) as string[])
-  const [pending, setPending] = useState(false)
-  const [cancelOriginal, setCancelOriginal] = useState(false)
-  const [notice, setNotice] = useState('')
-  const [savedId, setSavedId] = useState('')
-  const release = original?.release as { state: string; publish_at: string } | undefined
+export function ContentEditor({ rows }: ManagementProps & { rows: RecordRow[]; assets: RecordRow[]; sources: RecordRow[] }) {
+  const [selected, setSelected] = useState(rows.length === 1 ? rows[0].id : '')
 
-  const save = async () => {
-    setPending(true); setNotice('')
-
-    try {
-      const changes = { title, body, asset_ids: assetIds, source_ids: sourceIds }
-
-      const result = await props.ctx.rest<{ id: string; original_schedule_retained?: boolean }>(original ? `/content/${original.id}/versions` : '/records/content', {
-        method: 'POST',
-        body: original ? versionRequest(original, changes, cancelOriginal) : changes
-      })
-
-      await props.refresh()
-      setSavedId(result.id)
-      setNotice(result.original_schedule_retained ? '已保存新版本；旧版本排期仍然有效，请留意发布时间。' : '已保存待审核版本，请审核后排期。')
-    } catch (error) {
-      props.onError(String(error))
-    } finally { setPending(false) }
-  }
-
-  const toggle = (values: string[], id: string) =>
-    values.includes(id) ? values.filter(v => v !== id) : [...values, id]
-
-  return (
-    <section className="grid gap-3">
-      <h2 className="text-lg">内容编辑与版本</h2>
-      <select
-        aria-label="加载内容版本"
-        className="border bg-background"
-        disabled={pending}
-        onChange={e => {
-          const row = rows.find(r => r.id === e.target.value)
-
-          setOriginal(row || null); setCancelOriginal(false); setNotice('')
-          setTitle(String(row?.title || ''))
-          setBody(String(row?.body || ''))
-          setAssetIds((row?.asset_ids || []) as string[])
-          setSourceIds((row?.source_ids || []) as string[])
-        }}
-        value={original?.id || ''}
-      >
-        <option value="">选择历史版本或创建新稿</option>
-        {rows.map(r => (
-          <option key={r.id} value={r.id}>
-            {String(r.title)} · {String(r.day)}
-          </option>
-        ))}
-      </select>
-      <input
-        aria-label="内容标题"
-        className="border bg-transparent p-2"
-        disabled={pending}
-        maxLength={20}
-        onChange={e => setTitle(e.target.value)}
-        placeholder="标题（20 字以内）"
-        value={title}
-      />
-      <textarea
-        aria-label="内容正文"
-        className="border bg-transparent p-2"
-        disabled={pending}
-        maxLength={900}
-        onChange={e => setBody(e.target.value)}
-        placeholder="正文、话题和来源说明"
-        rows={8}
-        value={body}
-      />
-      <p>选择获授权图片，第一张作为封面：</p>
-      {assets
-        .filter(a => !a.revoked)
-        .map(a => (
-          <label key={a.id}>
-            <input
-              checked={assetIds.includes(a.id)}
-              disabled={pending}
-              onChange={() => setAssetIds(toggle(assetIds, a.id))}
-              type="checkbox"
-            />{' '}
-            {String(a.name)}
-          </label>
-        ))}
-      <p>引用资料：</p>
-      {sources
-        .filter(s => s.state === 'read')
-        .map(s => (
-          <label key={s.id}>
-            <input
-              checked={sourceIds.includes(s.id)}
-              disabled={pending}
-              onChange={() => setSourceIds(toggle(sourceIds, s.id))}
-              type="checkbox"
-            />{' '}
-            {String(s.title)}
-          </label>
-        ))}
-      <p>保存为新的待审核版本；没有配图时自动生成文字封面。已有排期不会自动转移到新版本。</p>
-      {release?.state === 'scheduled' && <div className="rounded border p-3"><p>旧版本仍计划于 {formatTimestamp(release.publish_at)} 发布。</p>
-        <label><input checked={cancelOriginal} disabled={pending} onChange={event => setCancelOriginal(event.target.checked)} type="checkbox" /> 保存时同时取消旧版本排期，新版本重新审核</label></div>}
-      <Button disabled={pending || !title.trim() || !body.trim()} onClick={() => void save()}>保存待审核版本</Button>
-      {notice && <p role="status">{notice}</p>}
-      {savedId && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(savedId)}`)} variant="link">查看新版本</Button>}
-      {rows.map(row => (
-        <button
-          className="text-left"
-          key={row.id}
-          onClick={() =>
-            void props.ctx
-              .rest<{ data: string }>(`/content/${row.id}/export`)
-              .then(result => {
-                const bytes = Uint8Array.from(atob(result.data), c => c.charCodeAt(0))
-                const url = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }))
-                const link = document.createElement('a')
-                link.href = url
-                link.download = `${String(row.title)}.zip`
-                link.click()
-                setTimeout(() => URL.revokeObjectURL(url), 1000)
-              })
-              .catch(error => props.onError(String(error)))
-          }
-        >
-          导出内容包：{String(row.title)}
-        </button>
-      ))}
-    </section>
-  )
+  return <section className="flex flex-wrap gap-2">
+    <select aria-label="加载内容版本" className="border bg-background p-2" onChange={event => setSelected(event.target.value)} value={selected}>
+      <option value="">全新手稿</option>{rows.map(row => <option key={row.id} value={row.id}>{String(row.title || row.id)}</option>)}
+    </select>
+    <Button onClick={() => openWriter(selected)}>打开独立写稿页</Button>
+    <p className="text-sm text-muted-foreground">编辑现有稿件会建立工作副本，原稿和排期保持不变。</p>
+  </section>
 }

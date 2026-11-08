@@ -7,6 +7,21 @@ from .. import content_release
 router = APIRouter(prefix='/content')
 
 
+@router.get('/cover-options')
+def cover_options():
+    from ..cover_design import options
+    return options()
+
+
+@router.post('/{identity}/covers/preview')
+def cover_preview(identity: str, body: dict):
+    from ..cover_studio import preview
+    try:
+        return preview(Store(), identity, body)
+    except (ValueError, KeyError, TypeError, OSError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @router.get('/editor-options')
 def options():
     from ..content_library import editor_options

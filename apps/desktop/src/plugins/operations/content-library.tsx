@@ -2,9 +2,10 @@ import { Button, formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useState } from 'react'
 
 import { AssetImage } from './asset-image'
-import { ContentPreview, ManualContent } from './content-preview'
+import { ContentPreview } from './content-preview'
 import { GenerateContent } from './content-review'
 import type { RecordRow } from './types'
+import { openWriter } from './writing/navigation'
 
 interface Summary extends RecordRow {
   title?: string
@@ -73,7 +74,6 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
   const [recordFilter, setRecordFilter] = useState(record)
   const [selected, setSelected] = useState<string | null>(record || null)
   const [revision, setRevision] = useState(0)
-  const [writing, setWriting] = useState(false)
   const refresh = useCallback(async () => { setRevision(value => value + 1) }, [])
   const polling = data?.has_active ? 5000 : tab === 'pending' ? 30000 : 0
   useEffect(() => {
@@ -109,8 +109,7 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
   return <div className="space-y-4 p-4">
     <ContentToolbar counts={data?.counts} refresh={refresh} restricted={Boolean(recordFilter)} showAll={showAll} />
     {tab === 'drafts' && <GenerateContent ctx={ctx} refresh={refresh} />}
-    {tab === 'drafts' && <Button aria-expanded={writing} onClick={() => setWriting(value => !value)} variant="outline">{writing ? '收起写稿' : '手动写稿'}</Button>}
-    {writing && <ManualContent ctx={ctx} refresh={refresh} />}
+    {tab === 'drafts' && <Button onClick={() => openWriter()} variant="outline">手动写稿</Button>}
     {tab === 'published' && <div aria-label="发布状态筛选" className="flex flex-wrap gap-2">{filters.map(([value, title]) => <Button aria-pressed={status === value} key={value} onClick={() => {
       setStatus(value); showAll()
     }} size="sm" variant={status === value ? 'secondary' : 'ghost'}>{title}</Button>)}</div>}

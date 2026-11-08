@@ -18,7 +18,7 @@ export function useWorkspaceRouting(ctx: PluginContext, owner: CronBlueprintOwne
     setParams(previous => {
       const next = new URLSearchParams(previous)
 
-      for (const field of ['business_id', 'topic_id', 'record', 'selected', 'action']) { next.delete(field) }
+      for (const field of ['business_id', 'topic_id', 'record', 'selected', 'action', 'draft', 'new', 'from_content']) { next.delete(field) }
 
       return next
     }, { replace: true })
@@ -27,7 +27,8 @@ export function useWorkspaceRouting(ctx: PluginContext, owner: CronBlueprintOwne
     setParams(previous => {
       const next = new URLSearchParams(previous)
       next.set('business_id', scope.business_id); next.set('topic_id', scope.topic_id)
-      next.delete('record'); next.delete('selected'); next.delete('action')
+
+      for (const field of ['record', 'selected', 'action', 'draft', 'new', 'from_content']) { next.delete(field) }
 
       return next
     }, { replace: true })

@@ -23,6 +23,8 @@ def replay(db, key, digest):
 
 def proposed(store, parent, body, policy, version):
     value = {key: body.get(key, parent.get(key, [] if key.endswith('_ids') else '')) for key in EDITABLE}
+    if 'authorship' in parent:
+        value['authorship'] = parent['authorship']
     from .content import validate_content
     from .organization import material_id
     sources = store.objects('source')
@@ -34,9 +36,13 @@ def proposed(store, parent, body, policy, version):
     if 'cover_origin' not in value and value['asset_ids']:
         cover = next((row for row in assets if row['id'] == value['asset_ids'][0]), {})
         value['cover_origin'] = 'generated_typography' if cover.get('generated_typography') else 'user_selected'
+    if parent.get('editor_document') and value['body'] == parent['body']:
+        value.update(editor_document=parent['editor_document'], editor_document_version=parent['editor_document_version'])
     for key in ('analysis_context', 'selected_topic'):
         if key in parent and key not in value:
             value[key] = parent[key]
+    from .cover_assets import attach
+    attach(store, parent, value, body.get('cover_set_id'))
     evidence = [row for row in parent.get('organized_evidence', []) if row['id'] in value['source_ids']]
     signatures = list(parent.get('organization_ids', []))
     for source in sources:
@@ -61,7 +67,7 @@ def create(store, identity, body):
     request = body.get('request_id')
     if not isinstance(request, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}', request):
         raise ValueError('保存请求标识无效')
-    allowed = {*EDITABLE, 'request_id', 'version', 'content_revision', 'cancel_original_schedule', 'expected_release_revision'}
+    allowed = {*EDITABLE, 'request_id', 'version', 'content_revision', 'cancel_original_schedule', 'expected_release_revision', 'cover_set_id'}
     if set(body) - allowed:
         raise ValueError('依据与版本关联由服务端继承，不能由请求修改')
     if type(body.get('cancel_original_schedule', False)) is not bool:
@@ -76,6 +82,12 @@ def create(store, identity, body):
     parent = manuscript(store, identity)
     if body.get('version') != version or body.get('content_revision') != fingerprint(parent):
         raise ValueError('原稿或规则已变化，请刷新后编辑')
+    from .writing_document import project
+    if parent.get('editor_document'):
+        if body.get('body', parent['body']) != parent['body']:
+            raise ValueError('富文本稿件请在独立写稿页编辑')
+        if not set(project(parent['editor_document'])['asset_ids']).issubset(body.get('asset_ids', parent['asset_ids'])):
+            raise ValueError('正文中的图片请在独立写稿页删除')
     value = proposed(store, parent, body, policy, version)
     signatures = validate(store, value)
     with store.connection() as db:

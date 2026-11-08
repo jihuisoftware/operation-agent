@@ -39,6 +39,7 @@ import { stableArray } from '@/lib/stable-array'
 import { readJson, writeJson } from '@/lib/storage'
 import type { SessionInfo } from '@/types/hermes'
 
+import { notifyProfileCacheChange } from './profile-cache-events'
 import { dropStatusDrawersForProfile, migrateStatusDrawersForProfile } from './composer-status-drawer'
 import { registryConnectionKind } from './connection-registry-state'
 import { recordDislike } from './desktop-metrics'
@@ -2752,9 +2753,6 @@ export function dropTilesForProfile(
   const name = normalizeProfileKey(profile)
   dropPreviewArtifactsForProfile(name, route)
   dropStatusDrawersForProfile(name, route)
-  // Route fields go through the SAME canonicalization as `name` below — a
-  // source-scoped delete must not be defeated by stray whitespace around a
-  // profile name that a non-route delete trims away.
   const routeProfile = route?.profile ? normalizeProfileKey(route.profile) : ''
   const routeTarget = route?.targetProfile ? normalizeProfileKey(route.targetProfile) : ''
   const routeConnection = String(route?.connectionId ?? '').trim()
@@ -2763,6 +2761,7 @@ export function dropTilesForProfile(
   // connection scope so deletion cannot erase same-named local tabs instead.
   const ambientConnection = tileConnectionId || LOCAL_CONNECTION_ID
   const removedScope = backendScopeKey(route ? routeConnection : ambientConnection, routeProfile || name)
+  notifyProfileCacheChange({ connectionId: (route ? routeConnection : ambientConnection) || 'local', profile: routeTarget || routeProfile || name })
 
   const ownerMatches = (owner: SessionProfileRoute | undefined): boolean => {
     if (!owner) {
@@ -2896,6 +2895,7 @@ export function migrateTilesForProfile(oldProfile: string, newProfile: string): 
   migrateTranscriptTailsForProfile(from, to)
   migrateRememberedNavigationForProfile(from, to)
   migrateSessionOwnerHintsForProfile(from, to)
+  notifyProfileCacheChange({ connectionId: 'local', profile: from, renamedTo: to })
   migratePreviewArtifactsForProfile(from, to)
   migrateStatusDrawersForProfile(from, to)
   // Sibling family: the rail's profile-keyed buckets move with the rename, or
