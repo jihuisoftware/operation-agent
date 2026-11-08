@@ -4,6 +4,7 @@
 
 | 功能或问题 | 首先定位 | 需要跨层时再查 | 验证入口 |
 | --- | --- | --- | --- |
+| 仅桌面交付、后台与打包边界 | [Desktop](../apps/desktop/AGENTS.md)、[共享RPC后端](../tui_gateway/AGENTS.md)、[构建器](../scripts/bundles/desktop.py) | `ui-tui`及终端聊天入口已移除；`hermes_cli`保留管理和单次请求，完整包只装配Desktop与共享后台 | `test_desktop_only_entrypoints.py`、`test_agent_build.py`、`test_bundle_native.py`；Desktop类型检查与构建 |
 | 多业务、多主题与数据隔离 | [业务目录](../plugins/operations/workspaces.py)、`workspace_storage.py` | 私有 `dashboard/workspace_api.py`；Desktop `workspace-picker.tsx` / `workspace-page.tsx` / `workspace-routing.ts`；业务资源 `workspace_resources.py` | `test_operations_workspaces.py`、`test_operations_workspace_http.py`、`workspace.test.tsx` |
 | 多主题轮转、共用账号与跨主题额度 | [调度](../plugins/operations/workspace_runtime.py)、[账号与预算](../plugins/operations/workspace_execution.py) | `scheduling.py` / `workspace_broker.py` / `workspace_inbox.py` / `workspace_upcoming.py`；Desktop `worker.tsx`、`workspace-browser-header.tsx`、`use-operations-guest.ts` | `test_operations_workspace_pipeline.py`、`worker.test.tsx`，既有手动 Cron 与发布核对测试 |
 | 配置先选择后自定义、日期与时间控件 | [运营选择控件](../apps/desktop/src/plugins/operations/configuration-choices.tsx)、同目录 `configuration-presets.ts` / `blueprint-fields.tsx` | [普通 Cron 时间选择](../apps/desktop/src/app/cron/schedule-picker.tsx)；沿用已有规则字段和 Cron 表达式协议 | `configuration-choices.test.tsx`、`plan-editor.test.tsx`、`schedule-picker.test.tsx`、Cron `index.test.tsx` |

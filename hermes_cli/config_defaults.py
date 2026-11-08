@@ -831,19 +831,10 @@ DEFAULT_CONFIG = {
         # continues, Shift+Enter reported distinctly. False restores the c-j submit fallback for
         # POSIX PTYs whose plain Enter arrives as LF.
         "cli_multiline_shortcuts": True,
-        # `hermes`/`hermes chat` launches "cli" (prompt_toolkit REPL) | "tui" (Ink); --cli, --tui, HERMES_TUI=1 win.
-        # cli_layout = the REPL's look: "modern" (glyph rows, status under the composer) | "classic" (boxed panels).
-        "interface": "cli", "cli_layout": "modern",
-        # Native TUI uses the terminal's primary buffer and scrollback instead of the custom
-        # alternate-screen viewport. Flags win: `--native` / `--tui-native` and `--cli`.
-        "tui_native": False,
-        # `hermes --tui` auto-resumes the most recent human-facing session (like `hermes -c`).
-        # HERMES_TUI_RESUME=<id> always wins.
-        "tui_auto_resume_recent": False,
+        # Layout used by retained CLI formatting helpers.
+        "cli_layout": "modern",
         # Desktop reopens the last chat/page on cold start (also in Settings → Appearance).
         "resume_last_session": True,
-        # One-time TUI hint ("subagents working · /agents to watch live") on first delegation.
-        "tui_agents_nudge": True,
         "bell_on_complete": False,
         "bell_on_prompt": False,   # bell when a blocking prompt opens (clarify/approval/sudo)
         # Stream reasoning live before the response; otherwise thinking models show only a spinner

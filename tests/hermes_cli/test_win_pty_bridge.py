@@ -313,24 +313,8 @@ class TestClampDimension:
 
 @pytest.mark.platforms("windows")
 class TestWinPtyBridgeClose:
+    pass
 
-    def test_close_terminates_long_running_child(self):
-        bridge = WinPtyBridge.spawn(
-            [sys.executable, "-c", "import time; time.sleep(30)"]
-        )
-        pid = bridge.pid
-        assert bridge.is_alive(), f"child pid {pid} not alive before close"
-        bridge.close()
-        # The bridge itself reports liveness via pywinpty.isalive(), which is
-        # the same probe the dashboard PTY reader uses to decide when to stop
-        # forwarding bytes — verifying that flips to False is the contract
-        # that matters for /api/pty.
-        deadline = time.monotonic() + 5.0
-        while bridge.is_alive() and time.monotonic() < deadline:
-            time.sleep(0.1)
-        assert not bridge.is_alive(), (
-            f"WinPtyBridge.is_alive() still True after close(); pid {pid}"
-        )
 
 
 @pytest.mark.platforms("windows")

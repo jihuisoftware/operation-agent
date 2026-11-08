@@ -255,53 +255,8 @@ def _early_interface_config_path() -> str:
     return os.path.join(os.path.expanduser("~"), ".hermes", "config.yaml")
 
 
-def _config_default_interface_early() -> str:
-    """Return the configured default interface ("cli"/"tui") via a minimal
-    YAML read. Best-effort: any error falls back to "cli" (legacy behavior)."""
-    global _EARLY_INTERFACE_CACHE
-    cfg_path = _early_interface_config_path()
-    if _EARLY_INTERFACE_CACHE is not None and _EARLY_INTERFACE_CACHE[0] == cfg_path:
-        return _EARLY_INTERFACE_CACHE[1]
-    value = "cli"
-    try:
-        if os.path.exists(cfg_path):
-            import hermes_yaml as _yaml_iface
-
-            with open(cfg_path, encoding="utf-8-sig") as _f:
-                raw = _yaml_iface.safe_load(_f) or {}
-            disp = raw.get("display", {})
-            if isinstance(disp, dict):
-                iface = disp.get("interface")
-                if isinstance(iface, str) and iface.strip().lower() == "tui":
-                    value = "tui"
-    except Exception:
-        value = "cli"  # best-effort — default to classic REPL on any error
-    _EARLY_INTERFACE_CACHE = (cfg_path, value)
-    return value
 
 
-def _wants_tui_early(argv: list[str] | None = None) -> bool:
-    """Earliest TUI decision, usable before argparse/config imports.
-
-    Precedence: ``--cli`` wins, then ``--tui``/``HERMES_TUI=1``, then a
-    real-TTY gate, then ``display.interface``. The TTY gate is load-bearing
-    for headless spawners (kanban workers, cron, pipes running ``chat -q``):
-    a ``display.interface: tui`` default used to boot the TUI here, whose
-    no-TTY bail-out exits 0 without doing the task. An explicit ``--tui``
-    still reaches that informative bail-out.
-    """
-    if argv is None:
-        argv = sys.argv[1:]
-    if "--cli" in argv:
-        return False
-    if os.environ.get("HERMES_TUI") == "1" or any(flag in argv for flag in ("--tui", "--native", "--tui-native")):
-        return True
-    try:
-        if not (sys.stdin.isatty() and sys.stdout.isatty()):
-            return False
-    except Exception:
-        return False
-    return _config_default_interface_early() == "tui"
 
 
 # Mouse-tracking residue suppression — runs BEFORE every other import on the
@@ -310,25 +265,8 @@ def _wants_tui_early(argv: list[str] | None = None) -> bool:
 # echo into the shell scrollback as ``^[[<…M``. entry.tsx's
 # `resetTerminalModes()` is the later cousin. ``HERMES_TUI_NO_EARLY_DISABLE``
 # escapes the behaviour for diagnostics.
-def _suppress_mouse_residue_early() -> None:
-    if os.environ.get("HERMES_TUI_NO_EARLY_DISABLE") == "1":
-        return
-    if not _wants_tui_early():
-        return
-    try:
-        if not os.isatty(1):  # redirected stdout: raw CSI would pollute the log
-            return
-        # Every mouse-tracking variant we know about; idempotent.
-        os.write(
-            1,
-            b"\x1b[?1003l\x1b[?1002l\x1b[?1001l\x1b[?1000l\x1b[?9l"
-            b"\x1b[?1006l\x1b[?1005l\x1b[?1015l\x1b[?1016l\x1b[?2029l",
-        )
-    except OSError:
-        pass
 
 
-_suppress_mouse_residue_early()
 
 
 _startup_fast.ensure_project_root_on_path()
@@ -897,14 +835,7 @@ from hermes_cli.main_web_build import (  # frozen updater surface: update_cmd*.p
     _record_bytecode_fingerprint,
     _run_npm_install_deterministic,
 )
-from hermes_cli.main_tui_launch import (
-    _bypass_chat_launch,
-    _launch_tui,
-    _pin_kanban_board_env,
-    _refuse_unforwarded_tui_flags,
-    _resolve_use_tui,
-    _sync_bundled_skills_quietly,
-)
+
 
 
 def _is_termux_startup_environment(env: dict[str, str] | None = None) -> bool:
@@ -1662,7 +1593,7 @@ def _first_run_setup_guard(args) -> None:
     sys.exit(1)
 
 
-# args attr -> (kwarg, default) passed through to _launch_tui / cli.main; only cli.main takes --api-key/--base-url.
+# args attr -> (kwarg, default) passed through to cli.main; only cli.main takes --api-key/--base-url.
 _CHAT_PASSTHROUGH = (
     ("provider", None), ("toolsets", None), ("skills", None), ("verbose", None),
     ("quiet", False), ("query", None), ("image", None), ("resume", None),
@@ -1672,28 +1603,29 @@ _CHAT_PASSTHROUGH = (
 
 
 def cmd_chat(args):
-    """Run interactive chat CLI."""
+    """Keep non-interactive automation; user conversations belong to Desktop."""
+    if getattr(args, "output_format", "text") != "stream-json" and not any(getattr(args, key, None) for key in ("query", "query_file", "oneshot", "initial_query")):
+        print("此版本仅提供桌面聊天界面，请运行 hermes desktop。管理与非交互命令仍可使用。")
+        return
+    args.oneshot_exit = True
     from hermes_cli.stream_json import stream_json_requested
     # stream-json and the --safe-mode / --ignore-user-config bypass keep the transport client; the
     # classic CLI (interactive, -q/-Q) is main's HermesCLI with a gateway-backed agent (gateway_agent.py).
-    if stream_json_requested(args) or _bypass_chat_launch(args):
+    if stream_json_requested(args) or (getattr(args, "safe_mode", False) or getattr(args, "ignore_user_config", False)):
         from hermes_cli.gateway_chat_startup import launch_gateway_chat
         sys.exit(launch_gateway_chat(args))
     _apply_safe_mode(args)
     _apply_user_config_bypass(args)
     _guard_noninteractive_user_config(args)
-    use_tui = _resolve_use_tui(args)
-    if use_tui:
-        _refuse_unforwarded_tui_flags(args)
 
-    _resolve_chat_session_args(args, use_tui)
+    _resolve_chat_session_args(args, False)
 
     _warn_retired_xai_models()
 
     # The TUI owns its first-run state: it renders "Setup Required" with in-place /setup.
     # The classic prompt only fronts the classic CLI.
     provider_configured = _has_any_provider_configured()
-    if not use_tui and not provider_configured:
+    if not provider_configured:
         _first_run_setup_guard(args)
         return
 
@@ -1716,7 +1648,6 @@ def cmd_chat(args):
         # runs must keep it (see agent.session_source.session_source_for).
         os.environ["HERMES_SESSION_SOURCE_EXPLICIT"] = "1"
 
-    _pin_kanban_board_env()
     from hermes_cli.observability.shared_metrics_consent import offer_consent_before_chat
 
     # Not before setup: a blank install meets "Setup Required" first. The offer stays
@@ -1724,17 +1655,6 @@ def cmd_chat(args):
     if provider_configured:
         offer_consent_before_chat(args)
     _confirm_startup_expensive_model_override(args)
-
-    passthrough = {k: getattr(args, k, d) for k, d in _CHAT_PASSTHROUGH}
-    if use_tui:
-        _launch_tui(
-            passthrough.pop("resume"),
-            tui_dev=getattr(args, "tui_dev", False),
-            native_mode=getattr(args, "tui_native", False) or None,
-            model=getattr(args, "model", None),
-            accept_hooks=getattr(args, "accept_hooks", False),
-            **passthrough,
-        )
 
     from hermes_cli.main_query_file import _read_query_file
     _read_query_file(args)
@@ -2707,22 +2627,6 @@ _AGENT_SUBCOMMANDS = {
 }
 
 
-def _is_tui_chat_launch(args) -> bool:
-    if _bypass_chat_launch(args):
-        return False
-    if getattr(args, "tui", False) or os.environ.get("HERMES_TUI") == "1":
-        return True
-    # The chat path decides TUI-vs-classic via _resolve_use_tui (--cli/--tui
-    # flags, TTY gate, HERMES_TUI env, display.interface config). Bare
-    # `hermes`/`hermes chat` with a TUI display config was previously missed
-    # here, so the wrapper pre-warmed its own MCP discovery while the TUI
-    # gateway (spawned moments later) ran a second one — an idle stdio MCP
-    # server copy held dead for the whole session. Only chat commands can
-    # launch the TUI; other commands (gateway, acp, cron) keep
-    # their own discovery behavior untouched.
-    if getattr(args, "command", None) not in {None, "chat"}:
-        return False
-    return _resolve_use_tui(args)
 
 
 def _agent_subcommand_selected(args) -> bool:
@@ -2732,7 +2636,7 @@ def _agent_subcommand_selected(args) -> bool:
 
 
 def _should_background_mcp_startup(args) -> bool:
-    return not _is_tui_chat_launch(args) and args.command in {None, "chat", "rl"}
+    return args.command in {None, "chat", "rl"}
 
 
 def _chat_runs_at_gateway(args) -> bool:
@@ -2752,7 +2656,7 @@ def _prepare_agent_startup(args) -> None:
     # See #7994.
     if getattr(args, "yolo", False):
         os.environ["HERMES_YOLO_MODE"] = "1"
-    if args.command in {None, "chat"} and _bypass_chat_launch(args):
+    if args.command in {None, "chat"} and (getattr(args, "safe_mode", False) or getattr(args, "ignore_user_config", False)):
         # Bypass launches are frozen by the gateway owner and executed out of process. This
         # client is a transport: no env mutation (it would ride into an authority spawn),
         # no plugin/MCP/hook discovery, and no profile read of the config under suspicion.
@@ -2765,7 +2669,7 @@ def _prepare_agent_startup(args) -> None:
         return
 
     _accept_hooks = bool(getattr(args, "accept_hooks", False))
-    if not (_is_tui_chat_launch(args) or _chat_runs_at_gateway(args)):
+    if not _chat_runs_at_gateway(args):
         # The TUI backend and the gateway (chat turns, plugin commands, pre_command) discover their own.
         try:
             from hermes_cli.plugins import start_background_plugin_discovery
@@ -2972,8 +2876,6 @@ def _try_fast_chat_launch() -> bool:
     except Exception:
         return False
     # TUI launches keep full dispatch outside Termux (own startup path).
-    if _wants_tui_early(argv):
-        return False
     if _first_positional_argv() not in {None, "chat"}:
         return False
 
@@ -3011,8 +2913,6 @@ def _try_termux_fast_cli_launch() -> bool:
 
     argv = sys.argv[1:]
     if "-h" in argv or "--help" in argv:
-        return False
-    if _wants_tui_early(argv):  # TUI fast path / full dispatch owns those
         return False
 
     if _startup_fast.is_global_fast_version_argv(argv):
@@ -3056,39 +2956,6 @@ def _try_termux_fast_cli_launch() -> bool:
     return False
 
 
-def _try_termux_fast_tui_launch() -> bool:
-    """Launch obvious Termux TUI invocations before building every subparser.
-
-    `hermes --tui` is the hot path on phones and the TUI immediately execs
-    Node, so the full parser's command-module imports are pure waste there.
-    """
-    if not _is_termux_startup_environment():
-        return False
-
-    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
-        return False
-
-    wants_tui = _wants_tui_early(sys.argv[1:])
-    if not wants_tui:
-        return False
-
-    first = _first_positional_argv()
-    if first not in {None, "chat"}:
-        return False
-
-    parser = _light_chat_parser()
-    args = parser.parse_args(_coalesce_session_name_args(sys.argv[1:]))
-
-    # Preserve top-level behaviours whose semantics are not "launch chat/TUI".
-    if getattr(args, "version", False) or getattr(args, "oneshot", None):
-        return False
-    if getattr(args, "command", None) not in {None, "chat"}:
-        return False
-    if not _resolve_use_tui(args):
-        return False
-
-    cmd_chat(args)
-    return True
 
 
 def _advertise_agent_env() -> None:
@@ -3359,8 +3226,6 @@ def main():
 
         logging.getLogger(__name__).debug("pm startup check failed", exc_info=True)
 
-    if _try_termux_fast_tui_launch():
-        return
     if _try_termux_fast_cli_launch():
         return
     if _try_fast_serve_launch():

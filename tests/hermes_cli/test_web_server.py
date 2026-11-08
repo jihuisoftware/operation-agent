@@ -2797,42 +2797,15 @@ class TestNewEndpoints:
     # --- New profiles endpoints: active / description / model / describe-auto ---
 
 
-    def test_discord_toolsets_read_and_write_discord_platform(self):
-        """Platform-restricted toolsets must not be saved as successful CLI no-ops."""
+    def test_retired_platform_toolsets_cannot_be_enabled(self):
+        """The desktop operations product cannot revive retired messaging platforms."""
         from hermes_cli.config import load_config
-
-        listing = {t["name"]: t for t in self.client.get("/api/tools/toolsets").json()}
-        assert listing["discord"]["platform"] == "discord"
-        assert listing["discord"]["platform_label"] == "Discord"
-        assert listing["discord"]["enabled"] is False
-
-        resp = self.client.put("/api/tools/toolsets/discord", json={"enabled": True})
-        assert resp.status_code == 200
-        assert resp.json() == {
-            "ok": True,
-            "name": "discord",
-            "platform": "discord",
-            "enabled": True,
-            # Install-on-enable: no provider post_setup pending for discord.
-            "post_setup_started": None,
-        }
-
-        config = load_config()
-        assert "discord" in config["platform_toolsets"]["discord"]
-        assert "discord" not in config["platform_toolsets"].get("cli", [])
-
-        listing = {t["name"]: t for t in self.client.get("/api/tools/toolsets").json()}
-        assert listing["discord"]["enabled"] is True
-        assert listing["discord_admin"]["enabled"] is False
-
-        resp = self.client.put(
-            "/api/tools/toolsets/discord_admin", json={"enabled": True}
-        )
-        assert resp.status_code == 200
-        config = load_config()
-        assert {"discord", "discord_admin"} <= set(
-            config["platform_toolsets"]["discord"]
-        )
+        listing = {t["name"] for t in self.client.get("/api/tools/toolsets").json()}
+        assert "discord" not in listing and "discord_admin" not in listing
+        for name in ("discord", "discord_admin"):
+            response = self.client.put(f"/api/tools/toolsets/{name}", json={"enabled": True})
+            assert response.status_code in {400, 404}
+        assert "discord" not in load_config()["platform_toolsets"].get("cli", [])
 
 
     def test_get_toolset_config_returns_provider_matrix(self):
@@ -4607,7 +4580,6 @@ class TestDashboardPluginManifestExtensions:
 # monkeypatch that hook.
 # ---------------------------------------------------------------------------
 
-from hermes_cli import main_tui_launch
 
 
 skip_on_windows = pytest.mark.skipif(
@@ -4615,150 +4587,8 @@ skip_on_windows = pytest.mark.skipif(
 )
 
 
-@skip_on_windows
-class TestPtyWebSocket:
-    @pytest.fixture(autouse=True)
-    def _setup(self, monkeypatch, _isolate_hermes_home):
-        from starlette.testclient import TestClient
-
-        import hermes_cli.web_server as ws
-
-        # Avoid exec'ing the actual TUI in tests: every test below installs
-        # its own fake argv via ``web_server_chat._resolve_chat_argv``.
-        self.ws_module = ws
-        monkeypatch.setattr(ws, "_DASHBOARD_EMBEDDED_CHAT_ENABLED", True)
-        ws.app.state.pty_active_session_files = {}
-        self.token = ws._SESSION_TOKEN
-        self.client = TestClient(ws.app)
-
-    def _url(self, token: str | None = None, **params: str) -> str:
-        tok = token if token is not None else self.token
-        # TestClient.websocket_connect takes the path; it reconstructs the
-        # query string, so we pass it inline.
-        from urllib.parse import urlencode
-
-        q = {"token": tok, **params}
-        return f"/api/pty?{urlencode(q)}"
 
 
-    def test_tui_python_command_uses_child_path(self, tmp_path):
-        """Bare Python commands are resolved from the TUI child's PATH."""
-
-        command = f"hermes-review-python{Path(sys.executable).suffix}"
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        executable = bin_dir / command
-        # copy2, not os.link: tmp_path may sit on a different filesystem than
-        # the venv (tmpfs /tmp vs disk home) where hard links raise EXDEV.
-        shutil.copy2(sys.executable, executable)
-        env = {
-            "HERMES_CWD": str(tmp_path),
-            "HERMES_PYTHON": command,
-            "PATH": str(bin_dir),
-        }
-
-        main_tui_launch._apply_tui_python_env(env)
-
-        assert env["HERMES_PYTHON"] == command
-
-
-    def test_unavailable_platform_closes_with_message(self, monkeypatch):
-        from hermes_cli.pty_bridge import PtyUnavailableError
-
-        def _raise(argv, **kwargs):
-            raise PtyUnavailableError("pty missing for tests")
-
-        monkeypatch.setattr(
-            _web_server_chat,
-            "_resolve_chat_argv",
-            lambda resume=None, sidecar_url=None, profile=None: (["/bin/cat"], None, None),
-        )
-        # Patch PtyBridge.spawn at the web_server_chat module's binding.
-        monkeypatch.setattr(_web_server_chat.PtyBridge, "spawn", classmethod(lambda cls, *a, **k: _raise(*a, **k)))
-
-        with self.client.websocket_connect(self._url()) as conn:
-            # Expect a final text frame with the error message, then close.
-            msg = conn.receive_text()
-            assert "pty missing" in msg or "unavailable" in msg.lower() or "pty" in msg.lower()
-
-
-    def test_pub_broadcasts_to_events_subscribers(self):
-        """A frame handed to _broadcast_event is sent verbatim to every
-        subscriber registered on that channel — and not to subscribers on
-        other channels.
-
-        This drives the broadcast unit directly under asyncio rather than
-        round-tripping through Starlette's TestClient WebSocket portal. The
-        portal version was flaky under heavy parallel CI load: the broadcast
-        had to traverse two nested threaded portals within a 10s wall-clock
-        budget, and a starved ASGI thread occasionally blew that budget even
-        though the server logic was correct. Testing _broadcast_event with
-        fake subscribers removes the scheduling surface entirely while
-        asserting the exact fan-out contract.
-        """
-        import asyncio
-        from hermes_cli import web_server as ws_mod
-
-        class _FakeSub:
-            def __init__(self):
-                self.sent: list[str] = []
-
-            async def send_text(self, payload: str) -> None:
-                self.sent.append(payload)
-
-        app = ws_mod.app
-
-        async def _run():
-            sub_a1 = _FakeSub()
-            sub_a2 = _FakeSub()
-            sub_other = _FakeSub()
-            frame = '{"type":"tool.start","payload":{"tool_id":"t1"}}'
-
-            event_channels, event_lock = _rt_chat_ws._get_event_state(app)
-            # Register two subscribers on the target channel and one on a
-            # different channel, exactly as the /api/events handler does.
-            async with event_lock:
-                event_channels.setdefault("broadcast-test", set()).update(
-                    {sub_a1, sub_a2}
-                )
-                event_channels.setdefault("other-channel", set()).add(sub_other)
-            try:
-                await _rt_chat_ws._broadcast_event(app, "broadcast-test", frame)
-            finally:
-                async with event_lock:
-                    event_channels.pop("broadcast-test", None)
-                    event_channels.pop("other-channel", None)
-
-            return sub_a1, sub_a2, sub_other, frame
-
-        sub_a1, sub_a2, sub_other, frame = asyncio.run(_run())
-
-        # Every subscriber on the channel got the frame verbatim, exactly once.
-        assert sub_a1.sent == [frame]
-        assert sub_a2.sent == [frame]
-        # A subscriber on a different channel got nothing.
-        assert sub_other.sent == []
-
-
-def test_resolve_chat_argv_injects_gateway_ws_url(monkeypatch):
-    import hermes_cli.main_tui_launch as tui_launch
-    import hermes_cli.web_server as ws
-
-    monkeypatch.setenv("PATH", "/run/current-system/sw/bin:/usr/bin")
-    monkeypatch.setattr(
-        tui_launch,
-        "_make_tui_argv",
-        lambda *_args, **_kwargs: (["node", "fake-tui.js"], Path("/tmp")),
-    )
-    monkeypatch.setattr(ws.app.state, "bound_host", "127.0.0.1", raising=False)
-    monkeypatch.setattr(ws.app.state, "bound_port", 9119, raising=False)
-
-    _argv, _cwd, env = _web_server_chat._resolve_chat_argv()
-
-    assert env is not None
-    gateway_url = env.get("HERMES_TUI_GATEWAY_URL", "")
-    assert gateway_url.startswith("ws://127.0.0.1:9119/api/ws?")
-    assert "token=" in gateway_url
 
 
 class TestDashboardPluginStaticAssetAllowlist:
@@ -5308,3 +5138,61 @@ class TestSubmittedCustomEndpointSurvivesAssignment:
         assert applied["base_url"] == "https://api.anthropic.com"
         assert applied["api_mode"] == "anthropic_messages"
         assert applied["api_key"] == "submitted-key"
+
+
+def test_pub_broadcasts_to_events_subscribers():
+    """A frame handed to _broadcast_event is sent verbatim to every
+    subscriber registered on that channel — and not to subscribers on
+    other channels.
+
+    This drives the broadcast unit directly under asyncio rather than
+    round-tripping through Starlette's TestClient WebSocket portal. The
+    portal version was flaky under heavy parallel CI load: the broadcast
+    had to traverse two nested threaded portals within a 10s wall-clock
+    budget, and a starved ASGI thread occasionally blew that budget even
+    though the server logic was correct. Testing _broadcast_event with
+    fake subscribers removes the scheduling surface entirely while
+    asserting the exact fan-out contract.
+    """
+    import asyncio
+    from hermes_cli import web_server as ws_mod
+
+    class _FakeSub:
+        def __init__(self):
+            self.sent: list[str] = []
+
+        async def send_text(self, payload: str) -> None:
+            self.sent.append(payload)
+
+    app = ws_mod.app
+
+    async def _run():
+        sub_a1 = _FakeSub()
+        sub_a2 = _FakeSub()
+        sub_other = _FakeSub()
+        frame = '{"type":"tool.start","payload":{"tool_id":"t1"}}'
+
+        event_channels, event_lock = _rt_chat_ws._get_event_state(app)
+        # Register two subscribers on the target channel and one on a
+        # different channel, exactly as the /api/events handler does.
+        async with event_lock:
+            event_channels.setdefault("broadcast-test", set()).update(
+                {sub_a1, sub_a2}
+            )
+            event_channels.setdefault("other-channel", set()).add(sub_other)
+        try:
+            await _rt_chat_ws._broadcast_event(app, "broadcast-test", frame)
+        finally:
+            async with event_lock:
+                event_channels.pop("broadcast-test", None)
+                event_channels.pop("other-channel", None)
+
+        return sub_a1, sub_a2, sub_other, frame
+
+    sub_a1, sub_a2, sub_other, frame = asyncio.run(_run())
+
+    # Every subscriber on the channel got the frame verbatim, exactly once.
+    assert sub_a1.sent == [frame]
+    assert sub_a2.sent == [frame]
+    # A subscriber on a different channel got nothing.
+    assert sub_other.sent == []

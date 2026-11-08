@@ -104,28 +104,6 @@ def test_profile_process_writes_receipts_to_the_root_home(tmp_path, monkeypatch)
     assert update_receipt._receipt_dir() == root / "logs/update_receipts"
 
 
-def test_failed_web_build_does_not_skip_the_tui(tmp_path, monkeypatch, capsys):
-    from hermes_cli import source_build
-
-    built = []
-    monkeypatch.setattr("hermes_cli.main_install_repair._install_configured_features_missing_deps", lambda root: None)
-    monkeypatch.setattr("hermes_cli.update_stage.publish_stage", lambda text: None)
-    monkeypatch.setattr("hermes_cli.memory_provider_migration.migrate_all_homes", lambda: None)
-    monkeypatch.setattr(source_build, "source_frontends", lambda root: ("web", "ui-tui"))
-    monkeypatch.setattr(source_build, "source_build_env", lambda **kw: {"PATH": ""})
-    monkeypatch.setattr(source_build, "prepare_source_dependencies", lambda *a, **kw: None)
-    monkeypatch.setattr(source_build, "source_product_current", lambda *a: False)
-    monkeypatch.setattr(source_build, "build_source_tui", lambda root, env: built.append("tui"))
-
-    def broken_web(root, env):
-        raise subprocess.CalledProcessError(1, ["npm", "run", "build"])
-
-    monkeypatch.setattr(source_build, "build_source_web", broken_web)
-    with pytest.raises(source_build.ProductBuildError) as failure:
-        source_build.build_update_products(tmp_path, desktop=False)
-    assert built == ["tui"]
-    assert [name for name, _ in failure.value.failures] == ["web UI build"]
-    assert "npm run build exited 1" in str(failure.value)
 
 
 def test_failed_config_migration_is_owed_and_later_maintenance_runs(tmp_path, monkeypatch, capsys):

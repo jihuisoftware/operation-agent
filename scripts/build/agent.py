@@ -28,14 +28,6 @@ def _copy(source: Path, destination: Path, *, replace: bool = False) -> None:
         shutil.copy2(source, destination)
 
 
-def plant_surfaces(repo: Path, frontends: dict[str, Path]) -> None:
-    """Only explicit built products are accepted; no hunting in the source tree."""
-    validate_frontends(frontends)
-    if "tui" in frontends:
-        tui = frontends["tui"]
-        destination = repo / "hermes_cli/tui_dist"
-        _copy(tui / "dist", destination, replace=True)
-        _copy(tui / "package.json", destination / "package.json")
 
 
 def write_metadata(project_path: Path, repo: Path) -> None:
@@ -91,7 +83,7 @@ def assemble(inputs: AgentInputs, out: Path) -> dict:
             _copy(inputs.code, repo, replace=True)
         for name, source in inputs.resources.items():
             _copy(source, repo / name, replace=True)
-        plant_surfaces(repo, inputs.frontends)
+        shutil.rmtree(repo / "hermes_cli/tui_dist", ignore_errors=True)
         write_metadata(inputs.project, repo)
         # Arbitrary scripts run with the prepared environment's Python too
         # (Docker's config migration, plugins), not only generated launchers.
@@ -118,9 +110,6 @@ def assemble(inputs: AgentInputs, out: Path) -> dict:
                 raise FileNotFoundError(f"prepared command missing: {command}")
         env = {**inputs.env, "HERMES_PYTHON": str(inputs.python), "HERMES_INSTALL_ROOT": str(repo)}
         links = {RESOURCE_ENV[name]: (path, repo / name) for name, path in inputs.resources.items()}
-        for path in inputs.frontends.values():
-            key, destination = "HERMES_TUI_DIR", out / "ui-tui"
-            links[key] = (path, destination)
         for key, (source, destination) in links.items():
             destination.unlink(missing_ok=True)
             destination.symlink_to(source, target_is_directory=True)

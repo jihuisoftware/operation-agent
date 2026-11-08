@@ -7,7 +7,7 @@ license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [debugging, nodejs, node-inspect, cdp, breakpoints, ui-tui]
+    tags: [debugging, nodejs, node-inspect, cdp, breakpoints, electron]
     related_skills: [systematic-debugging, python-debugpy]
 ---
 
@@ -27,7 +27,7 @@ Two tools, pick one:
 ## When to Use
 
 - A Node test fails and you need to see intermediate state
-- ui-tui crashes or behaves wrong and you want to inspect React/Ink state pre-render
+- Electron main-process code needs inspection
 - tui_gateway child processes (`_SlashWorker`, PTY bridge workers) misbehave
 - You need to inspect a value in a closure that `console.log` can't reach without patching
 - Perf: attach to a running process to capture a CPU profile or heap snapshot
@@ -167,69 +167,24 @@ Run it:
 node ~/.hermes/cache/scratch/cdp-debug.js
 ```
 
-Hermes-specific note: `chrome-remote-interface` is NOT in `ui-tui/package.json`. Install it to a throwaway location if you don't want to dirty the project:
+Install additional debugger dependencies in a separate scratch project to preserve the application lockfile:
 
 ```bash
 mkdir -p ~/.hermes/cache/scratch/cdp-tools && cd ~/.hermes/cache/scratch/cdp-tools && npm i chrome-remote-interface
 NODE_PATH=~/.hermes/cache/scratch/cdp-tools/node_modules node ~/.hermes/cache/scratch/cdp-debug.js
 ```
 
-## Debugging Hermes ui-tui
+## Debugging the Desktop application
 
-The TUI is built Ink + tsx. Two common scenarios:
-
-### Debugging a single Ink component under dev
-
-`ui-tui/package.json` has `npm run dev` (tsx --watch). Add `--inspect-brk` by running tsx directly:
-
-```bash
-cd <hermes-agent-repo>/ui-tui
-npm run build    # produce dist/ once so transpile isn't needed on first load
-node --inspect-brk dist/entry.js
-# In another terminal:
-node inspect -p <node pid>
-```
-
-Then inside `debug>`:
-
-```
-sb('dist/app.js', 220)     # or wherever the suspect render is
-cont
-```
-
-When it pauses, `repl` → inspect `props`, state refs, `useInput` handler values, etc.
-
-### Debugging a running `hermes --tui`
-
-The TUI spawns Node from the Python CLI. Easiest path:
-
-```bash
-# 1. Launch TUI
-hermes --tui &
-TUI_PID=$(pgrep -f 'ui-tui/dist/entry' | head -1)
-
-# 2. Enable inspector on that Node PID
-kill -SIGUSR1 "$TUI_PID"
-
-# 3. Find the WS URL
-curl -s http://127.0.0.1:9229/json/list | jq -r '.[0].webSocketDebuggerUrl'
-
-# 4. Attach
-node inspect ws://127.0.0.1:9229/<uuid>
-```
-
-Interacting with the TUI (typing in its window) continues to advance execution; your debugger can pause it on a breakpoint at any `sb(...)`.
-
-### Debugging `_SlashWorker` / PTY child processes
-
-Those are Python, not Node — use the `python-debugpy` skill for them. Only Node portions (Ink UI, tui_gateway client, tsx-run tests under `ui-tui/`) use this skill.
+This project ships only the Electron Desktop client. Use its existing main-process and renderer
+debugging entry points; the retired terminal frontend is not a runtime or build dependency.
 
 ## Running Vitest Tests Under the Debugger
 
 ```bash
-cd <hermes-agent-repo>/ui-tui
+cd <hermes-agent-repo>/apps/desktop
 # Run a single test file paused on entry
-node --inspect-brk ./node_modules/vitest/vitest.mjs run --no-file-parallelism src/app/foo.test.tsx
+node --inspect-brk ../../node_modules/vitest/vitest.mjs run --project ui --no-file-parallelism src/plugins/operations/overview.test.tsx
 ```
 
 In another terminal: `node inspect -p <pid>`, then `sb('src/app/foo.tsx', 42)`, `cont`.

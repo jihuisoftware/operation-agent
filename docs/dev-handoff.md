@@ -1,6 +1,16 @@
 # 当前开发交接记录
 
-## 当前完成：网页任务睡眠管理与唤醒重验（2026-11-07）
+## 当前完成：完整移除终端聊天前端（2026-11-07）
+
+用户明确选择完整移除ui-tui源码、终端聊天入口及专属构建测试。基准b02807cc4e，开始时工作树干净，先前睡眠和打包修复已提交；未委派代理。
+删除ui-tui、Ink包、TUI编译器、Python启动器、Desktop外部终端会话菜单/IPC和旧/api/pty聊天路由；保留tui_gateway、canonical gateway、私有HTTP/WS、Desktop内嵌终端工具与管理命令。chat/cli.py仅允许单次批处理或机器协议，旧HERMES_TUI/display.interface不会重新启动终端客户端。
+bundled构建和source update仅准备Desktop，后端AgentInputs拒绝非空终端frontend产品。同步Docker/Nix/Termux后台装配、npm工作区/锁文件、CI和文档；PM锁定Node26.12.1/npm12.0.2以package-lock-only/ignore-scripts/offline更新并prune，锁中无ui-tui/@hermes/ink/ink-text-input。
+专属TUI/PTy测试移除；原terminal目录中多客户端会话和审批往返E2E迁到tests/e2e/core/gateway，原生插件WS鉴权、跨Origin拒绝、广播和启动环境合同保留。同步旧测试夹具，修正已退役Windows CI引用及macOS临时目录canonical路径断言。
+验证：后端/装配/CI/共享RPC相关7文件188项通过；共享启动/HTTP/广播4文件204项通过；批处理/恢复/更新4文件33项通过（1项Linux限定跳过）；调用方6文件初跑53项通过、参数旧断言4项失败，更新为单次请求后参数文件10项通过；独立入口实际子进程4项通过。Node构建/依赖19项、桌面菜单12项、完整Desktop类型检查与ESLint通过；12项仓库检查通过。
+实际npm run build --workspace apps/desktop成功，Vite渲染界面、Electron主进程/preload均已生成，无TUI构建。未做DMG/ZIP正式打包、签名、公证；未提交变更，完整发行仍需干净HEAD。未主动调用生产模型、发布、恢复任务或重启生产后台。
+系统临时目录中的验收日志：desktop-only-build.log、desktop-only-final-python.log、desktop-only-shared-regression.log、desktop-only-cli-update2.log、desktop-only-helper-callers.log、desktop-only-argparse-final.log、desktop-only-legacy-smoke.log、desktop-only-js3.log、desktop-only-desktop-ui.log。保留先前发布URL重定向误判等未解决业务项，本次不处理。
+
+## 前项完成：网页任务睡眠管理与唤醒重验（2026-11-07）
 
 基准c6e70eacc5；保留既有打包脚本/README和用户新增skills/media文件，未委派代理。按确认选择复用现有while-working/off/always设置，醒来只读检查、手动继续。
 Electron新增browser-power主进程桥接与私有journal；登记命令归属、截止及提交阶段后才派发，校验guest属于sender。网页任务纳入原生保持唤醒判定，睡眠保存SYSTEM_SUSPENDED并关闭旧guest；唤醒/重启重建同partition，旧代次拒绝提交，未回执事实保留补报，正常结束释放。既有聊天resume/unlock重连保留。

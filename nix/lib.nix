@@ -11,7 +11,7 @@
 # the repo-root directory layout intact for buildNpmPackage /
 # npmConfigHook workspace resolution.
 #
-# mkNpmPassthru returns packageJsonPath (e.g. "ui-tui/package.json")
+# mkNpmPassthru returns packageJsonPath (e.g. "apps/desktop/package.json")
 # instead of a per-package devShellHook.  The root devshell hook
 # (mkNpmDevShellHook) collects all package.json paths, stamps them,
 # and if any changed, runs a single `npm i --package-lock-only` from
@@ -88,7 +88,7 @@ let
 
   # Expand a workspace glob (e.g. "apps/*") into concrete member dirs
   # relative to the repo root.  Only trailing "*" globs are supported —
-  # that's all npm uses here.  Literal patterns (e.g. "ui-tui") pass
+  # that's all npm uses here.  Literal workspace paths pass
   # through unchanged.
   expandWorkspace =
     pattern:
@@ -114,7 +114,7 @@ let
 
   # Top-level directory of each workspace member, deduplicated.  Used to
   # exclude JS/TS workspace trees from the Python source filter.  E.g.
-  # apps/desktop + apps/shared + ui-tui → [ "apps" "ui-tui" ].
+  # apps/desktop + apps/shared → [ "apps" ].
   jsWorkspaceTopDirs = lib.unique (
     map (d: builtins.head (lib.splitString "/" d)) workspaceMemberDirs
   );
@@ -331,7 +331,7 @@ in
 
     # importNpmLock reads hashes from the lockfile itself — rebuild every
     # npm package to verify the new lockfile resolves offline.
-    nix build .#tui .#desktop
+    nix build .#desktop
     echo "Lockfile updated and all npm packages built."
   '';
 

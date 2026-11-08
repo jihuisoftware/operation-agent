@@ -173,7 +173,7 @@ def _ws_outcome(url: str, origin: str | None = None) -> str:
 
 def test_every_websocket_refuses_missing_wrong_and_cross_origin_credentials(dash: H.Dashboard, inventory: dict) -> None:
     ws_paths = inventory["ws"]
-    assert set(_CHAT_WS) <= set(ws_paths) and "/api/pty" in ws_paths, ws_paths
+    assert set(_CHAT_WS) <= set(ws_paths), ws_paths
     q = {"channel": "e2e-auth", "profile": None}
     leaks = []
     for path in ws_paths:
@@ -181,7 +181,7 @@ def test_every_websocket_refuses_missing_wrong_and_cross_origin_credentials(dash
             outcome = _ws_outcome(dash.ws_url(path, token=token, **q))
             if outcome == "accepted":
                 leaks.append(f"{path} ({label}) accepted")
-    for path in ("/api/pty", "/api/ws", "/api/console"):
+    for path in ("/api/ws", "/api/console"):
         outcome = _ws_outcome(dash.ws_url(path, token=dash.token, **q), origin="http://evil.example")
         if outcome == "accepted":
             leaks.append(f"{path} (valid token, cross-origin page) accepted")

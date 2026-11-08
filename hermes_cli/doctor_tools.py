@@ -457,8 +457,7 @@ def _check_npm_audit(should_fix: bool, f: Finding) -> None:
         for npm_dir, label, audit_extra in (
             # The root package.json itself (js-yaml, semver, eslint tooling). See #122223.
             (PROJECT_ROOT, "Root npm package", ["--workspaces=false"]),
-            (PROJECT_ROOT, "web workspace", ["--workspace", "web"]),
-            (PROJECT_ROOT, "ui-tui workspace", ["--workspace", "ui-tui"]),
+            (PROJECT_ROOT, "desktop workspace", ["--workspace", "apps/desktop"]),
             (whatsapp_bridge_dir, "WhatsApp bridge", []),
         ):
             # Workspace-scoped audits check the root node_modules; standalone dirs check their own.

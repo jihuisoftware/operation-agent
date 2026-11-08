@@ -39,11 +39,10 @@ def test_bionic_facts_and_agent_keep_fixed_prefix_and_tui_only(tmp_path):
     (tui / "package.json").write_text('{"type":"module"}', encoding="utf-8")
     build_set = tmp_path / "build-set.txt"
     build_set.write_bytes(b"\xef\xbb\xbfnative-fixture\n")
-    write_facts(payload, lock, build_set, tui)
+    write_facts(payload, lock, build_set)
     manifest = json.loads((payload / "manifest.json").read_text())
     assert manifest["runtime"]["commands"] == {"probe": "bin/probe"}
     assert manifest["runtime"]["sitePackages"] == site.relative_to(payload).as_posix()
-    assert (repo / "hermes_cli/tui_dist/entry.js").read_text() == "built"
     assert not (repo / "hermes_cli/web_dist").exists()
     assert json.loads((payload / "native-wheels.json").read_text()) == ["native-fixture"]
     facts = Facts(payload / "tools/facts.json", strict=True)

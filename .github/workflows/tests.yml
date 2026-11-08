@@ -167,13 +167,6 @@ jobs:
           test-environment: 'true'
           prune-python-cache: true
 
-      - name: Install Node deps and build the Ink TUI
-        # tests/e2e/core/terminal drives the real `hermes --tui` over a PTY;
-        # HERMES_E2E_REQUIRE_TUI=1 below turns a missing build into a failure.
-        uses: ./.github/actions/retry
-        with:
-          command: npm ci --workspace ui-tui --ignore-scripts --no-audit --no-fund && npm run build --workspace ui-tui
-
       - name: Install ripgrep (prebuilt binary)
         run: |
           set -euo pipefail
@@ -250,7 +243,6 @@ jobs:
           # exactly-once/compaction suites are race detectors, and a rare
           # corruption that passes on retry is still a corruption.
           HERMES_TEST_FILE_RETRIES: "0"
-          HERMES_E2E_REQUIRE_TUI: "1"
           OPENROUTER_API_KEY: ""
           OPENAI_API_KEY: ""
           NOUS_API_KEY: ""

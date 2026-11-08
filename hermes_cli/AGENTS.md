@@ -2,6 +2,10 @@
 
 Applies on top of the root `AGENTS.md`. Long-form: `website/docs/developer-guide/cli-internals.md`.
 
+## Desktop-only product boundary
+
+User conversations run in Desktop. Administrative commands, batch queries and shared runtime helpers remain; do not restore `--tui`, `--cli`, Ink builds, or the old dashboard PTY chat route.
+
 ## CLI architecture
 
 `cli.py` holds `HermesCLI` (REPL loop, config, slash dispatch); behaviour lives in mixins

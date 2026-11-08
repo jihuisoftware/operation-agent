@@ -224,10 +224,8 @@ def test_update_path_waits_for_a_held_lock(tmp_path, monkeypatch, capsys):
         built.append(True)
 
     monkeypatch.setattr(source_build_mod, "_install_configured_features_missing_deps", lambda *_: None, raising=False)
-    monkeypatch.setattr(source_build_mod, "source_frontends", lambda _root: ("ui-tui", "web"), raising=False)
     monkeypatch.setattr(source_build_mod, "source_build_env", lambda **_kw: {"PATH": "/usr/bin"}, raising=False)
     monkeypatch.setattr(source_build_mod, "prepare_source_dependencies", lambda *_a, **_kw: None, raising=False)
-    monkeypatch.setattr(source_build_mod, "build_source_tui", lambda *_a, **_kw: None, raising=False)
     monkeypatch.setattr(source_build_mod, "build_source_web", lambda *_a, **_kw: None, raising=False)
     monkeypatch.setattr(source_build_mod, "_refresh_installed_desktop_apps", lambda *_a, **_kw: None, raising=False)
     monkeypatch.setattr("hermes_cli.desktop_build_lock.DesktopBuildLock", _ReleaseOnEnter)

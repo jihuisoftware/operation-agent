@@ -55,26 +55,3 @@ def test_workspaces_lists_projects_and_discovered_repos(client, tmp_path):
     assert str(repo_dir) in {r["root"] for r in body["repos"]}
     assert Path(body["default_cwd"]).is_dir()
     assert body["home"] == str(Path.home())
-
-
-def test_resolve_chat_cwd_fails_closed_and_reaches_the_tui_env(monkeypatch, tmp_path):
-    """A picked directory becomes HERMES_CWD + HERMES_TUI_CWD on the PTY child; a missing one is a
-    400 (never the launch-dir fallback); unset means no override."""
-    import hermes_cli.main_tui_launch as tui_launch
-
-    monkeypatch.setattr(
-        tui_launch, "_make_tui_argv", lambda *_a, **_k: (["node", "fake-tui.js"], tmp_path))
-    monkeypatch.setattr(tui_launch, "_apply_tui_python_env", lambda _env: None)
-
-    assert chat_workspaces.resolve_chat_cwd("") is None
-    with pytest.raises(HTTPException) as exc:
-        chat_workspaces.resolve_chat_cwd(str(tmp_path / "gone"))
-    assert exc.value.status_code == 400
-
-    picked = chat_workspaces.resolve_chat_cwd(str(tmp_path))
-    _argv, _cwd, env = web_server_chat._resolve_chat_argv(workspace_cwd=picked)
-    assert env["HERMES_CWD"] == str(tmp_path)
-    assert env["HERMES_TUI_CWD"] == str(tmp_path)
-
-    _argv, _cwd, env = web_server_chat._resolve_chat_argv()
-    assert "HERMES_TUI_CWD" not in env

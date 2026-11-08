@@ -342,9 +342,8 @@ def main() -> int:
     parser.add_argument("--out", required=True)
     parser.add_argument("--ref", default="HEAD")
     parser.add_argument("--source", type=Path, required=True)
-    parser.add_argument("--tui", type=Path)
     args = parser.parse_args()
-    args.frontends = {"tui": args.tui} if args.tui is not None else {}
+    args.frontends = {}
     return _stage_native(args)
 
 

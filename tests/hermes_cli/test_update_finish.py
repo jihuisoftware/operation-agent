@@ -179,8 +179,6 @@ def completion(tmp_path, monkeypatch):
                         }))
                         return Runner(name, base_env)
                     pm.ensure = provision
-                    web = source_build.build_source_web
-                    source_build.build_source_web = lambda root, **kwargs: web(root, icons=root, **kwargs)
                     build = source_build.build_update_products
                     def build_products(root, *, desktop):
                         (root / 'desktop-build.json').write_text(json.dumps(desktop), encoding='utf-8')
@@ -371,146 +369,10 @@ def test_missing_desktop_observation_uses_installed_products(completion, capture
     assert json.loads(result.read_text())["receipt_handled"] is True
 
 
-def _npm_graph(source):
-    # Use the same prepared compilers as the JS builder acceptance suite,
-    # while npm itself installs a tiny, entirely local workspace graph.
-    tools = {}
-    node = shutil.which("node")
-    assert node, "source completion acceptance requires Node and npm"
-    for name in ("esbuild", "typescript", "vite"):
-        probe = subprocess.run([node, "-p", f"require.resolve('{name}/package.json')"],
-                               cwd=ROOT, capture_output=True, text=True, check=False)
-        if probe.returncode:
-            # The Python lane runs without `npm ci`. The real completion path runs in the
-            # install E2E workflow (source updates rebuild the products there).
-            pytest.skip(f"source completion acceptance requires {name} from the checkout's node_modules")
-        tools[name] = str(Path(probe.stdout.strip()).parent)
-    root = {"name": "completion-graph", "version": "1.0.0", "private": True, "type": "module",
-            "workspaces": ["ui-tui", "web", "packages/value"],
-            "scripts": {"postinstall": "node prepare-tools.mjs"}}
-    packages = {"": root}
-    for directory, name in (("ui-tui", "fixture-tui"), ("web", "fixture-web"),
-                            ("packages/value", "fixture-value")):
-        manifest = {"name": name, "version": "1.0.0", "type": "module"}
-        if name == "fixture-value":
-            manifest["exports"] = "./index.js"
-        else:
-            manifest["dependencies"] = {"fixture-value": "*"}
-        _put(source, f"{directory}/package.json", json.dumps(manifest))
-        packages[directory] = manifest
-        packages[f"node_modules/{name}"] = {"resolved": directory, "link": True}
-    _put(source, "package.json", json.dumps(root))
-    _put(source, "package-lock.json", json.dumps({"name": root["name"], "version": "1.0.0",
-                                                 "lockfileVersion": 3, "packages": packages}))
-    _put(source, "prepare-tools.mjs", textwrap.dedent(f'''
-        import {{ mkdirSync, symlinkSync, writeFileSync }} from 'node:fs';
-        import {{ execFileSync }} from 'node:child_process';
-        const tools = {json.dumps(tools)};
-        for (const [name, target] of Object.entries(tools)) {{
-          const workspace = name === 'esbuild' ? 'ui-tui' : 'web';
-          mkdirSync(workspace + '/node_modules', {{recursive: true}});
-          symlinkSync(target, workspace + '/node_modules/' + name, 'dir');
-        }}
-        // A real npm lifecycle child, not an assertion about a constructed env.
-        writeFileSync('npm-python.json', execFileSync(process.env.HERMES_PYTHON,
-          ['-I', '-c', 'import json, os, sys, selected_dependency; print(json.dumps(dict(python=sys.executable, configured=os.environ["PYTHON"])))']));
-    '''))
-    _put(source, "packages/value/index.js", "export const value = 'compiled local graph';\n")
-    _put(source, "packages/value/index.d.ts", "export const value: string;\n")
-    _put(source, "ui-tui/src/entry.tsx", "import { value } from 'fixture-value'; console.log(value);\n")
-    _put(source, "web/src/main.ts", "import { value } from 'fixture-value'; document.body.textContent = value;\n")
-    _put(source, "web/index.html", '<html><body><script type="module" src="/src/main.ts"></script></body></html>')
-    _put(source, "web/tsconfig.json", json.dumps({"compilerOptions": {
-        "target": "ES2022", "module": "ESNext", "moduleResolution": "bundler",
-        "types": [], "noEmit": True}, "include": ["src"]}))
-    _put(source, "web/vite.config.ts", "export default {};\n")
-    _put(source, "web/public/favicon.ico", "prepared icon input")
-    return node
 
 
-@pytest.mark.platforms("posix")
-def test_selected_child_builds_and_finalizes_under_parent_lock(completion):
-    from hermes_cli.config_defaults import DEFAULT_CONFIG
-    from hermes_cli.update_lock import UpdateLock
-    import hermes_yaml
-
-    source, home, request, context, result, run = completion
-    node = _npm_graph(source)
-    before = context.read_bytes()
-    with UpdateLock() as lock:
-        assert lock.acquired
-        marker = lock.path.read_bytes()
-        child = run()
-        assert child.returncode == 0, child.stdout + child.stderr
-        assert lock.path.read_bytes() == marker, "completion must not release its parent's lock"
-    built = subprocess.run([node, str(source / "ui-tui/dist/entry.js")],
-                           capture_output=True, text=True, check=True)
-    assert built.stdout.strip() == "compiled local graph"
-    assert (source / "hermes_cli/web_dist/index.html").is_file()
-    assert any("compiled local graph" in p.read_text() for p in (source / "hermes_cli/web_dist/assets").glob("*.js"))
-    assert (source / "node_modules/.hermes-node-deps").is_file()
-    environment = json.loads((source / "build-environment.json").read_text())
-    assert "repairing the recorded dependency environment" not in child.stderr
-    npm_python = json.loads((source / "npm-python.json").read_text())
-    assert npm_python["python"] == npm_python["configured"] == environment["python"]
-    assert environment["parent"] == os.getpid()
-    assert environment["old_module"] is False
-    assert environment["argv"] == [str(source / "hermes"), "update"]
-    assert context.read_bytes() == before
-    assert json.loads((source / "restarted-plan.json").read_text())["expected_sha"] == "old-sha"
-    assert json.loads((source / "resumed-token.json").read_text()) == request["windows_resume"]
-    config = hermes_yaml.safe_load((home / "config.yaml").read_text())
-    assert config["_config_version"] == DEFAULT_CONFIG["_config_version"], child.stdout + child.stderr
-    assert config["model"]["default"] == "retained-model"
-    receipt = json.loads((home / "logs/update_receipts/latest.json").read_text())
-    assert receipt["outcome"] == "success"
-    assert receipt["update_id"] == request["update_id"]
-    assert receipt["pre_update"] == request["receipt"]["pre_update"]
-    assert receipt["steps"][0] == request["receipt"]["steps"][0]
-    assert receipt["pm_venv_rebuild"] == request["pm_receipt"]["venv_rebuild"]
-    assert json.loads(result.read_text()) == {"resume_handled": True, "receipt_handled": True}
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
-    assert json.loads((source / "install-stamp.json").read_text())["commit"] == head
 
 
-@pytest.mark.platforms("posix")
-def test_real_compiler_failure_is_owed_build_and_completion_continues(completion):
-    """Contract C3 for the historical takeover child: the code is committed, so a failed product
-    build is an owed ``build`` follow-up, never a failed update. Maintenance (config migration)
-    and the fleet restart still run, the exit is 0, and the tail stays pending until it builds."""
-    from hermes_cli.config_defaults import DEFAULT_CONFIG
-    from hermes_cli.venv_sync import completion_pending_path
-    import hermes_yaml
-
-    source, home, request, context, result, run = completion
-    _npm_graph(source)
-    # A real TypeScript error: dependency installation and TUI succeed; the web product fails.
-    _put(source, "web/src/main.ts", "const broken: string = 42; document.body.textContent = broken;\n")
-    context_before = context.read_bytes()
-    child = run()
-    assert child.returncode == 0, child.stdout + child.stderr
-    assert "TypeScript build failed" in child.stdout + child.stderr
-    assert (source / "npm-python.json").is_file()
-    assert (source / "ui-tui/dist/entry.js").is_file()
-    assert not (source / "hermes_cli/web_dist/index.html").exists()
-    # Maintenance and the fleet restart were not skipped by the build failure.
-    config = hermes_yaml.safe_load((home / "config.yaml").read_text())
-    assert config["_config_version"] == DEFAULT_CONFIG["_config_version"]
-    assert config["model"]["default"] == "retained-model"
-    assert (source / "restarted-plan.json").is_file()
-    assert context.read_bytes() == context_before
-    receipt = json.loads((home / "logs/update_receipts/latest.json").read_text())
-    assert receipt["outcome"] == "success"
-    assert [row["step"] for row in receipt["followups"]] == ["build"]
-    # Only a build follow-up marks the build stage failed (an owed config/dependency step does not).
-    assert {mark["name"]: mark["outcome"] for mark in receipt["stages"]}.get("build") == "failed"
-    assert receipt["update_id"] == request["update_id"]
-    assert receipt["steps"][0] == request["receipt"]["steps"][0]
-    assert receipt["pm_venv_rebuild"] == request["pm_receipt"]["venv_rebuild"]
-    # The owed tail is retried by the next launch; nothing claims the tree was built.
-    assert completion_pending_path(source).is_file()
-    assert not (source / "install-stamp.json").exists()
-    assert json.loads(result.read_text()) == {"resume_handled": True, "receipt_handled": True}
 
 
 @pytest.mark.platforms("posix")

@@ -293,20 +293,13 @@ RUN python3 -m pm.build_env --source /opt/hermes --python /usr/local/bin/python3
     --extra all --extra messaging --extra otlp --extra anthropic --extra bedrock \
     --extra azure-identity --extra matrix --extra google-chat
 
-# Frontend dependencies never enter the runtime layers.
+# Prepare only backend Node tooling; the desktop renderer is distributed separately.
 FROM runtime_base AS frontend_build
 COPY package.json package-lock.json ./
-COPY ui-tui/package.json ui-tui/
-COPY ui-tui/packages/hermes-ink/ ui-tui/packages/hermes-ink/
 COPY apps/shared/ apps/shared/
 COPY scripts/build/node-deps.mjs scripts/build/electron-runtime.mjs scripts/build/
 ENV npm_config_install_links=false
-RUN node scripts/build/node-deps.mjs --source /opt/hermes --workspace ui-tui
-
-COPY pyproject.toml uv.lock ./
-COPY ui-tui/ ui-tui/
-COPY scripts/build/*.mjs scripts/build/
-RUN node scripts/build/tui.mjs --source /opt/hermes --out /opt/products/tui
+RUN node scripts/build/node-deps.mjs --source /opt/hermes --workspace apps/shared
 
 FROM python_deps AS runtime
 # Standalone TypeScript linting is a runtime feature; Vite/esbuild are not.
@@ -315,7 +308,6 @@ RUN mkdir -p /opt/hermes/node_modules/.bin && \
     ln -s ../typescript/bin/tsc /opt/hermes/node_modules/.bin/tsc
 
 # Shared product outputs are independent of application dependency assembly.
-COPY --from=frontend_build /opt/products/tui /opt/hermes/ui-tui
 # ---------- Bot Screen X socket directory ----------
 # Xvnc would create this itself (/tmp is 1777); pre-creating it keeps ownership
 # deterministic when HERMES_UID is remapped between boots.
@@ -411,23 +403,7 @@ COPY --chmod=0755 docker/cont-init.d/015-supervise-perms /etc/cont-init.d/015-su
 COPY --chmod=0755 docker/cont-init.d/02-reconcile-profiles /etc/cont-init.d/02-reconcile-profiles
 
 # ---------- Runtime ----------
-# Point the TUI launcher at the prebuilt bundle baked at build time (Layer 8:
-# `ui-tui && npm run build`). This makes _make_tui_argv take the prebuilt-bundle
-# fast path (`node --expose-gc /opt/hermes/ui-tui/dist/entry.js`) and skip the
-# _tui_need_npm_install / runtime `npm install` branch entirely — exactly the
-# nix/packaged-release path the launcher was designed for.
-#
-# Why this is required (not just an optimization): the root package-lock.json
-# describes the WHOLE monorepo workspace set (root + ui-tui + apps/*),
-# but the image only installs root/ui-tui/shared (apps/* — the desktop app — is
-# never `npm install`ed here). So the actualized node_modules permanently
-# disagrees with the canonical lock, _tui_need_npm_install() returns True on
-# every launch, and the runtime `npm install` it triggers (a) can never
-# converge against the partial monorepo and (b) races itself across concurrent
-# embedded-chat (/api/pty) connections → ENOTEMPTY → the chat tab dies with a
-# 502 / "[session ended]". Pointing at the prebuilt bundle sidesteps the whole
-# check. (A separate launcher hardening is tracked independently.)
-ENV HERMES_TUI_DIR=/opt/hermes/ui-tui
+
 ENV HERMES_HOME=/opt/data
 ENV HERMES_WRITE_SAFE_ROOT=/opt/data
 # Opt-in backend SDKs install on first use into PM dependency generations under

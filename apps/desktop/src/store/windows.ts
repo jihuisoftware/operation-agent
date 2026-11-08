@@ -187,9 +187,7 @@ export function canOpenBrowserWindow(): boolean {
 // True when the shell can hand a session to the user's own terminal emulator.
 // Desktop-only, and a REMOTE connection is excluded by the caller: the terminal
 // we'd open is on this machine, but the session lives on the remote host.
-export function canOpenSessionInTerminal(): boolean {
-  return typeof window !== 'undefined' && typeof window.hermesDesktop?.openSessionInTerminal === 'function'
-}
+
 
 type WindowOpenResult = { ok: boolean; error?: string } | undefined
 
@@ -272,21 +270,4 @@ export async function openBrowserInNewWindow(tabId: string): Promise<boolean> {
   }
 
   return runWindowOpen(() => window.hermesDesktop.openBrowserWindow(tabId), 'Could not pop out browser')
-}
-
-// Resume a session in the user's own terminal emulator, running the TUI there.
-// `cwd` starts the shell in the session's workspace; `profile` pins the runtime
-// to the profile that owns the session. No-ops gracefully outside Electron.
-export async function openSessionInTerminal(
-  sessionId: string,
-  opts?: { cwd?: string; profile?: string }
-): Promise<void> {
-  if (!sessionId || !canOpenSessionInTerminal()) {
-    return
-  }
-
-  await runWindowOpen(
-    () => window.hermesDesktop.openSessionInTerminal(sessionId, opts),
-    'Could not open chat in a terminal'
-  )
 }

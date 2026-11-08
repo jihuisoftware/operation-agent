@@ -85,27 +85,12 @@ def prepare_source_dependencies(project_root: Path, workspaces: tuple[str, ...],
     )
 
 
-def prepare_launch_dependencies(project_root: Path, *, env: dict) -> None:
-    """A launch rebuild must not prune another installed source frontend."""
-    from hermes_cli.main_desktop import _desktop_dist_exists, _desktop_packaged_executable
-
-    desktop_dir = project_root / "apps/desktop"
-    desktop = _desktop_dist_exists(desktop_dir) or _desktop_packaged_executable(desktop_dir) is not None
-    workspaces = ("ui-tui",) + (("apps/desktop",) if desktop else ())
-    prepare_source_dependencies(project_root, workspaces, env=env)
-
-
-def build_source_tui(project_root: Path, *, env: dict) -> None:
-    run_source_script(project_root, "scripts/build/tui.mjs", env=env, label="Building the TUI")
 
 
 
 
-def source_frontends(project_root: Path) -> tuple[str, ...]:
-    """The frontend workspaces this checkout carries. A source slice without them
-    (python-only installs, the installer's acceptance fixture) has no products
-    to build; it still publishes commands and runs the maintenance tail."""
-    return tuple(name for name in ("ui-tui",) if (project_root / name / "package.json").is_file())
+
+
 
 
 class ProductBuildError(RuntimeError):
@@ -149,54 +134,18 @@ def build_update_products(project_root: Path, *, desktop: bool) -> None:
             return False
 
     attempt("feature dependencies", lambda: _install_configured_features_missing_deps(project_root))
-    frontends = source_frontends(project_root)
-    if frontends:
-        desktop_built = False
-        env: dict = {}
-        workspaces = frontends + (("apps/desktop",) if desktop else ())
-        publish_stage("Updating Node dependencies")
+    if desktop and (project_root / 'apps/desktop/package.json').is_file():
+        env = {}
+        publish_stage("Updating desktop dependencies")
 
-        def node_dependencies(selected: tuple[str, ...]) -> None:
-            # Acquiring npm is part of this step: its failure must be reported like the install's.
-            # A recorded install is trusted as at startup (re-hashing node+npm costs ~2 s per
-            # tail); a missing one is still installed explicitly.
+        def node_dependencies():
             env.update(source_build_env(explicit=True, verify=False))
-            prepare_source_dependencies(project_root, selected, env=env, explicit=True)
+            prepare_source_dependencies(project_root, ('apps/desktop',), env=env, explicit=True)
 
-        # Every product compiles from these node_modules: without them there is nothing to build.
-        prepared = attempt("Node dependencies", lambda: node_dependencies(workspaces))
-        desktop_skipped = False
-        if not prepared and desktop and env:
-            # Only apps/desktop brings native addons (node-pty, electron) into the union: a host
-            # whose compiler cannot build them must still get the TUI it runs.
-            print("  → Retrying Node dependencies without the desktop app")
-            failed = failures.pop()
-            prepared = desktop_skipped = attempt("Node dependencies", lambda: node_dependencies(frontends))
-            if desktop_skipped:
-                failures.append(("desktop dependencies", failed[1]))
-        desktop_reason = failures[-1][0] if failures else ""
-        if desktop and (desktop_skipped or _headless_linux()):
-            print("  ⓘ If this host never runs the desktop app, `hermes uninstall --gui` removes it "
-                  "and future updates stop building it.")
-        if prepared:
-            # An update that changed no TUI input reuses the receipted output, as the
-            # launch path already does; recompiling it produces the same bytes. Desktop
-            # additionally needs the packaged app to name HEAD (its baked stamp carries the
-            # commit), so it is reused only when HEAD did not move: "Already up to date",
-            # a retried tail, a takeover re-entry.
-            if "ui-tui" in frontends:
-                if source_product_current(project_root, "tui", project_root / "ui-tui/dist"):
-                    print("  ✓ TUI is up to date")
-                else:
-                    publish_stage("Building the TUI")
-                    attempt("TUI build", lambda: build_source_tui(project_root, env=env))
-            if desktop and not desktop_skipped:
-                desktop_built = attempt("desktop app build", lambda: _build_desktop_product(project_root, env, publish_stage))
-                desktop_reason = failures[-1][0] if not desktop_built else ""
-        if desktop and not desktop_built:
-            # One whole line the Desktop hand-off scripts match: the follow-up text is truncated
-            # and names whichever products failed first, so it cannot say if THIS app was rebuilt.
-            print(f"  Desktop app build owed: {desktop_reason} failed")
+        prepared = attempt("desktop dependencies", node_dependencies)
+        built = prepared and attempt("desktop app build", lambda: _build_desktop_product(project_root, env, publish_stage))
+        if not built:
+            print(f"  Desktop app build owed: {failures[-1][0]} failed")
     # A configured memory provider that no longer ships in core is installed from the
     # catalog for every profile home sharing this venv (config, data and tool names
     # unchanged). The update must finish even if the migration blows up.

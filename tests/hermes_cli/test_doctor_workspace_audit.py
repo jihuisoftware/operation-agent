@@ -9,7 +9,7 @@ import pytest
 from hermes_cli import doctor_tools
 
 
-@pytest.mark.parametrize("workspace, runtime_package", [("web", "react-router"), ("ui-tui", "undici")])
+@pytest.mark.parametrize("workspace, runtime_package", [("apps/desktop", "react-router")])
 def test_workspace_runtime_findings_are_not_dismissed_as_build_tooling(workspace, runtime_package, tmp_path, capsys):
     audit_args = ["npm", "audit", "--json", "--workspace", workspace]
     audit_output = json.dumps({

@@ -592,7 +592,7 @@ def _cleanup_worktree(info: dict[str, str] | None = None) -> None:
     _cprint(f"\033[32m{_t('cli.worktree.cleaned_up', path=wt_path)}\033[0m")
 
 
-# Light/dark terminal detection (mirrors ui-tui/src/theme.ts detectLightMode()). Priority:
+# Light/dark terminal detection (mirrors retired terminal client: theme.ts detectLightMode()). Priority:
 # HERMES_LIGHT/HERMES_TUI_LIGHT env, HERMES_TUI_THEME, HERMES_TUI_BACKGROUND, COLORFGBG
 # (bg slot 7/15 = light), OSC 11 query, default dark. Cached so the terminal is queried once.
 _LIGHT_MODE_CACHE: bool | None = None
@@ -1729,6 +1729,10 @@ def main(
         python cli.py -w                         # Start in isolated git worktree
         python cli.py -w -q "Fix issue #123"     # Single query in worktree
     """
+    if not (query or q or list_tools or list_toolsets or gateway):
+        print("此版本仅提供桌面聊天界面，请运行 hermes desktop。")
+        return
+    oneshot = True
     # UTF-8 stdio on Windows before any print (Rich box-drawing would UnicodeEncodeError on cp1252).
     with suppress(Exception):
         from hermes_cli.stdio import configure_windows_stdio

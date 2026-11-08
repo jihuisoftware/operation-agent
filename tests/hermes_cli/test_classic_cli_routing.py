@@ -28,10 +28,9 @@ def routed(monkeypatch):
     import hermes_cli.gateway_chat_startup as startup
     monkeypatch.setattr(startup, "launch_gateway_chat", lambda args: calls.setdefault("gateway", args) and 0)
     for name in ("_resolve_chat_session_args", "_warn_retired_xai_models", "_start_chat_background_prefetch",
-                 "_pin_kanban_board_env", "_confirm_startup_expensive_model_override",
+                 "_confirm_startup_expensive_model_override",
                  "_guard_noninteractive_user_config"):
         monkeypatch.setattr(m, name, lambda *a, **k: None)
-    monkeypatch.setattr(m, "_resolve_use_tui", lambda args: False)
     monkeypatch.setattr(m, "_has_any_provider_configured", lambda: True)
     import hermes_cli.free_tier_bootstrap as boot
     monkeypatch.setattr(boot, "run_bootstrap", lambda **k: None)
@@ -42,16 +41,17 @@ def routed(monkeypatch):
     return m, calls
 
 
-def test_interactive_chat_runs_main_hermes_cli(routed):
+def test_interactive_chat_is_not_started(routed):
     m, calls = routed
     m.cmd_chat(_args())
-    assert "cli_main" in calls and "gateway" not in calls
+    assert "cli_main" not in calls and "gateway" not in calls
 
 
 def test_query_runs_main_hermes_cli(routed):
     m, calls = routed
     m.cmd_chat(_args(query="hello"))
     assert calls["cli_main"]["query"] == "hello" and "gateway" not in calls
+    assert calls["cli_main"]["oneshot"] is True
 
 
 def test_cli_main_does_not_hand_off_to_thin_client():

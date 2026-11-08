@@ -96,7 +96,7 @@ def test_observer_preserves_no_desktop_and_refuses_incomplete_app(tmp_path):
     ("foreign-launcher", "belongs to another installation"),
     ("missing-launcher", ""),
     ("incomplete", "incomplete"),
-    ("tui-changed", "tui output"), ("tui-missing", "tui output"),
+    ("desktop-changed", "desktop output"), ("desktop-missing", "desktop packaged renderer"),
 ])
 def test_pm_observer_accepts_ready_fixture_and_leaves_failed_fixture_untouched(tmp_path, fault, error):
     # This exercises the complete observer process, not a whole install. The
@@ -151,9 +151,9 @@ ensure_install_launchers(root, root / '.hermes/bin')
     record = '''import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildInputs, recordProduct } from './scripts/build/freshness.mjs';
 const source = process.cwd();
-for (const [product, out] of [['tui', 'ui-tui/dist'], ['desktop', 'apps/desktop/release/linux-unpacked/resources/app.asar.unpacked/dist']]) {
+for (const [product, out] of [['desktop', 'apps/desktop/release/linux-unpacked/resources/app.asar.unpacked/dist']]) {
   mkdirSync(out, { recursive: true });
-  writeFileSync(out + (product === 'tui' ? '/entry.js' : '/index.html'), 'fixture product');
+  writeFileSync(out + '/index.html', 'fixture product');
   recordProduct({source, product, out, inputs: buildInputs(source, product)});
 }
 '''
@@ -186,8 +186,8 @@ for (const [product, out] of [['tui', 'ui-tui/dist'], ['desktop', 'apps/desktop/
     elif fault == "incomplete":
         (root / ".update-incomplete").write_text("incomplete", encoding="utf-8")
     else:
-        damaged = root / "ui-tui/dist/entry.js"
-        if fault == "tui-missing":
+        damaged = root / "apps/desktop/release/linux-unpacked/resources/app.asar.unpacked/dist/index.html"
+        if fault == "desktop-missing":
             damaged.unlink()
         else:
             damaged.write_bytes(b"damaged")

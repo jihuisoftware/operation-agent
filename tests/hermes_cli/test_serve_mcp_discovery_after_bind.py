@@ -82,7 +82,7 @@ def test_deferred_discovery_fires_once_and_is_idempotent(monkeypatch):
 def _stub_serve_runtime(monkeypatch):
     import hermes_cli.main as main_mod
 
-    monkeypatch.setattr(main_mod, "_sync_bundled_skills_quietly", lambda: None)
+    monkeypatch.setattr("hermes_cli.main_runtime_helpers.sync_bundled_skills_quietly", lambda: None)
     monkeypatch.setitem(sys.modules, "fastapi", types.SimpleNamespace())
     monkeypatch.setitem(sys.modules, "uvicorn", types.SimpleNamespace())
     monkeypatch.setitem(sys.modules, "hermes_logging", types.SimpleNamespace(setup_logging=lambda **_k: None))

@@ -18,7 +18,7 @@ _UNSET = object()
 _HERMES_HOME_OVERRIDE: ContextVar[str | object] = ContextVar("_HERMES_HOME_OVERRIDE", default=_UNSET)
 
 # TUI busy-indicator styles (CLI /indicator, TUI gateway config, /help registry).
-# Keep in sync with INDICATOR_STYLES / DEFAULT_INDICATOR_STYLE in ui-tui/src/app/interfaces.ts.
+# Keep in sync with INDICATOR_STYLES / DEFAULT_INDICATOR_STYLE in retired terminal client: app/interfaces.ts.
 INDICATOR_STYLES: tuple[str, ...] = ("ascii", "emoji", "kaomoji", "unicode")
 DEFAULT_INDICATOR_STYLE: str = "kaomoji"
 
@@ -1475,4 +1475,3 @@ def normalize_scope(scope: str | Path | None) -> str | None:
     normcase on Windows) so writes and reads agree on the key.
     """
     return hermes_home_key(scope) if scope is not None else None
-

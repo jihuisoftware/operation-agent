@@ -20,63 +20,8 @@ def run(argv: list[str], env: dict[str, str], cwd: Path) -> subprocess.Completed
     return result
 
 
-def stop_child_tree(child: subprocess.Popen) -> None:
-    import psutil
-    from agent.deadline import kill_process_tree
-
-    if child.poll() is not None:
-        return
-    descendants = psutil.Process(child.pid).children(recursive=True)
-    kill_process_tree(child.pid)
-    child.wait(timeout=10)
-    deadline = time.monotonic() + 10
-    while descendants and time.monotonic() < deadline:
-        descendants = [p for p in descendants if p.is_running() and p.status() != psutil.STATUS_ZOMBIE]
-        if descendants:
-            time.sleep(0.05)
-    if descendants:
-        raise RuntimeError(f"TUI children still alive: {[p.pid for p in descendants]}")
 
 
-def tui_smoke(launcher: Path, env: dict[str, str], cwd: Path) -> None:
-    import fcntl
-    import pty
-    import termios
-
-    master, slave = pty.openpty()
-    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
-    child = subprocess.Popen(
-        [str(launcher), "--tui"], stdin=slave, stdout=slave, stderr=slave,
-        cwd=cwd, env={**env, "TERM": "xterm-256color"}, start_new_session=True,
-    )
-    os.close(slave)
-    captured = bytearray()
-    ready = False
-    try:
-        deadline = time.monotonic() + 90
-        while time.monotonic() < deadline:
-            if select.select([master], [], [], 0.5)[0]:
-                try:
-                    chunk = os.read(master, 65536)
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                captured.extend(chunk)
-                plain = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", bytes(captured))
-                if b"Setup Required" in plain and b"/model" in plain:
-                    ready = True
-                    break
-            if child.poll() is not None:
-                break
-        if not ready:
-            raise RuntimeError("TUI never reached its real setup screen:\n" + captured.decode(errors="replace"))
-        print("TUI_SETUP_SCREEN_OK", flush=True)
-    finally:
-        try:
-            stop_child_tree(child)
-        finally:
-            os.close(master)
 
 
 def validate_update_refusal(project_root: Path, result: subprocess.CompletedProcess) -> None:
@@ -144,7 +89,6 @@ def main() -> None:
         ], env, home)
         result = subprocess.run([str(launcher), "update"], env=env, cwd=home, capture_output=True, text=True, encoding="utf-8", timeout=60, check=False)
         validate_update_refusal(root / "app", result)
-        tui_smoke(launcher, env, home)
         print("INSTALLED_BUNDLE_VALIDATION_OK", flush=True)
 
 

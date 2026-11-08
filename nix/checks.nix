@@ -1226,33 +1226,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         '';
 
         # Verify bundled TUI is present and compiled
-        bundled-tui = pkgs.runCommand "hermes-bundled-tui" { } ''
-          set -e
-          echo "=== Checking bundled TUI ==="
-          test -d ${hermes-agent}/ui-tui || (echo "FAIL: ui-tui directory missing"; exit 1)
-          echo "PASS: ui-tui directory exists"
 
-          test -f ${hermes-agent}/ui-tui/dist/entry.js || (echo "FAIL: compiled entry.js missing"; exit 1)
-          echo "PASS: compiled entry.js present"
-
-          # The compiled TUI runs these on HERMES_PYTHON; the Python package lives in another
-          # store path, so they must ship beside entry.js (#139208).
-          for helper in gateway_bootstrap.py clipboard_image.py; do
-            test -f ${hermes-agent}/ui-tui/dist/scripts/$helper || \
-              (echo "FAIL: TUI helper $helper missing"; exit 1)
-          done
-          echo "PASS: TUI Python helpers present"
-
-          # self-contained bundle; no runtime node_modules expected
-
-          grep -q "HERMES_TUI_DIR" ${hermes-agent}/bin/hermes || \
-            (echo "FAIL: HERMES_TUI_DIR not in wrapper"; exit 1)
-          echo "PASS: HERMES_TUI_DIR set in wrapper"
-
-          echo "=== All bundled TUI checks passed ==="
-          mkdir -p $out
-          echo "ok" > $out/result
-        '';
 
         # Verify HERMES_NODE is set in wrapper and points to Node 26+
         # (Hermes pins its toolchain to Node 26 everywhere)

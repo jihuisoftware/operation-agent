@@ -96,7 +96,6 @@
           defaultDependencyGroups = [ "messaging" ];
         };
 
-        tui = full.hermesTui;
         desktop = full.hermesDesktop;
 
         update-npm-lockfile = full.hermesNpmLib.updateNpmLockfile;

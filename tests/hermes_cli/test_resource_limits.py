@@ -222,7 +222,7 @@ def test_serve_startup_applies_limit_before_web_server(monkeypatch):
         "apply_nofile_soft_limit",
         lambda: calls.append("limit"),
     )
-    monkeypatch.setattr(cli_main, "_sync_bundled_skills_quietly", lambda: None)
+    monkeypatch.setattr("hermes_cli.main_runtime_helpers.sync_bundled_skills_quietly", lambda: None)
     monkeypatch.setattr(cli_main, "_build_web_ui", lambda *args, **kwargs: True)
     monkeypatch.setattr(main_web_build, "_build_web_ui", lambda *args, **kwargs: True)
     monkeypatch.setattr(cli_main, "_maybe_setup_dashboard_auth_interactively", lambda args: None)

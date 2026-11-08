@@ -38,17 +38,13 @@ def inputs_fixture(tmp_path):
     (pm / "lib/site-packages").mkdir(parents=True)
     (pm / "pm-runtime.json").write_text(json.dumps({
         "python": "../tools/python/bin/python3", "sitePackages": "lib/site-packages"}), encoding="utf-8")
-    tui = tmp_path / "tui"
-    (tui / "dist").mkdir(parents=True)
-    (tui / "dist/entry.js").write_text("export const built = true;", encoding="utf-8")
-    (tui / "package.json").write_text('{"type":"module"}', encoding="utf-8")
     return out, {
         "project": str(source / "pyproject.toml"), "code": str(source),
         "repo": "app", "target": "linux-x64", "placement": "contained",
         "python": str(python), "site_packages": str(site),
         "environment": str(out / "venv"), "tools": str(out / "tools"),
         "pm_runtime": str(pm), "resources": {"skills": str(source / "skills")},
-        "frontends": {"tui": str(tui)}, "ref": "fixture-revision",
+        "frontends": {}, "ref": "fixture-revision",
     }
 
 
@@ -79,8 +75,6 @@ def test_contained_cli_assembly_runs_after_move_and_preserves_prepared_state(tmp
     assert manifest["runtime"] == {
         "repoDir": "app", "toolsDir": "tools", "storePython": "tools/python/bin/python3",
         "sitePackages": "venv/lib/python3.14/site-packages", "commands": {"probe": "bin/probe"}}
-    assert (out / "app/hermes_cli/tui_dist/entry.js").is_file()
-    assert json.loads((out / "app/hermes_cli/tui_dist/package.json").read_text())["type"] == "module"
     assert not (tmp_path / "home/.hermes").exists()
     moved = tmp_path / "relocated payload"
     out.rename(moved)
@@ -118,11 +112,9 @@ def test_referenced_installed_code_uses_derived_command_map_without_copying(tmp_
     mapping = json.loads((out / "command-map.json").read_text())
     assert mapping["commands"] == {"probe": {
         "source": str(command), "destination": "bin/probe", "entry": "entry:main"}}
-    assert Path(mapping["env"]["HERMES_TUI_DIR"]).resolve() == Path(data["frontends"]["tui"])
     assert mapping["env"]["HERMES_INSTALL_ROOT"] == str(out / "share/hermes-agent")
     assert not list(out.rglob("entry.py"))
     assert (out / "share/hermes-agent/skills").is_symlink()
-    assert (out / "ui-tui").is_symlink()
     assert not (out / "bin/probe").exists(), "Nix owns native makeWrapper"
     run = subprocess.run([mapping["commands"]["probe"]["source"]], cwd=tmp_path,
                          env={"PATH": os.environ["PATH"], "HOME": str(tmp_path / "home"),
@@ -141,13 +133,9 @@ def test_fixed_root_keeps_privilege_shim_and_resolves_venv_command_symlink(tmp_p
     bindir = out / "bin"
     bindir.mkdir()
     (bindir / "probe").write_text("privilege shim", encoding="utf-8")
-    stale = out / "hermes_cli/tui_dist/stale"
-    stale.parent.mkdir(parents=True)
-    stale.write_bytes(b"old surface")
     result = build_cli(data, out, tmp_path)
     assert result.returncode == 0, result.stderr
     assert (bindir / "probe").read_text() == "privilege shim"
-    assert not stale.exists()
     link = out / "venv/bin/probe"
     link.parent.mkdir()
     link.symlink_to("../../libexec/probe")
@@ -184,7 +172,7 @@ def test_source_metadata_keeps_declared_requirements_extras_and_entrypoints(tmp_
 
 
 @pytest.mark.platforms("posix")
-@pytest.mark.parametrize("fault", ["missing-pm", "missing-resource", "missing-tui", "unknown-field", "bad-repo", "bad-target"])
+@pytest.mark.parametrize("fault", ["missing-pm", "missing-resource", "unknown-field", "bad-repo", "bad-target"])
 def test_failed_inputs_cannot_leave_a_completion_claim(tmp_path, fault):
     out, data = inputs_fixture(tmp_path)
     (out / "manifest.json").write_text('{"runtime": {"commands": {}}}', encoding="utf-8")
@@ -192,8 +180,6 @@ def test_failed_inputs_cannot_leave_a_completion_claim(tmp_path, fault):
         (Path(data["pm_runtime"]) / "pm-runtime.json").unlink()
     elif fault == "missing-resource":
         data["resources"]["skills"] = str(tmp_path / "missing skills")
-    elif fault == "missing-tui":
-        (Path(data["frontends"]["tui"]) / "dist/entry.js").unlink()
     elif fault == "unknown-field":
         data["typo"] = True
     elif fault == "bad-repo":
@@ -215,11 +201,8 @@ def test_incremental_copy_drops_removed_source_without_deleting_provider_files(t
     sentinel = out / "provider-file"
     sentinel.write_text("retain", encoding="utf-8")
     (source / "obsolete.py").unlink()
-    (out / "app/hermes_cli/tui_dist/stale").write_text("old", encoding="utf-8")
     assert build_cli(data, out, tmp_path).returncode == 0
     assert not (out / "app/obsolete.py").exists()
-    assert not (out / "app/hermes_cli/tui_dist/stale").exists()
-    assert (out / "app/hermes_cli/tui_dist/entry.js").read_bytes() == (Path(data["frontends"]["tui"]) / "dist/entry.js").read_bytes()
     assert sentinel.read_text() == "retain"
 
 
@@ -295,7 +278,7 @@ def test_stage_passes_explicit_products_to_the_single_assembler(tmp_path, monkey
         assemble(AgentInputs.from_dict({**data, "frontends": args.frontends}), out)
         return 0
     monkeypatch.setattr(stage, "stage_native", native)
-    assert stage.main(["--out", str(out), "--ref", "fixture", "--tui", data["frontends"]["tui"]]) == 0
+    assert stage.main(["--out", str(out), "--ref", "fixture"]) == 0
     assert calls == [{k: Path(v) for k, v in data["frontends"].items()}]
     assert json.loads((out / "manifest.json").read_text())["runtime"]["commands"] == {"probe": "bin/probe"}
 
@@ -324,31 +307,3 @@ def test_site_layout_uses_explicit_target_version_not_builder_python(tmp_path):
     from scripts.build.inputs import dependency_site
     assert dependency_site(tmp_path, "3.99.1+vendor", "linux-x64") == tmp_path / "lib/python3.99/site-packages"
     assert dependency_site(tmp_path, "3.99.1", "win32-arm64") == tmp_path / "Lib/site-packages"
-
-
-def test_automatic_frontends_use_requested_snapshot_not_current_checkout(tmp_path, monkeypatch):
-    from scripts.bundles import stage
-    repo = tmp_path / "checkout"
-    repo.mkdir()
-    subprocess.run(["git", "init", str(repo)], check=True, capture_output=True)
-    project = repo / "pyproject.toml"
-    project.write_text('[project]\nversion="1"\n', encoding="utf-8")
-    subprocess.run(["git", "add", "."], cwd=repo, check=True)
-    subprocess.run(["git", "-c", "user.name=Fixture", "-c", "user.email=f@example.test", "commit", "-m", "selected"], cwd=repo, check=True, capture_output=True)
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
-    project.write_text('[project]\nversion="dirty-current"\n', encoding="utf-8")
-    monkeypatch.setattr(stage, "ROOT", repo)
-    monkeypatch.setattr(stage.shutil, "which", lambda name: "/prepared/node")
-    real_run = subprocess.run
-    built_sources = []
-    def run(command, **kwargs):
-        if command[0] != "/prepared/node":
-            return real_run(command, **kwargs)
-        source = Path(command[command.index("--source") + 1])
-        built_sources.append(source)
-        assert source != repo
-        assert 'version="1"' in (source / "pyproject.toml").read_text()
-    monkeypatch.setattr(stage.subprocess, "run", run)
-    monkeypatch.setattr(stage, "stage_native", lambda args: 0)
-    assert stage.main(["--out", str(tmp_path / "out"), "--ref", revision]) == 0
-    assert built_sources

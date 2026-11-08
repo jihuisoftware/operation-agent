@@ -13,7 +13,6 @@ def test_gateway_launch_honors_interactive_consent_without_policy_environment_mu
     monkeypatch.setattr('hermes_cli.config.load_config', lambda: {
         'model': {'provider': 'openai-codex', 'default': 'gpt-5.5'}})
     monkeypatch.setattr(main, '_has_any_provider_configured', lambda: True)
-    monkeypatch.setattr(main, '_pin_kanban_board_env', lambda: None)
     monkeypatch.setattr(sys.stdin, 'isatty', lambda: True)
     monkeypatch.setitem(sys.modules, 'cli', types.SimpleNamespace(main=lambda **kw: captured.append(dict(kw))))
     for answer, admitted in [('no', False), ('yes', True)]:

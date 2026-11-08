@@ -233,9 +233,9 @@ def test_a_refused_build_join_is_logged_and_noted_in_the_receipt(tmp_path, monke
     with ur.update_receipt_scope():
         ur.begin_update_receipt()
         with caplog.at_level(logging.WARNING, logger="hermes_cli.update_custody"):
-            assert update_custody._report_refused_join(str(report), ["node", "scripts/build/tui.mjs"]) == note
+            assert update_custody._report_refused_join(str(report), ["node", "scripts/build/desktop.mjs"]) == note
         payload = json.loads(ur.finalize_update_receipt("success").read_text(encoding="utf-8-sig"))
-    assert any(note in rec.getMessage() and "tui.mjs" in rec.getMessage() for rec in caplog.records)
+    assert any(note in rec.getMessage() and "desktop.mjs" in rec.getMessage() for rec in caplog.records)
     steps = [s for s in payload["steps"] if s["name"] == "update_custody"]
     assert steps and steps[0]["ok"] is False and note in steps[0]["detail"], payload["steps"]
     assert payload["outcome"] == "success"

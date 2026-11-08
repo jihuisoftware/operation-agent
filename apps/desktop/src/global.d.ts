@@ -84,12 +84,6 @@ declare global {
         sessionId: string,
         opts?: { connectionId?: null | string; profile?: null | string; watch?: boolean }
       ) => Promise<{ ok: boolean; error?: string }>
-      // Resume this session in the user's own terminal emulator (`hermes --tui
-      // --resume <id>`) — the external terminal, not the in-app pane.
-      openSessionInTerminal: (
-        sessionId: string,
-        opts?: { cwd?: string; profile?: string }
-      ) => Promise<{ ok: boolean; error?: string }>
       // Open a new full-chrome app window — a peer instance of the primary that
       // renders the complete app on an explicit connection/profile, or inherits
       // the calling window's route when no options are supplied.

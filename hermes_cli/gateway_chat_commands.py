@@ -3,7 +3,7 @@
 ``GatewayChatView.command`` answers the controls it owns (/stop /approve /answer /discard
 /branch /model /compress /yolo /quit). This module adds the session commands main's classic
 CLI ran in-process, mapped onto what the owner serves -- the mapping Ink uses
-(``ui-tui/src/app/slash/canonicalSessionCommands.ts``):
+(``retired terminal client: app/slash/canonicalSessionCommands.ts``):
 
 - ``/title <name>`` -> ``session.mutate rename``; bare ``/title`` -> the owner's report
 - ``/undo [N]`` / ``/retry`` -> ``session.mutate rewind`` to the Nth-newest user turn

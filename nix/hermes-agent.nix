@@ -120,9 +120,6 @@ let
     inherit npm-lockfile-fix pmPackages;
   };
 
-  hermesTui = callPackage ./tui.nix {
-    inherit hermesNpmLib;
-  };
 
   bundledSkills = lib.cleanSourceWith {
     src = ../skills;
@@ -218,9 +215,7 @@ let
         locales = toString bundledLocales;
         optional-mcps = toString bundledOptionalMcps;
       };
-      frontends = {
-        tui = "${hermesTui}/lib/hermes-tui";
-      };
+      frontends = { };
       ref = if dirty then null else rev;
       stamp = toString installStampFile;
       env = {
@@ -380,7 +375,6 @@ stdenv.mkDerivation (finalAttrs: {
     in
     {
       inherit
-        hermesTui
         hermesNpmLib
         hermesVenv
         agentBuilderSrc

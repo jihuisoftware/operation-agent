@@ -1,20 +1,15 @@
-# tui_gateway/ + ui-tui/ — the TUI and its JSON-RPC backend
+# tui_gateway/ — shared Desktop JSON-RPC backend
 
-Applies on top of the root `AGENTS.md`. The TUI fully replaces the classic prompt_toolkit CLI;
-activate with `hermes --tui` or `HERMES_TUI=1`. `tui_gateway` is ALSO the backend the Desktop app
-and the dashboard `/chat` talk to — changes here have three consumers.
+Applies on top of the root `AGENTS.md`. The directory name is historical: this is retained
+Python backend code used by Desktop. `ui-tui` and the terminal chat client have been removed.
 
 ## Process model
 
-```
-hermes --tui
-  └─ Node (Ink)  ──stdio JSON-RPC──  Python (tui_gateway)
-       │                                  └─ AIAgent + tools + sessions
-       └─ renders transcript, composer, prompts, activity
-```
-
-TypeScript owns the screen. Python owns sessions, tools, model calls, and slash-command logic.
-Never move agent behaviour into the renderer.
+Desktop's Electron/React client uses the canonical gateway and the shared JSON-RPC session,
+streaming, tool and approval contracts. Python owns agent behavior; the desktop owns rendering.
+The stdio entry remains for internal transports and test harnesses, not a user terminal UI.
+Retain historical wire names and session-source values for compatibility; removing the terminal
+frontend does not authorize renaming the shared RPC contract or deleting old sessions.
 
 ## Transport
 
@@ -29,7 +24,7 @@ the agent thread until the response frame with the same `srq-<n>` id arrives; `c
 reconnecting client re-renders the still-open questions). A client says once per connection that it
 answers them (`client.capabilities {server_requests: true}`, sent by the shared channel on `gateway.ready`);
 a WebSocket client that never did is an app build older than server→client requests, and `send()` fails
-fast for it instead of stalling the agent for the deadline. Desktop reaches the same server over WebSocket
+fast for it instead of stalling the agent for the deadline. Desktop reaches the server over WebSocket
 via `apps/shared` (`JsonRpcGatewayClient`, `onRequest`). New RPC = a new `methods_<topic>.py` or an entry
 in an existing topical sibling, registered in the table — no `if method == ...` chain (root shape rules).
 
@@ -52,7 +47,7 @@ identical: shared method names can carry different snapshots, admission receipts
 results. The same generator emits `CanonicalRpcMethods` and OpenRPC `x-canonical-methods` without
 widening `RpcMethods`. `tests/gateway/test_canonical_wire_contract.py` checks handler coverage.
 New question for the user = `_ask("<method>", sid, params, timeout)` in the emitter, a handler in
-`apps/desktop/.../gateway-event/server-requests.ts` and `ui-tui/src/app/createServerRequestHandler.ts`,
+`apps/desktop/.../gateway-event/server-requests.ts`,
 and a `server_request(...)` in `contracts/server_requests.py`.
 New event = `event("<type>", Payload)` in `contracts/events.py`; the emitter is checked against it.
 
@@ -82,16 +77,16 @@ profile's does not, and that `os.environ` is unchanged afterwards.
 
 ## Key surfaces
 
-| Surface | Ink component | Gateway method / event |
+| Surface | Client responsibility | Gateway method / event |
 |---|---|---|
-| Chat streaming | `app.tsx` + `messageLine.tsx` | `prompt.submit` → `message.delta` / `message.complete` |
-| Tool activity | `thinking.tsx` | `tool.start` / `tool.generating` / `tool.complete` |
-| Approvals | `prompts.tsx` | server→client request `approval` → response `{choice}` |
-| Clarify / sudo / secret | `prompts.tsx`, `maskedPrompt.tsx` | server→client requests `clarify` / `sudo` / `secret` (`server_requests.py`) |
-| Session picker | `sessionPicker.tsx` | `session.list` / `session.resume` |
+| Chat streaming | Desktop conversation and message list | `prompt.submit` → `message.delta` / `message.complete` |
+| Tool activity | Desktop tool activity cards | `tool.start` / `tool.generating` / `tool.complete` |
+| Approvals | Desktop approval prompts | server→client request `approval` → response `{choice}` |
+| Clarify / sudo / secret | Desktop approval prompts, `maskedPrompt.tsx` | server→client requests `clarify` / `sudo` / `secret` (`server_requests.py`) |
+| Session picker | Desktop session sidebar | `session.list` / `session.resume` |
 | Slash commands | local handler + fallthrough | `slash.exec` → `_SlashWorker`; `command.dispatch` |
-| Completions | `useCompletion` hook | `complete.slash`, `complete.path` (under a non-local `terminal.backend`, `complete.path` lists the directory through the session's terminal backend — never the gateway host, whose same-named tree would look right and be wrong) |
-| Theming | `theme.ts` + `branding.tsx` | `gateway.ready` carries skin data |
+| Completions | Desktop composer completion | `complete.slash`, `complete.path` (under a non-local `terminal.backend`, `complete.path` lists the directory through the session's terminal backend — never the gateway host, whose same-named tree would look right and be wrong) |
+| Theming | Desktop appearance settings | `gateway.ready` carries skin data |
 | Connection operations (desktop card) | desktop `store/connection-request.ts` | `connection.request` → `connection.update`* → `connection.respond {op_id}`; `connectors.operation.status`. The op lives in `tools/connectors/live.py`; the card never parks the tool thread (`methods_connectors.py`). |
 
 ## Shared subagent snapshots
@@ -185,23 +180,10 @@ cosmetic edits do not request a cache-breaking live MCP reload. Busy overrides
 remain session-scoped; composer model changes use `session.mutate`, never global
 `config.set`. Discovery can refresh provider metadata, but never starts inference.
 
-## Dev commands
+## Verification
 
-```bash
-cd ui-tui
-npm install       # first time
-npm run dev       # watch mode (rebuilds hermes-ink + tsx --watch)
-npm start         # production
-npm run build     # full build (hermes-ink + tsc)
-npm run typecheck # tsc --noEmit
-npm run lint      # eslint
-npm run fmt       # prettier
-npm test          # vitest
-```
+Run Python contracts in `tests/tui_gateway/` through `scripts/run_tests.sh`. Desktop/shared
+TypeScript contracts live in their own workspaces; run the relevant vitest suites and typecheck.
+Do not reintroduce a terminal frontend dependency to test or package this backend.
 
-Python tests: `tests/tui_gateway/` via `scripts/run_tests.sh`. TS tests: vitest in `ui-tui`. A
-Python test that asserts about `package.json` / `.ts` sources will not run on a JS-only PR — keep
-JS-side assertions in vitest (root testing rules). Root TypeScript style rules apply.
-
-Related: `web/AGENTS.md` (dashboard embeds this TUI over a PTY), `apps/desktop/AGENTS.md` (own
-renderer on the same backend).
+Related: `apps/desktop/AGENTS.md`, `gateway/AGENTS.md`.
