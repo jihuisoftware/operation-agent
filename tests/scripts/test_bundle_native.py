@@ -233,14 +233,13 @@ def test_bundle_stages_git_tree_and_runs_native_children_before_manifest(tmp_pat
         strict.setattr(pm, "prepare_tools", forbidden)
         strict.setattr(pm, "stage_tools", forbidden)
         strict.setattr(subprocess, "run", forbidden)
-        assert native.finish_native(prepared, {"tui": frontend}) == 0
+        assert native.finish_native(prepared, {}) == 0
         (output / "hermes-agent/install-stamp.json").write_text('{"variant":"bundled"}', encoding="utf-8")
         (output / "manifest.json").write_text('{"variant":"bundled"}', encoding="utf-8")
         launcher = output / ("bin/probe.exe" if os.name == "nt" else "bin/probe")
         launcher.rename(launcher.with_name("renamed-launcher"))
         (frontend / "dist/entry.js").write_text("store tui", encoding="utf-8")
-        assert native.finish_native(prepared, {"tui": frontend}) == 0
-    assert (output / "hermes-agent/hermes_cli/tui_dist/entry.js").read_text() == "store tui"
+        assert native.finish_native(prepared, {}) == 0
     assert calls[0]["all_extras"] is True
     assert calls[0]["cache"] == tmp_path / "cache"
     assert (output / "hermes-agent/pyproject.toml").is_file()

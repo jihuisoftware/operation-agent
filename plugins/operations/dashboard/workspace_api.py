@@ -31,7 +31,7 @@ async def request_scope(request: Request):
         directory = Workspaces()
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
-    if not business and not topic and request.url.path.endswith(('/workspaces', '/workspaces/summary', '/workspaces/worker/poll', '/workspaces/selection')):
+    if not business and not topic and request.url.path.endswith(('/workspaces', '/workspaces/summary', '/workspaces/worker/poll', '/workspaces/selection', '/workspaces/worker/revalidate')):
         yield
         return
     try:
@@ -116,7 +116,7 @@ def poll_account(body: dict):
         intent = validate_intent(body.get('takeover'))
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return poll(directory, account, worker, body.get('busy') is True, takeover=intent)
+    return poll(directory, account, worker, body.get('busy') is True, takeover=intent, wake_only=body.get('wake_only') is True)
 
 
 @router.get('/workspaces/references/{topic_id}')
@@ -146,5 +146,14 @@ def transfer_inbox(body: dict):
     from ..workspace_inbox import transfer
     try:
         return transfer(Store(), body)
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post('/workspaces/worker/revalidate')
+def revalidate_account(body: dict):
+    from ..wake_revalidation import revalidate
+    try:
+        return revalidate(Workspaces(), body)
     except (ValueError, KeyError) as exc:
         raise HTTPException(400, str(exc)) from exc

@@ -124,9 +124,12 @@ def run_pipeline(store, identity, task, version, *, mode="normal", external_acti
         store.run_options = {**store.run_options, "read_limit": 1, "query_limit": 1, "quick": True, "coverage": True,
                              'external_actions': external_actions}
     started = time.monotonic()
+    from plugins.operations.batch_cancellation import BatchCancelled, mark
     try:
         try:
             execute_steps(store, data, policy, quick=mode == "quick", coverage=coverage)
+        except BatchCancelled:
+            mark(data, now_iso())
         except Exception as exc:
             # Infrastructure/lease loss must stop the batch; never silently replay a submission.
             import traceback
@@ -171,10 +174,13 @@ def summarize(store, data):
 def execute_steps(store, data, policy, *, quick=False, coverage=False):
     from .operations_debug import update_record
     from plugins.operations.execution_pause import load
+    from plugins.operations.batch_cancellation import check
     for step in data['steps']:
+        check(store)
         if data.get('attempt') and step['state'] not in {'paused', 'pending'} and step['id'] != 'report':
             continue
         run_step(store, data, step, policy, quick=quick, coverage=coverage)
+        check(store)
         if step['state'] != 'paused':
             continue
         paused = load(store, data['id'])
@@ -190,4 +196,5 @@ def execute_steps(store, data, policy, *, quick=False, coverage=False):
         update_record(store, data)
         break
     from .operations_selection import diagnostic
+    check(store)
     diagnostic(store, data)

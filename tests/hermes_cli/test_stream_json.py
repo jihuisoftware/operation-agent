@@ -80,7 +80,6 @@ def _run_stream_json_chat(monkeypatch, capsys, run_turn, credentials_ok=True):
 
     monkeypatch.setattr(gateway_chat, "connect_gateway", connected)
     monkeypatch.setattr(gateway_chat_startup, "ensure_launch_provider", lambda _args: credentials_ok)
-    monkeypatch.setattr(cli_entry, "_resolve_use_tui", lambda _args: pytest.fail("TUI resolution consulted"))
     monkeypatch.setattr(cli_entry, "_confirm_startup_expensive_model_override", lambda _a: None)
     monkeypatch.setattr(cli_entry, "_warn_retired_xai_models", lambda: None)
     monkeypatch.setattr("hermes_cli.quiet_single_query.continue_quiet_notify_completions", lambda *_a, **_k: None)
@@ -118,20 +117,3 @@ def test_chat_stream_json_implies_quiet_and_closes_with_result(monkeypatch, caps
     assert events[-1]["exit_code"] == exit_code
     # A launch refused before the gateway created a session has none to report.
     assert events[-1]["session_id"] == ("session-123" if credentials_ok else "")
-
-
-@pytest.mark.parametrize("argv, message", [
-    (["chat", "--format", "stream-json"], "requires -q/--query"),
-    (["chat", "-q", "hi", "--format", "stream-json", "--tui"], "cannot be used with --tui"),
-    (["--tui", "chat", "-q", "hi", "--format", "stream-json"], "cannot be used with --tui"),
-])
-def test_chat_stream_json_rejects_interactive_combinations(monkeypatch, capsys, argv, message):
-    import hermes_cli.main as cli_entry
-    from hermes_cli._parser import build_top_level_parser
-
-    monkeypatch.setattr(cli_entry, "_launch_tui", lambda *_a, **_k: pytest.fail("TUI launched"))
-    parser, _, _ = build_top_level_parser()
-    with pytest.raises(SystemExit) as exc_info:
-        cli_entry.cmd_chat(parser.parse_args(argv))
-    assert exc_info.value.code == 2
-    assert message in capsys.readouterr().err

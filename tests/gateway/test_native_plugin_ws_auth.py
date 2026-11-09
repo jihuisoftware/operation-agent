@@ -47,6 +47,6 @@ def test_plugin_socket_accepts_native_grant_only(tmp_path):
         assert up(events + '?profile=default', headers(ticket(home, descriptor))) == 'open'
         # The grant is not a query credential, and opens plugin sockets only.
         assert up(events + '?ticket=' + ticket(home, descriptor)) != 'open'
-        for core in ('/api/ws', '/api/pty', '/api/audio/speak-stream'):
+        for core in ('/api/ws', '/api/audio/speak-stream'):
             assert up(core, headers(ticket(home, descriptor))) != 'open', core
     print(json.dumps({'plugin_ws_native_grant': 'accepted once; replay/purpose/origin/profile refused'}))

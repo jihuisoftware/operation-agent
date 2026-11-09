@@ -15,7 +15,7 @@ from plugins.operations.store import Store
 def configured(tmp_path):
     store = Store(tmp_path / "operations.db")
     policy = deepcopy(DEFAULT)
-    policy.update(enabled=True, topic="收纳", goal="有依据的整理方法", sources=["https://example.org/a"])
+    policy.update(image_mode='basic', enabled=True, topic="收纳", goal="有依据的整理方法", sources=["https://example.org/a"])
     policy["modules"].update(research=True, topics=True, content=True)
     store.configure(policy, 0)
     return store, policy

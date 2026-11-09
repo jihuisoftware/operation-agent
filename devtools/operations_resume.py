@@ -14,6 +14,11 @@ def resume(identity, body):
     from .operations_pipeline import execute_steps, summarize
     require_enabled()
     store = DebugStore(identity)
+    from plugins.operations.batch_cancellation import BatchCancelled, check
+    try:
+        check(store, batch=identity)
+    except BatchCancelled as exc:
+        raise HTTPException(409, str(exc)) from exc
     data = record(store, identity)
     if not data:
         raise HTTPException(404, '调试批次不存在')
@@ -54,5 +59,7 @@ def resume(identity, body):
         data['ended'] = now_iso()
         update_record(store, data)
         return execution_resume.complete(store, identity, body, data)
+    except BatchCancelled:
+        return record(store, identity)
     finally:
         store.release(identity)

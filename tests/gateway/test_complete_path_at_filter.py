@@ -5,7 +5,7 @@ Reported during the TUI v2 blitz retest:
     alongside directories — the gateway-side completion lives in
     `tui_gateway/server.py` and was never touched by the earlier fix to
     `hermes_cli/commands.py`.
-  - typing `@appChrome` required the full `@ui-tui/src/components/app…`
+  - typing `@appChrome` required the full `@apps/desktop/src/components/app…`
     path to find the file — users expect Cmd-P-style fuzzy basename
     matching across the repo, not a strict directory prefix filter.
 
@@ -189,18 +189,18 @@ def test_bare_at_still_shows_static_refs(tmp_path, monkeypatch):
 
 # ── Fuzzy basename matching ──────────────────────────────────────────────
 # Users shouldn't have to know the full path — typing `@appChrome` should
-# find `ui-tui/src/components/appChrome.tsx`.
+# find `apps/desktop/src/components/appChrome.tsx`.
 
 
 def _nested_fixture(tmp_path: Path):
     (tmp_path / "readme.md").write_text("x")
     (tmp_path / ".env").write_text("x")
-    (tmp_path / "ui-tui/src/components").mkdir(parents=True)
-    (tmp_path / "ui-tui/src/components/appChrome.tsx").write_text("x")
-    (tmp_path / "ui-tui/src/components/appLayout.tsx").write_text("x")
-    (tmp_path / "ui-tui/src/components/thinking.tsx").write_text("x")
-    (tmp_path / "ui-tui/src/hooks").mkdir(parents=True)
-    (tmp_path / "ui-tui/src/hooks/useCompletion.ts").write_text("x")
+    (tmp_path / "apps/desktop/src/components").mkdir(parents=True)
+    (tmp_path / "apps/desktop/src/components/appChrome.tsx").write_text("x")
+    (tmp_path / "apps/desktop/src/components/appLayout.tsx").write_text("x")
+    (tmp_path / "apps/desktop/src/components/thinking.tsx").write_text("x")
+    (tmp_path / "apps/desktop/src/hooks").mkdir(parents=True)
+    (tmp_path / "apps/desktop/src/hooks/useCompletion.ts").write_text("x")
     (tmp_path / "tui_gateway").mkdir()
     (tmp_path / "tui_gateway/server.py").write_text("x")
 
@@ -213,13 +213,13 @@ def test_fuzzy_at_finds_file_without_directory_prefix(tmp_path, monkeypatch):
     entries = _items("@appChrome")
     texts = [t for t, _, _ in entries]
 
-    assert "@file:ui-tui/src/components/appChrome.tsx" in texts, texts
+    assert "@file:apps/desktop/src/components/appChrome.tsx" in texts, texts
 
     # Display is the basename, meta is the containing directory, so the
-    # picker can show `appChrome.tsx  ui-tui/src/components` on one row.
-    row = next(r for r in entries if r[0] == "@file:ui-tui/src/components/appChrome.tsx")
+    # picker can show `appChrome.tsx  apps/desktop/src/components` on one row.
+    row = next(r for r in entries if r[0] == "@file:apps/desktop/src/components/appChrome.tsx")
     assert row[1] == "appChrome.tsx"
-    assert row[2] == "ui-tui/src/components"
+    assert row[2] == "apps/desktop/src/components"
 
 
 def test_fuzzy_paths_relative_to_cwd_inside_subdir(tmp_path, monkeypatch):
@@ -356,5 +356,3 @@ def test_completion_ignores_real_terminal_cwd(tmp_path, monkeypatch):
         f"_completion_cwd resolved to {resolved} instead of {tmp_path} — "
         f"the autouse fixture may not be patching _launch_configured_cwd"
     )
-
-

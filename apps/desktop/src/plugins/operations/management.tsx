@@ -1,9 +1,10 @@
-import type { PluginContext } from '@hermes/plugin-sdk'
+import { Button, type PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
 import { ActionEvidence, PublicationStatus } from './action-evidence'
 import { ActionInspector } from './action-inspector'
 import type { RecordRow } from './types'
+import { openWriter } from './writing/navigation'
 
 interface ManagementProps {
   ctx: PluginContext
@@ -23,6 +24,8 @@ const states: Record<string, string> = {
   cancelled: '已取消',
   confirmed_not_published: '人工确认未成功'
 }
+
+const kinds: Record<string, string> = { publish: '图文发布', comment: '主动评论', reply: '评论回复', dm: '私信处理', follow: '回关' }
 
 export function ActionManager({ rows, ...props }: ManagementProps & { rows: RecordRow[] }) {
   return (
@@ -56,13 +59,13 @@ function ActionCard({ ctx, row, refresh, onError }: ManagementProps & { row: Rec
   return (
     <article className="grid gap-2 rounded border p-3">
       <strong>
-        {String(row.kind)} · {states[state] || state}
+        {kinds[String(row.kind)] || String(row.kind)} · {states[state] || state}
       </strong>
       <p className="break-all text-xs">
         动作 {row.id} · 规则 v{String(row.version)} · {String(row.day)}
       </p>
       {row.kind === 'publish' && <PublicationStatus result={typeof row.result === 'string' ? JSON.parse(row.result) : row.result} />}
-      <pre className="whitespace-pre-wrap text-xs">{String(row.result)}</pre>
+      <details><summary className="cursor-pointer">原始执行回执</summary><pre className="whitespace-pre-wrap text-xs">{typeof row.result === 'string' ? row.result : JSON.stringify(row.result, null, 2)}</pre></details>
       <ActionInspector ctx={ctx} refresh={refresh} row={row} />
       <ActionEvidence ctx={ctx} row={row} />
       {['unknown', 'blocked', 'submitted', 'failed'].includes(state) && (
@@ -104,127 +107,14 @@ function ActionCard({ ctx, row, refresh, onError }: ManagementProps & { row: Rec
   )
 }
 
-export function ContentEditor({
-  rows,
-  assets,
-  sources,
-  ...props
-}: ManagementProps & { rows: RecordRow[]; assets: RecordRow[]; sources: RecordRow[] }) {
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [assetIds, setAssetIds] = useState<string[]>([])
-  const [sourceIds, setSourceIds] = useState<string[]>([])
+export function ContentEditor({ rows }: ManagementProps & { rows: RecordRow[]; assets: RecordRow[]; sources: RecordRow[] }) {
+  const [selected, setSelected] = useState(rows.length === 1 ? rows[0].id : '')
 
-  const save = async () => {
-    try {
-      await props.ctx.rest('/records/content', {
-        method: 'POST',
-        body: { title, body, asset_ids: assetIds, source_ids: sourceIds }
-      })
-      await props.refresh()
-      props.onError('已保存新内容版本')
-    } catch (error) {
-      props.onError(String(error))
-    }
-  }
-
-  const toggle = (values: string[], id: string) =>
-    values.includes(id) ? values.filter(v => v !== id) : [...values, id]
-
-  return (
-    <section className="grid gap-3">
-      <h2 className="text-lg">内容编辑与版本</h2>
-      <select
-        aria-label="加载内容版本"
-        className="border bg-background"
-        defaultValue=""
-        onChange={e => {
-          const row = rows.find(r => r.id === e.target.value)
-
-          if (!row) {
-            return
-          }
-
-          setTitle(String(row.title))
-          setBody(String(row.body))
-          setAssetIds(row.asset_ids as string[])
-          setSourceIds(row.source_ids as string[])
-        }}
-      >
-        <option value="">选择历史版本或创建新稿</option>
-        {rows.map(r => (
-          <option key={r.id} value={r.id}>
-            {String(r.title)} · {String(r.day)}
-          </option>
-        ))}
-      </select>
-      <input
-        aria-label="内容标题"
-        className="border bg-transparent p-2"
-        maxLength={20}
-        onChange={e => setTitle(e.target.value)}
-        placeholder="标题（20 字以内）"
-        value={title}
-      />
-      <textarea
-        aria-label="内容正文"
-        className="border bg-transparent p-2"
-        maxLength={900}
-        onChange={e => setBody(e.target.value)}
-        placeholder="正文、话题和来源说明"
-        rows={8}
-        value={body}
-      />
-      <p>选择获授权图片，第一张作为封面：</p>
-      {assets
-        .filter(a => !a.revoked)
-        .map(a => (
-          <label key={a.id}>
-            <input
-              checked={assetIds.includes(a.id)}
-              onChange={() => setAssetIds(toggle(assetIds, a.id))}
-              type="checkbox"
-            />{' '}
-            {String(a.name)}
-          </label>
-        ))}
-      <p>引用资料：</p>
-      {sources
-        .filter(s => s.state === 'read')
-        .map(s => (
-          <label key={s.id}>
-            <input
-              checked={sourceIds.includes(s.id)}
-              onChange={() => setSourceIds(toggle(sourceIds, s.id))}
-              type="checkbox"
-            />{' '}
-            {String(s.title)}
-          </label>
-        ))}
-      <p>保存为新的待审核版本；没有配图时自动生成文字封面。已有排期绑定原版本，不会被修改。</p>
-      <button onClick={() => void save()}>保存待审核版本</button>
-      {rows.map(row => (
-        <button
-          className="text-left"
-          key={row.id}
-          onClick={() =>
-            void props.ctx
-              .rest<{ data: string }>(`/content/${row.id}/export`)
-              .then(result => {
-                const bytes = Uint8Array.from(atob(result.data), c => c.charCodeAt(0))
-                const url = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }))
-                const link = document.createElement('a')
-                link.href = url
-                link.download = `${String(row.title)}.zip`
-                link.click()
-                setTimeout(() => URL.revokeObjectURL(url), 1000)
-              })
-              .catch(error => props.onError(String(error)))
-          }
-        >
-          导出内容包：{String(row.title)}
-        </button>
-      ))}
-    </section>
-  )
+  return <section className="flex flex-wrap gap-2">
+    <select aria-label="加载内容版本" className="border bg-background p-2" onChange={event => setSelected(event.target.value)} value={selected}>
+      <option value="">全新手稿</option>{rows.map(row => <option key={row.id} value={row.id}>{String(row.title || row.id)}</option>)}
+    </select>
+    <Button onClick={() => openWriter(selected)}>打开独立写稿页</Button>
+    <p className="text-sm text-muted-foreground">编辑现有稿件会建立工作副本，原稿和排期保持不变。</p>
+  </section>
 }

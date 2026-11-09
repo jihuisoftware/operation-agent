@@ -8,9 +8,18 @@ from plugins.operations.publication_images import verify_images
 router = APIRouter()
 
 
+@router.post('/worker/interrupted')
+def interrupted(body: dict):
+    from ..sleep_receipts import accept
+    return checked(lambda: accept(Store(), body))
+
+
 def checked(fn):
+    from ..batch_cancellation import BatchCancelled
     try:
         return fn()
+    except BatchCancelled as exc:
+        raise HTTPException(409, str(exc)) from exc
     except (ValueError, KeyError, TypeError, OSError) as exc:
         raise HTTPException(400, str(exc)) from exc
 

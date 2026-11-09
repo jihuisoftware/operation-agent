@@ -2,6 +2,7 @@ import {
   CRON_BLUEPRINTS_AREA,
   type CronBlueprintContribution,
   type HermesPlugin,
+  onProfileCacheChange,
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
   SIDEBAR_NAV_PREFS_AREA,
@@ -17,6 +18,7 @@ import { AccountsPage } from './accounts'
 import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
+import { PauseDetailsPage } from './pause-details'
 import { PlanEditor } from './plan-editor'
 import { type Section, SectionPage, sections } from './section-page'
 import { TokenUsagePage } from './token-usage/page'
@@ -24,6 +26,8 @@ import { UpcomingOperations } from './upcoming'
 import { OperationsWorker } from './worker'
 import { WorkspacePage } from './workspace-page'
 import { WorkspacePicker } from './workspace-picker'
+import { changeProfile } from './writing/journal'
+import { WritingPage } from './writing/page'
 
 declare const __OPERATIONS_DEBUG__: boolean
 
@@ -32,6 +36,9 @@ export default {
   name: '每日自动运营',
   description: '目标、信息来源、规则执行与每日总结',
   register(ctx) {
+    ctx.onDispose(onProfileCacheChange(change => { void changeProfile(change).catch(error => console.error('写作草稿恢复副本更新失败', error)) }))
+    ctx.register({ id: 'writing', area: ROUTES_AREA, title: '写作草稿', data: { path: '/content/write' }, render: () => <WorkspacePage ctx={ctx}>{scoped => <WritingPage ctx={scoped} />}</WorkspacePage> })
+    ctx.register({ id: 'interruption', area: ROUTES_AREA, title: '原始执行记录', data: { path: '/operations-interruption' }, render: () => <WorkspacePage ctx={ctx}>{scoped => <PauseDetailsPage ctx={scoped} />}</WorkspacePage> })
     ctx.register({ id: 'workspace-picker', area: SIDEBAR_TOP_AREA, render: () => <WorkspacePicker ctx={ctx} /> })
     ctx.register({
       id: 'overview',

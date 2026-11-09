@@ -54,11 +54,13 @@ def reserve_action(store, db, action, identity, day):
         raise ValueError('实际登录账号与业务关联账号不匹配')
     # A manual rerun is allowed in its owning topic, but cannot duplicate another
     # topic's reply to the same received message or follow candidate.
+    from .action_admission import shared_pending
     row = db.execute('SELECT topic_id FROM directory.account_claims WHERE account_id=? AND kind=? AND target=?', (account, action['kind'], action['target'])).fetchone()
     if row and row[0] != store.scope['id']:
+        if action['kind'] == 'publish':
+            shared_pending(db, account, action, store.scope, identity)
         return False
-    if db.execute("SELECT 1 FROM directory.account_actions WHERE account_id=? AND kind=? AND state IN ('queued','executing','submitted','unknown') AND NOT (topic_id=? AND action_id=?)", (account, action['kind'], store.scope['id'], identity)).fetchone():
-        raise ValueError('共用账号仍有未完成或待核对动作，请先核对')
+    shared_pending(db, account, action, store.scope, identity)
     db.execute('INSERT OR IGNORE INTO directory.account_claims VALUES (?,?,?,?,?)', (account, action['kind'], action['target'], store.scope['id'], identity))
     charge(store, db, day, action['kind'], identity=store.scope['id'] + ':' + identity, account=account)
     db.execute("INSERT OR IGNORE INTO directory.account_actions VALUES (?,?,?,?,'queued')", (account, store.scope['id'], identity, action['kind']))
@@ -68,7 +70,13 @@ def reserve_action(store, db, action, identity, day):
 def claim_account(store, db, command, worker):
     if not store.workspace:
         return True
-    check_running(store, web=command['kind'] not in {'account', 'verify'}, db=db)
+    from .wake_revalidation import is_probe
+    if is_probe(command):
+        scope = store.workspace.resolve(store.scope['business_id'], store.scope['id'])
+        if scope['archived'] or scope['business_archived']:
+            return False
+    else:
+        check_running(store, web=command['kind'] not in {'account', 'verify'}, db=db)
     account = store.workspace.resolve(store.scope['business_id'], store.scope['id'])['account']
     row = db.execute('SELECT * FROM directory.account_leases WHERE account_id=?', (account,)).fetchone()
     if row and row['expires'] > time.time():

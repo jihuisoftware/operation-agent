@@ -1027,7 +1027,8 @@ def _prepare_serve_runtime() -> bool:
 
     # Seed bundled skills on first backend launch so the desktop GUI's
     # skills picker / agent skill discovery sees the bundled library.
-    cli._sync_bundled_skills_quietly()
+    from hermes_cli.main_runtime_helpers import sync_bundled_skills_quietly
+    sync_bundled_skills_quietly()
 
     # Bridge terminal.* config into TERMINAL_* env for THIS process, like the
     # CLI (cli.py env_mappings) and gateway (_terminal_env_map) do. The

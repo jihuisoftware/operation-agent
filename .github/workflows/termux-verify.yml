@@ -70,50 +70,6 @@ jobs:
             tests/pm/test_stage_only.py tests/pm/test_deb_safety.py tests/scripts/test_stage_apt_repo.py \
             tests/scripts/test_run_tests_shell.py
 
-  tui:
-    name: Prebuilt TUI checks
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
-        with:
-          # A stable run passes the claim commit. Every other event tests its own head SHA.
-          ref: ${{ inputs.commit || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/setup-pm
-        with:
-          toolchain: all
-          # tests-js generates real icons; the wrapper needs core Pillow/resvg.
-          extras: '[]'
-          cache-node: false
-      - name: Install the locked JS workspace
-        run: npm ci --workspace ui-tui --workspace tests-js --include-workspace-root --include=dev --no-fund --no-audit
-      - name: Check and bundle the TUI
-        run: |
-          npm run check --workspace tests-js
-          npm run check --workspace ui-tui
-          npm run build --workspace ui-tui
-
-  # A job-level `if` cannot read `secrets`, so the gate is a job that exports
-  # whether the release-signing environment is provisioned. Without R2 the
-  # bionic verification below cannot fetch its pinned inputs; skipping it
-  # keeps a fork or an unprovisioned main green instead of red.
-  r2-provisioned:
-    name: Detect R2 credentials
-    if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    environment: release-signing
-    timeout-minutes: 5
-    outputs:
-      configured: ${{ steps.check.outputs.configured }}
-    steps:
-      - id: check
-        env:
-          CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
-        run: |
-          echo "configured=${CLOUDFLARE_R2_ACCOUNT_ID:+true}" >> "$GITHUB_OUTPUT"
-          [ -n "$CLOUDFLARE_R2_ACCOUNT_ID" ] || echo "::notice::CLOUDFLARE_R2_* secrets are not configured; the bionic runtime verification is skipped."
-
   native-runtime:
     name: Verify bionic runtime tools
     needs: r2-provisioned

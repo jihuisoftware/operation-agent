@@ -32,7 +32,7 @@ logger = logging.getLogger("gateway.run")
 DEFAULT_IDLE_EXIT_SECONDS = 600.0
 IDLE_EXIT_REASON = "idle_exit"
 # Head of the ``exit_reason`` persisted with ``stopped``: a reconnecting client's ``--recover``
-# (ui-tui/scripts/gateway_bootstrap.py) tells this self-ended exit from an operator stop by it.
+# (retired terminal bootstrap) tells this self-ended exit from an operator stop by it.
 IDLE_EXIT_STOP_PREFIX = "auto-started gateway idle"
 # Kanban statuses the embedded dispatcher acts on without a human (promotion, spawn, reclaim).
 _KANBAN_DUE_STATUSES = ("scheduled", "ready", "running", "review")

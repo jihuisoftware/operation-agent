@@ -2,6 +2,7 @@ import type { GatewayWsUrlResult } from '@hermes/shared'
 import type { HermesSkin } from '@hermes/shared/skin'
 import type { TranslucencyState } from '@hermes/shared/translucency'
 
+import type { BrowserPowerApi } from '../electron/browser-power-types'
 import type { ChallengeOutcome } from '../electron/challenge-window'
 import type { ScreenshotApi } from '../electron/command-screenshot-types'
 import type { HudModifierApi } from '../electron/hud-modifier-types'
@@ -82,12 +83,6 @@ declare global {
       openSessionWindow: (
         sessionId: string,
         opts?: { connectionId?: null | string; profile?: null | string; watch?: boolean }
-      ) => Promise<{ ok: boolean; error?: string }>
-      // Resume this session in the user's own terminal emulator (`hermes --tui
-      // --resume <id>`) — the external terminal, not the in-app pane.
-      openSessionInTerminal: (
-        sessionId: string,
-        opts?: { cwd?: string; profile?: string }
       ) => Promise<{ ok: boolean; error?: string }>
       // Open a new full-chrome app window — a peer instance of the primary that
       // renders the complete app on an explicit connection/profile, or inherits
@@ -636,6 +631,7 @@ declare global {
       // Soft gateway-mode apply: primary backend was torn down without a window
       // reload. Wipe session lists (skeletons) and re-dial.
       onConnectionApplied?: (callback: () => void) => () => void
+      browserPower?: BrowserPowerApi
       onPowerResume?: (callback: () => void) => () => void
       getOnBattery?: () => Promise<boolean>
       onBatteryChanged?: (callback: (onBattery: boolean) => void) => () => void

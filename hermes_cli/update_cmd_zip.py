@@ -42,7 +42,6 @@ _ZIP_PRESERVED_TOP_LEVEL = {"venv", ".venv", "node_modules", ".git", ".env"}
 _ZIP_PRESERVED_NESTED = {
     "apps": ("desktop/release", "desktop/dist", "desktop/node_modules", "desktop/build"),
     "scripts": ("whatsapp-bridge/node_modules",),
-    "ui-tui": ("dist", "node_modules", "packages/hermes-ink/dist"),
 }
 
 _STASH_HINT = "  Stash or commit your changes, then rerun `hermes update`."

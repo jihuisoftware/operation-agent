@@ -77,13 +77,6 @@ _ALLOWED: dict[tuple[str, str], str] = {
         "can only run what is on that subshell's PATH, which local.py populates "
         "with the managed dirs — so PATH is the correct question to ask here."
     ),
-    ("hermes_cli/main_tui_launch.py", "node"): (
-        "PM-composed launch context: `which(node)` runs against the PATH "
-        "pm.ensure('node'|'npm') just composed (store dirs first), not the ambient one."
-    ),
-    ("hermes_cli/main_tui_launch.py", "npm"): (
-        "Same PM-composed launch context as the node lookup above."
-    ),
     ("hermes_cli/source_build.py", "node"): (
         "PM-composed build context: `which(node)` runs against the PATH pm's "
         "ensure('npm')/env_for('node') just composed, not the ambient one."

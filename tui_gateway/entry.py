@@ -274,7 +274,7 @@ def _claim_launch_home():
     """Reserve the launch home exactly as the gateway does, or None when it is already owned.
 
     No product surface launches this standalone stdio server any more: Ink and Desktop attach to
-    the profile's gateway over WS (``ui-tui/scripts/gateway_bootstrap.py``). Dev harnesses still
+    the profile's gateway over WS (``retired terminal bootstrap``). Dev harnesses still
     run it against a sandbox home (``apps/desktop/e2e/real-session-builder.ts``), and it opens that
     home's ``state.db`` as a writer, so it must be the home's only owner: the gateway's
     ``gateway.lock`` reservation refuses it beside a live gateway (or a second entry), and holding

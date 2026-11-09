@@ -24,7 +24,7 @@ class TestChatVerboseArg:
         from hermes_cli._parser import build_top_level_parser
 
         parser, _subparsers, _chat_parser = build_top_level_parser()
-        args = parser.parse_args(["chat"])
+        args = parser.parse_args(["chat", "-q", "hello"])
 
         assert not hasattr(args, "verbose")
 
@@ -38,7 +38,7 @@ class TestChatVerboseArg:
 
         parser, _subparsers, chat_parser = build_top_level_parser()
         chat_parser.set_defaults(func=main_mod.cmd_chat)
-        args = parser.parse_args(["chat"])
+        args = parser.parse_args(["chat", "-q", "hello"])
         captured = {}
         fake_cli = types.ModuleType("cli")
 
@@ -55,7 +55,6 @@ class TestChatVerboseArg:
         monkeypatch.setitem(sys.modules, "hermes_cli.banner", fake_banner)
         monkeypatch.setitem(sys.modules, "tools.skills_sync", fake_skills_sync)
         monkeypatch.setattr(main_mod, "_has_any_provider_configured", lambda: True)
-        monkeypatch.setattr(main_mod, "_pin_kanban_board_env", lambda: None)
 
         main_mod.cmd_chat(args)
 
@@ -63,13 +62,13 @@ class TestChatVerboseArg:
         assert "verbose" not in captured
 
     @pytest.mark.parametrize("argv, expected", [
-        (["chat", "--provider", "custom", "--base-url", "http://127.0.0.1:9/v1", "--api-key", "launch-key"],
+        (["chat", "-q", "hello", "--provider", "custom", "--base-url", "http://127.0.0.1:9/v1", "--api-key", "launch-key"],
          {"api_key": "launch-key", "base_url": "http://127.0.0.1:9/v1"}),
-        (["chat"], {}),
+        (["chat", "-q", "hello"], {}),
     ])
     def test_cmd_chat_forwards_the_launch_key_and_endpoint_to_the_classic_cli(self, monkeypatch, argv, expected):
-        """`hermes chat --cli --api-key K --base-url U` must launch the classic CLI on K and U, not on the
-        profile's credential; the TUI refuses both flags and points here."""
+        """`hermes chat -q hello --api-key K --base-url U` must launch the classic CLI on K and U, not on the
+        profile's credential."""
         import types
 
         import hermes_cli.main as main_mod
@@ -90,7 +89,6 @@ class TestChatVerboseArg:
         monkeypatch.setitem(sys.modules, "hermes_cli.banner", fake_banner)
         monkeypatch.setitem(sys.modules, "tools.skills_sync", fake_skills_sync)
         monkeypatch.setattr(main_mod, "_has_any_provider_configured", lambda: True)
-        monkeypatch.setattr(main_mod, "_pin_kanban_board_env", lambda: None)
 
         main_mod.cmd_chat(args)
 
@@ -241,9 +239,9 @@ class TestChatSubparserInheritedValueFlags:
 
 
 @pytest.mark.parametrize("argv", [
-    ["--tui", "--checkpoints"], ["--checkpoints", "chat"], ["chat", "--tui", "--checkpoints"]])
+    ["--checkpoints"], ["--checkpoints", "chat"], ["chat", "--checkpoints"]])
 def test_checkpoints_parses_at_the_top_level_and_survives_chat(argv):
-    """`hermes --tui --checkpoints` is the TUI launch the docs and gateway refusals name; it was
+    """`hermes --checkpoints` must preserve its value across command dispatch; it was
     declared only on `chat`, so the top-level form failed with "unrecognized arguments"."""
     from hermes_cli._parser import build_top_level_parser
     assert build_top_level_parser()[0].parse_args(argv).checkpoints is True

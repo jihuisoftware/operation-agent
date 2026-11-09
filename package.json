@@ -5,19 +5,14 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "ui-tui",
-    "ui-tui/packages/*",
     "tests-js"
   ],
   "scripts": {
     "postinstall": "echo '✅ Node dependencies installed. Run: python run_agent.py --help'",
     "install:root": "npm install --workspaces=false",
-    "install:tui": "npm install --workspace ui-tui",
     "install:desktop": "npm install --workspace apps/desktop",
     "audit:root": "npm audit --workspaces=false",
-    "audit:tui": "npm audit --workspace ui-tui",
     "audit:fix:root": "npm audit fix --workspaces=false",
-    "audit:fix:tui": "npm audit fix --workspace ui-tui",
     "check": "npm run --ws check",
     "fix": "npm run --ws fix",
     "prepare": "node -e \"const {existsSync}=require('fs');const {spawnSync}=require('child_process');if(existsSync('.git'))spawnSync('lefthook',['install'],{stdio:'inherit',shell:true})\""

@@ -23,6 +23,9 @@ def describe(stage, result):
         pending = [r for r in receipts if isinstance(r, dict) and (
             r.get("state") not in {"confirmed", "published"} or not r.get("evidence"))]
         if pending:
+            if stage == 'publish':
+                from .publication_status import summary
+                return 'needs_attention', '；'.join(summary(receipt) for receipt in pending)
             return "needs_attention", "已提交待核对或结果未知，尚不能计为成功：" + str(pending)
     if stage == "content" and isinstance(result, dict) and result.get("content_id"):
         detail = '草稿生成完成；' + ('已通过检查，可供发布' if result.get('ready') else '发布前仍需完善')

@@ -17,26 +17,6 @@ def _args(command):
                      mcp_action=None, tui=False, yolo=False, safe_mode=False, ignore_user_config=False)
 
 
-@pytest.mark.parametrize("command", [None, "chat"])
-def test_chat_launch_registers_no_shell_hooks_or_webhooks(monkeypatch, command):
-    """... and ``--accept-hooks`` still reaches the gateway: exported as HERMES_ACCEPT_HOOKS, which
-    rides session.create (env_launch_flags) and the classic CLI's consent check (CLI-5)."""
-    from hermes_cli import main as main_mod
-    calls = []
-    monkeypatch.setenv("HERMES_ACCEPT_HOOKS", "")  # recorded, so the export below is undone at teardown
-    monkeypatch.delenv("HERMES_ACCEPT_HOOKS")
-    monkeypatch.setattr(main_mod, "_resolve_use_tui", lambda _a: False)
-    monkeypatch.setattr(main_mod, "_bypass_chat_launch", lambda _a: False, raising=False)
-    monkeypatch.setattr(main_mod, "_guard_noninteractive_user_config", lambda _a: None)
-    monkeypatch.setitem(sys.modules, "hermes_cli.plugins", types.SimpleNamespace(
-        discover_plugins=lambda: None, start_background_plugin_discovery=lambda: None))
-    monkeypatch.setitem(sys.modules, "agent.shell_hooks", types.SimpleNamespace(
-        register_from_config=lambda *a, **k: calls.append("hooks")))
-    monkeypatch.setitem(sys.modules, "agent.outbound_webhooks", types.SimpleNamespace(
-        register_from_config=lambda *a, **k: calls.append("webhooks")))
-    main_mod._prepare_agent_startup(_args(command))
-    assert calls == []
-    assert main_mod.os.environ["HERMES_ACCEPT_HOOKS"] == "1"
 
 
 def test_non_chat_agent_command_still_registers_hooks(monkeypatch):

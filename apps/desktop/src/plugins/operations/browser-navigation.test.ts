@@ -5,6 +5,29 @@ import type { Guest } from './types'
 
 afterEach(() => vi.useRealTimers())
 
+it('accepts a canonical redirect for the same note, but not another note or origin', async () => {
+  vi.useFakeTimers()
+  const events = new EventTarget()
+  const id = '690123456789abcdef012345'
+  let url = 'about:blank'
+  const guest = Object.assign(events, { getURL: () => url, loadURL: async () => {} }) as unknown as Guest
+  const finished = vi.fn()
+  const pending = navigateGuest(guest, `https://www.xiaohongshu.com/user/profile/account/${id}?xsec_token=old`).then(finished)
+
+  for (const unrelated of [`https://example.org/explore/${id}`, 'https://www.xiaohongshu.com/explore/690123456789abcdef012346']) {
+    url = unrelated
+    events.dispatchEvent(new Event('dom-ready'))
+    await vi.advanceTimersByTimeAsync(500)
+    expect(finished).not.toHaveBeenCalled()
+  }
+
+  url = `https://www.xiaohongshu.com/explore/${id}?xsec_token=new`
+  events.dispatchEvent(new Event('dom-ready'))
+  await vi.advanceTimersByTimeAsync(500)
+  expect(finished).toHaveBeenCalledOnce()
+  await pending
+})
+
 it('waits for the loaded page even when the IPC navigation promise resolves immediately', async () => {
   vi.useFakeTimers()
   const events = new EventTarget()

@@ -1,0 +1,161 @@
+{
+  "document": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "中文🙂标题"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "参考"
+          },
+          {
+            "type": "text",
+            "text": "资料",
+            "marks": [
+              {
+                "type": "link",
+                "attrs": {
+                  "href": "https://example.com/a"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "orderedList",
+        "attrs": {
+          "start": 2
+        },
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "第一项"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "第二项"
+                  },
+                  {
+                    "type": "hardBreak"
+                  },
+                  {
+                    "type": "text",
+                    "text": "续行"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "codeBlock",
+        "content": [
+          {
+            "type": "text",
+            "text": "print(1)\nprint(2)"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "content": [
+          {
+            "type": "tableRow",
+            "content": [
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "甲"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "乙"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "attrs": {
+          "assetId": "a",
+          "alt": ""
+        }
+      },
+      {
+        "type": "image",
+        "attrs": {
+          "assetId": "b",
+          "alt": ""
+        }
+      },
+      {
+        "type": "image",
+        "attrs": {
+          "assetId": "a",
+          "alt": ""
+        }
+      }
+    ]
+  },
+  "cover": "b",
+  "expected": {
+    "body": "中文🙂标题\n\n参考资料（https://example.com/a）\n\n2. 第一项\n3. 第二项\n   续行\n\nprint(1)\nprint(2)\n\n甲 | 乙",
+    "body_characters": 81,
+    "asset_ids": [
+      "b",
+      "a"
+    ],
+    "pending_images": []
+  }
+}

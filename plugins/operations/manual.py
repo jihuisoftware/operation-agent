@@ -53,7 +53,7 @@ def run(store, now, request_id, *, one_stage=False):
         paused = load(store, batch_id)
         if paused and paused['state'] == 'paused':
             return '批次已暂停：' + paused['error'] + '；请手动继续'
-        if store.snapshot()["online"]:
+        if store.online():
             from .recovery import reconcile_pending
             reconcile_pending(store, policy, day)
         for stage in TIMES:
@@ -69,7 +69,7 @@ def run(store, now, request_id, *, one_stage=False):
                 store.finish_run(identity, "skipped", held)
             elif store.run_options and not readiness[stage]["ready"]:
                 store.finish_run(identity, "skipped", "；".join(readiness[stage]["reasons"]))
-            elif stage in EXTERNAL and not store.snapshot()["online"]:
+            elif stage in EXTERNAL and not store.online():
                 store.finish_run(identity, "skipped", "桌面执行器离线，未执行网页动作")
             else:
                 _execute(store, policy, day, version, stage, identity)

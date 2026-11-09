@@ -25,8 +25,7 @@ def test_desktop_build_only_prepares_once_and_keeps_fresh_launch_fast(desktop_so
     assert app.read_text() == "desktop"
     assert [event["step"] for event in _events(root)] == ["deps", "icons", "desktop"]
     assert acquired == ["npm"]
-    assert (root / "node_modules/ui-tui").exists()
-    assert (root / "node_modules/web").exists()
+    assert not (root / "node_modules/test-panel").exists()
     assert (root / "node_modules/apps-desktop").exists()
     assert not (root / "node_modules/unrelated").exists()
     main_desktop.cmd_gui(Namespace(build_only=True))

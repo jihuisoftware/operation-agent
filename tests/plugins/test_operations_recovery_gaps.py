@@ -14,7 +14,7 @@ def test_provider_failure_preserves_draft_and_retry_only_checks(tmp_path, monkey
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     store = Store(tmp_path / 'review.db')
     policy = deepcopy(DEFAULT)
-    policy.update(enabled=True, topic='检查', goal='测试')
+    policy.update(image_mode='basic', enabled=True, topic='检查', goal='测试')
     policy['modules'].update(organize=True, content=True, topics=False, industry=False, analytics=False)
     store.configure(policy, 0)
     day = local_day(policy)
@@ -50,7 +50,7 @@ def test_legacy_interrupted_budget_becomes_unknown_after_reopen(tmp_path, monkey
     directory = Workspaces()
     store = directory.store()
     version, policy = store.policy()
-    policy.update(enabled=True, topic='预算检查', goal='测试')
+    policy.update(image_mode='basic', enabled=True, topic='预算检查', goal='测试')
     policy['modules']['content'] = True
     store.configure(policy, version)
     current = read(store)
@@ -77,7 +77,7 @@ def test_dead_process_reservation_recovers_receipt_or_requires_reconciliation(tm
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     store = Workspaces().store()
     version, policy = store.policy()
-    policy.update(enabled=True, topic='中断恢复', goal='测试', model_budget_mode='tokens', model_tokens=100)
+    policy.update(image_mode='basic', enabled=True, topic='中断恢复', goal='测试', model_budget_mode='tokens', model_tokens=100)
     policy['modules']['content'] = True
     store.configure(policy, version)
     script = '''

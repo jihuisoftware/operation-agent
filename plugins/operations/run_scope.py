@@ -44,10 +44,11 @@ class ReportScope:
 def call_count(events):
     counts = {}
     for event in events:
-        if event['kind'] not in {'model_call', 'usage'}:
+        families = {'model_call': 'model', 'usage': 'model', 'image_call': 'image', 'image_usage': 'image'}
+        if event['kind'] not in families:
             continue
         run = json.loads(event['data']).get('run_id')
-        group = counts.setdefault(run, {'model_call': 0, 'usage': 0})
-        group[event['kind']] += 1
+        group = counts.setdefault((run, families[event['kind']]), {'model_call': 0, 'usage': 0})
+        group['usage' if event['kind'].endswith('usage') else 'model_call'] += 1
     # Failed attempts have no receipt; receipt-only callers still count in their own run.
     return sum(max(group.values()) for group in counts.values())

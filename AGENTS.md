@@ -8,7 +8,7 @@ in the developer guide.
 
 ## Current product
 
-General operations platform; users enter or choose their topic. Desktop on macOS only.
+General operations platform; users enter or choose their topic. Desktop on macOS only. `ui-tui` and terminal chat entry points are removed; keep administrative CLI and batch commands.
 Only Simplified Chinese is supported; Bot Mode, Kanban/Radio UI, messaging adapters and Windows
 packaging are retired. Keep `gateway/`, `tui_gateway/` and `hermes_cli/web_server*` for Desktop.
 Memory, skills, scheduling, terminal and browser remain. Delegation, Kanban and MCP internals
@@ -122,7 +122,7 @@ Every former god file is a **facade** (public entry points + the names other pac
 - **Dependencies carry upper bounds** (`>=floor,<next_major`; git URLs and Actions pinned to a SHA);
   after editing `pyproject.toml` run `hermes pm lock` and commit `uv.lock`; never mutate a Hermes
   environment with raw pip/uv. Full policy: `pm/AGENTS.md`.
-- **TypeScript (desktop, TUI, website):** feature-owned nanostores over threaded state, thin route
+- **TypeScript (desktop, website):** feature-owned nanostores over threaded state, thin route
   roots, narrow hooks and colocated action modules, `interface` for props and shared shapes,
   table-driven dispatch over condition ladders; `src/app` routes, `src/store` atoms, `src/lib` pure
   helpers.
@@ -144,7 +144,7 @@ Every former god file is a **facade** (public entry points + the names other pac
 | `tools/`, `toolsets.py`, `model_tools.py` | `tools/AGENTS.md` | adding tools, registry, toolsets, delegation, session-scoped surface tools |
 | `plugins/`, `hermes_cli/plugins*.py` | `plugins/AGENTS.md` | plugin kinds, native compat contract, in-tree policy |
 | `plugin-catalog/` | `plugin-catalog/README.md` | catalog admission rules (mirrored in the developer guide; keep identical) |
-| `tui_gateway/`, `ui-tui/` | `tui_gateway/AGENTS.md` | process model, JSON-RPC transport, slash flow |
+| `tui_gateway/` | `tui_gateway/AGENTS.md` | process model, JSON-RPC transport, slash flow |
 | `hermes_cli/web_routers/` | `hermes_cli/web_routers/AGENTS.md` | shared Desktop HTTP APIs |
 | `apps/desktop/` | `apps/desktop/AGENTS.md`, `apps/desktop/src/AGENTS.md` | local backend and slash palette |
 | `skills/`, `optional-skills/`, `agent/curator*.py` | `skills/AGENTS.md` | frontmatter, authoring standards, curator |

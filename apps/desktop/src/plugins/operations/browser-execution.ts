@@ -90,6 +90,10 @@ export class BrowserExecution {
     }
   }
 
+  cancel(commands: string[] = []) {
+    if (commands.includes(this.command.id)) { this.abort('本批次已取消，停止后续网页操作', 'BATCH_CANCELLED') }
+  }
+
   async wait<T>(operation: () => Promise<T>, timeoutMs = 5000, guestOperation = false, label = '网页操作'): Promise<T> {
     this.assert()
     const remaining = this.command.expires * 1000 - Date.now()
@@ -127,7 +131,15 @@ export class BrowserExecution {
     }
   }
 
-  submission() { this.assert(); this.dispatchState = 'submission_started' }
+  beforeSubmission?: () => Promise<void>
+
+  async submission() {
+    this.assert()
+
+    if (this.beforeSubmission) { await this.beforeSubmission() }
+    this.assert()
+    this.dispatchState = 'submission_started'
+  }
 
   failure(error: unknown) {
     const cause = this.inheritedBlock?.cause_at

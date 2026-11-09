@@ -27,23 +27,32 @@ def expire(store, db):
                   'error': {'not_started': '桌面未接收任务，尚未执行；请恢复执行窗口后手动继续',
                             'read_only': '网页读取中断，尚未提交；请检查页面后手动继续',
                             'submission_started': '提交已开始但未收到结果，请核对后再继续'}[phase]}
-        db.execute('UPDATE commands SET state=?,result=? WHERE id=?', ('unknown' if uncertain else 'interrupted', encoded(result), command['id']))
+        from .batch_cancellation import payload_cancelled, receipt as cancellation_receipt
+        cancelled = payload_cancelled(db, command)
+        if cancelled:
+            result = cancellation_receipt(db, command, result)
+        db.execute('UPDATE commands SET state=?,result=? WHERE id=?', ('unknown' if uncertain else 'cancelled' if cancelled else 'interrupted', encoded(result), command['id']))
         if command['action_id']:
-            db.execute('UPDATE actions SET state=?,result=? WHERE id=?', ('unknown' if uncertain else 'blocked', encoded(result), command['action_id']))
+            db.execute('UPDATE actions SET state=?,result=? WHERE id=?', ('unknown' if uncertain else 'cancelled' if cancelled else 'blocked', encoded(result), command['action_id']))
         release_account(store, db, command['id'], command['worker'])
-        pause(store, result, db=db, payload=json.loads(command['payload']))
+        result['cause_command_id'] = command['id']
+        if not cancelled and not json.loads(command['payload']).get('wake_probe'):
+            pause(store, result, db=db, payload=json.loads(command['payload']))
 
 
 def receipt(store, db, command, result):
     if result.get('error_code') in CODES:
-        pause(store, result, db=db, payload=json.loads(command['payload']))
+        result['cause_command_id'] = command['id']
+        if not json.loads(command['payload']).get('wake_probe'):
+            pause(store, result, db=db, payload=json.loads(command['payload']))
 
 
 def late(db, identity, worker, result):
     row = db.execute("SELECT * FROM commands WHERE id=? AND worker=? AND state IN ('interrupted','unknown')", (identity, worker)).fetchone()
-    if not row or result.get('error_code') not in CODES:
+    if not row or result.get('error_code') not in CODES | {'BATCH_CANCELLED'}:
         return None
-    if result.get('dispatch_state') != 'read_only' or result.get('submitted') is not False:
+    sleep_unknown = result.get('error_code') == 'SYSTEM_SUSPENDED' and result.get('dispatch_state') == 'submission_started' and result.get('submitted') is True
+    if not sleep_unknown and (result.get('dispatch_state') not in {'read_only', 'not_started'} or result.get('submitted') is not False):
         return None
     if row['action_id']:
         action = db.execute('SELECT state,result FROM actions WHERE id=?', (row['action_id'],)).fetchone()

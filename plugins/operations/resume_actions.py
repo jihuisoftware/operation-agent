@@ -57,6 +57,8 @@ def _continue_action(store, row, data, policy, day, version):
         current = db.execute('SELECT * FROM actions WHERE id=?', (row['id'],)).fetchone()
         if current['state'] not in {'blocked', 'confirmed_not_published'} or not _proved_unsubmitted(db, current, json.loads(current['result'])):
             raise ValueError('原动作提交证据不明确或状态已变化，请先核对，不能自动重发')
+        from .action_admission import check_replay
+        check_replay(store, db, data, row['id'])
         from .publication_snapshot import capture
         data = capture(db, {**data, 'resume_key': identity(store)}, version, effective)
         from .browser_evidence import command_context
@@ -65,6 +67,8 @@ def _continue_action(store, row, data, policy, day, version):
         db.execute("UPDATE actions SET state='queued',data=? WHERE id=?", (encoded(data), row['id']))
         db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
                    (uuid.uuid4().hex, row['id'], kind, encoded(payload), time.time() + 120))
+        from .workspace_execution import sync_actions
+        sync_actions(store, db)
     from .workflow import browser
     return browser(store, kind, payload, row['id'])
 

@@ -9,7 +9,9 @@ from .policy import now_iso
 
 def fingerprint(content):
     keys = ('title', 'body', 'asset_ids', 'source_ids', 'organization_ids', 'analysis_context')
-    return hashlib.sha256(encoded({key: content.get(key) for key in keys}).encode()).hexdigest()
+    value = {key: content.get(key) for key in keys}
+    value.update({key: content[key] for key in ('editor_document', 'editor_document_version', 'authorship') if key in content})
+    return hashlib.sha256(encoded(value).encode()).hexdigest()
 
 
 def load(db, identity):
@@ -73,6 +75,8 @@ def review(store, identity, body):
         current = json.loads(db.execute("SELECT data FROM objects WHERE kind='content' AND id=?", (identity,)).fetchone()[0])
         if fingerprint(current) != body['content_revision']:
             raise ValueError('稿件已变化，请重新审核')
+        from .analysis_publication import check
+        check(db, {'kind': 'publish', 'content': content, 'human_review': True}, policy)
         previous = load(db, identity)
         if (previous or {}).get('revision', 0) != body.get('expected_revision'):
             raise ValueError('审核排期已变化，请刷新')

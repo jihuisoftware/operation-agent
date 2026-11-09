@@ -2849,7 +2849,6 @@ export interface Translations extends NoticeTranslations {
       archive: string
       unarchive: string
       newWindow: string
-      openInTerminal: string
       hideTabBar: string
       openInNewTab: string
       openInSplit: string

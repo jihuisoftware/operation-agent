@@ -20,7 +20,7 @@ def _args(**overrides):
         "model": None,
         "no_restore_cwd": False,
         "provider": None,
-        "query": None,
+        "query": "batch request",
         "resume": None,
         "safe_mode": False,
         "toolsets": None,
@@ -38,13 +38,12 @@ def main_mod(monkeypatch):
 
     monkeypatch.setattr(mod, "_has_any_provider_configured", lambda: True)
     monkeypatch.setattr(mod, "_sync_bundled_skills_for_startup", lambda: False)
-    monkeypatch.setattr(mod, "_pin_kanban_board_env", lambda: None)
     return mod
 
 
 @pytest.fixture
 def launched(main_mod, monkeypatch):
-    """Capture the _launch_tui call instead of exec'ing Node."""
+    """Capture the batch CLI invocation without running a model."""
     captured = {}
 
     def fake_launch(resume_session_id=None, **kwargs):
@@ -52,7 +51,11 @@ def launched(main_mod, monkeypatch):
         captured.update(kwargs)
         raise SystemExit(0)
 
-    monkeypatch.setattr(main_mod, "_launch_tui", fake_launch)
+    import cli
+    monkeypatch.setattr(cli, 'main', lambda **kwargs: fake_launch(kwargs.pop('resume', None), **kwargs))
+    monkeypatch.setattr(main_mod, '_start_chat_background_prefetch', lambda: None)
+    from hermes_cli.observability import shared_metrics_consent
+    monkeypatch.setattr(shared_metrics_consent, 'offer_consent_before_chat', lambda *_: None)
     return captured
 
 
@@ -65,8 +68,7 @@ def test_top_level_parser_accepts_in_and_resume_latest():
     from hermes_cli._parser import build_top_level_parser
 
     parser, _subparsers, _chat = build_top_level_parser()
-    args = parser.parse_args(["--tui", "--resume", "latest", "--in", "./dir"])
-    assert args.tui is True
+    args = parser.parse_args(["--resume", "latest", "--in", "./dir"])
     assert args.resume == "latest"
     assert args.in_dir == "./dir"
 
@@ -112,21 +114,6 @@ def test_resume_latest_resolves_to_mru_session(main_mod, launched, monkeypatch):
     assert launched["resume"] == "20260807_120000_abc123"
 
 
-def test_resume_latest_tui_falls_back_to_cli_source(main_mod, launched, monkeypatch):
-    calls = []
-
-    def fake_resolve(source="cli"):
-        calls.append(source)
-        return "cli_session_1" if source == "cli" else None
-
-    monkeypatch.setattr(main_mod, "_resolve_last_session", fake_resolve)
-    monkeypatch.setattr(main_mod, "_resolve_session_by_name_or_id", lambda v: v)
-
-    with pytest.raises(SystemExit) as exc:
-        main_mod.cmd_chat(_args(resume="latest"))
-    assert exc.value.code == 0
-    assert calls == ["tui", "cli"]
-    assert launched["resume"] == "cli_session_1"
 
 
 def test_resume_latest_is_case_insensitive(main_mod, launched, monkeypatch):
@@ -145,7 +132,7 @@ def test_resume_latest_no_sessions_exits_with_error(main_mod, monkeypatch, capsy
         main_mod.cmd_chat(_args(resume="latest"))
     assert exc.value.code == 1
     out = capsys.readouterr().out
-    assert "No previous TUI session found" in out
+    assert "No previous CLI session found" in out
 
 
 def test_resume_real_id_untouched_by_latest_keyword(main_mod, launched, monkeypatch):

@@ -37,10 +37,10 @@ export async function pageScript<T>(guest: Guest, execution: BrowserExecution, s
 
   execution.page(url)
 
-  return execution.wait(() => {
+  return execution.wait(async () => {
     execution.assert()
 
-    if (beforeSubmit) { execution.submission() }
+    if (beforeSubmit) { await execution.submission() }
 
     return script()
   }, SCRIPT_MS, true, label)

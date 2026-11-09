@@ -37,14 +37,27 @@ it('produces a manuscript without submitting a publication request', async () =>
   expect(rest.mock.calls.map(([path]) => path)).toEqual(['/policy', '/content/generate'])
 })
 
-it('replaces a cover by creating a new unapproved version', async () => {
-  const rest = vi.fn(async () => ({ id: 'new-cover' }))
+it('replaces a cover through its original version instead of losing evidence in a new manual draft', async () => {
+  const rest = vi.fn(async (path: string) => ({ id: path === '/assets' ? 'new-cover' : 'new-version' }))
   render(<ContentReview ctx={{ rest } as unknown as PluginContext} refresh={async () => undefined} row={{
-    id: 'draft', title: '标题', body: '正文', source_ids: ['source'], asset_ids: ['old-cover', 'second-image']
+    id: 'draft', title: '标题', body: '正文', source_ids: ['source'], asset_ids: ['old-cover', 'second-image'], content_revision: 'digest', policy_version: 4
   }} />)
   fireEvent.change(screen.getByLabelText(/替换封面/), { target: { files: [new File(['image'], 'cover.png', { type: 'image/png' })] } })
-  await waitFor(() => expect(rest).toHaveBeenCalledWith('/records/content', { method: 'POST', body: {
-    title: '标题', body: '正文', source_ids: ['source'], asset_ids: ['new-cover', 'second-image']
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/draft/versions', { method: 'POST', body: {
+    content_revision: 'digest', version: 4, request_id: expect.any(String), cancel_original_schedule: false, asset_ids: ['new-cover', 'second-image']
   } }))
   expect(rest).toHaveBeenCalledTimes(2)
+})
+
+it('changes the scheduled time using the existing approval revision', async () => {
+  const rest = vi.fn(async () => ({}))
+  render(<ContentReview ctx={{ rest } as unknown as PluginContext} refresh={async () => undefined} row={{ id: 'draft',
+    asset_ids: ['cover'], content_revision: 'digest', policy_version: 4,
+    release: { state: 'scheduled', revision: 3, publish_at: '2027-01-02T05:30:00Z' } }} />)
+  fireEvent.click(screen.getByRole('button', { name: '调整发布时间' }))
+  fireEvent.change(screen.getByLabelText('发布时间'), { target: { value: '2027-01-03T17:15' } })
+  fireEvent.click(screen.getByRole('button', { name: '确认改期' }))
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/draft/approve', { method: 'POST', body: {
+    expected_revision: 3, version: 4, content_revision: 'digest', publish_at: new Date('2027-01-03T17:15').toISOString()
+  } }))
 })

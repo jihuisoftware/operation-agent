@@ -20,10 +20,6 @@ for name, source in inputs["resources"].items():
     resource = repo / name
     assert resource.is_symlink(), resource
     assert resource.samefile(source), (resource, source)
-for name, key in (("tui", "HERMES_TUI_DIR"),):
-    resource = Path(command_map["env"][key])
-    assert resource.is_symlink(), resource
-    assert resource.samefile(inputs["frontends"][name])
 assert not (repo / "run_agent.py").exists(), "installed Python code must not be copied"
 assert not list(repo.glob("*.dist-info")), "Nix keeps the uv2nix wheel's metadata"
 assert command_map["env"]["HERMES_PYTHON"] == inputs["python"]

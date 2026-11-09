@@ -104,7 +104,7 @@ def test_startup_uses_one_verdict(checked_store, monkeypatch, capsys, caplog, su
         monkeypatch.setattr("hermes_cli.boot_bootstrap.maybe_run_boot_bootstrap", lambda _root: None)
         for name in ("_set_process_title", "_advertise_agent_env",
                      "_sweep_stale_bytecode_if_checkout_changed",
-                     "_try_termux_fast_tui_launch", "_try_termux_fast_cli_launch",
+                     "_try_termux_fast_cli_launch",
                      "_try_fast_serve_launch", "_try_fast_chat_launch"):
             monkeypatch.setattr(main, name, lambda: None)
         monkeypatch.setattr(sys, "argv", ["hermes", "--help"])

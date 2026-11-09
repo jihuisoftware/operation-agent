@@ -40,6 +40,10 @@ it('runs only the selected task and shows its saved full trace with a new ID for
 
   render(<DebugPanel ctx={{ rest } as unknown as PluginContext} owner={owner} />)
   fireEvent.click(await screen.findByRole('button', { name: '详细执行内容生产' }))
+  const history = await screen.findByRole('button', { name: /内容生产 · 完成/ })
+  expect(history.getAttribute('aria-expanded')).toBe('false')
+  expect(screen.queryByRole('button', { name: '复制完整记录' })).toBeNull()
+  fireEvent.click(history)
   expect(await screen.findByText('已保存内容版本')).toBeTruthy()
   expect(screen.getByText(/完整步骤及输出/)).toBeTruthy()
   expect(screen.getByRole('button', { name: '复制完整记录' })).toBeTruthy()

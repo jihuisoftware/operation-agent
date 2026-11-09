@@ -39,7 +39,9 @@ def traced(store, instruction, data, budget_id, call, *, options):
     try:
         result = call()
     except Exception as exc:
-        update(store, identity, {'state': 'failed', 'ended': now_iso(), 'error': str(exc), 'error_type': type(exc).__name__})
+        from .batch_cancellation import BatchCancelled
+        update(store, identity, {'state': 'cancelled' if isinstance(exc, BatchCancelled) else 'failed',
+                                'ended': now_iso(), 'error': str(exc), 'error_type': type(exc).__name__})
         raise
     update(store, identity, {'state': 'completed', 'ended': now_iso(), 'result': result})
     store.event('model_trace_completed', {'trace_id': identity})

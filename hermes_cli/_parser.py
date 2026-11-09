@@ -89,15 +89,12 @@ def _inherited_flag(parser, *args, **kwargs):
 
 _EPILOGUE = """
 Examples:
-    hermes                        Start interactive chat
+    hermes desktop                打开桌面应用
     hermes chat -q "Hello"        Single query mode
-    hermes --tui                  Launch the modern TUI (or set display.interface: tui)
-    hermes --cli                  Force the classic REPL (overrides display.interface: tui)
-    hermes -c                     Resume the most recent session
+    hermes chat -q "继续" -c      单次请求复用最近会话
     hermes -c "my project"        Resume a session by name (latest in lineage)
     hermes --resume <session_id>  Resume a specific session by ID
     hermes --resume latest        Resume the most recent session (same as -c)
-    hermes --tui --resume latest --in ./dir   Resume ./dir's latest session in the TUI
     hermes setup                  Run setup wizard
     hermes logout                 Clear stored authentication
     hermes auth add <provider>    Add a pooled credential
@@ -160,10 +157,10 @@ def _add_top_level_flags(parser: argparse.ArgumentParser) -> None:
     # `chat` subcommand; if neither -z nor a subcommand consumes them, they fall through as None.
     inherited(parser, "-m", "--model", default=None, help=(
         "Model override for this invocation (e.g. anthropic/claude-sonnet-4.6). "
-        "Applies to -z/--oneshot and --tui. Also settable via HERMES_INFERENCE_MODEL env var."))
+        "Applies to -z/--oneshot. Also settable via HERMES_INFERENCE_MODEL env var."))
     inherited(parser, "--provider", default=None, help=(
         "Provider override for this invocation (e.g. openrouter, anthropic). "
-        "Applies to -z/--oneshot and --tui. The persistent provider lives in config.yaml "
+        "Applies to -z/--oneshot. The persistent provider lives in config.yaml "
         "under model.provider — use `hermes setup` or edit the file to change it."))
     inherited(parser, "--reasoning", default=None, metavar="LEVEL", help=(
         "Reasoning effort for this invocation: none, minimal, low, medium, "
@@ -171,7 +168,7 @@ def _add_top_level_flags(parser: argparse.ArgumentParser) -> None:
         "config.yaml for this run only; the persistent level lives there "
         "(or per-model under agent.reasoning_overrides)."))
     add("-t", "--toolsets", default=None,
-        help="Comma-separated toolsets to enable for this invocation. Applies to -z/--oneshot and --tui.")
+        help="Comma-separated toolsets to enable for this invocation. Applies to -z/--oneshot.")
     add("--resume", "-r", metavar="SESSION", default=None, help=(
         "Resume a previous session by ID or title, or pass 'latest' for "
         "the most recent session (workspace-scoped, like -c with no name)"))
@@ -205,14 +202,6 @@ def _add_top_level_flags(parser: argparse.ArgumentParser) -> None:
               help="Skip auto-injection of AGENTS.md, SOUL.md, .cursorrules, memory, and preloaded skills")
     inherited(parser, "--safe-mode", action="store_true", default=False,
               help="Troubleshooting mode: disable ALL customizations — user config, AGENTS.md/memory injection, plugins, and MCP servers (implies --ignore-user-config and --ignore-rules)")
-    inherited(parser, "--tui", action="store_true", default=False,
-              help="Launch the modern TUI instead of the classic REPL")
-    inherited(parser, "--native", "--tui-native", dest="tui_native", action="store_true", default=False,
-              help="With --tui: use native terminal scrollback and disable mouse tracking")
-    inherited(parser, "--cli", action="store_true", default=False,
-              help="Force the classic prompt_toolkit REPL (overrides display.interface=tui)")
-    inherited(parser, "--dev", dest="tui_dev", action="store_true", default=False,
-              help="With --tui: run TypeScript sources via tsx (skip dist build)")
 
 
 def _build_chat_parser(subparsers) -> argparse.ArgumentParser:
@@ -226,14 +215,12 @@ def _build_chat_parser(subparsers) -> argparse.ArgumentParser:
     test_argparse_flag_propagation.py).
     """
     chat_parser = subparsers.add_parser(
-        "chat", help="Interactive chat with the agent",
-        description="Start an interactive chat session with Hermes Agent")
+        "chat", help="执行非交互批处理请求",
+        description="执行单次请求；交互聊天请使用桌面应用")
     add, inherited, SUPPRESS = chat_parser.add_argument, _inherited_flag, argparse.SUPPRESS
     _query_group = chat_parser.add_mutually_exclusive_group()
     _query_group.add_argument("-q", "--query", help=(
-        "Query to run. On a real TTY the prompt seeds an interactive "
-        "session (submitted literally as the first turn); combined with "
-        "--oneshot or -Q, or on a non-TTY, it answers and exits."))
+        "执行一条请求并退出；交互聊天请使用桌面应用。"))
     _query_group.add_argument("--query-file", metavar="PATH", help=(
         "Read the single query from a file instead of the command line "
         "('-' reads stdin). Safe for arbitrary text: nothing is shell-"
@@ -271,7 +258,7 @@ def _build_chat_parser(subparsers) -> argparse.ArgumentParser:
         help="Quiet mode for programmatic use: suppress banner, spinner, and tool previews. Only output the final response and session info.")
     add("--format", choices=["text", "stream-json"], default="text", dest="output_format", help=(
         "Output format for single-query mode (-q). 'text' prints the final response as plain text (default). "
-        "'stream-json' emits newline-delimited JSON events (JSONL), implies --quiet, and cannot be combined with --tui."))
+        "'stream-json' emits newline-delimited JSON events (JSONL), implies --quiet,."))
     add("--resume", "-r", metavar="SESSION_ID", default=SUPPRESS, help=(
         "Resume a previous session by ID (shown on exit), or 'latest' "
         "for the most recent session"))
@@ -316,14 +303,6 @@ def _build_chat_parser(subparsers) -> argparse.ArgumentParser:
               help="Troubleshooting mode: disable ALL customizations — user config, AGENTS.md/memory injection, plugins, and MCP servers (implies --ignore-user-config and --ignore-rules). Use to isolate whether a problem comes from your setup or from Hermes itself.")
     add("--source", default=None,
         help="Session source tag for filtering (default: cli). Use 'tool' for third-party integrations that should not appear in user session lists.")
-    inherited(chat_parser, "--tui", action="store_true", default=SUPPRESS,
-              help="Launch the modern TUI instead of the classic REPL")
-    inherited(chat_parser, "--native", "--tui-native", dest="tui_native", action="store_true", default=SUPPRESS,
-              help="Use native terminal scrollback and disable mouse tracking")
-    inherited(chat_parser, "--cli", action="store_true", default=SUPPRESS,
-              help="Force the classic prompt_toolkit REPL (overrides display.interface=tui)")
-    inherited(chat_parser, "--dev", dest="tui_dev", action="store_true", default=SUPPRESS,
-              help="With --tui: run TypeScript sources via tsx (skip dist build)")
     return chat_parser
 
 

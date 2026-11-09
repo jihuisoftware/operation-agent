@@ -8,11 +8,9 @@ AUTH_CODES = {'AUTH_REQUIRED', 'VERIFICATION_REQUIRED'}
 
 
 def recoverable(reason):
-    if reason.get('error_code') in AUTH_CODES:
-        return True
-    return (reason.get('error_code') in {'BROWSER_UNAVAILABLE', 'COMMAND_EXPIRED'} and
-            reason.get('state') == 'blocked' and reason.get('submitted') is False and
-            reason.get('dispatch_state') in {'not_started', 'read_only'})
+    # A fresh account probe restores the executor, never the old submission.
+    # Original uncertain actions remain fenced by manuscript/batch admission.
+    return reason.get('error_code') in AUTH_CODES | {'BROWSER_UNAVAILABLE', 'COMMAND_EXPIRED', 'SYSTEM_SUSPENDED'}
 
 
 def _snapshot(store, version, db):
@@ -25,13 +23,7 @@ def _snapshot(store, version, db):
     held = web_block_reason(db)
     if held:
         raise ExecutionPaused({'error_code': 'CONTROL_PAUSED', 'error': held + '；请结束接管后重新发起', 'interruption_scope': 'batch'})
-    unresolved = db.execute("SELECT 1 FROM actions WHERE state IN ('unknown','submitted','executing','queued')").fetchone()
     account = account_key(store, db)
-    if store.workspace:
-        unresolved = unresolved or db.execute("SELECT 1 FROM directory.account_actions WHERE account_id=? "
-                                             "AND state IN ('unknown','submitted','executing','queued')", (account,)).fetchone()
-    if unresolved:
-        raise ExecutionPaused({'error_code': 'RESULT_UNCERTAIN', 'error': '仍有未完成或结果未知的外部动作，请先核对后重新发起', 'interruption_scope': 'batch'})
     expected = policy['account_id']
     if store.workspace and not expected:
         expected = db.execute('SELECT identity FROM directory.accounts WHERE id=?', (account,)).fetchone()[0]

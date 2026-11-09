@@ -11,9 +11,10 @@ interface Props {
   reopen: () => void
   back: () => void
   release?: () => void
+  retryCheck?: () => void
 }
 
-export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen, back, release, platformName = '小红书' }: Props) {
+export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen, back, release, retryCheck, platformName = '小红书' }: Props) {
   return (
     <>
       <header className="shrink-0 border-b border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)">
@@ -45,6 +46,7 @@ export function BrowserToolbar({ status, loading, error, takeOver, login, hide, 
           <Button onClick={login} size="sm" variant="ghost">
             打开{platformName}／登录
           </Button>
+          {retryCheck && <Button onClick={retryCheck} size="sm" variant="ghost">重试账号检查</Button>}
         </div>
         <p className="border-t border-(--ui-stroke-tertiary) px-3 py-2 text-xs text-muted-foreground" role="status">
           {status}

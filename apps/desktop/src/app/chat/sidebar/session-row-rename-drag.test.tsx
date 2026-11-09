@@ -208,10 +208,8 @@ vi.mock('@/store/windows', async importOriginal => {
 
   return {
     ...actual,
-    canOpenSessionInTerminal: () => false,
     canOpenSessionWindow: () => false,
     openSessionInNewWindow: vi.fn(),
-    openSessionInTerminal: vi.fn()
   }
 })
 

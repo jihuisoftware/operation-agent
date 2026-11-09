@@ -8,6 +8,7 @@ export interface Policy {
   topic: string
   audience: string
   goal: string
+  image_mode?: 'magazine' | 'basic'
   style: string
   brand: string
   account_id: string
@@ -59,6 +60,7 @@ export interface BrowserCommand {
 }
 
 export interface Guest extends HTMLElement {
+  getWebContentsId?: () => number
   capturePage?: () => Promise<{ resize: (options: { width: number }) => { toDataURL: () => string } }>
   executeJavaScript: (code: string) => Promise<any>
   loadURL: (url: string) => Promise<void>

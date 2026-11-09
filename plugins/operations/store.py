@@ -13,12 +13,14 @@ from .policy import DEFAULT, local_day, now_iso, permitted, validate_policy
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS objects (id TEXT PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL, created TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS objects_kind_created ON objects(kind,created DESC);
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, day TEXT NOT NULL, stage TEXT NOT NULL, slot TEXT NOT NULL,
  version INTEGER NOT NULL, state TEXT NOT NULL, detail TEXT NOT NULL, started TEXT NOT NULL, ended TEXT,
  UNIQUE(day, stage, slot));
 CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, day TEXT NOT NULL, version INTEGER NOT NULL,
  kind TEXT NOT NULL, target TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL, result TEXT NOT NULL,
  created TEXT NOT NULL, UNIQUE(kind, target));
+CREATE INDEX IF NOT EXISTS actions_content ON actions(kind,json_extract(data,'$.content.id'));
 CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, action_id TEXT, kind TEXT NOT NULL, payload TEXT NOT NULL,
  state TEXT NOT NULL, worker TEXT, expires REAL NOT NULL, result TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS commands_action ON commands(action_id);
@@ -153,13 +155,17 @@ class Store:
             saved(self, kind, identity, data)
         return identity
 
-    def objects(self, kind, day=None):
-        with self.connection() as db:
-            return [{**json.loads(r["data"]), "id": r["id"]} for r in db.execute(
-                "SELECT * FROM objects WHERE kind=? AND (? IS NULL OR json_extract(data,'$.day')=?) ORDER BY created DESC",
-                (kind, day, day))]
+    def objects(self, kind, day=None, *, limit=None):
+        from .store_reads import objects
+        return objects(self, kind, day, limit=limit)
+
+    def online(self):
+        from .store_reads import online
+        return online(self)
 
     def start_run(self, day, stage, slot, version):
+        from .batch_cancellation import check
+        check(self)
         identity = uuid.uuid4().hex
         with self.connection() as db:
             changed = db.execute("INSERT OR IGNORE INTO runs VALUES (?,?,?,?,?,'running','',?,NULL)",
@@ -173,6 +179,10 @@ class Store:
 
     def finish_run(self, identity, state, detail=""):
         with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT state,detail FROM runs WHERE id=?', (identity,)).fetchone()
+            if row and row['state'] == 'cancelled':
+                state, detail = row['state'], row['detail']
             db.execute("UPDATE runs SET state=?,detail=?,ended=? WHERE id=?", (state, detail, now_iso(), identity))
         from .progress import update
         update(self, identity, state, detail)
@@ -186,6 +196,8 @@ class Store:
             update(self, self.current_run_id, "running", detail, data)
 
     def lease(self, token, ttl=1800):
+        from .batch_cancellation import recover_lease
+        recover_lease(self)
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM leases WHERE id='account'").fetchone()
@@ -197,6 +209,8 @@ class Store:
             return True
 
     def renew(self):
+        from .batch_cancellation import check
+        check(self)
         if self.lease_token is None:
             return
         with self.connection() as db:
@@ -215,6 +229,8 @@ class Store:
         action = {**action, **command_context(self)}
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
+            from .batch_cancellation import check
+            check(self, db=db)
             row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
             policy = json.loads(row["data"])
             from .readiness import web_block_reason
@@ -244,8 +260,8 @@ class Store:
             if db.execute("SELECT 1 FROM actions WHERE kind=? AND target=? AND json_extract(data,'$.account_id')=?",
                           (action["kind"], scoped_target, action["account_id"])).fetchone():
                 return None
-            if db.execute("SELECT 1 FROM actions WHERE kind=? AND state IN ('unknown','submitted','executing','queued')", (action["kind"],)).fetchone():
-                raise ValueError("同类动作仍有未核对结果，请先处理异常")
+            from .action_admission import check_pending
+            check_pending(db, action)
             count = db.execute("SELECT count(*) FROM actions WHERE day=? AND kind=? AND state!='cancelled'",
                                (day, action["kind"])).fetchone()[0]
             if count >= policy["limits"][action["kind"]]:
@@ -288,6 +304,9 @@ class Store:
             db.execute('BEGIN IMMEDIATE')
             from .readiness import web_block_reason
             from .outcomes import StageSkipped
+            from .batch_cancellation import check
+            if kind != 'verify':
+                check(self, db=db, batch=payload.get('manual_run_id'))
             blocked = web_block_reason(db)
             if blocked:
                 raise StageSkipped(blocked)
@@ -298,7 +317,7 @@ class Store:
                        (identity, action_id, kind, encoded(payload), time.time() + 120))
         return identity
 
-    def claim(self, worker, busy=False, *, takeover=None):
+    def claim(self, worker, busy=False, *, takeover=None, wake_only=False):
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute("INSERT OR REPLACE INTO workers VALUES (?,?)", (worker, time.time()))
@@ -308,14 +327,19 @@ class Store:
             policy = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
             cfg = json.loads(policy["data"])
             from .readiness import web_held
-            if busy or web_held(db) or cfg["paused"] or not cfg["enabled"]:
+            if busy or web_held(db):
                 return None
             if db.execute("SELECT 1 FROM commands WHERE state='running'").fetchone():
                 return None
             from .execution_pause import block
             only_read = block(self, db) is not None
-            row = db.execute("SELECT * FROM commands WHERE state='queued' AND (?=0 OR kind IN ('account','verify')) ORDER BY rowid LIMIT 1", (int(only_read),)).fetchone()
+            probe_only = wake_only or cfg['paused'] or not cfg['enabled']
+            row = db.execute("SELECT * FROM commands WHERE state='queued' AND (?=0 OR kind IN ('account','verify')) AND (?=0 OR (kind='account' AND action_id IS NULL AND COALESCE(json_extract(payload,'$.wake_probe'),'') != '')) ORDER BY CASE WHEN json_extract(payload,'$.wake_probe') IS NOT NULL THEN 0 ELSE 1 END,rowid LIMIT 1", (int(only_read), int(probe_only))).fetchone()
             if not row:
+                return None
+            from .batch_cancellation import payload_cancelled, cancel_commands
+            if payload_cancelled(db, row):
+                cancel_commands(db, json.loads(row['payload'])['manual_run_id'])
                 return None
             from .execution_pause import block
             if block(self, db) and row['kind'] not in {'account', 'verify'}:
@@ -330,7 +354,7 @@ class Store:
                     return None
             from .workspace_execution import claim_account
             from .browser_timing import EXECUTION_SECONDS
-            claimed = {**dict(row), 'expires': time.time() + EXECUTION_SECONDS}
+            claimed = {**dict(row), 'expires': time.time() + (180 if json.loads(row['payload']).get('wake_probe') else EXECUTION_SECONDS)}
             if not claim_account(self, db, claimed, worker):
                 return None
             if row["action_id"]:
@@ -377,11 +401,15 @@ class Store:
                 if duplicate and same(duplicate[0], result):
                     return
                 raise ValueError("任务已过期或执行者不匹配，请核对执行结果")
+            from .command_interruptions import receipt
+            from .batch_cancellation import receipt as cancellation_receipt
+            result = cancellation_receipt(db, row, result)
+            receipt(self, db, row, result)
+            if json.loads(row['payload']).get('wake_probe'):
+                result.setdefault('wake_checked_at', time.time())
             db.execute("UPDATE commands SET state='done',result=? WHERE id=?", (encoded(result), identity))
             from .workspace_execution import release_account
             release_account(self, db, identity, worker)
-            from .command_interruptions import receipt
-            receipt(self, db, row, result)
             from .browser_failures import should_pause
             if should_pause(db, row, result):
                 payload = json.loads(row["payload"])
@@ -393,7 +421,7 @@ class Store:
                 accept(db, row, result)
             if row["action_id"]:
                 state = result.get("state", "unknown")
-                if state not in {"published", "submitted", "confirmed", "failed", "unknown", "blocked"}:
+                if state not in {"published", "submitted", "confirmed", "failed", "unknown", "blocked", "cancelled"}:
                     state = "unknown"
                 if state in {"published", "confirmed"} and not result.get("evidence"):
                     state = "unknown"
@@ -418,17 +446,8 @@ class Store:
             return {**dict(row), "result": json.loads(row["result"])}
 
     def snapshot(self):
-        version, policy = self.policy()
-        with self.connection() as db:
-            tables = {name: [dict(r) for r in db.execute(f"SELECT * FROM {name} ORDER BY rowid DESC LIMIT 100")]
-                      for name in ("runs", "actions", "events")}
-            online = bool(db.execute("SELECT 1 FROM workers WHERE seen>?", (time.time() - 15,)).fetchone())
-        tables["actions"] = [{**a, "target": json.loads(a["data"])["target"]} for a in tables["actions"]]
-        if self.scope:
-            owner = {'business_id': self.scope['business_id'], 'topic_id': self.scope['id']}
-            tables = {name: [{**row, **owner} for row in rows] for name, rows in tables.items()}
-        return {"version": version, "policy": policy, "online": online, **tables,
-                **{kind: self.objects(kind)[:100] for kind in ("source", "asset", "content", "metric", "report", "task", "inbox", "brief", "block", "review")}}
+        from .store_reads import snapshot
+        return snapshot(self)
 
     def add_asset(self, filename, content, authorized):
         from plugins.plugin_storage import plugin_data_dir

@@ -89,10 +89,16 @@ def saved_result_status(run, step):
 
 def active_execution(store):
     import time
+    from plugins.operations.batch_cancellation import recover_lease
+    recover_lease(store)
     from plugins.operations.manual import LABELS
     with store.connection() as db:
-        if not db.execute("SELECT 1 FROM leases WHERE id='account' AND expires>?", (time.time(),)).fetchone():
+        lease = db.execute("SELECT token FROM leases WHERE id='account' AND expires>?", (time.time(),)).fetchone()
+        if not lease:
             return None
+        from plugins.operations.batch_cancellation import requested
+        if requested(db, lease['token']):
+            return {'message': '已请求取消，正在等待在途调用结束；不会执行后续步骤'}
         row = db.execute("SELECT id,stage,started FROM runs WHERE state='running' ORDER BY started DESC LIMIT 1").fetchone()
         if not row:
             return {'message': '已有任务占用执行通道，请等待当前任务结束'}

@@ -51,7 +51,6 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   // Union agent roster across every registered connection.
   getAgentRoster: () => ipcRenderer.invoke('hermes:agents:roster'),
   openSessionWindow: (sessionId, opts) => ipcRenderer.invoke('hermes:window:openSession', sessionId, opts),
-  openSessionInTerminal: (sessionId, opts) => ipcRenderer.invoke('hermes:window:openInTerminal', sessionId, opts),
   openWindow: (options?: DesktopProfileRoute) => ipcRenderer.invoke('hermes:window:openInstance', options),
   openBrowserWindow: tabId => ipcRenderer.invoke('hermes:window:openBrowser', tabId),
   windowRelay: {
@@ -623,6 +622,19 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
     ipcRenderer.on('hermes:connection:applied', listener)
 
     return () => ipcRenderer.removeListener('hermes:connection:applied', listener)
+  },
+  browserPower: {
+    state: owner => ipcRenderer.invoke('hermes:browser-power:state', owner),
+    begin: (entry, epoch) => ipcRenderer.invoke('hermes:browser-power:begin', entry, epoch),
+    phase: (command, epoch, phase) => ipcRenderer.invoke('hermes:browser-power:phase', command, epoch, phase),
+    finish: (command, epoch, acknowledged) => ipcRenderer.invoke('hermes:browser-power:finish', command, epoch, acknowledged),
+    acknowledged: (owner, command) => ipcRenderer.invoke('hermes:browser-power:ack', owner, command),
+    onChange: callback => {
+      const listener = (_event: Electron.IpcRendererEvent, state: Parameters<typeof callback>[0]) => callback(state)
+      ipcRenderer.on('hermes:browser-power', listener)
+
+      return () => ipcRenderer.removeListener('hermes:browser-power', listener)
+    }
   },
   onPowerResume: callback => {
     const listener = () => callback()

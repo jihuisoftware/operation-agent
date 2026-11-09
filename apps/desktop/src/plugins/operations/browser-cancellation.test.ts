@@ -18,6 +18,28 @@ function fixture() {
 
 afterEach(() => { document.body.innerHTML = ''; vi.useRealTimers() })
 
+it('cancels only the selected command and fences a late page result', async () => {
+  vi.useFakeTimers()
+  const { execution, guest } = fixture()
+  let finish!: () => void
+  const submit = vi.fn()
+  const work = execution.wait(() => new Promise<void>(resolve => { finish = resolve }), 10000, true).then(submit)
+  const stopped = expect(work).rejects.toMatchObject({ code: 'BATCH_CANCELLED' })
+  await vi.advanceTimersByTimeAsync(1)
+  execution.cancel(['other-command'])
+  expect(execution.controller.signal.aborted).toBe(false)
+  execution.cancel(['cancel'])
+  await stopped
+  finish()
+  await vi.advanceTimersByTimeAsync(1)
+  expect(submit).not.toHaveBeenCalled()
+  expect(guest.isConnected).toBe(false)
+  const afterSubmit = fixture().execution
+  await afterSubmit.submission()
+  afterSubmit.cancel(['cancel'])
+  expect(afterSubmit.failure(afterSubmit.controller.signal.reason)).toMatchObject({ state: 'unknown', submitted: true })
+})
+
 it('bounds a navigation IPC that never acknowledges and quarantines its guest', async () => {
   vi.useFakeTimers()
   const f = fixture()

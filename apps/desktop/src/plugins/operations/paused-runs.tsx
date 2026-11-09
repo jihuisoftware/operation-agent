@@ -1,11 +1,15 @@
 import { Button, type PluginContext } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 
-interface PausedRun {
+import { type PauseOrigin, PauseOriginLink } from './pause-details'
+
+interface PausedRun extends PauseOrigin {
   id: string
   revision: number
   error: string
   day: string
+  can_resume?: boolean
+  resume_reason?: string
 }
 
 export function PausedRuns({ ctx }: { ctx: PluginContext }) {
@@ -53,7 +57,9 @@ export function PausedRuns({ ctx }: { ctx: PluginContext }) {
     {(error || loadError) && <p className="text-destructive" role="alert">{error || loadError}</p>}
     {runs.map(run => <div className="flex flex-wrap items-center gap-2" key={run.id}>
       <p>{run.day} · 已暂停：{run.error}</p>
-      <Button disabled={busy} onClick={() => void resume(run)} variant="outline">检查账号并继续未完成步骤</Button>
+      <PauseOriginLink pause={run} />
+      <Button disabled={busy || run.can_resume === false} onClick={() => void resume(run)} variant="outline">检查账号并继续未完成步骤</Button>
+      {run.can_resume === false && <p>{run.resume_reason}</p>}
     </div>)}
   </section>
 }

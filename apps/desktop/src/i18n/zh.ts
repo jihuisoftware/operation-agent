@@ -3139,7 +3139,6 @@ const zhBase = {
       archive: '归档',
       unarchive: '取消归档',
       newWindow: '新窗口',
-      openInTerminal: '在终端中打开',
       hideTabBar: '隐藏标签栏',
       openInNewTab: '在新标签页中打开',
       openInSplit: '在分屏中打开',

@@ -105,7 +105,6 @@ CASES = {
     ),
     "uv.lock → python": (["uv.lock"], _lanes(python=True, uv_lock=True, docker=True, nix=True, e2e_upgrade=True)),
     "ts package → frontend": (["apps/desktop/src/app.tsx"], _lanes(frontend=True)),
-    "ui-tui → frontend": (["ui-tui/src/entry.ts"], _lanes(frontend=True)),
     # Lockfile bump shifts every TS package's tree, but not the Python suite.
     "root lockfile → frontend, not python": (["package-lock.json"], _lanes(frontend=True, npm_lock=True, docker=True, nix=True)),
     "nested lockfile → npm_lock": (["website/package-lock.json"], _lanes(site=True, npm_lock=True)),
@@ -277,10 +276,7 @@ CASES = {
         ["eslint.config.shared.mjs"],
         _lanes(python=True),
     ),
-    "ui-tui eslint config → frontend": (
-        ["ui-tui/eslint.config.mjs"],
-        _lanes(frontend=True),
-    ),
+
     "shared package eslint config → frontend": (
         ["apps/shared/eslint.config.mjs"],
         _lanes(frontend=True),
@@ -498,7 +494,6 @@ _UPDATE_PATH_FILES = (
     "gateway/status.py",
     "gateway/control_socket.py",
     "gateway/code_skew.py",
-    "scripts/desktop-update/windows.ps1",
     "scripts/desktop-update/posix.sh",
 )
 
@@ -570,7 +565,6 @@ def _iter_if_expressions(job: object):
 _REAL_UPDATE_LANES = (
     ("ci.yaml", "tests", "tests.yml", "e2e_upgrade"),
     ("ci.yaml", "tests-os", "tests-os.yml", "e2e_upgrade"),
-    ("tests-os.yml", "install-update-e2e", "windows-install-update-e2e.yml", "e2e_upgrade"),
     # Not an update suite, but the same contract: the real SSH/Docker backend lane.
     ("ci.yaml", "remote-backends", "remote-backends.yml", "remote_backends"),
     # Catalog-only PRs skip the suite, so their catalog tests must gate the merge.
@@ -611,13 +605,6 @@ def test_remote_backends_lane_runs_test_files_that_exist_and_start_it():
     assert "scripts/run_tests.sh --fail-on-skip" in text
 
 
-def test_windows_venv_e2e_runs_only_test_files_that_exist():
-    """``run_tests.sh`` drops a missing path (or a ``::node`` selector) without
-    a word, so a stale entry silently stops running on every wine2e push."""
-    text = (_REPO / ".github/workflows/windows-venv-e2e.yml").read_text(encoding="utf-8-sig")
-    paths = re.findall(r"(tests/[\w/.:-]+)", text)
-    assert paths
-    assert [p for p in paths if "::" in p or not (_REPO / p).is_file()] == []
 
 
 def _write_event(tmp_path, number: int | None = 88442) -> Path:

@@ -79,6 +79,8 @@ def observation_lines(execution):
     for item in observations:
         lines.extend([f"- 暂停记录：{item['id']}", f"  历史暂停原因：{item.get('historical_error', item['error'])}",
                       f"  暂停时间：{item.get('paused_at', '未记录')}", f"  当前说明：{item['error']}"])
+        if item.get('cause_run_id'):
+            lines.append(f"  原始任务：{item['cause_run_id']}（{item.get('cause_stage', '网页任务')}）")
         if item.get('cause_at'):
             cause = datetime.fromtimestamp(item['cause_at'], UTC).isoformat()
             lines.append(f'  原始失效观察时间：{cause}')

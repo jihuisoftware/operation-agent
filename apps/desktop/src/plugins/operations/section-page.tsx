@@ -2,11 +2,13 @@ import { Button, Codicon, host, type PluginContext, useValue } from '@hermes/plu
 import { lazy, Suspense, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 
+const WritingList = lazy(() => import('./writing/list').then(m => ({ default: m.WritingList })))
 const SourceLibrary = lazy(() => import('./source-library').then(m => ({ default: m.SourceLibrary })))
 const OrganizedLibrary = lazy(() => import('./organized-library').then(m => ({ default: m.OrganizedLibrary })))
 const TopicsPanel = lazy(() => import('./topics-panel').then(m => ({ default: m.TopicsPanel })))
 const AnalysisPage = lazy(() => import('./analysis-page').then(m => ({ default: m.AnalysisPage })))
 const LibraryPage = lazy(() => import('./library-page').then(m => ({ default: m.LibraryPage })))
+const ContentLibrary = lazy(() => import('./content-library').then(m => ({ default: m.ContentLibrary })))
 const BusinessPage = lazy(() => import('./business-page').then(m => ({ default: m.BusinessPage })))
 export const sections = {
   materials: {
@@ -32,6 +34,7 @@ export const sections = {
     icon: 'file-media',
     tabs: [
       ['drafts', '待审核'],
+      ['writing', '写作草稿'],
       ['pending', '已排期'],
       ['published', '发布记录'],
       ['topics', '选题']
@@ -86,6 +89,8 @@ export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Sec
                 const next = new URLSearchParams(previous)
                 next.set('tab', key)
 
+                for (const field of ['record', 'selected', 'action', 'before']) { next.delete(field) }
+
                 return next
               })
             }
@@ -127,6 +132,8 @@ export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Sec
             />
           ) : tab === 'topics' ? (
             <TopicsPanel ctx={bound} />
+          ) : tab === 'writing' ? (<WritingList ctx={bound} />) : section === 'content' ? (
+            <ContentLibrary ctx={bound} key={params.toString()} record={params.get('record') || ''} tab={tab} />
           ) : tab === 'business' ? (
             <BusinessPage ctx={bound} />
           ) : (

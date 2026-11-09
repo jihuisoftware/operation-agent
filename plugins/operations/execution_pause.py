@@ -5,7 +5,7 @@ import time
 from .policy import local_day, now_iso
 from .store import encoded
 
-CODES = {'AUTH_REQUIRED', 'VERIFICATION_REQUIRED', 'ACCOUNT_CHANGED', 'BROWSER_UNAVAILABLE', 'COMMAND_EXPIRED'}
+CODES = {'AUTH_REQUIRED', 'VERIFICATION_REQUIRED', 'ACCOUNT_CHANGED', 'BROWSER_UNAVAILABLE', 'COMMAND_EXPIRED', 'SYSTEM_SUSPENDED'}
 
 
 def needs_account(policy, stage=None):
@@ -54,6 +54,14 @@ def set_block(store, db, result):
 
 def clear_block(store, db):
     key = 'execution-block:' + account_key(store, db)
+    previous = block(store, db)
+    if previous:
+        clearance = {'at': time.time(), 'cause_command_id': previous.get('cause_command_id')}
+        clearance_key = 'execution-clear:' + account_key(store, db)
+        if store.workspace:
+            db.execute('INSERT OR REPLACE INTO directory.preferences VALUES (?,?)', (clearance_key, encoded(clearance)))
+        else:
+            db.execute("INSERT OR REPLACE INTO objects VALUES (?, 'execution_clear', ?, ?)", (clearance_key, encoded(clearance), now_iso()))
     if store.workspace:
         db.execute('DELETE FROM directory.preferences WHERE id=?', (key,))
     else:
@@ -90,6 +98,11 @@ def save(store, db, key, result, payload=None):
     payload = payload or {}
     prior = load(store, key, db)
     if prior and prior['state'] == 'paused':
+        if result.get('error_code') == 'SYSTEM_SUSPENDED' and prior['error_code'] == 'COMMAND_EXPIRED':
+            from .pause_origin import FIELDS
+            prior.update({k: result[k] for k in FIELDS if k in result})
+            prior.update(error_code=result['error_code'], error=result['error'])
+            db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(prior), 'execution-pause:' + key))
         return prior
     settings = db.execute('SELECT version,data FROM settings WHERE id=1').fetchone()
     policy = json.loads(settings['data'])
@@ -104,6 +117,9 @@ def save(store, db, key, result, payload=None):
             'run_id': run_id, 'stage': run['stage'] if run else None, 'slot': run['slot'] if run else None,
             'error_code': result['error_code'], 'error': result['error'], 'paused_at': now_iso(),
             **({'cause_at': result['cause_at']} if 'cause_at' in result else {})}
+    from .pause_origin import FIELDS
+    data.update({k: result[k] for k in FIELDS if k in result})
+    data['inherited'] = bool(result.get('cause_run_id') and result['cause_run_id'] != run_id)
     from .resume_artifacts import capture
     batch = key.removeprefix('manual:') if key.startswith(('debug:', 'manual:', 'quick:')) else None
     data['artifacts'] = capture(store, db, data['day'], policy, (prior or {}).get('artifacts'), batch=batch)
@@ -116,7 +132,8 @@ def pause(store, result, *, db=None, payload=None):
         with store.connection() as connection:
             connection.execute('BEGIN IMMEDIATE')
             return pause(store, result, db=connection, payload=payload)
-    result = set_block(store, db, result)
+    from .pause_origin import enrich
+    result = set_block(store, db, enrich(store, db, result, payload))
     key = identity(store, payload)
     saved = save(store, db, key, result, payload)
     if key:
@@ -136,13 +153,17 @@ def cancel_pending(store, db, key, result):
 
 
 def guard(store, *, web=False, db=None):
+    from .batch_cancellation import check
+    check(store, db=db)
     paused = load(store, identity(store), db)
     reason = paused if paused and paused['state'] == 'paused' else None
     if web or (store.run_options or {}).get('account_required') or getattr(store, 'account_required', False):
         reason = block(store, db) or reason
     if reason:
         propagate(store, reason, db)
-        raise ExecutionPaused(reason)
+        from .execution_pause_view import describe
+        local = load(store, identity(store), db) or reason
+        raise ExecutionPaused({**reason, 'error': describe(store, local, db)['error']})
 
 
 def propagate(store, reason, db=None):

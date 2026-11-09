@@ -2,7 +2,7 @@
 import hashlib
 import json
 
-from .policy import now_iso
+from .policy import DEFAULT, now_iso
 from .store import encoded
 
 
@@ -39,7 +39,8 @@ def reserve(store, policy, day, url):
     identity = 'collection-attempt:' + hashlib.sha256(f'{day}:{url}'.encode()).hexdigest()
     with store.connection() as db:
         db.execute('BEGIN IMMEDIATE')
-        current = json.loads(db.execute('SELECT data FROM settings WHERE id=1').fetchone()[0])
+        # Match Store.policy(): defaults added by an upgrade are not user rule edits.
+        current = {**DEFAULT, **json.loads(db.execute('SELECT data FROM settings WHERE id=1').fetchone()[0])}
         if current != policy:
             raise ValueError('运营规则变更，停止采集')
         row = db.execute('SELECT data FROM objects WHERE id=?', (identity,)).fetchone()

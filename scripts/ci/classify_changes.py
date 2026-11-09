@@ -90,7 +90,7 @@ import os
 import subprocess
 import sys
 
-_FRONTEND = ("ui-tui/", "apps/")  # TS typecheck-matrix packages
+_FRONTEND = ("apps/",)  # TS typecheck-matrix packages
 # Shipped page outside those packages, exercised by the desktop Electron suite.
 _FRONTEND_FILES = {"scripts/desktop-update/ui.html"}
 _ROOT_NPM = {"package.json", "package-lock.json"}  # shifts every package's tree
@@ -223,7 +223,6 @@ _PY_TEST_HARNESS = (
     "tests/conftest.py",
     "tests/_fixtures/",
     "tests/fakes/",
-    "tests/e2e/conftest.py",
     "tests/e2e/core/_",
     "scripts/run_tests.sh",
     "scripts/run_tests_parallel.py",

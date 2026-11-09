@@ -264,6 +264,8 @@ def record_token_usage(usage: Any, *, model: str, provider: str, base_url: Optio
     if not usage:
         return
     from types import SimpleNamespace
+    from plugins.image_gen.usage_receipts import record
+    record(usage, model=model, provider=provider)
 
     from agent.aux_accounting import record_aux_usage
 

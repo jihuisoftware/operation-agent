@@ -22,10 +22,8 @@ def validate(store, data, body, db):
         raise ValueError('账号关联已变化，不能继续旧批次')
     if not policy['enabled'] or policy['paused']:
         raise ValueError('请先解除计划暂停')
-    if db.execute("SELECT 1 FROM actions WHERE state IN ('unknown','submitted','executing','queued')").fetchone():
-        raise ValueError('仍有未完成或结果未知的外部动作，请先核对')
-    if store.workspace and db.execute("SELECT 1 FROM directory.account_actions WHERE account_id=? AND state IN ('unknown','submitted','executing','queued')", (account_key(store, db),)).fetchone():
-        raise ValueError('共用账号仍有待核对动作，请先处理')
+    from .action_admission import check_resume
+    check_resume(db, data)
     return policy
 
 
@@ -202,4 +200,13 @@ def replay(store, key, body):
 def paused_runs(store):
     recover(store)
     from .execution_pause_view import describe
-    return [{**describe(store, row), 'execution_block': block(store)} for row in store.objects('execution_pause') if row['state'] == 'paused']
+    with store.connection() as db:
+        rows = [json.loads(row[0]) for row in db.execute("SELECT data FROM objects WHERE kind='execution_pause'").fetchall()]
+    result = []
+    for row in rows:
+        if row['state'] != 'paused':
+            continue
+        valid = row['day'] == local_day(store.policy()[1]) and row['version'] == store.policy()[0]
+        result.append({**describe(store, row), 'execution_block': block(store), 'can_resume': valid,
+                       'resume_reason': '' if valid else '日期或规则已变化，请按当前条件重新发起'})
+    return result

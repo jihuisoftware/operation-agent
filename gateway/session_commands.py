@@ -122,10 +122,10 @@ _REFUSED_ARGUMENTS = {
 REFUSAL_HINTS = {
     'export': 'Run `hermes profile export [name] -o <file>` in a terminal.',
     'import': 'Run `hermes profile import <archive> [--name <name>]` in a terminal.',
-    'snapshot': 'Run `hermes backup --quick` in a terminal (restore: `hermes --cli`, then /snapshot restore).',
-    'handoff': 'Hand off from the classic CLI: `hermes --cli --resume <session>`, then /handoff <platform>.',
-    'hatch': 'Generate a pet from the classic CLI (`hermes --cli`, then /hatch), or use /pet to pick one.',
-    'worktree': 'Start in a fresh worktree with `hermes -w`, or use the classic CLI (`hermes --cli`).',
+    'snapshot': '可使用 `hermes backup --quick` 备份；此版本不提供终端交互式恢复入口。',
+    'handoff': '此桌面版本不提供消息平台会话转交。',
+    'hatch': '此桌面版本不提供终端宠物生成入口。',
+    'worktree': '单次任务可使用 `hermes -w -q "任务内容"`；桌面会话请在目标工作区创建。',
     'palette': 'Type / to search commands (the composer completes and filters them).',
 }
 

@@ -20,7 +20,7 @@ def manuscript(tmp_path, monkeypatch):
     (tmp_path / 'config.yaml').write_text('development:\n  operations_debug: true\n')
     store = Store()
     policy = deepcopy(DEFAULT)
-    policy.update(enabled=True, topic='步行路线', goal='可核对的路线指南', account_id='me')
+    policy.update(image_mode='basic', enabled=True, topic='步行路线', goal='可核对的路线指南', account_id='me')
     policy['modules'].update(content=True, topics=True, organize=True, publish=True)
     policy['allowed']['publish'] = False
     store.configure(policy, 0)
