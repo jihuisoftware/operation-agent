@@ -9,10 +9,11 @@ interface Props {
   login: () => void
   hide: () => void
   reopen: () => void
+  back: () => void
   release?: () => void
 }
 
-export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen, release, platformName = '小红书' }: Props) {
+export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen, back, release, platformName = '小红书' }: Props) {
   return (
     <>
       <header className="shrink-0 border-b border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)">
@@ -27,6 +28,12 @@ export function BrowserToolbar({ status, loading, error, takeOver, login, hide, 
           </Button>
         </div>
         <div className="flex flex-wrap gap-2 px-3 pb-2">
+          <Button onClick={back} size="sm" variant="outline">
+            返回上一页
+          </Button>
+          <Button onClick={reopen} size="sm" variant="ghost">
+            返回首页
+          </Button>
           <Button onClick={takeOver} size="sm" variant="outline">
             人工接管网页
           </Button>

@@ -1,6 +1,7 @@
 import type { CronBlueprintOwner } from '@hermes/plugin-sdk'
 import { type RefObject, useCallback, useEffect, useState } from 'react'
 
+import { installPublishEntry } from './publish-entry'
 import type { Guest } from './types'
 
 export const OPERATIONS_HOME = 'https://www.xiaohongshu.com/explore'
@@ -19,6 +20,13 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
 
     const ready = () => { setLoading(false) }
 
+    const documentReady = () => {
+      ready()
+      void guest.executeJavaScript(`(${installPublishEntry.toString()})()`).catch(reason => {
+        if (!disposed) { setError(`无法连接网页发布入口：${String(reason)}`) }
+      })
+    }
+
     const failed = (event: Event) => {
       const detail = event as Event & { isMainFrame: boolean; errorCode: number; errorDescription: string }
 
@@ -29,7 +37,7 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
 
     const crashed = () => { setLoading(false); setError('网页进程已退出，请重新打开网页；已保存的登录数据仍保留。') }
     guest.addEventListener('did-start-loading', start)
-    guest.addEventListener('dom-ready', ready)
+    guest.addEventListener('dom-ready', documentReady)
     guest.addEventListener('did-stop-loading', ready)
     guest.addEventListener('did-navigate-in-page', ready)
     guest.addEventListener('did-fail-load', failed)
@@ -51,7 +59,7 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
     return () => {
       disposed = true
       guest.removeEventListener('did-start-loading', start)
-      guest.removeEventListener('dom-ready', ready)
+      guest.removeEventListener('dom-ready', documentReady)
       guest.removeEventListener('did-stop-loading', ready)
       guest.removeEventListener('did-navigate-in-page', ready)
       guest.removeEventListener('did-fail-load', failed)
@@ -70,5 +78,19 @@ export function useOperationsGuest(owner: CronBlueprintOwner & { account_id?: st
     }
   }
 
-  return { guest, loading, error, reopen, replace }
+  const back = async () => {
+    setError('')
+
+    try {
+      if (guest.canGoBack()) {
+        guest.goBack()
+      } else {
+        await reopen()
+      }
+    } catch (reason) {
+      setError(`无法返回上一页：${String(reason)}`)
+    }
+  }
+
+  return { guest, loading, error, reopen, replace, back }
 }

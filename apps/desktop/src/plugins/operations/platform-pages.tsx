@@ -113,7 +113,7 @@ interface PlatformLoginPageProps {
 export function PlatformLoginPage({ owner, platform, visible, worker, api, takeOver, release, register }: PlatformLoginPageProps) {
   const page = LOGIN_PAGES.find(p => p.id === platform)!
   const container = useRef<HTMLDivElement>(null)
-  const { guest, loading, error, reopen } = useOperationsGuest(owner, container, page.url)
+  const { guest, loading, error, reopen, back } = useOperationsGuest(owner, container, page.url)
   const [status, setStatus] = useState('登录状态会自动检查；切换平台后仍保留此页面')
   useEffect(() => register(platform, guest), [register, platform, guest])
   useLoginObservation({ api, guest, worker, platform, onStatus: setStatus })
@@ -122,6 +122,7 @@ export function PlatformLoginPage({ owner, platform, visible, worker, api, takeO
 
   return <PlatformPageFrame name={page.name} visible={visible}>
     <BrowserToolbar
+      back={() => run(async () => { await takeOver(); await back() })}
       error={error}
       hide={() => $showOperationsBrowser.set(false)}
       loading={loading}
