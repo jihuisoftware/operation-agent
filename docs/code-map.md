@@ -4,6 +4,7 @@
 
 | 功能或问题 | 首先定位 | 需要跨层时再查 | 验证入口 |
 | --- | --- | --- | --- |
+| 研发评测、专项复现与历史结果 | [评测入口](../evals/README.md)、[完整索引](../evals/CATALOG.md) | 公共夹具归 `tests/` 对应区域；评测自身测试归 `tests/evals/`；历史数据归 `evals/archive/` | `scripts/run_tests.sh tests/evals/` 及入口表中的产品回归 |
 | 可选 Nix 开发与 macOS 安装 | `flake.nix`、`nix/packages.nix`、`nix/devShell.nix` | `nix/homeManagerModules.nix` 仅 macOS launchd；无 messaging 包、Linux/NixOS/systemd 部署 | `nix flake check`（Apple Silicon macOS）；`tests/ci/test_stable_release_graph.py` |
 | 桌面发布与退役镜像链路 | `scripts/releases/lanes.py`、`sequencer.py`、`stable.py` | `.github/workflows/stable-release*.yml`；不再构建/发布 Docker 镜像，历史镜像回执仍可读取；容器终端后端保留 | `test_release_lanes.py`、`test_release_sequencer.py`、`test_stable_release.py` |
 | 仅桌面交付、后台与打包边界 | [Desktop](../apps/desktop/AGENTS.md)、[共享RPC后端](../tui_gateway/AGENTS.md)、[构建器](../scripts/bundles/desktop.py) | `ui-tui`及终端聊天入口已移除；`hermes_cli`保留管理和单次请求，完整包只装配Desktop与共享后台 | `test_desktop_only_entrypoints.py`、`test_agent_build.py`、`test_bundle_native.py`；Desktop类型检查与构建 |

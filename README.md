@@ -417,6 +417,7 @@ ZIP 分发的是其中已经签名并附加票据的 `.app`，不要对 ZIP 执�
 | [产品与运行参考](docs/operations-reference.md) | 查功能细节、额度、执行边界、调试与完整启动命令 |
 | [运营插件说明](plugins/operations/README.md) | 查运营规则、数据保存、接口和恢复方式 |
 | [功能代码导航](docs/code-map.md) | 按功能定位实现与测试 |
+| [研发评测入口](evals/README.md) · [专项索引](evals/CATALOG.md) | 能力/成本评测、运行条件与历史结果边界 |
 | [开发工作流](docs/development-workflow.md) · [当前交接](docs/dev-handoff.md) | 继续已有任务、核对改动与验证范围 |
 | [Desktop 文档](apps/desktop/README.md) · [构建指南](apps/desktop/BUILDING.md) | 桌面连接、排错、打包与更新 |
 | [开发约束](AGENTS.md) · [贡献指南](CONTRIBUTING.md) · [测试指南](tests/AGENTS.md) | 开始修改代码前查阅 |

@@ -65,5 +65,4 @@ Rules of engagement (from hermesbench discipline):
 results/<label>/<model_slug>/rep<N>.json
 ```
 
-`results/` is gitignored except for `SUMMARY.md`, which records the
-verdict + numbers for each feature evaluated.
+New `results/` are local outputs. The [historical verdict](../archive/readtool/results/SUMMARY.md) is archived and does not validate the current revision.

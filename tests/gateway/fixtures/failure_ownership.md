@@ -1,3 +1,5 @@
+> 使用项目 PM 环境。此探针已迁入正式测试夹具；下文数值是历史记录，不代表本轮当前版本通过。正式运行入口：`scripts/run_tests.sh tests/gateway/test_failure_writer_ownership.py`。
+
 # Gateway failure-writer ownership
 
 Offline integration: `_handle_message` → session preparation and lease → production
@@ -5,7 +7,7 @@ Offline integration: `_handle_message` → session preparation and lease → pro
 gateway persistence/delivery → exception fallback.
 
 ```sh
-.venv/bin/python evals/gateway_failure_ownership/probe.py "$PWD" /tmp/ownership.json
+python tests/gateway/fixtures/failure_ownership_probe.py "$PWD" /private/tmp/ownership.json
 scripts/run_tests.sh -j 1 tests/gateway/test_failure_writer_ownership.py
 ```
 

@@ -5,7 +5,7 @@ tool_search bridge). Runs REAL in-process `AIAgent`s from two pinned
 checkouts and grades task outcomes programmatically — accuracy, api turns,
 tokens, wall, bridge-call counts — across any set of models.
 
-Original verdict + full numbers: `results/SUMMARY.md` and the PR #97979 body
+Original verdict + full numbers: [archived verdict](../archive/core_tool_deferral/results/SUMMARY.md) and the PR #97979 body
 (288 runs; gpt-5.6-terra / glm-5.3-flash / qwen3.8-27b).
 
 ## Layout
@@ -72,5 +72,4 @@ orchestrator's own); `ABDEFER_RESULTS` overrides the results root.
   regression.
 - Audit anomalous cells from `*.transcript.json` before publishing.
 
-`results/` is gitignored except SUMMARY.md — rep JSONs are rebuildable,
-verdicts are the artifact.
+New `results/` are local outputs. The previous verdict is archived; it is not current acceptance evidence.

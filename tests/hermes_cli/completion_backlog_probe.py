@@ -1,6 +1,6 @@
 """Local I/O probe for completion batching, not a hosted-model or native UI test.
 
-Run with the repo's Python: evals/completion_backlog_probe.py REPO OUTPUT.json.
+Run with the repo's Python: tests/hermes_cli/completion_backlog_probe.py REPO OUTPUT.json.
 Real shell children feed ProcessRegistry; production CLI/poller/post-turn routing
 feeds a loopback HTTP turn sink. The sink replaces chat/_run_prompt_submit, NOT
 ownership, consumption, queue draining, batching, or formatting.

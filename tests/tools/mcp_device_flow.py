@@ -1,6 +1,6 @@
 """Local RFC 8628 wire fixture; no external credentials or provider claims.
 
-Run: python evals/mcp_device_flow.py --repo /path/to/checkout
+Run: python tests/tools/mcp_device_flow.py --repo /path/to/checkout
 """
 from __future__ import annotations
 

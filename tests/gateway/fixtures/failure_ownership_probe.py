@@ -158,7 +158,7 @@ class ControlledAgent(AIAgent):
     def __init__(self, *args, **kwargs):
         if fault == "foreign-writer":
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).with_name("foreign_writer.py")),
+                [sys.executable, str(Path(__file__).with_name("failure_foreign_writer.py")),
                  str(ROOT), str(HOME / "state.db"), sid],
                 capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=20,
                 check=False,

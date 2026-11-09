@@ -1,5 +1,5 @@
 """Completion backlogs preserve results without multiplying autonomous turns."""
-from evals.completion_backlog_probe import probe
+from tests.hermes_cli.completion_backlog_probe import probe
 
 
 def test_ready_completions_share_one_turn_across_interactive_routes(tmp_path):

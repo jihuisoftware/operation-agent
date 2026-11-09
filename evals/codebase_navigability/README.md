@@ -30,10 +30,9 @@ numbers. Everything here is offline and deterministic; no model calls.
 ## Usage
 
 ```bash
-# Independent benchmark environment only — never Hermes's selected environment.
-uv venv /tmp/hermes-navigability-bench
-source /tmp/hermes-navigability-bench/bin/activate
-uv pip install tiktoken radon
+# Use an independent benchmark environment with tiktoken and radon available.
+# Follow the repository PM workflow; never mutate the selected Hermes runtime.
+# This environment recipe has not been revalidated for the current revision.
 
 # 1 + 2: pass two checkouts (git worktree add is the easy way to get the baseline)
 git worktree add /tmp/base origin/main

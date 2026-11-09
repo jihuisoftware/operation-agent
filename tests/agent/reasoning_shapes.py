@@ -1,6 +1,6 @@
 """Local HTTP/SDK reasoning-shape probe; no vendor inference or credentials.
 
-Run: python evals/providers/reasoning_shapes.py --output reasoning.json
+Run: python tests/agent/reasoning_shapes.py --output reasoning.json
 Run the same file in a fresh interpreter on base and fix checkouts for A/B.
 """
 from __future__ import annotations

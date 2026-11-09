@@ -26,4 +26,4 @@ Evidence paths are relative to the receipt directory. Supply a full report with 
 
 Repeat against the fixed checkout with a different output path. A descriptor pass is **not** proof of an authenticated API handshake, session execution, worker ownership, or native Windows startup. The integrated bootstrap is expected to pass it (`tests/gateway/test_normal_runtime_boot.py` asserts the same `ready` descriptor from the real control socket); a failure is a regression, so retain it rather than weakening the assertion.
 
-The unified `run.py` driver is not implemented yet. Existing private native and subprocess probes have different receipt formats; do not rename them or manufacture a full report to obtain a pass. Test fixtures in `test_shared_gateway_harness.py` exercise the checker only and are not acceptance evidence.
+The unified `run.py` driver is not implemented yet. Existing private native and subprocess probes have different receipt formats; do not rename them or manufacture a full report to obtain a pass. Test fixtures in `tests/evals/test_shared_gateway_harness.py` exercise the checker only and are not acceptance evidence.

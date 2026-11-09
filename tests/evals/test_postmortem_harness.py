@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-EVALS = Path(__file__).resolve().parents[2]
+EVALS = Path(__file__).resolve().parents[2] / "evals"
 
 
 def _mk_db(path: Path) -> None:

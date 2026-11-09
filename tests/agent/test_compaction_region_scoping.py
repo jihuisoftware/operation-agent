@@ -8,12 +8,9 @@ modes, and asserts the lean deterministic sections (anchors, verbatim users)
 also carry only middle-region content.
 """
 import json
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
+import pytest
 
 from agent.context_compressor import ContextCompressor
 
@@ -45,7 +42,8 @@ def _mk_transcript():
     return msgs
 
 
-def run_mode(tail_mode: str):
+@pytest.mark.parametrize("tail_mode", ["legacy", "lean"])
+def test_summarizer_only_receives_compacted_region(tail_mode: str):
     captured = []
 
     def fake_call_llm(messages=None, **kw):
@@ -91,8 +89,3 @@ def run_mode(tail_mode: str):
     print(f"  {tail_mode}: OK ({len(captured)} summarizer call(s), "
           f"{len(out)} msgs out)")
 
-
-if __name__ == "__main__":
-    for mode in ("legacy", "lean"):
-        run_mode(mode)
-    print("scoping tripwire: ALL PASS")

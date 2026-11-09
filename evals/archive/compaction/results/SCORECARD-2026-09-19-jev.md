@@ -111,7 +111,7 @@ coverage on these three banks before touching anything else.
 
 `scripts/jev_cycles.py` feeds a lineage chronologically and compacts with Jev (plugin
 defaults) every time the estimate crosses the threshold; 500K ≈ our 1M-window posture, 160K
-≈ a 200K-window host. Raw JSON per run in `results/jev-cycles-2026-09-19/`. Jev spend for all
+≈ a 200K-window host. Raw JSON per run in `jev-cycles-2026-09-19/`. Jev spend for all
 six runs: $0.60.
 
 | run | cycles | raw session consumed | freed per cycle | text floor | end state |

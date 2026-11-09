@@ -1,36 +1,21 @@
-# Native Electron local-gateway ticket probe
+# macOS 原生 Gateway 票据探针
 
-Run from repository root on the actual target OS:
+从仓库根目录运行，先按根 [开发规则](../../AGENTS.md) 使用 PM 准备环境，再安装锁定的前端依赖。`HERMES_PYTHON` 应指向完整项目环境的解释器，不要解析符号链接到缺少依赖的基础 Python。
 
 ```sh
-uv sync --locked --python 3.11 --extra dev
 npm ci
-uv run --no-sync python evals/desktop_gateway_ticket_native/run.py --output native-ticket-results
+python evals/desktop_gateway_ticket_native/run.py --python "$HERMES_PYTHON" --output /private/tmp/native-ticket-results
+python evals/desktop_gateway_ticket_native/run_multiplex.py --python "$HERMES_PYTHON" --output /private/tmp/native-multiplex-results
 ```
 
-Do not use `--ignore-scripts` or `ELECTRON_SKIP_BINARY_DOWNLOAD`: Electron's native binary is required. The driver resolves Electron workspace-local first through Node's normal resolution. An existing native binary can be supplied with `--electron /absolute/path/to/electron` (on macOS, the app bundle's `Contents/MacOS/Electron`; on Windows, `electron.exe`). `--python` may select an existing repo-compatible venv launcher. Do not resolve the launcher's symlink to its base interpreter.
+需要真实 macOS Electron 二进制；如自动发现失败，用 `--electron /absolute/path/to/Electron.app/Contents/MacOS/Electron`。不要跳过 npm 安装脚本或 Electron 下载。准备环境可能访问软件源。
 
-`build.mjs` uses the locked esbuild to bundle `electron-main.ts` plus the actual production `local-gateway.ts` and `local-gateway-python.ts`. It runs in **Electron main** (`process.type === 'browser'` and a real `process.versions.electron`), not Node with a forged platform. The Windows callback uses production `mintGatewayTicketWithPython`; POSIX retains the production Unix socket implementation. HTTP requests call production `nativeGatewayHttpHeaders`, and WS requests call production `mintLocalGatewayTicket`.
+运行时使用临时 HOME/HERMES_HOME、普通 Gateway 子进程和本地模拟推理，不调用付费模型；不安装后台服务。清理只针对本次拥有的进程。`build.mjs` 编译真实 `local-gateway.ts` 与 Python 票据桥，运行于 Electron main，不以 Node 或伪造平台代替。
 
-The driver launches two ordinary `python -m gateway.run` processes, using temporary HOME/USERPROFILE/HERMES_HOME and an allowlisted child environment without provider credentials. No service installation/start commands, live user profiles, model requests, or production patches are used. The sibling profile has its own live control listener. Daemons and owned descendants are terminated before their temporary state is deleted. Linux uses actual Electron's headless Ozone backend (no visible desktop required).
+- `run.py`：HTTP/WS 一次性票据、重放拒绝、错误实例/Profile 拒绝，以及负例后的正常请求。
+- `run_multiplex.py`：一个 Gateway 服务多个 Profile，验证连接发现、冷 Profile 会话变更及跨 Profile 拒绝。
+- 输出：指定目录中的 `receipt.json` 和进程日志；票据不应写入回执。
 
-Assertions:
-- Config GET returns 200; replaying the same native HTTP grant returns 401/403.
-- WS `runtime.describe` reports the exact discovered instance/profile/epoch; a second handshake with the same ticket returns 401/403.
-- Wrong instance and live sibling profile/original-instance combinations fail to mint for both purposes.
-- A freshly minted HTTP grant cannot select the sibling config (403).
-- Fresh HTTP succeeds after the negative checks, proving listener survival across repeated clients.
+这里只证明已执行的原生 main 连接面，不覆盖完整 renderer、preload 或应用启动 UI。旧 Windows/Linux 分支不是当前交付范围，也不能用别的平台运行替代 macOS 证据。
 
-`receipt.json`, `electron.log`, and two daemon logs are written to the requested output directory. Tickets are never printed or retained in these receipts. This is the native main bootstrap surface, **not** full Desktop renderer/preload/startup UI coverage.
-
-## Temporary native CI
-
-`workflow.yml` is deliberately outside `.github`. The parent can copy it to `.github/workflows/native-ticket-temp.yml` on an `e2e/native-ticket-*` branch. Its push trigger runs actual `windows-latest` and `macos-latest` jobs; dispatch on a new nondefault workflow alone is insufficient. It uses `uv sync --locked` and root `npm ci`, uploads per-OS receipts, and needs no secrets. Never merge the temporary workflow. Inspect both downloaded receipts, not just job conclusions.
-
-## Multiplex attach + cold-profile mutation probe
-
-`run_multiplex.py` (same flags) starts ONE `gateway.run` with `gateway.multiplex_profiles: true` serving default + `warm` + `cold`, then in real Electron main runs the production Desktop attach path per profile (`runGatewayEnsure` → `ensureLocalGateway`, the exact `hermes --profile <p> gateway ensure --json` child, `mintLocalGatewayTicket`, `nativeGatewayHttpHeaders`) and the exact `PATCH /api/sessions/{id}` shape `src/api/sessions.ts::mutateSessionHttp` sends. Assertions: every profile resolves to the one multiplexer instance and served secondaries carry `control_home` = the root; a session created in `cold` and detached is archived and unarchived (revision N → N+1) while `default` and `warm` hold live interactive attachments; the default profile's descriptor gets 403 on the cold profile's rows; the warm attachment survives. This is the acceptance case for the local-pool cutover (PR #106742, cold-profile archive report).
-
-## Explicit limits
-
-Linux execution does not validate the Windows named-pipe branch or macOS Unix-socket permissions; run the native jobs. The wrong-profile combination tests descriptor binding against a real other owner, not a fabricated owner subject. A Windows **wrong OS-owner SID** negative is not implemented: it requires an actual second-account process/token serving a permissive decoy pipe under an owned profile name (and an OS-verified differing SID), rather than the normal daemon's same-user DACL. The Linux host has no such Windows identity. Do not interpret same-user wrong-instance/profile checks, a mocked SID, or a DACL-only refusal as proof of the Python client's server-SID check. The receipt preserves `wrongOsOwnerSid.status = not_exercised` even when all implemented checks pass.
+旧的临时跨平台 workflow 模板已移除。不要把临时评测 workflow 当成正式 CI；如要纳入持续验收，先按仓库的 PM 环境与发布规则接入。本轮未运行此原生探针，当前 SHA 的完整验收状态未知。

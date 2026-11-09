@@ -1,3 +1,5 @@
+> Historical PR results moved to [archive](../archive/session_search_schema/results/). They do not establish current model quality.
+
 # session_search Schema A/B Eval
 
 Live tool-use A/B harness measuring whether changes to the `session_search`

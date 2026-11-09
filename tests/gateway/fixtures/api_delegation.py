@@ -87,11 +87,9 @@ async def probe():
             count = len(captured)
             response = await client.post("/v1/runs", headers={"Authorization": "Bearer fixture-api-key", **extra_headers}, json={"input": "continue", **body})
             await response.read()
-            async def wait_for_run():
-                while len(captured) == count:
-                    await asyncio.sleep(0.01)
             if response.status == 202:
-                await asyncio.wait_for(wait_for_run(), 10)
+                from tests.waiting import async_wait_until
+                await async_wait_until(lambda: len(captured) > count, timeout=10)
             runs.append({"name": name, "status": response.status, "runtime": captured[-1] if len(captured) > count else None})
     result = {"requests": records, "runs": runs, "delivery_error": delivery_error, "unsolicited_calls": calls_after-calls_before, "resumed_history": resumed_history, "durable_child_rows": len(db.get_messages("child"))}
     db.close()

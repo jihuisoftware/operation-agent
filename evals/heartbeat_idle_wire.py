@@ -17,27 +17,13 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from gateway.config import GatewayConfig, Platform, PlatformConfig
-from gateway.platforms.base import BasePlatformAdapter, SendResult
 from gateway.platforms.event import MessageEvent
 from gateway.run import GatewayRunner
 from gateway.session import SessionSource, SessionStore, build_session_key
 from hermes_cli import heartbeat
 
 
-class WireAdapter(BasePlatformAdapter):
-    async def connect(self, *, is_reconnect=False):
-        return True
-
-    async def disconnect(self):
-        pass
-
-    async def get_chat_info(self, chat_id):
-        return {}
-
-    async def send(self, chat_id, content, reply_to=None, metadata=None):
-        self.wire.append(content)
-        return SendResult(success=True, message_id=str(len(self.wire)))
-
+from tests.gateway.fixtures.heartbeat_wire import WireAdapter
 
 async def main(base_poller):
     assert os.environ.get("HERMES_HOME"), "Use a temporary HERMES_HOME"
