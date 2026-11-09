@@ -584,7 +584,7 @@
     "kind": "bare_which"
   },
   {
-    "path": "tui_gateway/methods_prompt.py",
+    "path": "gateway/rpc/methods_prompt.py",
     "symbol": "_",
     "kind": "bare_which"
   },

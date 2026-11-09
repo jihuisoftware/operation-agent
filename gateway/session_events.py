@@ -4,8 +4,8 @@ import logging
 import threading
 import uuid
 
-from tui_gateway import event_replay
-from tui_gateway.transport import FanoutTransport
+from gateway.transport import event_replay
+from gateway.transport.transport import FanoutTransport
 
 
 class SessionEvents:

@@ -21,9 +21,7 @@ async def attach_bytes(connection, ref, params):
 
 
 def _stage(directory, params):
-    from tui_gateway.prompt_attachments import (
-        _ATTACH_BYTES_MAX_BYTES, _decode_attach_base64, _sniff_image_ext, stage_image_bytes,
-    )
+    from gateway.rpc.prompt_attachments import _ATTACH_BYTES_MAX_BYTES, _decode_attach_base64, _sniff_image_ext, stage_image_bytes
     data = _decode_attach_base64(params.get('content_base64') or params.get('data') or '', mime_prefix='image/')
     if not data or len(data) > _ATTACH_BYTES_MAX_BYTES:
         raise RuntimeStoreError('invalid_params')

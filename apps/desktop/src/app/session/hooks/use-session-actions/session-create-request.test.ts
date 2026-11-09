@@ -9,7 +9,7 @@ vi.mock('@/store/gateway', () => ({
 
 import { createGatewaySession } from './session-create-request'
 
-// Verbatim admission rejections from older backends (tui_gateway/contracts/registry.py).
+// Verbatim admission rejections from older backends (gateway/contracts/registry.py).
 const rejection = (field: string, suffix = '') =>
   new JsonRpcGatewayError(`invalid params for session.create: ${field}: Extra inputs are not permitted${suffix}`, {
     code: 4000

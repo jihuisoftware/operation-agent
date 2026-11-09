@@ -37,7 +37,7 @@ def test_images_refused_before_pixel_read_download_or_model_call(tmp_path, monke
     save()
     from agent.image_routing import build_native_content_parts
     from tools import vision_tools
-    from tui_gateway.prompt_turn import _route_turn_images
+    from gateway.rpc.prompt_turn import _route_turn_images
     from gateway.run_inbound import GatewayInboundMixin
     prepare = AsyncMock(side_effect=AssertionError('no pixels should be fetched'))
     monkeypatch.setattr(vision_tools, '_prepare_image', prepare)

@@ -109,7 +109,7 @@ const RELAY_HANDLE = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/
 const RELAY_SENDER_STAMP = /^(Message from 🤖 [\s\S]+? \(@)[A-Za-z0-9_-]+(\): )/u
 
 // The canonical `bot_relay.deliver` is a closed key set without the legacy `from_*` sender
-// fields. Translate them as the legacy bridge did (tui_gateway/methods_bot_relay.py): a bot
+// fields. Translate them as the legacy bridge did (gateway/rpc/methods_bot_relay.py): a bot
 // author keyed by the sender's connection (`delivery_turn_author`), and the message's
 // `(@handle)` stamp qualified with that connection so a reply never lands on the recipient's
 // own same-named bot (#103731; `<handle>@<connection>` always resolves there).
@@ -165,7 +165,7 @@ const OWNER_CONNECTION_VERBS = new Set([
   'connectors.connect'
 ])
 
-// `config.set` keys the owner serves (tui_gateway/contracts/canonical_projections.py::CanonicalConfigSetParams;
+// `config.set` keys the owner serves (gateway/contracts/canonical_projections.py::CanonicalConfigSetParams;
 // gateway/session_tui_config.py), with the keys that take a `scope` (`reasoning --global`, the
 // Shift+click global yolo zap).
 const CANONICAL_CONFIG_KEYS = new Set([

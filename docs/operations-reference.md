@@ -26,7 +26,7 @@
 
 产品范围由 [operations-profile.json](../hermes_cli/data/operations-profile.json) 统一定义，后端与 Desktop 共用。旧配置不会重新启用本版已关闭的能力；范围覆盖不改写用户原始配置文件。
 
-`gateway/`、`tui_gateway/` 与 `hermes_cli/web_server*` 继续服务 Desktop。业务能力优先通过技能和独立插件扩展；保留的 delegation、Kanban、MCP 底层代码用于共享运行时兼容，不表示产品已开放这些功能。
+`gateway/`、`gateway/rpc/` 与 `hermes_cli/web_server*` 继续服务 Desktop。业务能力优先通过技能和独立插件扩展；保留的 delegation、Kanban、MCP 底层代码用于共享运行时兼容，不表示产品已开放这些功能。
 
 ### 开发专用任务调试
 

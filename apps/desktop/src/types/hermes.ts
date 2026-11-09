@@ -788,7 +788,7 @@ export interface SessionRuntimeInfo {
 }
 
 export interface UsageStats {
-  /** Rolling tokens-per-second over the last ~10 API calls (tui_gateway `_get_usage`). */
+  /** Rolling tokens-per-second over the last ~10 API calls (gateway.rpc `_get_usage`). */
   avg_tps?: number
   /** Session prompt-cache hit rate, 0–100. Omitted (not 0) when the provider reports no cache reads. */
   cache_hit_pct?: number
@@ -803,7 +803,7 @@ export interface UsageStats {
   cost_usd?: number
   input: number
   output: number
-  /** Window plans only (tui_gateway `_get_usage`): today's allowance (else the binding one), for the status bar. */
+  /** Window plans only (gateway.rpc `_get_usage`): today's allowance (else the binding one), for the status bar. */
   plan_gauge?: { id: string; label: string; resets_at_ms?: null | number; used_bp: number }
   total: number
 }

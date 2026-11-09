@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermes TUI/Desktop gateway",
     "version": "1",
-    "description": "Generated from tui_gateway/contracts by scripts/gen_gateway_contracts.py."
+    "description": "Generated from gateway/contracts by scripts/gen_gateway_contracts.py."
   },
   "methods": [
     {
@@ -1645,24 +1645,6 @@
       }
     },
     {
-      "name": "learning.frames",
-      "summary": "Pre-render the /journey timeline (frames + legend/summary) so the TUI walks it locally.",
-      "params": [
-        {
-          "name": "params",
-          "schema": {
-            "$ref": "#/components/schemas/LearningFramesParams"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "$ref": "#/components/schemas/LearningFramesResult"
-        }
-      }
-    },
-    {
       "name": "llm.oneshot",
       "summary": "Stateless one-shot LLM completion (titles, ideas) on the session's or the task backend.",
       "params": [
@@ -2091,24 +2073,6 @@
         "name": "result",
         "schema": {
           "$ref": "#/components/schemas/PetCancelResult"
-        }
-      }
-    },
-    {
-      "name": "pet.cells",
-      "summary": "Half-block cell frames (or a kitty placement) for one pet state.",
-      "params": [
-        {
-          "name": "params",
-          "schema": {
-            "$ref": "#/components/schemas/PetCellsParams"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "$ref": "#/components/schemas/PetCellsResult"
         }
       }
     },
@@ -5315,7 +5279,7 @@
       },
       "ApprovalRequestParams": {
         "additionalProperties": true,
-        "description": "``tui_gateway/server.py::_approval_request_payload`` \u2014 the command is redacted server-side.",
+        "description": "``gateway/rpc/server.py::_approval_request_payload`` \u2014 the command is redacted server-side.",
         "properties": {
           "session_id": {
             "title": "Session Id",
@@ -18500,7 +18464,7 @@
       },
       "GatewayReadyPayload": {
         "additionalProperties": false,
-        "description": "``tui_gateway/entry.py`` (stdio) / ``tui_gateway/ws.py`` (WebSocket) first frame.",
+        "description": "``gateway/transport/entry.py`` (stdio) / ``gateway/transport/ws.py`` (WebSocket) first frame.",
         "properties": {
           "skin": {
             "$ref": "#/components/schemas/SkinPayload"
@@ -21214,96 +21178,6 @@
         "title": "LanguageOption",
         "type": "object"
       },
-      "LearningAxis": {
-        "additionalProperties": false,
-        "properties": {
-          "start": {
-            "title": "Start",
-            "type": "string"
-          },
-          "end": {
-            "title": "End",
-            "type": "string"
-          }
-        },
-        "required": [
-          "start",
-          "end"
-        ],
-        "title": "LearningAxis",
-        "type": "object"
-      },
-      "LearningBucketRow": {
-        "additionalProperties": false,
-        "properties": {
-          "index": {
-            "title": "Index",
-            "type": "integer"
-          },
-          "label": {
-            "title": "Label",
-            "type": "string"
-          },
-          "date": {
-            "title": "Date",
-            "type": "string"
-          },
-          "skills": {
-            "title": "Skills",
-            "type": "integer"
-          },
-          "memories": {
-            "title": "Memories",
-            "type": "integer"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          },
-          "category": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Category"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Color"
-          },
-          "nodes": {
-            "items": {
-              "$ref": "#/components/schemas/LearningNodeRow"
-            },
-            "title": "Nodes",
-            "type": "array"
-          }
-        },
-        "required": [
-          "index",
-          "label",
-          "date",
-          "skills",
-          "memories",
-          "total",
-          "nodes"
-        ],
-        "title": "LearningBucketRow",
-        "type": "object"
-      },
       "LearningDetailResult": {
         "additionalProperties": false,
         "properties": {
@@ -21409,202 +21283,6 @@
         "title": "LearningEditParams",
         "type": "object"
       },
-      "LearningFrame": {
-        "additionalProperties": false,
-        "description": "``agent.learning_graph_render.render_graph`` projection; ``grid`` rows are lists of\n``[text, styleKey, alpha?, hexOverride?]`` runs.",
-        "properties": {
-          "reveal": {
-            "title": "Reveal",
-            "type": "number"
-          },
-          "date": {
-            "title": "Date",
-            "type": "string"
-          },
-          "visible": {
-            "title": "Visible",
-            "type": "integer"
-          },
-          "grid": {
-            "items": {
-              "items": {},
-              "type": "array"
-            },
-            "title": "Grid",
-            "type": "array"
-          },
-          "labels": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Labels",
-            "type": "array"
-          }
-        },
-        "required": [
-          "reveal",
-          "date",
-          "visible",
-          "grid"
-        ],
-        "title": "LearningFrame",
-        "type": "object"
-      },
-      "LearningFramesParams": {
-        "additionalProperties": false,
-        "properties": {
-          "cols": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Cols"
-          },
-          "rows": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Rows"
-          },
-          "frames": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Frames"
-          }
-        },
-        "title": "LearningFramesParams",
-        "type": "object"
-      },
-      "LearningFramesResult": {
-        "additionalProperties": false,
-        "properties": {
-          "frames": {
-            "items": {
-              "$ref": "#/components/schemas/LearningFrame"
-            },
-            "title": "Frames",
-            "type": "array"
-          },
-          "legend": {
-            "items": {
-              "$ref": "#/components/schemas/LearningLegendItem"
-            },
-            "title": "Legend",
-            "type": "array"
-          },
-          "categories": {
-            "items": {
-              "$ref": "#/components/schemas/LearningLegendItem"
-            },
-            "title": "Categories",
-            "type": "array"
-          },
-          "buckets": {
-            "items": {
-              "$ref": "#/components/schemas/LearningBucketRow"
-            },
-            "title": "Buckets",
-            "type": "array"
-          },
-          "summary": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Summary",
-            "type": "array"
-          },
-          "axis": {
-            "$ref": "#/components/schemas/LearningAxis"
-          },
-          "count": {
-            "title": "Count",
-            "type": "integer"
-          },
-          "cols": {
-            "title": "Cols",
-            "type": "integer"
-          },
-          "rows": {
-            "title": "Rows",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "frames",
-          "legend",
-          "categories",
-          "buckets",
-          "summary",
-          "axis",
-          "count",
-          "cols",
-          "rows"
-        ],
-        "title": "LearningFramesResult",
-        "type": "object"
-      },
-      "LearningLegendItem": {
-        "additionalProperties": false,
-        "properties": {
-          "glyph": {
-            "title": "Glyph",
-            "type": "string"
-          },
-          "label": {
-            "title": "Label",
-            "type": "string"
-          },
-          "style": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Style"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Color"
-          }
-        },
-        "required": [
-          "glyph",
-          "label"
-        ],
-        "title": "LearningLegendItem",
-        "type": "object"
-      },
       "LearningMutationResult": {
         "additionalProperties": false,
         "description": "``agent.learning_mutations`` \u2014 ``ok: false`` carries the reason in ``message``.",
@@ -21649,50 +21327,6 @@
           }
         },
         "title": "LearningNodeParams",
-        "type": "object"
-      },
-      "LearningNodeRow": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "glyph": {
-            "title": "Glyph",
-            "type": "string"
-          },
-          "label": {
-            "title": "Label",
-            "type": "string"
-          },
-          "fullLabel": {
-            "title": "Fulllabel",
-            "type": "string"
-          },
-          "meta": {
-            "title": "Meta",
-            "type": "string"
-          },
-          "body": {
-            "title": "Body",
-            "type": "string"
-          },
-          "style": {
-            "title": "Style",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "glyph",
-          "label",
-          "fullLabel",
-          "meta",
-          "body",
-          "style"
-        ],
-        "title": "LearningNodeRow",
         "type": "object"
       },
       "LeaseHolder": {
@@ -22810,7 +22444,7 @@
       },
       "McpServerSummary": {
         "additionalProperties": false,
-        "description": "``tui_gateway/mcp_rpc_helpers.summarize_server`` \u2014 a server's config without secret values.",
+        "description": "``gateway/rpc/mcp_rpc_helpers.summarize_server`` \u2014 a server's config without secret values.",
         "properties": {
           "name": {
             "title": "Name",
@@ -24415,7 +24049,7 @@
       },
       "NoticePayload": {
         "additionalProperties": false,
-        "description": "``tui_gateway/model_switch.py`` capability-refresh notice.",
+        "description": "``gateway/rpc/model_switch.py`` capability-refresh notice.",
         "properties": {
           "message": {
             "title": "Message",
@@ -25402,235 +25036,6 @@
           "ok"
         ],
         "title": "PetCancelResult",
-        "type": "object"
-      },
-      "PetCellsParams": {
-        "additionalProperties": false,
-        "description": "``graphics`` opts into the kitty payload when the TTY speaks it; ``cols`` overrides the width.",
-        "properties": {
-          "profile": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Profile"
-          },
-          "state": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "State"
-          },
-          "cols": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Cols"
-          },
-          "graphics": {
-            "default": false,
-            "title": "Graphics",
-            "type": "boolean"
-          }
-        },
-        "title": "PetCellsParams",
-        "type": "object"
-      },
-      "PetCellsResult": {
-        "additionalProperties": false,
-        "description": "Unicode: ``frames`` is frame \u2192 row \u2192 cell ``[tr,tg,tb,ta, br,bg,bb,ba]``; kitty (``graphics``\nset): ``frames`` are transmit escapes and ``placeholder`` the text grid.",
-        "properties": {
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "slug": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Slug"
-          },
-          "displayName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Displayname"
-          },
-          "state": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "State"
-          },
-          "cols": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Cols"
-          },
-          "frameMs": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Framems"
-          },
-          "frames": {
-            "anyOf": [
-              {
-                "items": {
-                  "items": {
-                    "items": {
-                      "items": {
-                        "type": "integer"
-                      },
-                      "type": "array"
-                    },
-                    "type": "array"
-                  },
-                  "type": "array"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Frames"
-          },
-          "scale": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Scale"
-          },
-          "graphics": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Graphics"
-          },
-          "imageId": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Imageid"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Color"
-          },
-          "rows": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Rows"
-          },
-          "placeholder": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Placeholder"
-          }
-        },
-        "required": [
-          "enabled"
-        ],
-        "title": "PetCellsResult",
         "type": "object"
       },
       "PetChangedPayload": {
@@ -30420,7 +29825,7 @@
       },
       "ProjectRef": {
         "additionalProperties": false,
-        "description": "``tui_gateway/server.py::_project_info_for_cwd``.",
+        "description": "``gateway/rpc/server.py::_project_info_for_cwd``.",
         "properties": {
           "id": {
             "title": "Id",
@@ -37321,7 +36726,7 @@
       },
       "SessionLiveInfo": {
         "additionalProperties": true,
-        "description": "``tui_gateway/server.py::_session_info`` \u2014 the ``session.info`` event and the ``info`` field of\n``session.create`` / ``session.resume`` / ``session.activate`` results.",
+        "description": "``gateway/rpc/server.py::_session_info`` \u2014 the ``session.info`` event and the ``info`` field of\n``session.create`` / ``session.resume`` / ``session.activate`` results.",
         "properties": {
           "model": {
             "default": "",
@@ -41226,7 +40631,7 @@
       },
       "SkinPayload": {
         "additionalProperties": true,
-        "description": "``tui_gateway/change_watcher.py::resolve_skin`` \u2014 the resolved active skin (``HermesSkin``).\n``{}`` when the skin engine failed to load. Colour maps are token \u2192 colour string.",
+        "description": "``gateway/rpc/change_watcher.py::resolve_skin`` \u2014 the resolved active skin (``HermesSkin``).\n``{}`` when the skin engine failed to load. Colour maps are token \u2192 colour string.",
         "properties": {
           "name": {
             "default": "",
@@ -44674,7 +44079,7 @@
       },
       "Usage": {
         "additionalProperties": true,
-        "description": "``tui_gateway/server.py::_get_usage`` + ``agent/context_breakdown.py::context_usage_fields``.",
+        "description": "``gateway/rpc/server.py::_get_usage`` + ``agent/context_breakdown.py::context_usage_fields``.",
         "properties": {
           "model": {
             "default": "",

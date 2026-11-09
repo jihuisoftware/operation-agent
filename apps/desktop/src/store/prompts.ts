@@ -8,7 +8,7 @@ import { ambientRequestFor } from './session-gone-latch'
 import { requestForOwnedSession } from './session-states'
 
 // Blocking interactive prompts the gateway raises mid-turn. Each is a
-// server→client JSON-RPC request (`tui_gateway/server_requests.py`) the Python
+// server→client JSON-RPC request (`gateway/transport/server_requests.py`) the Python
 // side blocks on; `requestId` is that request's id and the card answers through
 // `store/server-requests.ts::respondToServerRequest`. Without a renderer for
 // these the channel answers -32601 and the tool fails fast.

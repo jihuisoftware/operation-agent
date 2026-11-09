@@ -70,7 +70,7 @@ platform_hints:
 def test_desktop_selection_keeps_content_tools_and_respects_user_opt_out(tmp_path, monkeypatch):
     from hermes_cli.config import load_config
     from hermes_cli.tools_config import _get_effective_configurable_toolsets, _get_platform_tools
-    from tui_gateway.server import _load_disabled_toolsets, _load_enabled_toolsets
+    from gateway.rpc.server import _load_disabled_toolsets, _load_enabled_toolsets
 
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.delenv("HERMES_TUI_TOOLSETS", raising=False)

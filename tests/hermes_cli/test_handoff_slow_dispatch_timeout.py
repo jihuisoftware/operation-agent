@@ -218,7 +218,7 @@ class TestDesktopHandoffFail:
         """Invoke the handoff.fail handler body with server-global stand-ins."""
         import contextlib
 
-        from tui_gateway import methods_session as ms
+        from gateway.rpc import methods_session as ms
 
         handler = None
         for name, fn in ms._registry._pending:

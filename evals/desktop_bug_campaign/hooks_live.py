@@ -131,10 +131,10 @@ finally:
         proc.wait(timeout=15)
     except subprocess.TimeoutExpired:
         proc.kill()
-        proc.wait()
+        proc.wait(timeout=10)
     provider.shutdown()
     (out / 'events.json').write_text(json.dumps(events, indent=2))
     (out / 'requests.json').write_text(json.dumps(requests, indent=2))
-    receipt = {'sha': subprocess.check_output(['git', '-C', str(a.repo), 'rev-parse', 'HEAD'], stdin=subprocess.DEVNULL, text=True).strip(), 'source_blob': subprocess.check_output(['git', '-C', str(a.repo), 'hash-object', 'tui_gateway/server.py'], stdin=subprocess.DEVNULL, text=True).strip(), 'tool': a.tool, 'process_exit': proc.returncode, 'command': cmd, 'results': results, 'provider_requests': len(requests)}
+    receipt = {'sha': subprocess.check_output(['git', '-C', str(a.repo), 'rev-parse', 'HEAD'], stdin=subprocess.DEVNULL, text=True, timeout=30).strip(), 'source_blob': subprocess.check_output(['git', '-C', str(a.repo), 'hash-object', 'gateway/rpc/server.py'], stdin=subprocess.DEVNULL, text=True, timeout=30).strip(), 'tool': a.tool, 'process_exit': proc.returncode, 'command': cmd, 'results': results, 'provider_requests': len(requests)}
     (out / 'receipt.json').write_text(json.dumps(receipt, indent=2))
     print(json.dumps(receipt, indent=2))

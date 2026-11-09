@@ -440,7 +440,7 @@ const sudo: Handler = ctx => {
   notifyInput(ctx, translateNow('notifications.native.inputBody'))
 }
 
-/** Bot Screen package install (`tui_gateway/methods_display.py`): the same masked card as `sudo`,
+/** Bot Screen package install (`gateway/rpc/methods_display.py`): the same masked card as `sudo`,
  *  but app-level. The gateway sends it sessionless — it belongs to the connection that clicked
  *  Install, not to a chat — so it is stored under the null session and survives a chat switch. */
 const displayInstallSudo: Handler = ctx => {

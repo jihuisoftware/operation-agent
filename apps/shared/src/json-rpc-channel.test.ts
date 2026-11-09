@@ -172,11 +172,11 @@ describe('JsonRpcRequestChannel', () => {
     }
   })
 
-  // Server→client requests (tui_gateway/server_requests.py): the backend asks,
+  // Server→client requests (gateway/transport/server_requests.py): the backend asks,
   // the client answers with a RESPONSE frame carrying the same id.
   it('advertises server-request support once per gateway.ready and shrugs off an older backend', () => {
     // A backend that never hears client.capabilities treats a WebSocket client as a build older than
-    // server→client requests and fails every clarify/approval for it at once (tui_gateway/server_requests.py).
+    // server→client requests and fails every clarify/approval for it at once (gateway/transport/server_requests.py).
     const channel = new JsonRpcRequestChannel({ requestIdPrefix: 'c' })
     const { sent, transport, last } = spyTransport()
 

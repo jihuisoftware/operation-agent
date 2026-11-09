@@ -299,7 +299,7 @@ export function handleStatusEvent(ctx: GatewayEventContext): boolean {
 
     // When a code was recovered, the glossed card sentence explains it better
     // than the raw refusal. When none was, the server's own text IS the plain
-    // copy (tui_gateway/user_messages.py writes actionable sentences for
+    // copy (gateway/rpc/user_messages.py writes actionable sentences for
     // pre-turn failures — agent init, resume, cancelled-before-ready), and
     // burying it under a generic "couldn't finish" gloss would hide the one
     // instruction the user needs.

@@ -1,12 +1,12 @@
 /**
- * Wire types for the `tui_gateway` JSON-RPC surface shared by the Ink TUI, Desktop and the
+ * Wire types for the `gateway.rpc` JSON-RPC surface shared by the Ink TUI, Desktop and the
  * web dashboard.
  *
- * Every shape here is GENERATED from `tui_gateway/contracts` (Python is the single source):
+ * Every shape here is GENERATED from `gateway/contracts` (Python is the single source):
  * `./gateway-contract.generated.ts` carries `RpcMethods` (client→server method → params/result),
  * `ServerRequestMap` (server→client request → params/result), `GatewayEventMap` (notification
  * type → payload) and every value shape. `scripts/gen_gateway_contracts.py` regenerates it and
- * `tests/tui_gateway/contracts/test_generated.py` fails when the committed file is stale, so a field the
+ * `tests/gateway/contracts/test_generated.py` fails when the committed file is stale, so a field the
  * backend stops sending fails `tsc` here instead of drifting.
  *
  * This module adds only what the wire does not carry: the client-local synthetic events the TUI
@@ -26,14 +26,14 @@ export interface CanonicalPromptEvent {
 }
 
 /**
- * Client-local synthetic events. Never emitted by `tui_gateway`; the Ink TUI's `gatewayClient`
+ * Client-local synthetic events. Never emitted by `gateway.rpc`; the Ink TUI's `gatewayClient`
  * publishes them into the same handler stream to report transport state.
  */
 export interface ClientLocalGatewayEventMap {
   /** Canonical gateways (`gateway/session_pending_controls.py`) fan pending prompts out as
    *  events stamped with the owner's `execution_generation`; Desktop's canonical protocol
    *  layer projects them onto the named prompt listeners and answers over `approval.respond`
-   *  / `clarify.respond`. Not part of the generated `tui_gateway` contract. */
+   *  / `clarify.respond`. Not part of the generated `gateway.rpc` contract. */
   'approval.request': CanonicalPromptEvent & { command?: string; description?: string; choices?: string[]; edit?: unknown }
   'approval.settled': CanonicalPromptEvent
   'clarify.request': CanonicalPromptEvent & { question?: string; choices?: string[]; multi_select?: boolean }
@@ -75,7 +75,7 @@ export interface GatewayEvent<K extends GatewayEventName = GatewayEventName> {
   payload?: GatewayEventMap[K]
   /** Renderer-side source tag added by the Desktop gateway registry. */
   profile?: string
-  /** Per-session monotonic counter stamped by `tui_gateway/event_replay.py::_stamp_event`;
+  /** Per-session monotonic counter stamped by `gateway/transport/event_replay.py::_stamp_event`;
    *  absent on session-less broadcasts. */
   seq?: number
   session_id?: string

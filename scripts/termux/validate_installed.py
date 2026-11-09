@@ -61,7 +61,7 @@ def main() -> None:
         run([
             str(python), "-c",
             "import ctypes, ssl, sqlite3, bz2, lzma, zlib, hashlib, readline; "
-            "import cli, run_agent, tui_gateway.server; "
+            "import cli, run_agent, gateway.rpc.server; "
             "from hermes_cli.config import detect_install_method; "
             "assert detect_install_method() == 'apt'; "
             "print('CLI_AND_STDLIB_IMPORTS_OK')",

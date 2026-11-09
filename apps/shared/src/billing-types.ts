@@ -1,7 +1,7 @@
 /**
  * Shared Remote Spending wire contracts.
  *
- * These shapes round-trip between the Python tui_gateway and TypeScript clients
+ * These shapes round-trip between the Python gateway.rpc and TypeScript clients
  * such as the TUI and desktop app. Keep rendering state, client logic, and the
  * gateway event union out of this runtime-free module.
  */

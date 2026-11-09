@@ -36,9 +36,9 @@ def _stored_id(authority, ref) -> str:
 
 
 def _status(authority, ref, live, policy, agent, arg) -> str:
-    """``tui_gateway/methods_session.py`` ``session.status`` on main, for the owner's session."""
+    """``gateway/rpc/methods_session.py`` ``session.status`` on main, for the owner's session."""
     from hermes_cli.status_report import build_status_fields, status_lines
-    from tui_gateway import server
+    from gateway.rpc import server
     stored = _stored_id(authority, ref)
     row = {}
     with contextlib.suppress(Exception):

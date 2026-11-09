@@ -444,7 +444,7 @@ async def gateway_ws(ws: WebSocket) -> None:
     if not await _close_unless_sidecar_allowed(ws):
         return
     from hermes_cli.mcp_startup import start_deferred_mcp_discovery_now
-    from tui_gateway.ws import handle_ws
+    from gateway.transport.ws import handle_ws
 
     # First chat client of a standalone dashboard: fire the discovery armed at boot (no-op
     # otherwise). Off-loop: the first act is a config read + the ~350 ms `mcp` SDK import.
@@ -474,7 +474,7 @@ async def gateway_ws(ws: WebSocket) -> None:
     )
 
 
-# --- /api/pub + /api/events: the PTY-side tui_gateway.entry opens /api/pub
+# --- /api/pub + /api/events: the PTY-side gateway.transport.entry opens /api/pub
 # (HERMES_TUI_SIDECAR_URL from /api/pty's env) and writes every dispatcher emit
 # through it; the dashboard fans frames out to /api/events subscribers on the
 # same channel — the React sidebar's tool-call feed without touching the PTY

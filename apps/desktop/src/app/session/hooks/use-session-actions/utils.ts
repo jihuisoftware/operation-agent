@@ -565,7 +565,7 @@ export function reconcileResumeMessages(nextMessages: ChatMessage[], previousMes
  * (#75825).
  *
  * Gateway bookkeeping markers (the model-switch / personality notices written
- * by tui_gateway/server.py) are persisted as role=user but are not user turns.
+ * by gateway/rpc/server.py) are persisted as role=user but are not user turns.
  * They must not take part in ordinal pairing on either side: a stored marker
  * between two real user turns shifts every later user ordinal, so the optimistic
  * row misses its committed copy and is appended a second time at the end of the
@@ -2294,7 +2294,7 @@ export async function probeStoredSession(
  * Recovery `session.resume` calls (stale runtime id, session-not-found, wedged
  * loop) must re-register the conversation on ITS backend, not on whichever
  * profile happens to be live. Omitting the profile lets the gateway fall back to
- * the launch-profile DB (tui_gateway/server.py), which is how a session bleeds
+ * the launch-profile DB (gateway/rpc/server.py), which is how a session bleeds
  * from one profile into another (#67603, second symptom). A cache-only lookup
  * misses any session outside the paginated sidebar window, so route through the
  * resolver, which probes uncached ids across profiles.

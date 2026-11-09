@@ -1,7 +1,7 @@
 import type { ServerRequest } from '@hermes/shared'
 
 /**
- * Live server→client requests (`tui_gateway/server_requests.py`) keyed by
+ * Live server→client requests (`gateway/transport/server_requests.py`) keyed by
  * request id: clarify / approval / sudo / secret / vault / MCP-setup cards.
  *
  * The per-session prompt stores keep only the id; a card answers through

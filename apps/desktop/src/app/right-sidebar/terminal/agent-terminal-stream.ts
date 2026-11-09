@@ -1,5 +1,5 @@
 // Live agent-terminal output, pushed from the backend as `agent.terminal.output`
-// events (see tui_gateway `_wire_agent_terminal_output`). Chunks route straight
+// events (see gateway.rpc `_wire_agent_terminal_output`). Chunks route straight
 // to the matching read-only xterm, keyed by process id — no polling, no tail
 // truncation. A capped per-proc backlog lets a tab opened mid-stream replay what
 // it missed, and lets a closed-then-reopened tab restore its history.

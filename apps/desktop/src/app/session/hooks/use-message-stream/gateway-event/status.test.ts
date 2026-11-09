@@ -1,4 +1,4 @@
-// The gateway `error` event (tui_gateway/prompt_turn.py) carries only a
+// The gateway `error` event (gateway/rpc/prompt_turn.py) carries only a
 // message — no error_surface. The dispatcher must still classify the two
 // refusals it can mean so the card and toast read like a classified turn:
 // plain words up front, raw text demoted to the detail line, and Retry gone
@@ -79,7 +79,7 @@ describe('gateway `error` event → error card + toast', () => {
 
   it('routes a blank install to onboarding on the gateway code, whatever the sentence says', () => {
     // agent init with no usable provider: the gateway stamps code=provider_not_configured
-    // (tui_gateway/server.py). The fix for this chat is setup, so the user must land there and
+    // (gateway/rpc/server.py). The fix for this chat is setup, so the user must land there and
     // not on a toast — even after the sentence is reworded again.
     const { ctx } = errorContext(
       'Hermes could not start the assistant. Details: something new we never matched.',
@@ -100,7 +100,7 @@ describe('gateway `error` event → error card + toast', () => {
   })
 
   it("keeps the server's own plain copy as the toast message when no code was recovered", () => {
-    // tui_gateway/user_messages.py already writes actionable sentences for
+    // gateway/rpc/user_messages.py already writes actionable sentences for
     // pre-turn failures; the generic "couldn't finish" gloss must not bury them.
     const serverCopy = 'Hermes could not start the assistant for this chat. Check your model settings and try again.'
     const { ctx, failAssistantMessage } = errorContext(serverCopy)

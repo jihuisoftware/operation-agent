@@ -4,7 +4,7 @@ Applies on top of the root and `hermes_cli/AGENTS.md` rules.
 
 This branch uses Desktop as the primary interface. The browser dashboard SPA
 (`web/`) and its launch entry point have been removed. The shared HTTP/API server
-in `hermes_cli/web_server.py` and `web_server_*.py`, these routers, `tui_gateway/`,
+in `hermes_cli/web_server.py` and `web_server_*.py`, these routers, `gateway/rpc/`,
 and `apps/shared/` still support Desktop and integrations. Their historical
 `web` names do not make them removable frontend code.
 
@@ -22,8 +22,8 @@ and `apps/shared/` still support Desktop and integrations. Their historical
 - Do not remount an SPA, add a browser dashboard build dependency, or recreate a
   second chat UI here. Desktop chat uses the shared gateway/session machinery.
 - Backend route tests belong in `tests/hermes_cli/` and run through
-  `scripts/run_tests.sh`; shared RPC contracts also have tests in `tests/tui_gateway/`.
+  `scripts/run_tests.sh`; shared RPC contracts also have tests in `tests/gateway/rpc/`.
   Verify authentication, profile isolation, and the actual response contract.
 
-References: `apps/desktop/src/AGENTS.md`, `tui_gateway/AGENTS.md`, and
+References: `apps/desktop/src/AGENTS.md`, `gateway/rpc/AGENTS.md`, and
 `website/docs/developer-guide/desktop-plugin-sdk.md`.

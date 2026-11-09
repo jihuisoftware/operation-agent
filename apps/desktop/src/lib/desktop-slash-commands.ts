@@ -106,7 +106,7 @@ export type DesktopUnavailableReason = 'advanced' | 'composer-voice' | 'messagin
  *                  calls it directly with the params built by `buildParams`,
  *                  bypassing `slash.exec` / `command.dispatch`. Reserved for
  *                  commands that have a first-class RPC handler in
- *                  `tui_gateway/server.py` (e.g. `/save` → session.save).
+ *                  `gateway/rpc/server.py` (e.g. `/save` → session.save).
  * - `exec`       → runs on the backend via slash.exec / command.dispatch and
  *                  renders its text output inline. Only commands WITHOUT a
  *                  dedicated RPC should stay here.
@@ -179,7 +179,7 @@ const unavailable = (reason: DesktopUnavailableReason): DesktopCommandSurface =>
 
 /**
  * Route a command directly to its dedicated gateway RPC. Prefer this over
- * `exec()` whenever `tui_gateway/server.py` exposes a `@method(...)` for the
+ * `exec()` whenever `gateway/rpc/server.py` exposes a `@method(...)` for the
  * command — bypassing `slash.exec` keeps the path short and the response
  * structured.
  *
@@ -399,7 +399,7 @@ const REGISTRY_DESKTOP_SURFACE: Readonly<Record<string, string | null>> = deskto
  * Commands the Python registry has never heard of, so they cannot ride the
  * dump above. `/density`, `/details`, `/logs`, `/mouse` are Ink-process-local
  * display toggles handled inside `ui-tui/src/app/slash/commands/core.ts`
- * (three are advertised through `tui_gateway/server.py::_TUI_EXTRA`); `/pets`
+ * (three are advertised through `gateway/rpc/server.py::_TUI_EXTRA`); `/pets`
  * is the plural typo of the desktop's own `/pet` action and points at the
  * sidebar instead of falling through as an unknown skill.
  */

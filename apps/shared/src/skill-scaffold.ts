@@ -4,7 +4,7 @@
  * invocation the user typed (`/work fix the leak`) and nothing else.
  *
  * The gateway already projects this (see `_skill_scaffold_projection` in
- * tui_gateway/server.py) and ships the result as `display` on a dispatch and
+ * gateway/rpc/server.py) and ships the result as `display` on a dispatch and
  * as the `text` of a `skill_invocation` history row. This module is the
  * client-side twin so a desktop/TUI talking to an older gateway — or any
  * future path that hands raw scaffolding to a bubble — still renders the

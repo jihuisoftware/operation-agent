@@ -1,5 +1,18 @@
 # 当前开发交接记录
 
+## Gateway 模块整合（2026-11-09）
+
+基准 `cd5179f4d0`；开始时只有用户的 `.gitignore` 修改，保持原样。未提交、未改用户暂存区、未重启生产后台。
+
+- 原 `tui_gateway/` 已移除，无转发包。共享内容归入 `gateway/rpc/`、`transport/`、`contracts/`、`runtime/`；原 `run_*.py` / `session_*.py` 会话权威保持原位。规则与架构见 `docs/gateway-rpc.md`。
+- 同步 Python 导入、内部子进程模块名、源码根定位、包发现、Profile检查、协议生成器、前端说明、技能文档和测试路径；测试迁至 `tests/gateway/rpc/` 与 `tests/gateway/contracts/`。
+- 删除旧PTY回连发布器、TeeTransport、终端宠物单元格与journey帧RPC及专用schema。Desktop宠物精灵图、内部stdio、审批、事件回放、Bot/MCP/delegation内部兼容能力保留。
+- 保留历史source值、HERMES_TUI_*输入和日志文件名；进程识别同时认识新内部入口及升级前的形态。迁移触发的检查项按现有工具修正了BOM读取与存活探测，未增加配置开关。
+- 协议逐项比较：仅删除 `pet.cells` / `learning.frames`，所有保留RPC及schema字段不变；无旧包时新包可独立导入。Desktop完整typecheck通过；PM lock核对通过，uv.lock无需改动。
+- 主回归342文件：2814通过、27失败、6错误、11跳过。临时基准检出复跑10个失败文件：680通过、26失败、6错误；唯一新增失败为测试子进程源码根路径，已修正。后续13文件132通过/1跳过，边界6文件89通过；没有新增失败。32项已有失败/错误主要与关闭的访客/连接器/MCP、工具集和语言预期有关，未在此次结构迁移中修改产品行为来适配旧断言。
+- 旧终端RPC回归在基准已证红。最终仓库检查使用临时Git索引识别重命名（否则旧大文件被当作新增），不会改动用户索引；最终12项检查通过，diff空白检查通过。
+
+
 ## Evals 目录整理（2026-11-09）
 
 基准 `f59b2e13c8`，开始时工作树干净；保留本轮期间并行写入的其他交接内容。未提交，未运行付费模型或真实浏览器评测，未操作生产 Profile。
@@ -18,7 +31,7 @@
 - 用户中途切换为分析 `tests/`。本轮静态扫描约6406个Python测试文件、46792个test函数（未展开参数化），其中运营测试约70个；未执行全量测试，也未清理测试文件。工作区仍有并行清理，数量为扫描时快照。
 - 发布修复主改动已随工作区推进进入 `856cff2980`；之后的旧索引兼容、预留名额分组及测试变更保留在工作树。此前相关8文件66项、Desktop16项通过，新增旧额度保护后5文件43项通过，完整typecheck通过；未实际重跑发布。
 - 发布修复尚未最终收尾：需继续核对 `service.retry_action` 的旧COUNT计数与新的 `publication_reservation_id` 是否一致，避免重试同一预留名额时把前一次安全失败重复计入额度；不要把新批次的通过用例当作原动作重试路径已全部覆盖。
-- 测试维护观察：`tests/AGENTS.md` 仍引用已不存在的 `windows-venv-e2e.yml` 工作流；运营公共夹具有从其他test文件导入的情况，可集中到support或局部conftest。`tests/tui_gateway` 覆盖Desktop通信后端，不能随终端UI移除。
+- 测试维护观察：`tests/AGENTS.md` 仍引用已不存在的 `windows-venv-e2e.yml` 工作流；运营公共夹具有从其他test文件导入的情况，可集中到support或局部conftest。`tests/gateway/rpc` 覆盖Desktop通信后端，不能随终端UI移除。
 
 
 ## Nix 桌面范围清理（2026-11-09）

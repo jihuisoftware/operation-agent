@@ -177,7 +177,7 @@ describe('applyBargeInThresholdFromConfig', () => {
 })
 
 // `voice.barge_in` mirrors the gateway's `_arm_barge_listener_if_enabled`
-// (tui_gateway/methods_voice.py): the listener is armed unless the key is
+// (gateway/rpc/methods_voice.py): the listener is armed unless the key is
 // explicitly false.
 describe('applyBargeInEnabledFromConfig', () => {
   it('disarms only an explicit false', () => {

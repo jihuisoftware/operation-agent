@@ -88,7 +88,7 @@ import {
 // Manual compression is LLM-bound and routinely outlives the desktop's 30s
 // default WS request timeout on large sessions. The gateway blocks its own
 // compute-host wait for up to compression.context_total_ceiling_seconds + 30s
-// (capped at 630s, tui_gateway/server.py _COMPUTE_HOST_COMPRESS_WAIT_CAP_SECS)
+// (capped at 630s, gateway/rpc/server.py _COMPUTE_HOST_COMPRESS_WAIT_CAP_SECS)
 // and then answers `status: 'pending'` rather than an error, so this budget
 // must sit above that cap or the desktop reports a false timeout while the
 // host is still compressing (#97948).

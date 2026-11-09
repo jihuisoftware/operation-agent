@@ -8,7 +8,7 @@ import { classify } from './hooks/use-at-completions'
 import { useComposerTrigger } from './hooks/use-composer-trigger'
 import { composerPlainText, RICH_INPUT_SLOT } from './rich-editor'
 
-/** A row exactly as tui_gateway's complete.path emits it, run through the
+/** A row exactly as gateway.rpc's complete.path emits it, run through the
  *  real classify() the popover uses. */
 function backendRow(text: string, display: string, meta: string): Unstable_TriggerItem {
   const c = classify({ text, display, meta })

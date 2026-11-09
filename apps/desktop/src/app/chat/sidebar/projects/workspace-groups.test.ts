@@ -24,8 +24,8 @@ import {
   sortWorktreeGroups
 } from './workspace-groups'
 
-// The grouping itself now lives on the backend (tui_gateway/project_tree.py,
-// covered by tests/tui_gateway/test_project_tree.py). This file only covers the
+// The grouping itself now lives on the backend (gateway/rpc/project_tree.py,
+// covered by tests/gateway/rpc/test_project_tree.py). This file only covers the
 // thin render helpers the desktop still owns + the VISUAL worktree enhancer.
 
 const lane = (over: Partial<SidebarSessionGroup> & Pick<SidebarSessionGroup, 'id' | 'label'>): SidebarSessionGroup => ({

@@ -5,7 +5,7 @@ import { normalize } from '@/lib/text'
 import { rankSessions } from '../order'
 
 // Session grouping is now computed authoritatively on the backend
-// (`tui_gateway/project_tree.py`, exposed via `projects.tree` /
+// (`gateway/rpc/project_tree.py`, exposed via `projects.tree` /
 // `projects.project_sessions`). The desktop is a thin renderer: this module
 // only holds the render contract (the three tree interfaces) plus a couple of
 // pure helpers and the VISUAL-ONLY worktree enhancer that injects empty lanes
@@ -106,7 +106,7 @@ const isWindowsPath = (path: string): boolean =>
  * reach us as NFC (typed paths, backend cwd) or NFD (macOS file pickers,
  * HFS+/APFS round-trips), and case folding does not unify the two forms — an
  * accented project folder would otherwise render empty (#65014). Mirrors
- * `_comparison_segments` in `tui_gateway/project_tree.py`.
+ * `_comparison_segments` in `gateway/rpc/project_tree.py`.
  */
 const comparisonSegments = (path: string): string[] => {
   const segs = segments(path).map(seg => seg.normalize('NFC'))

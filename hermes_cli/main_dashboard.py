@@ -1032,7 +1032,7 @@ def _prepare_serve_runtime() -> bool:
 
     # Bridge terminal.* config into TERMINAL_* env for THIS process, like the
     # CLI (cli.py env_mappings) and gateway (_terminal_env_map) do. The
-    # serve backend runs agents in-process (tui_gateway.ws →
+    # serve backend runs agents in-process (gateway.transport.ws →
     # server._make_agent) and ticks cron itself when desktop-spawned; without
     # this those consumers saw an unset TERMINAL_ENV and ran every command on
     # the host even under `terminal.backend: docker` (#63141, #54449).
@@ -1060,7 +1060,7 @@ def _prepare_serve_runtime() -> bool:
         # missing provider if it matters.
         logger.warning("Plugin discovery failed: %s", exc, exc_info=True)
 
-    # Desktop chat uses the in-process /api/ws gateway (tui_gateway.server
+    # Desktop chat uses the in-process /api/ws gateway (gateway.rpc.server
     # ._make_agent), which only snapshots the tool registry and never starts
     # MCP discovery — so configured MCP servers would never connect. Spawn
     # discovery in the background here so a slow/dead server can't block

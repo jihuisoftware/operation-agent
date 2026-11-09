@@ -28,7 +28,7 @@ Two tools, pick one:
 
 - A Node test fails and you need to see intermediate state
 - Electron main-process code needs inspection
-- tui_gateway child processes (`_SlashWorker`, PTY bridge workers) misbehave
+- gateway.rpc child processes (`_SlashWorker`, PTY bridge workers) misbehave
 - You need to inspect a value in a closure that `console.log` can't reach without patching
 - Perf: attach to a running process to capture a CPU profile or heap snapshot
 

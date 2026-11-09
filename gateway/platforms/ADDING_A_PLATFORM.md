@@ -7,7 +7,7 @@
 新能力遵循根 `AGENTS.md` 的 CLI + skill / 服务门控 / 插件扩展顺序，不恢复消息适配器工厂。
 
 - Desktop 的私有连接、票据和会话归属继续由 Gateway 运行时负责。
-- 共享 RPC 契约见 `tui_gateway/AGENTS.md`；私有 HTTP API 见 `hermes_cli/web_routers/AGENTS.md`。
+- 共享 RPC 契约见 `gateway/rpc/AGENTS.md`；私有 HTTP API 见 `hermes_cli/web_routers/AGENTS.md`。
 - 模型选项解码在 `gateway/session_model_options.py`，不依赖公共 API 适配器。
 - 历史 WhatsApp 身份归一化在 `gateway/session_legacy_identity.py`，不会连接或安装桥接进程。
 - 清理其他平台模块前，追踪运行时、历史恢复和测试引用；保留持久化平台值与会话标识兼容。

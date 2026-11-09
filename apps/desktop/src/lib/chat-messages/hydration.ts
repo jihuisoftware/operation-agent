@@ -476,7 +476,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
     const displayRole = isMachineNotice(message.display_kind) ? 'system' : message.role
 
     // Persisted user turns carry `@image:<path>` directive lines inline in
-    // the text (see tui_gateway/server.py's persist-time rewrite). The
+    // the text (see gateway/rpc/server.py's persist-time rewrite). The
     // read-only bubble clamps its body to ~2 lines, and a large inline image
     // thumbnail pushes any caption text below the clamp's visible area — so
     // pull image refs out into `attachmentRefs` (same shape the local

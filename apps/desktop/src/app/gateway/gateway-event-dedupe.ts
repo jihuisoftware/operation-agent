@@ -4,7 +4,7 @@ import type { GatewayEvent } from '@hermes/shared'
  * Cross-socket duplicate gate for backend events (#120005 / #120007).
  *
  * The backend joins EVERY socket that sends a session call to that chat's
- * transport fan-out (`tui_gateway/session_transports.py`, intended: shared
+ * transport fan-out (`gateway/rpc/session_transports.py`, intended: shared
  * chats keep every attached client in sync) and stamps `seq` once per event
  * before the fan-out. When this renderer holds two sockets to ONE backend
  * (a registry secondary next to the primary during a swap, a reconnect that

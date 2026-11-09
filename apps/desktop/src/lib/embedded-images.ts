@@ -155,7 +155,7 @@ export function textWithoutEmbeddedImages(text: string): string {
 }
 
 // The gateway persists attached images as `@image:<path>` directive lines
-// (see tui_gateway/server.py's persist-time rewrite), prepended before the
+// (see gateway/rpc/server.py's persist-time rewrite), prepended before the
 // user's own text. The composer's own optimistic/local turn never carries
 // this prefix — it keeps the attachment as separate `attachmentRefs`
 // metadata, not inline text. The turn-equality comparisons in

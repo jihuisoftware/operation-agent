@@ -71,7 +71,7 @@ def home(tmp_path, monkeypatch):
 
 
 def _deliver(params):
-    import tui_gateway.server as srv
+    import gateway.rpc.server as srv
 
     return srv._methods["bot_relay.deliver"](1, params)
 

@@ -240,7 +240,7 @@ def test_library_imports_of_dual_use_entry_modules_stay_side_effect_free(tmp_pat
     code = textwrap.dedent("""
         import json, os, sys
         before = dict(os.environ)
-        import agent.auxiliary_client, gateway.relay, tui_gateway.compute_host  # noqa: F401
+        import agent.auxiliary_client, gateway.relay, gateway.rpc.compute_host  # noqa: F401
         changed = sorted(k for k in before.keys() | os.environ.keys() if before.get(k) != os.environ.get(k))
         print(json.dumps({"bootstrapped": "hermes_bootstrap" in sys.modules, "changed": changed}))
     """)

@@ -1,7 +1,7 @@
 import { JSON_RPC_METHOD_NOT_FOUND } from '@hermes/shared'
 
 /** True when a JSON-RPC call failed because the backend predates the method.
- *  The gateway answers -32601 (`tui_gateway/server.py::dispatch`) and the
+ *  The gateway answers -32601 (`gateway/rpc/server.py::dispatch`) and the
  *  shared client keeps that code on the error; the message match is only for
  *  errors that lost their frame across the IPC bridge or a wrapped rethrow. */
 export function isMissingRpcMethod(error: unknown): boolean {

@@ -4,7 +4,7 @@ import { dismissNotification, type NotificationInput, type NotificationKind, not
 /**
  * Wire shape of a `notification.show` payload — the driver-agnostic
  * `AgentNotice` spine (`agent/credits_tracker.py`) as forwarded by
- * `tui_gateway/server.py`. Snake_case to match the wire.
+ * `gateway/rpc/server.py`. Snake_case to match the wire.
  *
  * The `text` carries its own leading severity glyph (• ⚠ ✕ ✓) from the Python
  * policy — that's how the CLI/TUI render it (glyph in a status line, no separate
@@ -30,7 +30,7 @@ export interface AgentNoticePayload {
 
 /** `credits.window_limit` (agent/credits_tracker.py CREDITS_WINDOW_LIMIT_KEY). */
 const WINDOW_LIMIT_KEY = 'credits.window_limit'
-/** `model.large_notice` (tui_gateway/model_switch.py LARGE_MODEL_NOTICE_KEY): switched to a Large model. */
+/** `model.large_notice` (gateway/rpc/model_switch.py LARGE_MODEL_NOTICE_KEY): switched to a Large model. */
 const LARGE_MODEL_NOTICE_KEY = 'model.large_notice'
 
 /** `credits.window.<gauge id>`: a window plan's 90% heads-up (CREDITS_WINDOW_APPROACH_PREFIX). */

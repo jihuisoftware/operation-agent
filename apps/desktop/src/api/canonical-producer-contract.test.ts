@@ -7,7 +7,7 @@ import { expect, test } from 'vitest'
 import { HermesGateway } from './client'
 
 // Class sweep: every Desktop producer frame that reaches the shared owner must fit the closed
-// (`additionalProperties: false`) canonical contract generated from tui_gateway/contracts. The
+// (`additionalProperties: false`) canonical contract generated from gateway/contracts. The
 // fixture owner refuses exactly what `canonical_param_problems` refuses: unknown or missing keys.
 interface Schema {
   properties: Record<string, unknown>

@@ -99,7 +99,7 @@ function isUpdateToastSnoozed(): boolean {
   return Number.isFinite(until) && Date.now() < until
 }
 
-// Must match tui_gateway's DESKTOP_BACKEND_CONTRACT that this build was written
+// Must match gateway.rpc's DESKTOP_BACKEND_CONTRACT that this build was written
 // against. Legacy backends report their own value in session runtime info; a
 // lower value (or none — a pre-GUI checkout) means the backend is older than
 // this GUI, a higher value means this GUI is older than the backend. Both

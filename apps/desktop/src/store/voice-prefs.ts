@@ -91,7 +91,7 @@ export function applyVoiceStopPhraseFromConfig(config: ConfigPayload, defaults?:
 }
 
 // `voice.barge_in` — whether talking over the reply interrupts playback,
-// mirroring `_arm_barge_listener_if_enabled` (tui_gateway/methods_voice.py):
+// mirroring `_arm_barge_listener_if_enabled` (gateway/rpc/methods_voice.py):
 // armed unless the key is explicitly false. Absent/malformed → enabled.
 export const $bargeInEnabled = atom<boolean>(true)
 
@@ -115,7 +115,7 @@ export function applyBargeInThresholdFromConfig(config: ConfigPayload) {
 // `voice.silence_duration` (seconds) — how long the user must stay quiet
 // before the conversation loop treats the utterance as finished. Documented
 // default 3.0 (hermes_cli/config_defaults.py), honoured by the CLI/TUI/gateway
-// capture paths (cli_voice_mixin.py, tui_gateway/methods_voice.py) but
+// capture paths (cli_voice_mixin.py, gateway/rpc/methods_voice.py) but
 // previously hardcoded to 1.25 s in the desktop renderer's mic loop, so a
 // mid-thought pause cut the turn off and `hermes config set` had no effect.
 // Stored in ms because that is what the loop's timers consume.

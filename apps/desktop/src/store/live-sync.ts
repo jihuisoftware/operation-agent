@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 
 // Event-driven "backend data changed" signals — the workspace-events twin for
-// gateway-side state. The change watcher in tui_gateway broadcasts
+// gateway-side state. The change watcher in gateway.rpc broadcasts
 // `pet.changed` / `cron.changed` / `sessions.changed` when its on-disk
 // signatures move (see server._broadcast_watched_changes), the gateway-event
 // lifecycle handler routes them here, and the surfaces that used to poll (cron

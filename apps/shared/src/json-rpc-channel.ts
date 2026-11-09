@@ -18,7 +18,7 @@ export interface JsonRpcFrame {
 }
 
 /**
- * Params of a server→client request (`tui_gateway/server_requests.py`): the
+ * Params of a server→client request (`gateway/transport/server_requests.py`): the
  * backend asking the renderer a question. `session_id` names the session
  * blocked on the answer; the rest is method-specific.
  */
@@ -85,13 +85,13 @@ export function isUndeliveredCorrectionRefusal(error: unknown): boolean {
   return typeof reason === 'string' && UNDELIVERED_CORRECTION_REASONS.has(reason)
 }
 
-/** JSON-RPC "method not found" (tui_gateway/server.py::dispatch `_err(rid, -32601, …)`). */
+/** JSON-RPC "method not found" (gateway/rpc/server.py::dispatch `_err(rid, -32601, …)`). */
 export const JSON_RPC_METHOD_NOT_FOUND = -32601
 
 /** JSON-RPC "internal error" — used when a server→client request handler throws. */
 export const JSON_RPC_INTERNAL_ERROR = -32603
 
-/** A window-owned request's session is not shown by any window of this client (tui_gateway/server_requests.py::NOT_SHOWN_CODE). */
+/** A window-owned request's session is not shown by any window of this client (gateway/transport/server_requests.py::NOT_SHOWN_CODE). */
 export const JSON_RPC_SESSION_NOT_SHOWN = 4404
 
 /** Map a raw `error` member of a response frame to the typed error every surface inspects. */

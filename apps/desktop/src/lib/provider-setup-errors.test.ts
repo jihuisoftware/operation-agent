@@ -13,7 +13,7 @@ describe('isProviderSetupErrorMessage', () => {
   })
 
   it('matches what agent init actually says on a blank install', () => {
-    // tui_gateway/user_messages.py::agent_init_failed_message wrapping agent/agent_init.py's raise.
+    // gateway/rpc/user_messages.py::agent_init_failed_message wrapping agent/agent_init.py's raise.
     expect(
       isProviderSetupErrorMessage(
         'Hermes could not start the assistant for this session. Details: No LLM provider configured. Run `hermes model` to select a provider, or run `hermes setup` for first-time configuration. Check the model and provider with /model, or run `hermes setup` in a terminal to reconfigure.'

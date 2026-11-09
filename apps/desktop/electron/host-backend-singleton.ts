@@ -7,7 +7,7 @@
 // Every local profile now resolves onto the same host backend and carries its
 // own `profile` on the wire — the server binds a SESSION to a profile home
 // (`session.create {profile}` -> `profile_home`) and a sessionless RPC to the
-// explicit `profile` argument (`tui_gateway/server.py::@_profile_scoped`), so
+// explicit `profile` argument (`gateway/rpc/server.py::@_profile_scoped`), so
 // one process genuinely serves N homes.
 //
 // Two things are deliberately NOT collapsed:

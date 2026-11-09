@@ -3,7 +3,7 @@
 Reported during the TUI v2 blitz retest:
   - typing `@folder:` (and `@folder` with no colon yet) surfaced files
     alongside directories — the gateway-side completion lives in
-    `tui_gateway/server.py` and was never touched by the earlier fix to
+    `gateway/rpc/server.py` and was never touched by the earlier fix to
     `hermes_cli/commands.py`.
   - typing `@appChrome` required the full `@apps/desktop/src/components/app…`
     path to find the file — users expect Cmd-P-style fuzzy basename
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from tui_gateway import server
+from gateway.rpc import server
 
 
 def _fixture(tmp_path: Path):
@@ -202,7 +202,7 @@ def _nested_fixture(tmp_path: Path):
     (tmp_path / "apps/desktop/src/hooks").mkdir(parents=True)
     (tmp_path / "apps/desktop/src/hooks/useCompletion.ts").write_text("x")
     (tmp_path / "tui_gateway").mkdir()
-    (tmp_path / "tui_gateway/server.py").write_text("x")
+    (tmp_path / "gateway/rpc/server.py").write_text("x")
 
 
 def test_fuzzy_at_finds_file_without_directory_prefix(tmp_path, monkeypatch):

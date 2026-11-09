@@ -55,7 +55,7 @@ export interface RealSession {
  *
  * This intentionally uses the shipped stdio JSON-RPC transport instead of
  * importing SessionDB or launching Electron. The desktop's WebSocket backend
- * dispatches the same `tui_gateway.server` methods.
+ * dispatches the same `gateway.rpc.server` methods.
  */
 export class RealSessionBuilder {
   private readonly child: ChildProcessWithoutNullStreams
@@ -71,7 +71,7 @@ export class RealSessionBuilder {
   private closed = false
 
   private constructor(hermesHome: string) {
-    this.child = spawn('uv', ['run', '--active', '--no-sync', 'python', '-m', 'tui_gateway.entry'], {
+    this.child = spawn('uv', ['run', '--active', '--no-sync', 'python', '-m', 'gateway.transport.entry'], {
       cwd: REPO_ROOT,
       env: {
         ...process.env,

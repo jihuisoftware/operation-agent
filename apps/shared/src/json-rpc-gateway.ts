@@ -124,7 +124,7 @@ interface SessionReplay {
 
 /**
  * Most reconnect cursors one client keeps (least recently advanced retire first). Owners keep
- * replay rings for at most 64 sessions (`tui_gateway/event_replay.py::_REPLAY_SESSIONS_MAX`), so a
+ * replay rings for at most 64 sessions (`gateway/transport/event_replay.py::_REPLAY_SESSIONS_MAX`), so a
  * cursor idle behind this many busier sessions is almost never still servable. Retiring it says
  * so the way the owner would: a `session.replay_gap`, after which a pane still showing that
  * session re-snapshots (exactly what `snapshot_required` asks for); nothing is silently lost.

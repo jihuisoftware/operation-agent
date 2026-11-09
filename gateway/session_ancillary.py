@@ -151,7 +151,7 @@ async def attach_file(connection, ref, params):
     if policy is None:
         raise RuntimeStoreError('permission_denied')
     # The staging helpers are bound onto the sidecar module's globals (method_ctx.bind_module).
-    from tui_gateway import server
+    from gateway.rpc import server
     session = {'cwd': policy.cwd, 'profile_home': authority.profile_id}
     try:
         stored, uploaded = await asyncio.to_thread(
@@ -423,10 +423,7 @@ def control_snapshot(authority, ref):
     from hermes_cli.heartbeat import HeartbeatState
     # These pure serializers don't bind/import the legacy server. In particular
     # do not reuse _snapshot_control: its manager loader can write on a read.
-    from tui_gateway.methods_session_control import (
-        _safe_goal_snapshot, _safe_loop_snapshot, _safe_heartbeat_snapshot,
-        _snapshot_revision, _snapshot_updated_at,
-    )
+    from gateway.rpc.methods_session_control import _safe_goal_snapshot, _safe_loop_snapshot, _safe_heartbeat_snapshot, _snapshot_revision, _snapshot_updated_at
     # Compression carries goal/loop/heartbeat to the continuation: read the current segment.
     target = physical_target(authority, ref)
     target = authority.db.get_compression_tip(target) or target

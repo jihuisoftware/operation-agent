@@ -1,7 +1,7 @@
 /**
  * The slash-command wire contract every TypeScript surface shares: how a typed
  * line splits into `name` + `arg`, and the `command.dispatch` response union
- * (`tui_gateway/methods_tools.py::command.dispatch`). One parser, so a fix such
+ * (`gateway/rpc/methods_tools.py::command.dispatch`). One parser, so a fix such
  * as the multi-line argument bug (#41323, #55510) reaches desktop and TUI at
  * once instead of landing in whichever copy the reporter happened to use.
  */

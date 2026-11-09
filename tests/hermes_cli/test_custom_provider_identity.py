@@ -4,7 +4,7 @@ Reverse lookup used by tui_gateway session persistence to recover a named
 ``providers:`` / ``custom_providers:`` entry from the only durable fact the
 session row keeps once the provider has been resolved to the literal string
 "custom": the endpoint URL. See
-tests/tui_gateway/test_custom_provider_session_persistence.py for the
+tests/gateway/rpc/test_custom_provider_session_persistence.py for the
 end-to-end persist/resume round-trip.
 """
 

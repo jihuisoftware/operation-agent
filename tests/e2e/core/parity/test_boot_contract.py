@@ -2,7 +2,7 @@
 
 The Desktop spawns ``hermes serve`` with stdout piped and learns the port ONLY from
 the READY sentinel on stdout (``apps/desktop/electron/backend-ready.ts``); the Ink
-TUI spawns ``tui_gateway.entry`` and treats stdout as a pure JSON-RPC stream whose
+TUI spawns ``gateway.transport.entry`` and treats stdout as a pure JSON-RPC stream whose
 first frame is ``gateway.ready``. Both break the same way — the sentinel/frame goes
 to the wrong stream, arrives after other bytes, or stops parsing — and every such
 break presents to users as "backend failed to start" / a hung spinner.
@@ -96,7 +96,7 @@ def test_tui_gateway_first_stdout_frame_is_contract_valid_gateway_ready(tmp_path
 
 
 def _check_tui_gateway_ready(home) -> None:
-    from tui_gateway.contracts.registry import EVENTS
+    from gateway.contracts.registry import EVENTS
 
     proc, cap = spawn_tui_gateway(home)
     try:

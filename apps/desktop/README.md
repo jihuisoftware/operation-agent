@@ -61,11 +61,11 @@ scripts/dev-sandbox.sh --persistent -- npm run dev --workspace apps/desktop
 
 - **Electron**：解析后端运行时，管理原生窗口、文件系统、Git、安装与更新，通过受限 preload 接口提供原生能力。
 - **React**：管理路由、面板、交互状态和对话展示；共享状态按功能放入 nanostores。
-- **Gateway 与 Agent**：管理会话、模型调用、工具执行与调度，通过 `tui_gateway` 的 JSON-RPC／WebSocket 和共享 HTTP API 服务 Desktop。
+- **Gateway 与 Agent**：管理会话、模型调用、工具执行与调度，通过 `gateway.rpc` 的 JSON-RPC／WebSocket 和共享 HTTP API 服务 Desktop。
 
 本地连接通过 `hermes gateway ensure --json` 获取或启动共享 Gateway，使用私有控制票据认证。无需独立启动 `hermes serve`，也不使用浏览器 Dashboard 前端。退出 Desktop 或切换连接只断开查看端，不终止 Gateway；需要停止时执行 `hermes gateway stop`。
 
-`gateway/`、`tui_gateway/`、`apps/shared/` 与 `hermes_cli/web_server*` 是 Desktop 的依赖。保留这些组件不表示重新开放消息机器人或公共 Web 界面。
+`gateway/`、`gateway/rpc/`、`apps/shared/` 与 `hermes_cli/web_server*` 是 Desktop 的依赖。保留这些组件不表示重新开放消息机器人或公共 Web 界面。
 
 Bundled 构建使用包内运行时，数据留在包外。包内运行时损坏时应报告损坏，不自动改用任意 PATH 上的 Python 或 Hermes。源码构建可通过 `HERMES_DESKTOP_HERMES_ROOT` 指向明确的工作副本。
 

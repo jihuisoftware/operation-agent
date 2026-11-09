@@ -14,6 +14,11 @@ Model-option decoding lives in `session_model_options.py`; historical WhatsApp i
 
 ## Shape
 
+Desktop support is part of this package: `rpc/` owns auxiliary handlers, `transport/` owns
+WebSocket/stdio and event delivery, `contracts/` owns wire schemas, and `runtime/` owns
+launch-profile scope and independent helpers. Session authority remains in `session_*.py`.
+The former `tui_gateway` Python package is removed; historical wire/source values remain.
+
 `gateway/run.py` is the facade; phases live in `run_*.py` (startup, adapters, inbound, turn, busy,
 goals, notifications, shutdown, ...), sessions in `session*.py`, slash handlers in
 `slash_commands_*.py` mixins, authorization in `authz_mixin.py`, adapters in `platforms/<name>.py`
@@ -32,34 +37,13 @@ Commands such as `/stop` and `/approve` bypass both the adapter's active-session
 the runner's busy guard (`run_busy.py`). Dispatch them inline, never through
 `_process_message_background()`, which races session lifecycle.
 
-## Streaming delivery contract (stream-is-the-message adapters)
+## Streaming delivery contract
 
-Adapters with `draft_stream_is_message = True` (relay Slack native streaming) keep ONE cumulative
-native stream per turn; the stream IS the final message. Four invariants, each from a live
-duplicate-final incident (NS-658 canary ledger, hermes#85796 / gateway-gateway#210); violating any
-re-creates a duplicate or frozen stream:
-
-1. **Draft frames are prefix-stable.** Frame N must be a string prefix of frame N+1. Never mutate
-   drafts per tick — no fence-closing (`ensure_closed_code_fences`), cursor suffix, segment-state
-   resets at tool boundaries, or mrkdwn conversion. A non-prefix frame forces a whole-snapshot
-   re-append ("stacked copies"). The finalize path may still transform the real final.
-2. **The consumer declares the final; the adapter never guesses.** `finish(final_text)` carries the
-   completed `final_response` (verifier footer, completion explainer included). New post-stream
-   augmentation MUST ride this payload — mutating `final_response` after the seal re-opens the
-   `delivered_final_matches` mismatch → corrective duplicate send.
-3. **Interim sends carry `metadata["_interim_send"] = True`.** Any consumer-side `adapter.send()`
-   that is not the turn-final (commentary, segment-tail flushes) must set it or seal-interception
-   seals the live stream with interim text. Seal-interception exists at BOTH egress doors (`send()`
-   and `send_for_platform()`); a new egress door needs the same two checks.
-4. **Reconcile by edit, never by plain send.** A lane delivering a final beside a sealed stream
-   (queued follow-ups, media-accompanied finals) first tries `edit_message` on the consumer's
-   `message_id`; plain `send()` only when no editable message exists. A sealed native stream is a
-   regular message — `chat.update` works (live-verified).
-
-Contract tests: `tests/gateway/test_stream_final_contract.py` (mutation-checked). Slack ground
-truth: `chat.*Stream` speaks STANDARD markdown, not mrkdwn; `stopStream.markdown_text` APPENDS;
-`startStream`/`stopStream` are Tier 2 (~20/min). Check `draft_stream_is_message is True` —
-MagicMock adapters in older tests auto-create truthy attributes.
+For adapters where `draft_stream_is_message = True`, keep draft frames prefix-stable;
+`finish(final_text)` alone seals the final; interim sends carry `_interim_send`; reconcile
+by editing the existing message rather than creating a second final. Check the flag with
+`is True` because mocks may expose truthy attributes. Full invariants, rationale and test
+seams: [streaming contract](../docs/gateway-streaming-contract.md).
 
 ## Background process notifications
 
@@ -183,7 +167,7 @@ owns a disposable chat worker. Gateways stamp `code_sha`/`code_version` into `ga
   `AIAgent(memory_manager=...)` adopts it without a second provider init. Without it the previous
   turn's queued recall never reaches the next request (#120116).
 - **`multiplex_profiles: false` is not "no scope ever".** A native hosted room serving a second
-  profile flips the process-wide guard (`tui_gateway/launch_profile_policy.py::
+  profile flips the process-wide guard (`gateway/runtime/launch_profile_policy.py::
   activate_multi_profile_hosting`) inside the gateway process, after the adapters were wired; every
   standalone entry point (`run_turn.py::_profile_scope_for_source`, the primary adapter's message /
   busy / platform-event handlers via `run_adapters.py::_standalone_scoped`) then binds the launch

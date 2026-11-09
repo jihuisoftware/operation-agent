@@ -1,7 +1,7 @@
 /**
  * E2E test for the interim-assistant-message preservation fix (#65919).
  *
- * Reproduces the bug across all three layers (agent core → tui_gateway →
+ * Reproduces the bug across all three layers (agent core → gateway.rpc →
  * desktop renderer): when the agent emits assistant text alongside a tool
  * call, then completes the turn with a *different* final answer, the
  * interim text must survive in the transcript — not be wiped when
@@ -247,7 +247,7 @@ test.describe('interim assistant messages — flag OFF', () => {
       )
       .toBeGreaterThanOrEqual(1)
 
-    // With the flag off, the tui_gateway never installs
+    // With the flag off, the gateway.rpc never installs
     // interim_assistant_callback, so no message.interim events fire and no
     // sealed interim bubbles are created while streaming. After
     // message.complete, the stored-history reconcile (sessions.changed →

@@ -2944,7 +2944,7 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
         second writer beside the lease holder: the open chat never shows the message or the reply,
         its live context never learns of them, and the two transcripts interleave in state.db.
         Local and relayed DMs already hand such a message to the owner's mailbox
-        (``tools/bot_mode_dm.py``, ``tui_gateway/methods_bot_relay.py``). This waits for the owner's
+        (``tools/bot_mode_dm.py``, ``gateway/rpc/methods_bot_relay.py``). This waits for the owner's
         receipt on the same budget as the local path, so the peer still gets the reply on this call.
         """
         admitted = await self._admit_to_live_bot_chat(ctx["session_id"], ctx["user_message"], ctx["run_kwargs"].get("turn_author"))
@@ -3045,7 +3045,7 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
         history = await self._conversation_history_for_session(session_id)
         result, usage = await self._run_agent(conversation_history=history, **ctx["run_kwargs"])
         # One policy-gated re-run of a transiently failed turn — the peer-DM transport's half of the
-        # retry the local (``tools.bot_mode_dm``) and relayed (``tui_gateway.methods_bot_relay``)
+        # retry the local (``tools.bot_mode_dm``) and relayed (``gateway.rpc.methods_bot_relay``)
         # delivery lanes already apply (#93091 item 5, #115325). Same policy, same gate: transient
         # classes (429 / 5xx) re-run the SAME session once, a context overflow lets the re-run's
         # pre-API compaction shrink the transcript first, and auth/quota/config/model never re-run. The
