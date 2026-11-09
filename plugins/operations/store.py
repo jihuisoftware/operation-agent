@@ -252,19 +252,30 @@ class Store:
             if self.manual_run_id:
                 target = f"manual:{self.manual_run_id}:{target}"
                 action = {**action, "manual_run_id": self.manual_run_id}
-            elif db.execute("SELECT 1 FROM actions WHERE kind=? AND json_extract(data,'$.target')=? AND json_extract(data,'$.account_id')=?",
+            elif action["kind"] != "publish" and db.execute("SELECT 1 FROM actions WHERE kind=? AND json_extract(data,'$.target')=? AND json_extract(data,'$.account_id')=?",
                             (action["kind"], target, action["account_id"])).fetchone():
                 return None
+            if action["kind"] == "publish":
+                from .publication_attempts import execution_target
+                target = execution_target(self, action)
             scoped_target = encoded([action["account_id"], target])
             identity = hashlib.sha256(encoded([action["kind"], action["account_id"], target]).encode()).hexdigest()
             if db.execute("SELECT 1 FROM actions WHERE kind=? AND target=? AND json_extract(data,'$.account_id')=?",
                           (action["kind"], scoped_target, action["account_id"])).fetchone():
                 return None
             from .action_admission import check_pending
-            check_pending(db, action)
+            if action['kind'] == 'publish':
+                from .publication_attempts import guard
+                guard(db, action)
+            else:
+                check_pending(db, action)
             count = db.execute("SELECT count(*) FROM actions WHERE day=? AND kind=? AND state!='cancelled'",
                                (day, action["kind"])).fetchone()[0]
-            if count >= policy["limits"][action["kind"]]:
+            reused = False
+            if action['kind'] == 'publish':
+                from .publication_attempts import quota
+                count, reused = quota(db, action, day)
+            if count >= policy["limits"][action["kind"]] and not (reused and 0 < count <= policy["limits"][action["kind"]]):
                 raise ValueError("达到每日动作额度")
             from .publication_snapshot import capture
             action = capture(db, action, version, policy)
@@ -352,6 +363,9 @@ class Store:
                 from .debug_authorization import may_dispatch
                 if not may_dispatch(self, db, row, action, policy['version'], cfg):
                     return None
+            from .publication_dispatch import admit
+            if not admit(self, db, row):
+                return None
             from .workspace_execution import claim_account
             from .browser_timing import EXECUTION_SECONDS
             claimed = {**dict(row), 'expires': time.time() + (180 if json.loads(row['payload']).get('wake_probe') else EXECUTION_SECONDS)}

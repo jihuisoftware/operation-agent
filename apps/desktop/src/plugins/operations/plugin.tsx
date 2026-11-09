@@ -11,10 +11,10 @@ import {
   type SidebarNavPrefsContribution,
   TITLEBAR_AREAS
 } from '@hermes/plugin-sdk'
-import { Button, host } from '@hermes/plugin-sdk'
 import { createRoot } from 'react-dom/client'
 
 import { AccountsPage } from './accounts'
+import { CollectionSettings } from './collection-settings'
 import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
@@ -148,7 +148,7 @@ export default {
     ctx.registerSettingsPage({
       id: 'settings',
       title: '自动运营',
-      render: () => <Button onClick={() => host.navigate('/cron?tab=plan')}>打开运营计划设置</Button>
+      render: () => <WorkspacePage ctx={ctx}>{scoped => <CollectionSettings ctx={scoped} />}</WorkspacePage>
     })
     const container = document.createElement('div')
     document.body.append(container)

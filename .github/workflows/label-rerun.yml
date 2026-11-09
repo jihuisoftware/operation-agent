@@ -37,7 +37,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -uo pipefail
-          for workflow in ci.yaml docker.yml nix.yml; do
+          for workflow in ci.yaml nix.yml; do
             RUN_ID=$(gh run list --repo "$REPO" --commit "$HEAD_SHA" --workflow "$workflow" \
               --event pull_request --limit 1 --json databaseId --jq '.[0].databaseId // empty' || true)
             if [ -z "$RUN_ID" ]; then

@@ -26,13 +26,11 @@ class Lane:
 
 
 LANES = (
-    Lane("docker", True, "build and publish the Docker image"),
     Lane("macos-arm64", True, "macOS Apple Silicon DMG + ZIP"),
     Lane("macos-intel", False, "macOS Intel DMG + ZIP (unsupported on main; its runner adds over an hour)"),
     Lane("termux", False, "Termux (Android aarch64) APT package"),
     Lane("ci", True, "the full CI pipeline"),
     Lane("nix", True, "Nix checks"),
-    Lane("docker-tests", True, "tests of the Docker image before it is published"),
     Lane("pm-bundle", True, "PM bundle acceptance"),
     Lane("install-e2e", True, "install and update E2E"),
     Lane("bootstrap-version", True, "bootstrap installer release identity check"),
@@ -54,14 +52,12 @@ DERIVED = ("bundles", "desktop-channel", "windows-build")
 
 # Each stable-release.yml job and the lanes that must all be on for it to run. A job named here
 # reports `skipped` when one is off and `success` otherwise; a job not named never skips. DERIVED
-# names are computed from the lanes: "bundles" is any build lane except docker, "desktop-channel"
+# names are computed from the lanes: "bundles" is any build lane for native packages, "desktop-channel"
 # is the full desktop set the protected channel serves, "windows-build" is either Windows lane (the
 # per-arch builds and the bundle assembly are shared, each lane only picks which package they make).
 JOB_LANES: dict[str, frozenset[str]] = {name: frozenset(needs) for name, needs in {
     "ci": ("ci",),
     "nix": ("nix",),
-    "docker": ("docker",),
-    "publish-docker": ("docker",),
     "pm-bundle": ("pm-bundle",),
     "termux-checks": ("termux-checks", "termux"),
     "install-e2e": ("install-e2e",),
@@ -84,7 +80,6 @@ HANDOFF_LANE = {"darwin-arm64": "macos-arm64", "darwin-x64": "macos-intel", "ter
 TARGET_LANE = {"macos/arm64": "macos-arm64",
                "macos/x64": "macos-intel", "termux/aarch64": "termux"}
 LEFT_OUT = {
-    "docker": "the Docker image keeps its previous stable tag",
     "windows": "no signed Windows packages: the Windows update channel stays on its previous release",
     "windows-store": "no Microsoft Store submission",
     "macos-arm64": "no macOS Apple Silicon package",
@@ -173,13 +168,15 @@ def advances_desktop(lanes: Iterable[str]) -> bool:
 def moves_channels(lanes: Iterable[str]) -> bool:
     """Whether publication moves a channel head. A release that moves none is finished once public."""
     on = frozenset(lanes)
-    return "docker" in on or advances_desktop(on)
+    return advances_desktop(on)
 
 
 # Claims record `lanesRevision` next to `lanes`. A claim without it was cut when "windows" also meant
 # the Store bundle, so it reads as windows plus windows-store; the two lanes cannot otherwise be told
 # apart from a revision-2 claim that chose "windows" alone.
-LANES_REVISION = 2
+# Revision 3 retires image builds; earlier receipts retain their original lane identities.
+LANES_REVISION = 3
+_RETIRED_IMAGE_LANES = frozenset({"docker", "docker-tests"})
 _LEGACY_OPTIONAL = ("includeMacosIntel", "includeTermux")
 _LEGACY_BUNDLE_LANES = frozenset({*BUNDLES, "pm-bundle", "upgrade", "smoke"})
 _TEST_LANES = frozenset({"ci", "nix", "docker-tests", "pm-bundle", "windows-live", "install-e2e",
@@ -199,10 +196,11 @@ def claim_lanes(metadata: Mapping) -> frozenset[str]:
         if (not isinstance(lanes, list) or any(not isinstance(name, str) for name in lanes)
                 or lanes != sorted(set(lanes))):
             raise ValueError("Stable claim metadata is invalid")
-        if metadata.get("lanesRevision", 1) not in (1, LANES_REVISION):
+        if metadata.get("lanesRevision", 1) not in (1, 2, LANES_REVISION):
             raise ValueError("Stable claim metadata is invalid")
         try:
-            known = _known(lanes)
+            known = (_known(set(lanes) - _RETIRED_IMAGE_LANES) | (set(lanes) & _RETIRED_IMAGE_LANES)
+                     if metadata.get("lanesRevision", 1) < 3 else _known(lanes))
         except ValueError as error:
             raise ValueError("Stable claim metadata is invalid") from error
         if "lanesRevision" not in metadata and "windows" in known:
@@ -211,7 +209,7 @@ def claim_lanes(metadata: Mapping) -> frozenset[str]:
     if any(not isinstance(metadata.get(key), bool)
            for key in ("skipBundles", "skipTests", *(k for k in _LEGACY_OPTIONAL if k in metadata))):
         raise ValueError("Stable claim metadata is invalid")
-    lanes = set(NAMES) - {"macos-intel", "termux"}
+    lanes = (set(NAMES) | _RETIRED_IMAGE_LANES) - {"macos-intel", "termux"}
     lanes |= {lane for key, lane in zip(_LEGACY_OPTIONAL, ("macos-intel", "termux")) if metadata.get(key)}
     if metadata["skipBundles"]:
         lanes -= _LEGACY_BUNDLE_LANES

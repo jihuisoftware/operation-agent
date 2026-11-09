@@ -1,42 +1,48 @@
 # 当前开发交接记录
 
-## 采集规则误停兼容修复（2026-11-09）
+## Docker 镜像发行退役（2026-11-09）
 
-- 本轮保留全部未提交的杂志组图改动。新增默认 `image_mode` 暴露了采集预留阶段的旧配置兼容缺口：`Store.policy()` 补默认值，而 `collection_ledger.reserve()` 在事务内比较原始 JSON，导致旧主题未改规则也报“运营规则变更，停止采集”。
-- 修复事务内比较，采用与 `Store.policy()` 相同的默认值合并；不写回配置、不改变规则版本，不取消真正的规则变化或暂停保护。
-- 旧配置缺 `image_mode` 用例修复前复现失败；缺 `brand` 的同类用例也在未修改基准 `7ba2354132` 临时副本中复现。修复后采集及新增兼容/竞争条件回归共10项通过，仓库12项检查通过。
-- 未重启生产后台、未重跑真实采集。需空闲后在同一环境/HERMES_HOME先执行 `./.hermes/bin/hermes gateway stop` 并等待完成，再启动后台加载修复。
+基准 `16aa70604c`；保留工作树中 Gateway、采集设置、运营发布等已有/并行改动，未提交或重启后台。
+
+- 删除 `docker/`、根 Dockerfile/Compose/镜像专用配置、镜像构建/发布/检查工作流、镜像发布模块和专用测试。
+- Stable 发布、CI 分类、工作流依赖图与重跑入口不再引用镜像任务，也不再登录 Docker Hub、读取镜像摘要或推动镜像标签。
+- 新发布声明 revision 3 拒绝 docker/docker-tests；旧声明与回执仍可读取，尚未发布的旧镜像声明明确要求重新创建桌面声明，且拒绝发生在 I/O 前。
+- Docker 终端执行后端、已有沙箱镜像配置与真实远端后端测试保留；Termux 的独立构建环境未纳入此次镜像发行清理。未实际签名/打包/发布应用。
+- 验证：发布/CI图/容器后端等累计 448 个不同用例通过，8 项按环境跳过；最后定向复跑 4 项通过，发布排序排除旧 Store 用例后 30 项通过。`scripts/check --base HEAD` 12 项通过；本次路径 `git diff --check` 通过。
+- 已知基线问题：5 项 Store 发布用例仍按已退役 Windows/Store 行为断言；另有 PM workflow 的 controller-ref 检查失败，已从 HEAD 导出工作流与原测试到临时目录复现。未为本次清理修改 PM 或 Store 行为。初始 5 文件测试基线为 291 通过/11 失败，本次修正了涉及镜像或当前桌面声明的断言。
 
 
-## 杂志组图与生图恢复（2026-11-09）
+## Gateway 旧接入清理（2026-11-09）
 
-基准 `7ba2354132`；开始时工作树干净，独立写稿及旧封面功能已提交。本轮组图改动尚未提交，未委派代理。用户确认：清爽杂志与信息图，通常 3–6 页，最多两张 AI 主视觉＋全篇一次额外尝试；自动稿自动生成，手写稿按按钮生成。
+基准 `16aa70604c`；开始时已有采集设置、运营发布重试等未提交改动，以及 `gateway/whatsapp_identity.py` 的删除，均保留。未启动/重启后台、未提交、未委派。
 
-### 已实现
+- 运行时仅激活 `local`；移除公共 API/Webhook 环境变量启用逻辑和内置外部适配器工厂。
+- 删除 MS Graph 接收器、WhatsApp 桥公共模块和对应专用测试；doctor 不再审计退役桥目录。
+- 历史身份解析移至 `gateway/session_legacy_identity.py`，修复原文件删除造成的 Gateway 导入失败，保留旧会话标识语义。
+- 模型选项解析移至 `gateway/session_model_options.py`，执行路径不再为解析参数导入 API 适配器。
+- 部分 API/Webhook 模块仍被共享执行、持久化账本及恢复逻辑引用，保留但不可由运行时激活。边界见 `gateway/platforms/ADDING_A_PLATFORM.md`。
+- 验证：累计 133 项不同回归用例通过（入口、历史会话、doctor、桌面私有 API/RPC、模型推理、service tier）；最后两文件复跑 13 项通过。`scripts/check --base HEAD` 12 项通过；未执行整个历史测试集。
 
-- 自动内容生产默认 `image_mode=magazine`；设置中可明确选 `basic` 保留原本地文字封面。生图失败不降级冒充完成，正文先保存为草稿。
-- `visual_plan` 受限分页与完整文案；`visual_render` 1080×1440 杂志封面、流程、对比及要点页，中文由 Pillow 精确绘制，先排版校验再付费生图；正文主要字号提高到42像素。
-- `visual_provider` 复用已配置的生图路由，不切换失败供应商；外层360秒超时。输出进入当前Profile缓存及授权素材库，不增加核心工具或常驻进程。
-- `visual_sets` 逐页、逐插画持久化，按提示和提供方配置复用主视觉；跨重试及自动修订保留三次尝试上限。结果不明不会在定时重跑时重发，需手动重试。
-- `visual_job_state` 执行代次、幂等请求、后台重启中断检测；后台复制请求Context，绑定Profile、秘密及业务归属。取消后的迟到结果不能继续应用；重做失败可恢复上一套，保留费用记录。
-- `visual_review` 使用辅助视觉模型检查实际组图，按完整图片组合缓存通过记录；所有页的文字纳入原事实检查。视觉失败不会用文字重写掩盖；人工审核与发布授权仍独立。
-- `image_gen/usage_receipts.py` 为非聊天消费者收集供应商已有用量回执；运营图片调用进入同归属Token账本和日报，未知费用/Token不按零处理。
-- 私有 `/visual-sets` API：创建、状态、取消、恢复及显式应用；复用草稿CAS或正式稿指纹。手写稿整套替换配图，保留正文和表格；正式稿创建新待审版本，旧排期不迁移。
-- Desktop「杂志组图」支持逐页预览、原图、重试、单页主视觉重做、恢复上一套和整套应用。自动保存不调用生图。
 
-### 实际样张
+## 每日采集额度可选设置（2026-11-09）
 
-[样张与使用说明](visual-generation.md) 包含封面、流程页、对比页、主视觉和完整提示词；资产位于 `docs/assets/visual-samples/`，均压缩到500KiB以下。主视觉用内置imagegen生成，本地项目代码完成中文排版。样张不是通过用户生产生图账号生成，也未发布。
+该任务开始时基准 `16aa70604c`、工作树干净；以下是采集设置任务记录。当前工作树还含上述 Gateway 及其他运营改动。
+
+### 行为与入口
+
+- 「设置 → 插件 → 自动运营」直接编辑当前业务/主题的采集每日上限；任务计划复用同一 `SourceLimitField`。
+- 提供100、200、300、500、1000、2000、3000、5000、10000次/天。保留已有值，不在打开界面时改写；历史低值显示当前值提示，不成为新额度选择范围。
+- `/collection-budget` GET返回规则版本、当前主题额度/日期/已用次数、Profile共享额度/日期/已用次数及有效剩余量；PUT仅接受100–10000的整数并通过现有Store.configure做CAS保存。
+- 保存不清空当天用量、不发起批次；规则版本更新仍遵循既有暂停旧规则任务与取消排队动作机制。减少上限后如已用量超过新值，剩余量为0。
+- 单一活动主题按既有规则同步共享额度；多主题不自动扩大共享限额，界面明确显示约束，其他主题不被改写。
+- 前端继承WorkspacePage的连接/Profile/业务/主题归属；后端沿用私有API鉴权与scope_dependency。
 
 ### 验证
 
-- 相关Python11文件68项通过：visuals、blueprints、prompt_inputs、recovery_gaps、source_library、content_review、content_versions、content_autorepair、writing、model_budget、model_failures。
-- 日报调用计数补充回归：visuals 11项与report_summary 3项通过，相关独立测试合计71项；图片调用纳入总调用数，Token回执按独立图像阶段展示。
-- Desktop 6文件20项通过：image-studio、writing/controller/projection、content-library、cover-studio、plan-editor；完整typecheck及修改文件ESLint通过。
-- `npm run test:writing-native --workspace apps/desktop` 在临时macOS Electron用户目录及模拟API下通过：真实组图界面、整套替换、正文/表格保留、不触发审核发布，以及既有中文组合输入、拖图、离线恢复、多窗口/Profile隔离和10万字保存。截图位于系统临时目录 `operations-writing-native-FYUtww/writing.png`。
-- 仓库12项检查、差异检查通过。相关旧测试显式选择basic，保留原文字封面、来源与修订合同；新用例覆盖默认magazine全链路。
-- 扩展供应商回归132项通过、1项既有失败：`tests/plugins/image_gen/test_openrouter_compat_provider.py::TestImageApiSurface::test_catalog_models_are_offered_only_by_openrouter`，缺少目录项 `x-ai/grok-imagine-image-quality`。已在未修改HEAD的临时git archive中用官方runner复现；本轮未改该目录逻辑。
+- Python：collection_settings、collection_policy共7项通过，含真实私有HTTP鉴权/外部主题拒绝、上下界和非整数拒绝、旧版本冲突、用量保留、多主题隔离。
+- Desktop：collection-settings、configuration-choices、plan-editor共8项通过；检查真实下拉选择、明确保存才写入、不发起任务、历史值不被渲染时重置。
+- 完整typecheck、修改文件ESLint、仓库12项检查通过；README、运行参考与代码地图已更新。
 
 ### 运行边界
 
-未停止或启动生产Gateway、未调用生产生图账号、未改真实稿件或发布。实际使用需配置生图及视觉模型；图片效果仍取决于所选模型。加载新后台前，必须在同一激活环境和HERMES_HOME执行 `./.hermes/bin/hermes gateway stop` 并等待完成，再启动Gateway；不自动重跑生产任务。
+没有更改生产中已保存的额度，没有启动或重启后台。加载新接口前，待后台空闲后，在同一激活环境和HERMES_HOME执行 `./.hermes/bin/hermes gateway stop` 并等待完成，再启动Gateway。用户选择数值并保存后才生效。

@@ -13,13 +13,17 @@ def resolve(store, identity, state, evidence):
     with store.connection() as db:
         db.execute('BEGIN IMMEDIATE')
         row = db.execute('SELECT * FROM actions WHERE id=?', (identity,)).fetchone()
-        if not row or row['state'] not in {'unknown', 'blocked', 'submitted', 'failed'}:
+        allowed = {'unknown', 'blocked', 'submitted', 'failed'}
+        if row and row['kind'] == 'publish':
+            allowed.update({'cancelled', 'confirmed_not_published'})
+        if not row or row['state'] not in allowed:
             raise ValueError('该动作当前不能人工核对')
         if (row['kind'] == 'publish' and state == 'confirmed') or (row['kind'] != 'publish' and state == 'published'):
             raise ValueError('核对结果与动作类型不匹配')
         previous = json.loads(row['result'])
+        command = db.execute("SELECT id FROM commands WHERE action_id=? AND kind='publish' ORDER BY rowid DESC LIMIT 1", (identity,)).fetchone()
         conclusion = {'id': uuid.uuid4().hex, 'action_id': identity, 'state': state,
-                      'evidence': evidence.strip(), 'actor': '本机操作员', 'at': now_iso(), 'previous_state': row['state']}
+                      'evidence': evidence.strip(), 'actor': '本机操作员', 'at': now_iso(), 'previous_state': row['state'], 'command_id': command[0] if command else None}
         history = {**conclusion, 'previous_result': previous}
         db.execute("INSERT INTO objects VALUES (?, 'manual_conclusion', ?, ?)",
                    (conclusion['id'], encoded(history), conclusion['at']))

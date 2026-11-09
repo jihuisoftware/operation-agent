@@ -202,42 +202,14 @@ def _sse_frame(
     return f"{prefix}data: {json.dumps(data, ensure_ascii=ensure_ascii)}\n\n".encode()
 
 
-_TRUE_REQUEST_BOOL_STRINGS = frozenset({"1", "true", "yes", "on"})
-_FALSE_REQUEST_BOOL_STRINGS = frozenset({"0", "false", "no", "off"})
-
-
-def _coerce_request_bool(value: Any, default: bool = False) -> bool:
-    """Normalize boolean-like payload values; only explicit bool-ish scalars count (some
-    frontends send ``"false"`` for ``stream``, which is truthy), else ``default``."""
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return default
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in _TRUE_REQUEST_BOOL_STRINGS:
-            return True
-        return False if normalized in _FALSE_REQUEST_BOOL_STRINGS else default
-    return bool(value) if isinstance(value, (int, float)) else default
-
-
-_REQUEST_OPTION_MISSING = object()
-# Full internal ladder + "none" (what /reasoning and config.yaml accept); provider
-# vocabulary clamping happens downstream in agent.reasoning_effort.
-_REASONING_EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"})
 _RUNTIME_AGENT_OVERRIDE_KEYS = (
     "api_key", "base_url", "provider", "api_mode", "command", "args", "credential_pool")
 
 
-def _clean_request_string(value: Any) -> Optional[str]:
-    """Return a stripped request string, or None for absent/non-string values."""
-    return (value.strip() or None) if isinstance(value, str) else None
-
-
-# model_options decoding lives in the topical sibling (line-cap offset);
-# re-exported here so importers are unaffected.
-from gateway.platforms.api_server_request_options import (
-    _request_reasoning_config, _request_service_tier)
+from gateway.session_model_options import (
+    _REQUEST_OPTION_MISSING, _clean_request_string, _coerce_request_bool,
+    _request_reasoning_config, _request_service_tier,
+)
 
 
 def _apply_runtime_agent_overrides(

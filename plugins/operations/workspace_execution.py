@@ -25,14 +25,17 @@ def check_running(store, *, web=False, db=None):
             raise ValueError(reason)
 
 
+def budget_day(store, day, limits):
+    timezone = ZoneInfo(store.policy()[1]['timezone'])
+    at = getattr(store, 'execution_now', None) or datetime.combine(date.fromisoformat(day), datetime.now(timezone).time(), timezone)
+    return at.astimezone(ZoneInfo(limits.get('_timezone', 'Asia/Shanghai'))).date().isoformat()
+
 def charge(store, db, day, kind, *, identity=None, account=''):
     if not store.workspace:
         return
     check_running(store)
     limits = json.loads(db.execute("SELECT data FROM directory.preferences WHERE id='limits'").fetchone()[0])
-    timezone = ZoneInfo(store.policy()[1]['timezone'])
-    at = getattr(store, 'execution_now', None) or datetime.combine(date.fromisoformat(day), datetime.now(timezone).time(), timezone)
-    day = at.astimezone(ZoneInfo(limits.get('_timezone', 'Asia/Shanghai'))).date().isoformat()
+    day = budget_day(store, day, limits)
     used = db.execute('SELECT COALESCE(sum(amount),0) FROM directory.charges WHERE day=? AND kind=? AND account_id=?', (day, kind, account)).fetchone()[0]
     identity = identity or uuid.uuid4().hex
     if db.execute('SELECT 1 FROM directory.charges WHERE id=?', (identity,)).fetchone():
@@ -52,13 +55,14 @@ def reserve_action(store, db, action, identity, day):
     registered = db.execute('SELECT identity FROM directory.accounts WHERE id=?', (account,)).fetchone()[0]
     if registered and registered != action['account_id']:
         raise ValueError('实际登录账号与业务关联账号不匹配')
+    if action['kind'] == 'publish':
+        from .publication_shared import reserve
+        return reserve(store, db, action, identity, day, account)
     # A manual rerun is allowed in its owning topic, but cannot duplicate another
     # topic's reply to the same received message or follow candidate.
     from .action_admission import shared_pending
     row = db.execute('SELECT topic_id FROM directory.account_claims WHERE account_id=? AND kind=? AND target=?', (account, action['kind'], action['target'])).fetchone()
     if row and row[0] != store.scope['id']:
-        if action['kind'] == 'publish':
-            shared_pending(db, account, action, store.scope, identity)
         return False
     shared_pending(db, account, action, store.scope, identity)
     db.execute('INSERT OR IGNORE INTO directory.account_claims VALUES (?,?,?,?,?)', (account, action['kind'], action['target'], store.scope['id'], identity))

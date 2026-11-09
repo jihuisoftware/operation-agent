@@ -968,10 +968,12 @@ def publish_attempt(record: dict, *, repository: str, run=output, read_archive) 
     hashed from the attempt archive (nothing records it earlier), the receipt
     tag is written, the draft is retargeted and stripped while still a draft,
     and only then does the final call make it public. Returns the two digests
-    the receipt binds (candidate manifest and Docker manifest), so the head
+    the receipt binds (candidate manifest and a null legacy image field), so the head
     advance that follows in the same pass checks the receipt it just wrote.
     """
-    from scripts.releases import docker
+
+    if "docker" in record["lanes"]:
+        raise ValueError("Docker image publication is retired; create a new Desktop-only release claim")
 
     claim = {"claim_tag": record["claim_tag"], "claim_object": record["claim_object"],
              "autopublish": record["autopublish"], "lanes": record["lanes"],
@@ -981,7 +983,7 @@ def publish_attempt(record: dict, *, repository: str, run=output, read_archive) 
     manifest_sha256 = hashlib.sha256(
         read_archive(f"releases/tag/{record['claim_tag']}/release-candidates.json")
     ).hexdigest() if lane_set.has_bundles(record["lanes"]) else None
-    docker_digest = docker.published_digest(record["claim_tag"], run) if "docker" in record["lanes"] else None
+    docker_digest = None
     ensure_final_tag(record["tag"], record["commit"], claim,
                      candidate_manifest_sha256=manifest_sha256,
                      docker_manifest_digest=docker_digest,

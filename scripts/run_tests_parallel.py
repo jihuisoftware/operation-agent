@@ -119,17 +119,7 @@ _DEFAULT_ROOTS = ["tests"]
 #
 #   tests/e2e/         — .github/workflows/tests.yml :: e2e job
 #   tests/integration/ — historical; legacy --ignore flags
-#   tests/docker/      — .github/workflows/docker.yml ::
-#                        build-amd64 job (runs against the freshly-loaded
-#                        nousresearch/hermes-agent:test image, via
-#                        ``HERMES_TEST_IMAGE`` so the fixture skips
-#                        rebuild). The full pytest-shard runner can't
-#                        host these because the session-scoped
-#                        ``built_image`` fixture would do a 3-7min
-#                        ``docker build``,
-#                        so the build is guaranteed to die in fixture
-#                        setup. The dedicated job sidesteps both costs.
-_SKIP_PARTS = {"integration", "e2e", "docker"}
+_SKIP_PARTS = {"integration", "e2e"}
 
 # Per-file wall-clock cap. Override
 # via --file-timeout or HERMES_TEST_FILE_TIMEOUT.
@@ -372,8 +362,8 @@ def _discover_files(roots: list[Path]) -> list[Path]:
     Exclude any file whose path contains a component in ``_SKIP_PARTS``,
     UNLESS the user explicitly named it as a root (in which case the
     user's intent overrides the skip filter). This makes
-    ``scripts/run_tests.sh tests/docker/`` work locally the same way
-    ``pytest tests/docker/`` does — the CI-level skip exists to keep
+    ``scripts/run_tests.sh tests/e2e/`` work locally the same way
+    ``pytest tests/e2e/`` does — the CI-level skip exists to keep
     the sharded matrix from blowing up, not to block targeted runs.
     """
     seen: set[Path] = set()
@@ -390,7 +380,7 @@ def _discover_files(roots: list[Path]) -> list[Path]:
                 out.append(root)
             continue
         # If the explicit root itself sits inside a skipped dir (e.g.
-        # the user said ``tests/docker``), the user has overridden the
+        # the user said ``tests/e2e``), the user has overridden the
         # skip for that subtree. Compute the set of skip-parts the user
         # opted into, and only filter files whose path crosses a
         # skip-part *outside* that opt-in.

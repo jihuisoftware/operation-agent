@@ -1,10 +1,6 @@
-"""Environment-variable overrides for the gateway config (``_apply_env_overrides``).
+"""Desktop config marker cleanup and retained internal platform helpers.
 
-Runs after ``GatewayConfig.from_dict`` so env always wins over config.yaml / gateway.json.
-Most platforms follow one shape — "credentials present in env ⇒ enable the platform and
-copy the values into ``extra``" — declared by each platform plugin as ``PlatformEntry.env_overrides``
-(``gateway.platform_env.EnvCred`` rows; see that module). Core-only platforms (api_server, webhook,
-msgraph_webhook, relay) keep their small functions here.
+The loader never enables external transports from environment credentials.
 """
 
 import logging
@@ -17,10 +13,8 @@ from gateway.config import (
     Platform,
     PlatformConfig,
     _getenv_str,
-    _has_usable_api_server_key,
     SHARED_LISTENER_MIRROR_PLATFORMS,
 )
-from gateway.platform_env import INT, csv_extras, env_extras
 from utils import is_truthy_value
 
 # Logger name parity with the origin module: records stay under "gateway.config".
@@ -107,46 +101,6 @@ def _enable_from_env(
     elif warn:
         _warn_explicit_disable_beats_env(platform)
     return platform_config
-
-
-def _api_server(config: GatewayConfig) -> None:
-    """Require a usable key: an unauthenticated adapter refuses to start and the reconnect watcher would spin."""
-    key = getenv("API_SERVER_KEY")
-    if not _has_usable_api_server_key(key):
-        return
-    extra = _enable_from_env(config, Platform.API_SERVER, pop_marker=True, warn=False).extra
-    extra["key"] = key
-    csv_extras(extra, (("cors_origins", getenv("API_SERVER_CORS_ORIGINS")),))
-    env_extras(extra, (("port", "API_SERVER_PORT", INT), ("host", "API_SERVER_HOST"), ("model_name", "API_SERVER_MODEL_NAME")))
-
-
-def _webhook(config: GatewayConfig) -> None:
-    enabled = is_truthy_value(getenv("WEBHOOK_ENABLED"))
-    if not (enabled or Platform.WEBHOOK in config.platforms):
-        return
-    webhook_config = (
-        _enable_from_env(config, Platform.WEBHOOK, pop_marker=True, warn=False)
-        if enabled
-        else config.platforms[Platform.WEBHOOK]
-    )
-    env_extras(webhook_config.extra, (("port", "WEBHOOK_PORT", INT), ("secret", "WEBHOOK_SECRET")))
-
-
-def _msgraph_webhook(config: GatewayConfig) -> None:
-    enabled = is_truthy_value(getenv("MSGRAPH_WEBHOOK_ENABLED"))
-    client_state = getenv("MSGRAPH_WEBHOOK_CLIENT_STATE")
-    resources = getenv("MSGRAPH_WEBHOOK_ACCEPTED_RESOURCES")
-    allowed_cidrs = getenv("MSGRAPH_WEBHOOK_ALLOWED_SOURCE_CIDRS")
-    if not (enabled or Platform.MSGRAPH_WEBHOOK in config.platforms or getenv("MSGRAPH_WEBHOOK_PORT")
-            or client_state or resources or allowed_cidrs):
-        return
-    msgraph_cfg = config.platforms.setdefault(Platform.MSGRAPH_WEBHOOK, PlatformConfig())
-    if enabled:  # same guard as webhook, but READ (don't pop) the marker: the relay pass still consults it
-        _enable_from_env(config, Platform.MSGRAPH_WEBHOOK, warn=False)
-    env_extras(msgraph_cfg.extra, (("port", "MSGRAPH_WEBHOOK_PORT", INT),))
-    if client_state:
-        msgraph_cfg.extra["client_state"] = client_state
-    csv_extras(msgraph_cfg.extra, (("accepted_resources", resources), ("allowed_source_cidrs", allowed_cidrs)))
 
 
 def _plugin_probe_seed(entry) -> Optional[dict]:
@@ -350,7 +304,5 @@ def _scrub_explicit_markers(config: GatewayConfig) -> None:
 
 
 def _apply_env_overrides(config: GatewayConfig) -> None:
-    """Apply only generic API/webhook ingress settings; ignore legacy bot credentials."""
-    _api_server(config)
-    _webhook(config)
+    """Discard loader markers without activating retired external transports."""
     _scrub_explicit_markers(config)

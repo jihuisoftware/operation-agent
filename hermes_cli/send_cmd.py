@@ -54,7 +54,7 @@ def _read_message_body(positional: Optional[str], file_path: Optional[str]) -> O
 
 def _invalid_whatsapp_mentions(mentions: list[str]) -> list[str]:
     """Return mention values that cannot identify a WhatsApp participant."""
-    from gateway.whatsapp_identity import normalize_whatsapp_mention_jid
+    from gateway.session_legacy_identity import normalize_whatsapp_mention_jid
 
     return [mention for mention in mentions if not normalize_whatsapp_mention_jid(mention)]
 

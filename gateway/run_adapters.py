@@ -1909,8 +1909,7 @@ class GatewayAdapterLifecycleMixin:
         return adapter
 
     def _instantiate_adapter(self, platform: Platform, config: Any) -> Optional[BasePlatformAdapter]:
-        """Instantiate the adapter for a platform: plugin registry first, then built-ins."""
-        from gateway.run import _instantiate_builtin_adapter
+        """Resolve a local adapter from the registry; no external built-ins are shipped."""
         if hasattr(config, "extra") and isinstance(config.extra, dict):
             config.extra.setdefault("group_sessions_per_user", self.config.group_sessions_per_user)
             config.extra.setdefault(
@@ -1926,7 +1925,7 @@ class GatewayAdapterLifecycleMixin:
                         "(check dependencies and config)", platform.value,
                     )
                 return adapter
-        return _instantiate_builtin_adapter(platform, config)
+        return None
 
     def _make_adapter_auth_check(
         self, platform: Platform, profile_name: Optional[str] = None

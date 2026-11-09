@@ -11,9 +11,6 @@ Lanes:
 * ``python``      — pytest / ruff / ty / footguns.
 * ``python_prod`` — Python changes OUTSIDE tests/. A tests-only PR keeps
   ``python`` (pytest must run) while this stays off.
-* ``docker_meta`` — Dockerfiles etc.
-* ``docker``      — the image build: docker meta, the dependency manifests, PM,
-  and the image's own tests.
 * ``nix``         — ``nix flake check``: the flake files and the dependency
   manifests.
 * ``e2e``, ``e2e_upgrade``, ``e2e_desktop_core`` —
@@ -51,7 +48,7 @@ Lanes:
   other test of those backends is mocked, so a change to the backends, the
   terminal tool, or the real-backend tests runs it on the PR.
 
-``docker``, ``nix`` and the E2E lanes take most of the larger-runner minutes.
+``nix`` and the E2E lanes take most of the larger-runner minutes.
 An ordinary product change does not start them on a pull request. Every push
 to main runs them all (a push has no diff, so every lane is on), so a
 regression they catch shows up on main after the merge. A stable-release run
@@ -94,7 +91,6 @@ _FRONTEND = ("apps/",)  # TS typecheck-matrix packages
 # Shipped page outside those packages, exercised by the desktop Electron suite.
 _FRONTEND_FILES = {"scripts/desktop-update/ui.html"}
 _ROOT_NPM = {"package.json", "package-lock.json"}  # shifts every package's tree
-_DOCKER_META = ("docker/", ".hadolint.yaml", "Dockerfile", ".dockerignore") # docker setup
 _NIX_PATHS = ("nix/",) # nix files
 _NIX_FILES = {"flake.nix", "flake.lock"} # base nix files
 _SITE = ("website/", "skills/", "optional-skills/")  # docs site + skill pages
@@ -478,7 +474,6 @@ _E2E_LANE_EXCLUDES = {
     "e2e": ("tests/e2e/core/upgrade/", "tests/e2e/core/windows_update/"),
     "e2e_desktop_core": ("apps/desktop/e2e/update/",),
 }
-_DOCKER_PATHS = (*_DOCKER_META, *_DEP_MANIFESTS, *_NPM_MANIFESTS, "pm/", "tests/docker/")
 _NIX_LANE_PATHS = (*_NIX_PATHS, *_NIX_FILES, *_DEP_MANIFESTS, *_NPM_MANIFESTS)
 
 # A pull request with this label runs every slow lane, whatever it touches.
@@ -501,7 +496,6 @@ def _py_irrelevant(p: str) -> bool:
         _is_docs(p)
         or p in _ROOT_NPM
         or p.startswith(_PY_SKIP)
-        or p.startswith(_DOCKER_META)
         or _is_nix(p)
     )
 
@@ -551,7 +545,6 @@ def _slow_lanes(files: list[str]) -> dict[str, bool]:
         )
         for lane, paths in _E2E_LANES.items()
     }
-    lanes["docker"] = any(f.startswith(_DOCKER_PATHS) for f in files)
     lanes["nix"] = any(f.startswith(_NIX_LANE_PATHS) for f in files)
     return lanes
 
@@ -575,12 +568,10 @@ def classify(files: list[str], run_e2e: bool = False) -> dict[str, bool]:
     )
     deps = any(f == "pyproject.toml" for f in files)
     npm_lock = any(f.split("/")[-1] == "package-lock.json" for f in files)
-    docker_meta = any(f.startswith(_DOCKER_META) for f in files)
     
     ret = {
         "python": python,
         "python_prod": python_prod,
-        "docker_meta": docker_meta,
         "frontend": frontend,
         "site": any(f.startswith(_SITE) for f in files),
         "scan": any(_is_scan(f) for f in files),
@@ -604,7 +595,6 @@ def classify(files: list[str], run_e2e: bool = False) -> dict[str, bool]:
     if not files or any(f.startswith(".github/") for f in files):
         ret["python"] = True
         ret["python_prod"] = True
-        ret["docker_meta"] = True
         ret["frontend"] = True
         ret["site"] = True
         ret["scan"] = True

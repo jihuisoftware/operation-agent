@@ -31,6 +31,8 @@ from plugins.operations.dashboard.content_api import router as content_router
 router.include_router(content_router)
 from plugins.operations.dashboard.writing_api import router as writing_router
 router.include_router(writing_router)
+from plugins.operations.dashboard.collection_settings_api import router as collection_settings_router
+router.include_router(collection_settings_router)
 from plugins.operations.dashboard.visual_api import router as visual_router
 router.include_router(visual_router)
 

@@ -68,7 +68,7 @@ function ActionCard({ ctx, row, refresh, onError }: ManagementProps & { row: Rec
       <details><summary className="cursor-pointer">原始执行回执</summary><pre className="whitespace-pre-wrap text-xs">{typeof row.result === 'string' ? row.result : JSON.stringify(row.result, null, 2)}</pre></details>
       <ActionInspector ctx={ctx} refresh={refresh} row={row} />
       <ActionEvidence ctx={ctx} row={row} />
-      {['unknown', 'blocked', 'submitted', 'failed'].includes(state) && (
+      {(['unknown', 'blocked', 'submitted', 'failed'].includes(state) || (row.kind === 'publish' && ['cancelled', 'confirmed_not_published'].includes(state))) && (
         <>
           <p>查看网页并核实实际结果，再填写证据。结果不明时不要重复执行。</p>
           <select

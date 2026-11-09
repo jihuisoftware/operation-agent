@@ -85,7 +85,7 @@ def test_gate_requires_every_success_including_real_cli(tmp_path):
 @pytest.mark.parametrize("lanes", [
     lane_set.select(without=lane_set.BUNDLES),
     lane_set.select(without=lane_set.NAMES[5:]),
-    lane_set.select(only=["macos-intel", "docker"]),
+    lane_set.select(only=["macos-intel"]),
     lane_set.select(only=[]),
 ])
 def test_gate_requires_every_lane_removed_job_to_have_skipped(tmp_path, lanes):
@@ -437,7 +437,7 @@ def test_claim_object_movement_and_lightweight_tags_fail_closed(tmp_path, monkey
         "claim_tag": "rc.1-v1.2.3", "claim_object": claim_object,
         "tag": "v1.2.3", "version": "1.2.3", "attempt": 1, "commit": commit,
         # A claim cut before lanes existed reads as the lane set that gated the same jobs.
-        "autopublish": False, "lanes": lane_set.DEFAULT,
+        "autopublish": False, "lanes": lane_set.DEFAULT | {"docker", "docker-tests"},
         "claim_epoch": 1_790_000_000,
     }
     # The metadata binds the attempt its ref names.
@@ -480,7 +480,7 @@ def test_claim_object_movement_and_lightweight_tags_fail_closed(tmp_path, monkey
     final_object = ensure_final_tag(
         "v1.2.3", actual, claim,
         candidate_manifest_sha256="c" * 64,
-        docker_manifest_digest="sha256:" + "d" * 64,
+        docker_manifest_digest=None,
         release_id=123,
     )
     remote_final = subprocess.check_output(
@@ -504,10 +504,10 @@ def test_a_claim_cut_before_lanes_existed_reads_as_the_lane_set_that_gated_the_s
            "claimEpoch": 1_790_000_000}
     raw = json.dumps(old, sort_keys=True, separators=(",", ":"))
     parsed = _claim_metadata(raw, version="0.21.7", attempt=11, commit=commit)
-    assert parsed == {**old, "lanes": lane_set.DEFAULT}
+    assert parsed == {**old, "lanes": lane_set.DEFAULT | {"docker", "docker-tests"}}
     assert old == json.loads(raw)  # the caller's record is not mutated
     both = {**old, "includeMacosIntel": True, "includeTermux": True}
-    assert validate_claim(both, version="0.21.7", attempt=11, commit=commit)["lanes"] == frozenset(lane_set.NAMES)
+    assert validate_claim(both, version="0.21.7", attempt=11, commit=commit)["lanes"] == frozenset(lane_set.NAMES) | {"docker", "docker-tests"}
     untested = {**old, "skipTests": True}
     assert validate_claim(untested, version="0.21.7", attempt=11, commit=commit)["lanes"] == frozenset(
         {"docker", "macos-arm64"})
@@ -517,7 +517,7 @@ def test_a_claim_cut_before_lanes_existed_reads_as_the_lane_set_that_gated_the_s
         {"docker", "ci", "nix", "docker-tests", "install-e2e", "bootstrap-version", "termux-checks"})
     # The keys stay exact, never loose: a non-boolean, an unknown key or a mix of shapes is refused.
     new = {k: v for k, v in old.items() if not k.startswith("skip")}
-    assert validate_claim({**new, "lanes": ["docker", "macos-arm64"], "lanesRevision": lane_set.LANES_REVISION},
+    assert validate_claim({**new, "lanes": ["docker", "macos-arm64"], "lanesRevision": 2},
                           version="0.21.7", attempt=11, commit=commit)["lanes"] == frozenset({"docker", "macos-arm64"})
     for wrong in ({**old, "includeTermux": "yes"}, {**old, "includeLinux": True},
                   {**new, "lanes": ["windows", "docker"]}, {**new, "lanes": ["linux"]},
@@ -588,7 +588,7 @@ def test_a_termux_only_claim_assembles_a_termux_only_manifest(
     built = tmp_path / "built"
     built.mkdir()
     _stage_termux_handoff(built)
-    lanes = lane_set.select(only=["termux", "docker"])
+    lanes = lane_set.select(only=["termux"])
     monkeypatch.setattr(stable, "stable_context", _fake_stable_context(lanes=lanes))
     env = {**_receipt_env(tmp_path, https_origin.base), "RELEASE_NEEDS": json.dumps(_calls(lanes))}
     stable.main(["candidate-manifest"], env)
@@ -713,8 +713,7 @@ def test_publish_attempt_writes_the_receipt_retargets_and_copies_no_bytes(tmp_pa
         text=True, encoding="utf-8"))["claimEpoch"]
     manifest_bytes = b'{"schema":2}\n'
     manifest_digest = hashlib.sha256(manifest_bytes).hexdigest()
-    docker_digest = "sha256:" + "d" * 64
-    docker_desktop_digest = "sha256:" + "e" * 64
+    docker_digest = None
     release = {"id": 42, "tag_name": "rc.2-v1.2.3", "draft": True, "prerelease": False,
                "body": _fenced_body(), "published_at": None}
     patches = []
@@ -724,13 +723,7 @@ def test_publish_attempt_writes_the_receipt_retargets_and_copies_no_bytes(tmp_pa
     def run(argv):
         if argv[0] == "git":
             return subprocess.check_output(argv, text=True, encoding="utf-8").strip()
-        if argv[:3] == ["docker", "buildx", "imagetools"]:
-            inspected_images.append(argv[4])
-            assert argv[4] in {
-                "nousresearch/hermes-agent:rc.2-v1.2.3",
-                "nousresearch/hermes-agent:rc.2-v1.2.3-desktop",
-            }
-            return json.dumps(docker_desktop_digest if argv[4].endswith("-desktop") else docker_digest)
+        assert argv[0] != "docker", "Desktop publication contacted a container registry"
         if argv[:3] == ["gh", "api", "--method"]:
             fields = {}
             for _flag, value in zip(argv[5::2], argv[6::2]):
@@ -766,10 +759,7 @@ def test_publish_attempt_writes_the_receipt_retargets_and_copies_no_bytes(tmp_pa
     assert receipt["archive"] == "releases/tag/rc.2-v1.2.3/"
     assert receipt["candidateManifestSha256"] == manifest_digest
     assert receipt["dockerManifestDigest"] == docker_digest
-    assert inspected_images == [
-        "nousresearch/hermes-agent:rc.2-v1.2.3",
-        "nousresearch/hermes-agent:rc.2-v1.2.3-desktop",
-    ]
+    assert inspected_images == []
     assert receipt["releaseId"] == 42
     remote = subprocess.check_output(
         ["git", "ls-remote", "origin", "refs/tags/v1.2.3", "refs/tags/v1.2.3^{}"],
@@ -786,7 +776,7 @@ def test_publish_attempt_writes_the_receipt_retargets_and_copies_no_bytes(tmp_pa
 
 
 @pytest.mark.parametrize("lanes,binds_manifest,binds_docker", [
-    (["macos-arm64"], True, False), (["docker"], False, True), ([], False, False)])
+    (["macos-arm64"], True, False), ([], False, False)])
 def test_the_final_receipt_binds_only_what_the_claims_lanes_built(
         tmp_path, monkeypatch, lanes, binds_manifest, binds_docker):
     from scripts.releases import stable
@@ -803,9 +793,7 @@ def test_the_final_receipt_binds_only_what_the_claims_lanes_built(
     def run(argv):
         if argv[0] == "git":
             return subprocess.check_output(argv, text=True, encoding="utf-8").strip()
-        if argv[:3] == ["docker", "buildx", "imagetools"]:
-            assert binds_docker, "a claim without the docker lane reads no image"
-            return json.dumps("sha256:" + "d" * 64)
+        assert argv[0] != "docker", "Desktop publication contacted a container registry"
         if argv[:3] == ["gh", "api", "--method"]:
             fields = dict(value.partition("=")[::2] for value in argv[6::2])
             release.update({key: (raw == "true") if key in {"draft", "prerelease"} else raw
@@ -848,8 +836,7 @@ def test_publish_attempt_refuses_a_release_that_is_no_longer_a_draft(tmp_path, m
     def run(argv):
         if argv[0] == "git":
             return subprocess.check_output(argv, text=True, encoding="utf-8").strip()
-        if argv[:3] == ["docker", "buildx", "imagetools"]:
-            return json.dumps("sha256:" + "d" * 64)
+        assert argv[0] != "docker", "Desktop publication contacted a container registry"
         if argv[:2] == ["gh", "api"]:
             return json.dumps(release)
         raise AssertionError(argv)
@@ -1248,3 +1235,14 @@ def test_the_final_tag_push_authenticates_with_gh_token_without_persisted_creden
     assert argv[1:5] == ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"]
     assert "token" not in " ".join(argv)
     assert authenticated_push(ref, {}) == ["git", "push", "origin", ref]
+
+
+def test_unpublished_legacy_image_claim_requires_a_new_desktop_claim():
+    from scripts.releases import stable
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("a retired image claim must fail before I/O")
+
+    with pytest.raises(ValueError, match="image publication is retired"):
+        stable.publish_attempt({"lanes": {"docker", "macos-arm64"}},
+                               repository="example/project", run=unexpected, read_archive=unexpected)

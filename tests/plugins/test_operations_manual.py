@@ -59,12 +59,13 @@ def test_manual_uses_queue_targets_and_retains_shared_limits_and_unknown_fence(s
     ids = []
     for batch in ("one", "two", "three"):
         store.manual_run_id = batch
+        action = {**action, "target": "content-" + batch}
         identity = store.reserve_action(action, 1, "2026-10-31")
         ids.append(identity)
         assert store.reserve_action(action, 1, "2026-10-31") is None
         command = store.enqueue("publish", action, identity)
         claimed = store.claim("mock-desktop")
-        assert claimed["payload"]["target"] == "same-content"
+        assert claimed["payload"]["target"] == "content-" + batch
         store.acknowledge(command, "mock-desktop", {"state": "unknown" if batch == "three" else "published", "evidence": "模拟回执"})
     assert len(set(ids)) == 3
     restarted = Store()
@@ -73,10 +74,12 @@ def test_manual_uses_queue_targets_and_retains_shared_limits_and_unknown_fence(s
         restarted.reserve_action(action, 1, "2026-10-31")
     from plugins.operations.service import resolve_action
     resolve_action(restarted, ids[-1], "confirmed_not_published", "模拟核对未发布")
+    assert restarted.reserve_action(action, 1, "2026-10-31")
     with pytest.raises(ValueError, match="每日动作额度"):
-        restarted.reserve_action(action, 1, "2026-10-31")
+        restarted.reserve_action({**action, "target": "different-copy"}, 1, "2026-10-31")
     restarted.manual_run_id = None
-    assert restarted.reserve_action(action, 1, "2026-11-01") is None
+    with pytest.raises(ValueError, match="已发布"):
+        restarted.reserve_action({**action, "target": "content-one"}, 1, "2026-11-01")
 
 
 def test_manual_offline_no_source_and_failure_are_visible_and_pause_wins(store, monkeypatch):

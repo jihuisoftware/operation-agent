@@ -80,8 +80,12 @@ def review(store, identity, body):
         previous = load(db, identity)
         if (previous or {}).get('revision', 0) != body.get('expected_revision'):
             raise ValueError('审核排期已变化，请刷新')
-        if db.execute("SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=?", (identity,)).fetchone():
-            raise ValueError('此稿已有发布动作，请先核对执行结果，不能重新排期')
+        from .content import content_digest
+        from .publication_attempts import guard
+        action = {'kind': 'publish', 'account_id': who, 'target': content_digest(content)}
+        guard(db, action)
+        from .publication_shared import history
+        history(store, db, action)
         value = {'content_id': identity, 'content_revision': fingerprint(content), 'revision': body['expected_revision'] + 1,
                  'version': version, 'account_id': who, 'account_scope': scope, 'state': 'scheduled',
                  'publish_at': stamp.astimezone(UTC).isoformat(), 'reviewed_at': now_iso(), 'reviewer': 'human'}

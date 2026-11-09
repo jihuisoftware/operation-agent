@@ -5,6 +5,7 @@ import { actionLabels, actionModules, moduleLabels } from './blueprint-types'
 import { ChoiceField, choices, KeywordChoices, TimeSlots } from './configuration-choices'
 import { audienceChoices, priorityChoices, styleChoices, timezoneChoices } from './configuration-presets'
 import { ModelBudgetFields } from './model-budget-fields'
+import { SourceLimitField } from './source-limit-field'
 import type { Policy } from './types'
 
 export interface PolicyFieldsProps {
@@ -164,17 +165,16 @@ export function ScheduleFields({
           />
           {Object.entries(policy.limits)
             .filter(([a]) => (a === 'source' ? policy.modules.research : policy.modules[actionModules[a]]))
-            .map(([action, value]) => (
+            .map(([action, value]) => action === 'source' ? (
+              <SourceLimitField key={action} onChange={next => update('limits', { ...policy.limits, source: next })} value={value} />
+            ) : (
               <ChoiceField
                 key={action}
                 label={`${actionLabels[action]}每日上限`}
-                max={action === 'source' ? 10000 : 1000}
+                max={1000}
                 onChange={next => update('limits', { ...policy.limits, [action]: Number(next) })}
                 options={choices(
-                  (action === 'source'
-                    ? [0, 30, 100, 500, 1000, 5000, 10000]
-                    : [0, 1, 3, 5, 10, 20, 50, 100, 1000]
-                  ).map(String)
+                  [0, 1, 3, 5, 10, 20, 50, 100, 1000].map(String)
                 )}
                 type="number"
                 value={String(value)}

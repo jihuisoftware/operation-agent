@@ -15,7 +15,7 @@ build or a target-native runtime.
 |---|---|---|
 | Dependency provider | Tools, locked dependencies, native libraries and build environments | `node-deps.mjs`, PM Python operations, Nix `importNpmLock`/uv2nix, Termux wheelhouse |
 | Product builder | Compilation or application assembly from prepared inputs | `desktop.mjs`, `agent.py`, `../generate_icons.py` |
-| Distribution adapter | Product selection, target preparation, package layout, signing and publication | `../bundles/`, `../../Dockerfile`, `../../nix/`, `../termux/` |
+| Distribution adapter | Product selection, target preparation, package layout, signing and publication | `../bundles/`, `../../nix/`, `../termux/` |
 
 `node-deps.mjs` and `pm.build_environment` prepare dependencies. Unlike the product
 builders, they can access package registries. There is no universal installer,

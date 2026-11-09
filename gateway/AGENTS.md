@@ -1,4 +1,4 @@
-# gateway/ — messaging gateway, adapters, delivery
+# gateway/ — Desktop runtime, sessions and scheduling
 
 This operations build retires messaging integrations and public API/webhook ingress. Keep the
 local runtime, scheduler and private Desktop tickets/API. `hermes_cli/data/operations-profile.json`
@@ -6,7 +6,11 @@ defines scope; env flags cannot revive retired ingress. Legacy types remain for 
 do not restore bot activation or platform setup entry points.
 
 Applies on top of the root `AGENTS.md`. Long-form: `website/docs/developer-guide/gateway-internals.md`.
-This operations build retains the local Desktop runtime and shared gateway contracts. Bundled messaging adapters and their setup UI are removed.
+This operations build retains the local Desktop runtime and shared gateway contracts. Bundled messaging adapters and their setup UI are removed. Runtime activation accepts only `local`;
+public API/webhook environment bridges and the built-in external adapter factory are removed.
+Remaining API/webhook modules are shared execution/history dependencies, not supported ingress.
+Model-option decoding lives in `session_model_options.py`; historical WhatsApp identifiers live in
+`session_legacy_identity.py` without restoring a bridge.
 
 ## Shape
 
@@ -80,14 +84,11 @@ broadcast surfaces) and binds the WHOLE install's `providers.nous`, so shared ga
 
 ## Gateway lifecycle vs. the Desktop app
 
-`hermes serve` (control plane, desktop-spawned child) dies with the app — by design. The messaging
-gateway (`gateway run`) SURVIVES the app: the serve backend's `/api/gateway/*` endpoints spawn it
-detached (`_spawn_hermes_action` — `start_new_session` / `DETACHED_PROCESS`), so `before-quit`'s
-SIGTERM never reaches it and bots keep running. The known breach is the Windows shim-unlock
-teardown (`taskkill /T /F` on venv-shim holders, #85265), which exists to let updates proceed and is
-replaced by #92091's `pause-for-update`. Do NOT "fix" gateway-dies-with-app by re-parenting the
-gateway under the backend, and do NOT "fix" update locks by widening the tree-kill. Gateways stamp
-`code_sha`/`code_version` into `gateway_state.json` (`status.py`) so the updater can verify a fleet.
+Desktop attaches through `hermes gateway ensure --json`. The canonical Gateway owns sessions,
+private API tickets, Cron and background work independently of the Electron window. Do not parent
+its lifetime to a UI connection. The retained `hermes serve` helpers are not evidence that Desktop
+owns a disposable chat worker. Gateways stamp `code_sha`/`code_version` into `gateway_state.json`
+(`status.py`) so the updater can verify the running runtime.
 
 ## Profile scope (adapters, turns, and everything between turns)
 

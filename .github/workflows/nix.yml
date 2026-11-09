@@ -4,8 +4,8 @@ name: Nix flake check
 # checks under nix/checks.nix — module evaluation, option parity, .env
 # assembly, service argv, and the rest.
 #
-# This workflow owns its triggers and ci.yml does not call it, for the reason
-# docker.yml gives: a reusable-workflow call holds the caller run in progress
+# This workflow owns its triggers and ci.yml does not call it: a reusable
+# workflow call holds the caller run in progress
 # for the full build, and GitHub refuses `gh run rerun` on a run that is still
 # in progress. One slow advisory job in the CI lane blocks every rerun of the
 # fast required jobs beside it. A separate run reruns and cancels on its own.
@@ -126,8 +126,7 @@ jobs:
           # Save from main only. A cache that a PR writes is visible to that
           # PR alone and never to another branch, so a save there spends the
           # 10 GB quota of the repository and helps no later run. A PR still
-          # restores: it reads the cache that the merge to main wrote. This is
-          # the same rule that docker.yml applies to `cache-to`.
+          # restores: it reads the cache that the merge to main wrote.
           save: ${{ github.event_name != 'pull_request' }}
 
           # Collect garbage before the save, so the store stays inside the

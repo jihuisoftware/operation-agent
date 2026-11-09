@@ -38,4 +38,10 @@ def detail(store, identity):
             raise ValueError('动作不存在')
         history = [json.loads(r[0]) for r in db.execute("SELECT data FROM objects WHERE kind='manual_conclusion' AND json_extract(data,'$.action_id')=? ORDER BY created", (identity,))]
         tracking = load(db, identity)
-    return {'issue': issue(dict(row)), 'tracking': tracking, 'snapshot': read(store, identity), 'manual_history': history}
+    explanation = issue(dict(row))
+    if row['kind'] == 'publish' and row['state'] == 'cancelled':
+        from .publication_attempts import unsubmitted
+        with store.connection() as db:
+            if not unsubmitted(db, dict(row)):
+                explanation = {'kind': 'pending', 'title': '已取消，但此前提交结果仍需核对', 'help': '取消状态不代表此前一定未提交。请核对原稿后保存人工结论，再决定是否重新发布。'}
+    return {'issue': explanation, 'tracking': tracking, 'snapshot': read(store, identity), 'manual_history': history}

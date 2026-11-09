@@ -5,13 +5,15 @@ from .outcomes import StageSkipped
 
 
 class ActionDeferred(StageSkipped, ValueError):
-    def __init__(self, row, *, scope=None, publication=False):
+    def __init__(self, row, *, scope=None, publication=False, completed=False):
         data = json.loads(row['data']) if row.get('data') else {}
         original = {key: row.get(key) for key in ('id', 'kind', 'state', 'created')}
         original.update({key: (scope or {}).get(key) or data.get(key) for key in ('business_id', 'topic_id')})
         original['batch_id'] = data.get('manual_run_id') or data.get('run_id')
         message = ('同一内容' if publication else '同类动作') + '仍有未核对结果，本次未执行；请核对原记录 ' + row['id']
-        self.result = {'state': 'not_started', 'submitted': False, 'error_code': 'ACTION_PENDING',
+        if completed:
+            message = '相同内容已发布，本次未重复提交；原记录 ' + row['id']
+        self.result = {'state': 'not_started', 'submitted': False, 'error_code': 'ALREADY_PUBLISHED' if completed else 'ACTION_PENDING',
                        'error': message, 'blocking_action': original}
         super().__init__(message)
 
@@ -38,6 +40,15 @@ def shared_pending(db, account, action, scope, identity):
 
 def check_replay(store, db, action, identity):
     """Known-unsubmitted retries still respect another pending copy of the same post."""
+    if action['kind'] == 'publish':
+        from .publication_attempts import guard, unsubmitted
+        from .publication_shared import history
+        row = db.execute('SELECT * FROM actions WHERE id=?', (identity,)).fetchone()
+        if not row or not unsubmitted(db, dict(row)):
+            raise ValueError('原发布动作未结束或提交证据不明，请先核对')
+        guard(db, action, skip=identity)
+        history(store, db, action)
+        return
     check_pending(db, action)
     if store.workspace:
         from .execution_pause import account_key

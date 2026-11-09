@@ -822,8 +822,8 @@ class GatewayConfig:
         return "public" if choice is None else choice
 
 
-# This Desktop-focused build retains local execution and generic automation ingress.
-RUNTIME_PLATFORM_VALUES = frozenset({"local", "api_server", "webhook"})
+# Only local execution is activatable; legacy platform values still decode historical sessions.
+RUNTIME_PLATFORM_VALUES = frozenset({"local"})
 
 
 def load_gateway_config() -> GatewayConfig:

@@ -86,7 +86,6 @@ jobs:
       rust: ${{ steps.gate-lanes.outputs.rust }}
       remote_backends: ${{ steps.gate-lanes.outputs.remote_backends }}
       catalog: ${{ steps.gate-lanes.outputs.catalog }}
-      docker_meta: ${{ steps.gate-lanes.outputs.docker_meta }}
       e2e: ${{ steps.gate-lanes.outputs.e2e }}
       e2e_upgrade: ${{ steps.gate-lanes.outputs.e2e_upgrade }}
       e2e_desktop_core: ${{ steps.gate-lanes.outputs.e2e_desktop_core }}
@@ -365,14 +364,6 @@ jobs:
     with:
       commit: ${{ inputs.commit }}
 
-  docker-lint:
-    name: Lint Docker scripts
-    needs: detect
-    if: needs.detect.outputs.docker_meta == 'true'
-    uses: ./.github/workflows/docker-lint.yml
-    with:
-      commit: ${{ inputs.commit }}
-
   supply-chain:
     name: Supply-chain scan
     needs: detect
@@ -433,7 +424,6 @@ jobs:
       - lazy-deps-guard
       - lockfile-diff
       - prompt-surface-diff
-      - docker-lint
       - profile-artifact-check
       - icons-freshness-check
       - supply-chain
@@ -441,10 +431,6 @@ jobs:
       # every PR was reporting the same repo-wide baseline of pinned-dep CVEs
       # in its review comment, and the SARIF upload tripped GitHub's
       # per-installation API rate limit during merge trains.
-      # The image build runs in its own workflow (docker.yml) and reports
-      # its own check. It was never required here, because it is too slow
-      # to block a merge. A separate run also stops it from holding this
-      # run open. That is what blocked ``gh run rerun``.
     if: always()
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10

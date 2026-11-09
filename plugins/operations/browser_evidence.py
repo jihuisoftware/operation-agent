@@ -84,6 +84,9 @@ def record_step(store, command_id, worker, body):
             raise ValueError(blocked)
         from .analysis_publication import check_step
         check_step(db, command, phase)
+        if phase == 'started':
+            from .publication_dispatch import check as check_publication
+            check_publication(store, db, command)
         payload = json.loads(command['payload'])
         if phase == 'started' and payload.get('human_review'):
             from .content_release import authorization

@@ -8,7 +8,7 @@ clamping happens downstream in the transports/profiles via
 agent.reasoning_effort (#78216's api_server observation).
 """
 
-from gateway.platforms.api_server import _request_reasoning_config
+from gateway.session_model_options import _request_reasoning_config
 from hermes_constants import VALID_REASONING_EFFORTS
 
 
@@ -31,3 +31,13 @@ class TestRequestReasoningFullLadder:
 
     def test_unknown_level_still_ignored(self):
         assert _request_reasoning_config({"reasoning_effort": "turbo"}) is None
+
+
+def test_service_tier_preserves_missing_and_explicit_disable():
+    from gateway.session_model_options import _REQUEST_OPTION_MISSING, _request_service_tier
+
+    assert _request_service_tier({}) is _REQUEST_OPTION_MISSING
+    assert _request_service_tier({"fast": "false"}) is None
+    assert _request_service_tier({"fast": "true"}) == "priority"
+    assert _request_service_tier({"fast": True, "service_tier": None}) is None
+    assert _request_service_tier({"service_tier": " default "}) == "default"

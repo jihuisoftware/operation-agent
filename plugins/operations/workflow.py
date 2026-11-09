@@ -113,7 +113,7 @@ def publish(store, policy, day, version, *, content_id=None):
         action['human_review'] = release['revision']
     identity = store.reserve_action(action, version, day)
     if not identity:
-        raise StageSkipped("相同内容已有执行记录")
+        raise StageSkipped("本次发布尝试已有记录，请查看原任务状态；不会重复派发")
     return browser(store, "publish", action, identity)
 
 

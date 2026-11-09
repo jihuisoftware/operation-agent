@@ -353,22 +353,13 @@ def discover(repository: str, run=output) -> list[dict]:
     return sorted(records, key=lambda record: (_key(record["version"]), record["attempt"]))
 
 
-def channel_head(desktop_head: str | None, records: list[dict],
-                 stable_alias_digest: str | None) -> str | None:
-    """The newest version whose publication pass finished.
-
-    A release that advances the desktop channel finishes when the protected R2
-    head names it. One that does not finishes when the Docker ``stable`` alias
-    carries the digest its final receipt binds, or, when it moves no channel at
-    all, as soon as it is public.
-    """
+def channel_head(desktop_head: str | None, records: list[dict]) -> str | None:
+    """Newest completed publication: the Desktop head or a public release without a channel."""
     versions = [desktop_head] if desktop_head is not None else []
     versions += [record["version"] for record in records
-                 if record["state"] == "published"
-                 and (not lane_set.moves_channels(record["lanes"])
-                      or (stable_alias_digest is not None
-                          and record["docker_manifest_digest"] == stable_alias_digest))]
+                 if record["state"] == "published" and not lane_set.moves_channels(record["lanes"])]
     return max(versions, key=_key, default=None)
+
 
 
 def _reconcile_store(env: dict, records: list[dict], read_archive) -> None:
@@ -396,7 +387,7 @@ def _reconcile_store(env: dict, records: list[dict], read_archive) -> None:
 def reconcile(env: dict, *, run=output, read_head=None, advance_head=None,
               read_archive=None) -> list[dict]:
     """Converge GitHub publication and protected heads oldest-first."""
-    from scripts.releases import channel_releases, docker, stable
+    from scripts.releases import channel_releases, stable
 
     repository = env["GITHUB_REPOSITORY"]
     run = logged_run(run)
@@ -448,8 +439,7 @@ def reconcile(env: dict, *, run=output, read_head=None, advance_head=None,
             records = discover(repository, run)
 
     read_head = read_head or (lambda: channel_head(
-        channel_releases.stable_head_version(env), discover(repository, run),
-        docker.stable_alias_digest()))
+        channel_releases.stable_head_version(env), discover(repository, run)))
     with group("Read the stable channel head"):
         head = read_head()
         log(f"Channel head: {head or '(none)'}")
@@ -471,15 +461,7 @@ def reconcile(env: dict, *, run=output, read_head=None, advance_head=None,
                 log(f"Desktop channel head is now {record['version']}")
             else:
                 log(f"{record['version']} did not build every desktop package the channel serves "
-                    "(windows, macos-arm64): the desktop channel stays on the previous release")
-            if "docker" in record["lanes"]:
-                log(f"Tagging Docker {record['tag']}/stable/latest onto {record['claim_tag']} "
-                    f"({record['docker_manifest_digest']})")
-                # The final vX.Y.Z and the stable/latest aliases move onto the attempt's image here, in
-                # the publication pass with the feed pointer, never in the green
-                # build that pushed the image under the attempt ref.
-                docker.promote_stable(record["claim_tag"], record["docker_manifest_digest"], record["tag"])
-                log("Docker aliases moved")
+                    "(macos-arm64): the desktop channel stays on the previous release")
         advance_head = production_advance
 
     for number, step in enumerate(steps, start=1):

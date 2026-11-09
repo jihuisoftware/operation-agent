@@ -11,7 +11,7 @@ def test_the_default_builds_everything_but_macos_intel_and_termux():
 
 @pytest.mark.parametrize("kwargs,expected", [
     # The request that motivated lanes: only the macOS Intel package and the image, no tests.
-    ({"only": ["macos-intel", "docker"]}, {"macos-intel", "docker"}),
+    ({"only": ["macos-intel"]}, {"macos-intel"}),
     ({"with_": ["macos-intel", "termux"]}, set(lane_set.NAMES)),
     ({"without": ["macos-arm64", "upgrade"]}, set(lane_set.DEFAULT) - {"macos-arm64", "upgrade"}),
     ({"only": ["macos-intel"], "with_": ["smoke"], "without": ["macos-intel"]}, {"smoke"}),
@@ -29,7 +29,7 @@ def test_select_refuses_unknown_and_contradictory_lanes():
 
 
 def test_options_flatten_repeats_and_commas():
-    assert lane_set.parse_list(["macos-intel, docker", "ci"]) == ["macos-intel", "docker", "ci"]
+    assert lane_set.parse_list(["macos-intel, ci", "ci"]) == ["macos-intel", "ci", "ci"]
     assert lane_set.parse_list(None) is None
 
 
@@ -43,9 +43,9 @@ def test_every_job_names_real_lanes():
 
 
 def test_a_job_runs_only_when_every_lane_it_needs_is_on():
-    native_only = lane_set.jobs_to_run(["macos-intel", "docker"])
+    native_only = lane_set.jobs_to_run(["macos-intel"])
     assert {job for job, runs in native_only.items() if runs} == {
-        "docker", "publish-docker", "candidates-darwin-x64", "candidate-manifest", "publish-bundles"}
+        "candidates-darwin-x64", "candidate-manifest", "publish-bundles"}
     # A test lane for something that is not built is inert.
     assert not lane_set.jobs_to_run(["upgrade", "macos-intel"])["transitions-darwin-arm64"]
     assert lane_set.jobs_to_run(["upgrade", "macos-intel"])["transitions-darwin-x64"]
@@ -58,11 +58,11 @@ def test_a_job_runs_only_when_every_lane_it_needs_is_on():
 
 
 def test_flags_round_trip_and_refuse_anything_loose():
-    flags = lane_set.flags(["macos-intel", "docker"])
+    flags = lane_set.flags(["macos-intel"])
     assert flags["bundles"] is True and flags["macos-arm64"] is False
     assert flags["desktop-channel"] is False
     assert lane_set.flags(lane_set.DEFAULT)["desktop-channel"] is True
-    assert lane_set.from_flags(flags) == {"macos-intel", "docker"}
+    assert lane_set.from_flags(flags) == {"macos-intel"}
     assert lane_set.flags(["docker"])["bundles"] is False
     for bad in (None, {}, {**flags, "extra": True}, {**flags, "ci": "true"},
                 {name: flags[name] for name in flags if name != "ci"}):
@@ -80,14 +80,24 @@ def test_targets_and_handoffs_follow_the_build_lanes():
 
 def test_smokes_run_only_for_a_built_desktop_package():
     assert lane_set.runs_smokes(lane_set.DEFAULT)
-    assert not lane_set.runs_smokes(["smoke", "docker", "termux"])
+    assert not lane_set.runs_smokes(["smoke", "termux"])
     assert not lane_set.runs_smokes(["macos-intel"])
 
 
 def test_the_desktop_channel_moves_only_for_the_full_desktop_set():
     assert lane_set.advances_desktop(lane_set.DEFAULT)
-    assert not lane_set.advances_desktop(["macos-intel", "docker"])
+    assert not lane_set.advances_desktop(["macos-intel"])
     assert lane_set.advances_desktop(["macos-arm64"])
     # A release that moves no channel is finished once public.
-    assert lane_set.moves_channels(["docker"]) and lane_set.moves_channels(["macos-intel", "macos-arm64"])
+    assert not lane_set.moves_channels(["docker"])
+    assert lane_set.moves_channels(["macos-intel", "macos-arm64"])
     assert not lane_set.moves_channels(["macos-intel"]) and not lane_set.moves_channels([])
+
+
+@pytest.mark.parametrize("name", ["docker", "docker-tests"])
+def test_new_claims_cannot_request_retired_images(name):
+    with pytest.raises(ValueError, match="unknown lane"):
+        lane_set.select(with_=[name])
+    assert lane_set.claim_lanes({"lanes": [name], "lanesRevision": 2}) == {name}
+    with pytest.raises(ValueError, match="metadata is invalid"):
+        lane_set.claim_lanes({"lanes": [name], "lanesRevision": lane_set.LANES_REVISION})
