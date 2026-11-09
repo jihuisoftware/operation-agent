@@ -42,8 +42,6 @@ let
 
   wrapperArgs = [
     "--add-flags"
-    "--enable-features=WaylandWindowDecorations"
-    "--add-flags"
     "${placeholder "out"}/share/hermes-desktop"
   ]
   ++ lib.concatLists (
@@ -61,13 +59,7 @@ let
   # node-pty ships no Electron-tagged prebuild we can trust to match this
   # exact nixpkgs electron version, so it's always compiled from source
   # against Electron's own headers (not whatever Node ran `npm`).
-  targetPlatform =
-    if stdenv.hostPlatform.isDarwin then
-      "darwin"
-    else if stdenv.hostPlatform.isLinux then
-      "linux"
-    else
-      throw "hermes-desktop: unsupported host platform for node-pty staging";
+  targetPlatform = "darwin";
 
   targetArch =
     if stdenv.hostPlatform.isAarch64 then
@@ -193,16 +185,9 @@ stdenv.mkDerivation {
     makeWrapper ${lib.getExe electron} $out/bin/hermes-desktop \
       ${lib.escapeShellArgs wrapperArgs}
 
-    # XDG launcher entry
-    mkdir -p $out/share/applications $out/share/icons/hicolor/1024x1024/apps
+    mkdir -p $out/share/hermes-desktop/assets
     install -m 0644 ${generatedIcons}/apps/desktop/assets/icon.png \
-      $out/share/icons/hicolor/1024x1024/apps/hermes.png
-    export PYTHONPATH=$(mktemp -d)
-    cp ${../hermes_cli/linux_desktop_entry.py} "$PYTHONPATH/linux_desktop_entry.py"
-    export DESKTOP_EXEC="$out/bin/hermes-desktop"
-    export DESKTOP_ICON="$out/share/icons/hicolor/1024x1024/apps/hermes.png"
-    entry_name=$(python3 -c 'from linux_desktop_entry import DESKTOP_ENTRY_NAME; print(DESKTOP_ENTRY_NAME)')
-    python3 -c 'import os; from linux_desktop_entry import render_desktop_entry; print(render_desktop_entry(os.environ["DESKTOP_EXEC"], os.environ["DESKTOP_ICON"]))' > "$out/share/applications/$entry_name"
+      $out/share/hermes-desktop/assets/icon.png
     runHook postInstall
   '';
 
@@ -214,7 +199,7 @@ stdenv.mkDerivation {
     description = "Native Electron desktop shell for Hermes Agent";
     homepage = "https://github.com/NousResearch/hermes-agent";
     license = licenses.mit;
-    platforms = platforms.unix;
+    platforms = [ "aarch64-darwin" ];
     mainProgram = "hermes-desktop";
   };
 }

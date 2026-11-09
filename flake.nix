@@ -40,15 +40,12 @@
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [
-        "x86_64-linux"
-        "aarch64-linux"
         "aarch64-darwin"
       ];
 
       imports = [
         ./nix/packages.nix
         ./nix/overlays.nix
-        ./nix/nixosModules.nix
         ./nix/homeManagerModules.nix
         ./nix/checks.nix
         ./nix/devShell.nix

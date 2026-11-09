@@ -1,5 +1,17 @@
 # 当前开发交接记录
 
+## Nix 桌面范围清理（2026-11-09）
+
+基准 `856cff2980`；此前 Gateway/Docker 等工作已在当前基准中。保留运营发布重试的已有及并行修改；本轮未提交、未启动或重启后台。
+
+- Flake 仅声明 `aarch64-darwin`；删除 NixOS 模块、Linux systemd/容器部署、ELF 修补、Wayland/XDG 启动配置与 Linux 专用运行测试。
+- 删除 messaging 包变体以及钉钉/飞书/Matrix 的预装依赖；保留 macOS Desktop、管理命令、终端工具、开发沙箱和 Home Manager launchd。
+- `.envrc` 不再观察已删除的终端/网站包；开发提示明确启动 `hermes desktop`。Nix CI 的构建工作移至 macOS ARM runner，缓存按系统/架构分开。
+- 保留配置合并、Python 锁、入口与资产检查；增加 macOS launchd/profile 和退役消息配置不激活的 Nix 检查。配置键导出 `packages.configKeys` 保留。
+- 验证：发布图、CI 分类、桌面入口与退役平台共199项通过；仓库12项检查通过。使用已有 PM 测试环境经 `scripts/run_tests.sh` 执行（自动环境同步下载 KittenTTS 返回504）。
+- 限制：本机没有 Nix，未运行真实 `nix flake check` 或构建桌面包。临时 Tree-sitter 解析器在兼容处理其不支持的参数尾逗号后，19个Nix文件语法检查通过；这不等同于 Nix 求值或构建。
+
+
 ## Docker 镜像发行退役（2026-11-09）
 
 基准 `16aa70604c`；保留工作树中 Gateway、采集设置、运营发布等已有/并行改动，未提交或重启后台。

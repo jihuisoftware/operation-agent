@@ -6,7 +6,7 @@
 #
 # Source filters (pythonSrc, per-package npm srcs) reduce rebuild scope so
 # that e.g. a .tsx change doesn't trigger a Python venv rebuild, and a .py
-# change doesn't trigger a TUI/Web/Desktop rebuild.  Each derivation gets a
+# change doesn't trigger a Desktop rebuild.  Each derivation gets a
 # filtered src that only includes files it actually needs, while keeping
 # the repo-root directory layout intact for buildNpmPackage /
 # npmConfigHook workspace resolution.
@@ -35,7 +35,7 @@ let
 
   # Every JS tool comes from pm/lock.json — the node the builds and the
   # shipped app run on, plus npm wrapped onto it. nixpkgs supplies nothing
-  # here; node/npm have Linux artifacts in the lock.
+  # here; node/npm have macOS artifacts in the lock.
   pmNode = pmPackages.node;
   npm12 = callPackage ./npm-pinned.nix { nodejs = pmNode; };
   node_gyp_11_4_0 = callPackage ./node-gyp-11-4-0.nix { nodejs = nodejs; };
@@ -121,7 +121,7 @@ let
 
   # ── Source filters for reducing rebuild scope ──────────────────────
   # Changing a .tsx/.mjs file should NOT trigger a Python venv rebuild,
-  # and changing a .py file should NOT trigger a TUI/Web/Desktop rebuild.
+  # and changing a .py file should NOT trigger a Desktop rebuild.
 
   # Python source: everything except JS/TS/docs/infra directories.
   pythonSrc = lib.cleanSourceWith {

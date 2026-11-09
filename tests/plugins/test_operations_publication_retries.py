@@ -154,7 +154,7 @@ def test_shared_account_racing_retries_reserve_one_new_attempt(tmp_path):
     service.cancel_action(a, old)
     # Older installations indexed a single raw content fingerprint.
     with directory.connection() as db:
-        db.execute("UPDATE account_claims SET target=? WHERE action_id=?", (action['target'], old))
+        db.execute("DELETE FROM account_claims WHERE action_id=? AND target!=?", (old, action['target']))
     a.current_run_id, b.current_run_id = 'retry-a', 'retry-b'
     def reserve(store):
         from plugins.operations.action_admission import ActionDeferred
@@ -180,3 +180,30 @@ def test_human_correction_after_claim_stops_submit_step(tmp_path):
     with pytest.raises(ValueError, match='已发布'):
         record_step(store, command['id'], 'desktop', {'sequence': 1, 'name': 'submit', 'phase': 'started'})
     assert not store.objects('browser_step')
+
+
+def test_lowered_allowance_cannot_be_bypassed_by_reusing_a_reservation(tmp_path):
+    store, version, action, old = prepared(tmp_path)
+    with store.connection() as db:
+        receipt = encoded({'submitted': False, 'dispatch_state': 'read_only'})
+        db.execute("UPDATE actions SET state='failed',result=? WHERE id=?", (receipt, old))
+        db.execute("UPDATE commands SET state='done',result=? WHERE action_id=?", (receipt, old))
+    _, policy = store.policy()
+    version = store.configure({**policy, 'limits': {**policy['limits'], 'publish': 0}}, version)
+    store.current_run_id = 'new-run'
+    with pytest.raises(ValueError, match='每日动作额度'):
+        store.reserve_action(action, version)
+
+
+def test_legacy_separate_publications_do_not_collapse_used_allowance(tmp_path):
+    from plugins.operations.policy import local_day, now_iso
+    store = Store(tmp_path / 'legacy.db')
+    version, policy = enable(store, limits={**store.policy()[1]['limits'], 'publish': 2})
+    with store.connection() as db:
+        for index in range(2):
+            action = manuscript('legacy-copy')
+            db.execute("INSERT INTO actions VALUES (?,? ,?,'publish',?,'published',?,?,?)", (f'old-{index}', local_day(policy), version,
+                f'legacy-target-{index}', encoded(action), encoded({'submitted': True}), now_iso()))
+    store.current_run_id = 'new-run'
+    with pytest.raises(ValueError, match='每日动作额度'):
+        store.reserve_action(manuscript('different-copy'), version)

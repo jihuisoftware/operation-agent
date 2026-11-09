@@ -1,47 +1,5 @@
-# nix/homeManagerModules.nix — the Home Manager module for hermes-agent
-#
-# This module is the user-level equivalent of nixosModules.default. Hermes is
-# an agent for one person. The credentials, the memory, the sessions and the
-# cron jobs all belong to that person. Thus a user-level module is correct on
-# each distribution, and not only on NixOS.
-#
-# `services.hermes-agent` is the same option set on both modules. All of the
-# options except the system-level ones come from nix/moduleCommon.nix, so an
-# example from the NixOS documentation works here without a change. Only the
-# necessary parts are different:
-#
-#   removed   user, group, createUser  — Home Manager runs as the user
-#   removed   container.*              — it needs root and the Docker socket
-#   removed   UMask 0007               — that mode shares state with a UNIX
-#                                        group, but this state has one user
-#   changed   systemd.services         -> systemd.user.services or
-#                                        launchd.agents
-#   changed   system.activationScripts -> home.activation
-#   changed   addToSystemPackages      -> programs.hermes-agent.enable and
-#                                        home.sessionVariables
-#   added     programs.hermes-agent    the CLI and the desktop application,
-#                                      because Home Manager separates an
-#                                      installation from a daemon
-#   changed   stateDir (+ "/.hermes")  -> hermesHome, set directly
-#
-# To use the module:
-#   imports = [ hermes-agent.homeManagerModules.default ];
-#   programs.hermes-agent = {
-#     enable = true;          # the hermes CLI on your PATH
-#     desktop.enable = true;  # the Electron application and a launcher
-#   };
-#   services.hermes-agent = {
-#     enable = true;
-#     gateway.enable = true;
-#     settings.model.default = "anthropic/claude-sonnet-4";
-#     environmentFiles = [ config.sops.secrets."hermes/env".path ];
-#   };
-#
-# CAUTION: Enable linger for the account. Without linger, systemd stops the
-# user manager at logout, and both units stop with it. Home Manager cannot
-# run `loginctl enable-linger`. On NixOS, set
-#   users.users.<name>.linger = true;
-# On other systems, run `loginctl enable-linger <name>` one time.
+# macOS Home Manager installation, managed configuration and optional launchd services.
+# Desktop and administrative commands share the same profile home and Nix runtime.
 { inputs, ... }:
 {
   flake.homeManagerModules.default =
@@ -61,7 +19,7 @@
       effectivePackage = common.effectivePackage cfg;
       hermes-agent = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
-      inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
+      inherit (pkgs.stdenv.hostPlatform) isDarwin;
 
       processEnvironment = common.processEnvironment {
         inherit (cfg) hermesHome;
@@ -116,38 +74,6 @@
         extraEnv = desktopEnvironment;
         extraRun = desktopRun;
       };
-
-      # The systemd unit that the gateway and the backend both start from.
-      mkUnit =
-        {
-          description,
-          argv,
-        }:
-        {
-          Unit = {
-            Description = description;
-            # Do not use network-online.target here. That is a system target.
-            # A user unit that orders against it has no effect, and systemd
-            # gives no message.
-            After = [ "default.target" ];
-          };
-          Install.WantedBy = [ "default.target" ];
-          Service = {
-            Type = "simple";
-            Environment = (lib.mapAttrsToList (k: v: "${k}=${v}") processEnvironment) ++ [
-              "PATH=${unitPath}"
-            ];
-            ExecStart = lib.escapeShellArgs argv;
-            WorkingDirectory = cfg.workingDirectory;
-            Restart = cfg.restart;
-            RestartSec = cfg.restartSec;
-            # This state has one user. Keep it private. The NixOS module uses
-            # 0007 to share the state with a UNIX group.
-            UMask = "0077";
-            NoNewPrivileges = true;
-            PrivateTmp = true;
-          };
-        };
 
       mkAgent =
         { argv, logName }:
@@ -215,8 +141,7 @@
           enable = lib.mkEnableOption ''
             the Hermes Desktop application (Electron).
 
-            This adds `hermes-desktop` to home.packages, with an XDG
-            launcher entry on Linux. The launcher starts the same Hermes
+            This adds `hermes-desktop` to home.packages. The launcher starts the same Hermes
             runtime that `package` gives, and reads the HERMES_HOME of
             `services.hermes-agent`. Thus the application, the interactive
             shell and the services share one state directory.
@@ -262,12 +187,11 @@
               config.yaml, .env, auth.json, the sessions, the skills, the
               memory and the cron jobs.
 
-              The NixOS module takes a `stateDir` and adds `/.hermes` to it.
               This module sets HERMES_HOME directly. Thus an existing
               ~/.hermes continues to work, and you can give the directory any
               name.
             '';
-            example = "/home/alice/.hermes-work";
+            example = "/Users/alice/.hermes-work";
           };
 
           # `installPackage` moved to `programs.hermes-agent.enable`. The
@@ -286,7 +210,7 @@
             '';
           };
 
-          gateway.enable = lib.mkEnableOption "the messaging gateway service (Telegram, Discord, Slack, ...)";
+          gateway.enable = lib.mkEnableOption "the local Desktop Gateway runtime";
         };
 
       config = lib.mkMerge [
@@ -300,18 +224,17 @@
           home.sessionVariables.HERMES_HOME = cfg.hermesHome;
         })
 
-        # A launcher from the desktop menu reads no shell profile, so the
-        # HERMES_HOME that `programs.enable` exports does not reach it. Home
-        # Manager writes only systemd.user.sessionVariables into
-        # environment.d, and this module does not put HERMES_HOME there,
-        # because that file applies to each user unit. Thus the launcher
-        # carries the value itself. See desktopEnvironment above.
+        # GUI launchers carry their profile home explicitly; they do not read shell profiles.
         (lib.mkIf cfgPrograms.desktop.enable {
           home.packages = [ desktopPackage ];
         })
 
         {
           assertions = [
+            {
+              assertion = !(cfg.enable || cfgPrograms.enable || cfgPrograms.desktop.enable) || isDarwin;
+              message = "Hermes Home Manager supports macOS only.";
+            }
             {
               # `installPackage` was removed in favour of the programs/services
               # split. It defaulted to true, so a quiet removal leaves a person
@@ -340,19 +263,7 @@
                   inherit cfg;
                   opt = options.services.hermes-agent.workingDirectory;
                   optionPath = "services.hermes-agent";
-                }
-                ++ common.backendBindAssertions {
-                  inherit cfg;
-                  optionPath = "services.hermes-agent";
-                }
-                ++ [
-                  {
-                    # The interface poll reads `ip`, which iproute2 supplies on
-                    # Linux only.
-                    assertion = !isDarwin || cfg.backend.waitFor != "interface";
-                    message = "services.hermes-agent.backend.waitFor = \"interface\" works on Linux only. Use \"hostname\" on Darwin.";
-                  }
-                ];
+                };
             }
 
             # The agent runs these tools, so they belong on the PATH of the
@@ -391,21 +302,6 @@
                     }
                   );
             }
-
-            # ── Linux: systemd user services ───────────────────────────────
-            (lib.mkIf (isLinux && cfg.gateway.enable) {
-              systemd.user.services.hermes-agent = mkUnit {
-                description = "Hermes Agent Gateway";
-                argv = common.gatewayArgv cfg;
-              };
-            })
-
-            (lib.mkIf (isLinux && cfg.backend.mode != "none") {
-              systemd.user.services.hermes-backend = mkUnit {
-                description = common.backendDescription cfg;
-                argv = common.backendArgv { inherit pkgs cfg; };
-              };
-            })
 
             # ── Darwin: launchd agents ─────────────────────────────────────
             (lib.mkIf (isDarwin && cfg.gateway.enable) {

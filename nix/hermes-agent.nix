@@ -5,7 +5,7 @@
 #   pkgs.hermes-agent.override { extraPythonPackages = [...]; }
 #   pkgs.hermes-agent.override { extraDependencyGroups = [ "google-meet" ]; }
 # Both extras add to what the package ships. The shipped groups live in
-# defaultDependencyGroups (set by packages.nix for `full`/`messaging`), so a
+# defaultDependencyGroups (set by packages.nix for `full`), so a
 # plain override of the extras never drops them.
 {
   lib,
@@ -21,13 +21,6 @@
 
   # for pm
   writeShellApplication,
-
-  # linux-only deps
-  wl-clipboard,
-  xclip,
-
-  # linux-only dev deps
-  cage,
 
   # Flake inputs — passed explicitly by packages.nix and overlays.nix
   uv2nix,
@@ -61,7 +54,7 @@ let
   packageDependencyGroups = defaultDependencyGroups ++ extraDependencyGroups;
 
   # Install stamp values — written to install-stamp.json so the Python
-  # runtime (CLI, TUI) reads one file instead of env vars or .git probes.
+  # runtime (Desktop and administrative CLI) reads one file instead of env vars or .git probes.
   stampDistance =
     if builtins.isInt distance && distance >= 0 then
       distance
@@ -174,10 +167,7 @@ let
       ln -s ${lib.getBin ffmpeg-headless}/bin/ffprobe $out/bin/ffprobe
     '')
   ]
-  ++ lib.optionals stdenv.hostPlatform.isLinux [
-    wl-clipboard
-    xclip
-  ];
+;
 
   runtimePath = lib.makeBinPath runtimeDeps;
 
@@ -200,7 +190,7 @@ let
       code = "${hermesVenv}/${sitePackagesPath}";
       repo = "share/hermes-agent";
       placement = "references";
-      target = "${if stdenv.hostPlatform.isDarwin then "darwin" else "linux"}-${
+      target = "darwin-${
         if stdenv.hostPlatform.isAarch64 then "arm64" else "x64"
       }";
       python = "${hermesVenv}/bin/python3";
@@ -417,9 +407,6 @@ stdenv.mkDerivation (finalAttrs: {
           pmPackages.uv
           devVenv
           pm
-        ]
-        ++ lib.optionals stdenv.hostPlatform.isLinux [
-          cage # for running e2e tests without popping windows
         ];
     };
 
@@ -428,6 +415,6 @@ stdenv.mkDerivation (finalAttrs: {
     homepage = "https://github.com/NousResearch/hermes-agent";
     mainProgram = "hermes";
     license = licenses.mit;
-    platforms = platforms.unix;
+    platforms = [ "aarch64-darwin" ];
   };
 })

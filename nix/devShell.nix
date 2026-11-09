@@ -8,7 +8,7 @@
 { ... }:
 {
   perSystem =
-    { pkgs, lib, self', ... }:
+    { pkgs, self', ... }:
     let
       packages = builtins.attrValues self'.packages;
       hermesNpmLib = self'.packages.default.passthru.hermesNpmLib;
@@ -29,21 +29,6 @@
           '')
           self'.packages.sandbox
         ]
-        # Wayland-only: cage and ghostty pull alsa-lib, which does not
-        # evaluate on darwin.
-        ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
-          # Headless Wayland compositor for E2E tests (test:e2e:visual).
-          # cage renders a single client with no window management, so
-          # the Electron window opens at a fixed size without tiling.
-          # libglvnd provides libEGL.so.1 that cage needs on NixOS.
-          cage
-          libglvnd
-          # Graphical terminal + Wayland screenshot client for CLI/TUI UI
-          # evidence. `cage -- ghostty ...` keeps captures off the user's
-          # live compositor; grim runs inside that isolated client session.
-          ghostty
-          grim
-        ]
         ++ self'.packages.default.passthru.devDeps;
         shellHook = ''
           # The editable venv's .pth resolves the checkout through this.
@@ -56,13 +41,13 @@
           export PATH="${pkgs.playwright-test}/bin:$PATH"
 
           # The lock's interpreter is python-build-standalone, whose OpenSSL has
-          # no compiled-in NixOS trust store; point it at the CA bundle so
+          # no compiled-in Nix trust store; point it at the CA bundle so
           # urllib/httpx/requests verify certificates like the nixpkgs one.
           export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
           export NIX_SSL_CERT_FILE="$SSL_CERT_FILE"
 
           echo "Hermes Agent dev shell in $HERMES_PYTHON_SRC_ROOT"
-          echo "Ready. Run 'hermes' or 'sandbox hermes' to start."
+          echo "Ready. Run 'hermes desktop' to open the app; use 'hermes --help' for administration."
         '';
       };
     };

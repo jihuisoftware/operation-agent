@@ -62,6 +62,7 @@ def reserve(store, db, action, identity, day, account):
     action['publication_charge_id'] = key
     # Keep one claim per attempt; readers accept old raw-digest claims as well.
     target = encoded([action['target'], identity])
+    db.execute("INSERT OR IGNORE INTO directory.account_claims VALUES (?,'publish',?,?,?)", (account, action['target'], store.scope['id'], identity))
     db.execute("INSERT OR IGNORE INTO directory.account_claims VALUES (?,'publish',?,?,?)", (account, target, store.scope['id'], identity))
     charge(store, db, day, 'publish', identity=key, account=account)
     db.execute("INSERT OR IGNORE INTO directory.account_actions VALUES (?,?,?,'publish','queued')", (account, store.scope['id'], identity))

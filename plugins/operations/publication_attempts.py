@@ -35,13 +35,17 @@ def unsent_receipt(result):
     return result.get('submitted') is False and result.get('dispatch_state') in {'not_started', 'read_only'}
 
 
-def command_unsent(db, command):
-    result = json.loads(command['result'])
+def submission_evidence(result):
     publication = result.get('publication') or {}
-    if (command['state'] in {'queued', 'running'} or result.get('state') in {'published', 'confirmed', 'submitted'} or result.get('submitted') is True
+    return (result.get('state') in {'published', 'confirmed', 'submitted'} or result.get('submitted') is True
             or result.get('dispatch_state') == 'submission_started'
             or publication.get('platform') in {'published', 'reviewing'}
-            or publication.get('execution') in {'submitted', 'verified'} or started(db, command)):
+            or publication.get('execution') in {'submitted', 'verified'})
+
+
+def command_unsent(db, command):
+    result = json.loads(command['result'])
+    if command['state'] in {'queued', 'running'} or submission_evidence(result) or started(db, command):
         return False
     return unsent_receipt(result) or command['worker'] is None
 
@@ -76,8 +80,11 @@ def unsubmitted(db, action):
         return False
     if action['state'] == 'confirmed_not_published':
         return True
+    result = json.loads(action['result'])
+    if submission_evidence(result) and (result.get('manual_verification') or {}).get('state') != 'confirmed_not_published':
+        return False
     if not commands:
-        return unsent_receipt(json.loads(action['result']))
+        return unsent_receipt(result) and not submission_evidence(result)
     return all(command_unsent(db, command) or manually_cleared(db, action, command, commands) for command in commands)
 
 
@@ -94,10 +101,14 @@ def guard(db, action, *, skip=None, scope=None):
     return history
 
 
-def quota(db, action, day):
-    count = db.execute("SELECT count(DISTINCT json_array(json_extract(data,'$.account_id'),json_extract(data,'$.target'))) "
+def quota(db, action, day, identity):
+    # Legacy actions each consumed a slot. Only explicitly linked new retries share one.
+    count = db.execute("SELECT count(DISTINCT coalesce(json_extract(data,'$.publication_reservation_id'),id)) "
                        "FROM actions WHERE kind='publish' AND day=? AND state!='cancelled'", (day,)).fetchone()[0]
-    reserved = db.execute("SELECT 1 FROM actions WHERE kind='publish' AND day=? AND state!='cancelled' "
-                          "AND json_extract(data,'$.account_id')=? AND json_extract(data,'$.target')=? LIMIT 1",
-                          (day, action['account_id'], action['target'])).fetchone()
-    return count, bool(reserved)
+    previous = db.execute("SELECT id,state,data FROM actions WHERE kind='publish' AND day=? "
+                          "AND json_extract(data,'$.account_id')=? AND json_extract(data,'$.target')=? "
+                          "ORDER BY state='cancelled',created,id LIMIT 1", (day, action['account_id'], action['target'])).fetchone()
+    action['publication_reservation_id'] = identity
+    if previous:
+        action['publication_reservation_id'] = json.loads(previous['data']).get('publication_reservation_id') or previous['id']
+    return count, bool(previous and previous['state'] != 'cancelled')

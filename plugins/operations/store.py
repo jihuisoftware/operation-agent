@@ -274,7 +274,7 @@ class Store:
             reused = False
             if action['kind'] == 'publish':
                 from .publication_attempts import quota
-                count, reused = quota(db, action, day)
+                count, reused = quota(db, action, day, identity)
             if count >= policy["limits"][action["kind"]] and not (reused and 0 < count <= policy["limits"][action["kind"]]):
                 raise ValueError("达到每日动作额度")
             from .publication_snapshot import capture

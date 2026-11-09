@@ -3,9 +3,6 @@
   stdenv,
   fetchurl,
   unzip,
-  autoPatchelfHook,
-  patchelf,
-  fetchpatch,
 }:
 # The thin translation layer: pm/lock.json -> one fetched, unpacked
 # derivation per package for this nix system. Nothing here knows versions,
@@ -18,15 +15,7 @@ let
   lock = builtins.fromJSON (builtins.readFile ../pm/lock.json);
   mirror = builtins.fromJSON (builtins.readFile ../pm/artifact-mirror.json);
 
-  target =
-    let
-      arch = if stdenv.hostPlatform.isAarch64 then "arm64" else "x64";
-      os =
-        if stdenv.hostPlatform.isDarwin then "darwin"
-        else if stdenv.hostPlatform.isLinux then "linux"
-        else "win32";
-    in
-    "${os}-${arch}";
+  target = "darwin-${if stdenv.hostPlatform.isAarch64 then "arm64" else "x64"}";
 
   # A target pins one artifact or a list of them (a runtime split across
   # archives that must land in one directory). Normalize to a list.
@@ -44,30 +33,6 @@ let
   isArchive = artifact:
     lib.any (suffix: lib.hasSuffix suffix artifact.url) [ ".tar.gz" ".tgz" ".tar.xz" ".txz" ".tar.bz2" ".zip" ];
 
-  # python-build-standalone finds its own libpython through an $ORIGIN/../lib
-  # RPATH. autoPatchelf rewrites that into a literal path and leaves the
-  # interpreter unable to load its own stdlib, so for it the ELF interpreter
-  # and RPATH are set explicitly: $ORIGIN stays, and Nix's glibc is appended.
-  # Only Linux artifacts are ELF; darwin's Mach-O builds run as shipped.
-  originRpath = name: stdenv.hostPlatform.isLinux && name == "python";
-  patchElf = name: stdenv.hostPlatform.isLinux && name != "python";
-
-  # patchelf 0.19.2 corrupts executables whose headers it must move: running
-  # --set-interpreter before --set-rpath (autoPatchelf's order) leaves a
-  # read-only LOAD overlapping the RW one, so ld.so faults on .dynamic and
-  # node segfaults on start (NixOS/patchelf#674). Fixed upstream by #672, not
-  # yet released; drop this once nixpkgs ships a patchelf that contains it.
-  patchelfFixed = patchelf.overrideAttrs (old: {
-    patches = (old.patches or [ ]) ++ [
-      (fetchpatch {
-        name = "patchelf-fix-executable-header-load-overlap.patch";
-        url = "https://github.com/NixOS/patchelf/commit/59acc3d98b4961cfddf02090d9426ac735603218.patch";
-        includes = [ "src/*" ];
-        hash = "sha256-rQWWZlCa4IRrcPcxMD2xrTTD4nLOsWfdZLOk9UoIOIs=";
-      })
-    ];
-  });
-
   derive = name: pin: artifacts:
     stdenv.mkDerivation {
       pname = name;
@@ -82,31 +47,7 @@ let
       # archives unpack over one another into the same root, exactly as
       # pm merges them into one store entry.
       sourceRoot = ".";
-      nativeBuildInputs =
-        # patchelfFixed precedes the hook so its `patchelf` wins on PATH.
-        lib.optionals (originRpath name || patchElf name) [ patchelfFixed ]
-        ++ lib.optional (patchElf name) autoPatchelfHook
-        ++ lib.optional (lib.any (a: lib.hasSuffix ".zip" a.url) artifacts) unzip;
-      # The upstream tarballs are glibc-linked (interpreter
-      # /lib64/ld-linux-x86-64.so.2, which only exists on a host with nix-ld).
-      # Their whole dependency set is glibc + libstdc++/libgcc/libatomic, so
-      # autoPatchelfHook rewrites the interpreter and RPATH at build time and
-      # every consumer runs them on a plain NixOS host. ripgrep ships musl-
-      # static and is left untouched.
-      buildInputs = [ stdenv.cc.cc.lib ];
-      # Keep the RPATH written below byte for byte; the fixup shrinker cannot
-      # tell that $ORIGIN/../lib is load-bearing.
-      dontPatchELF = originRpath name;
-      postFixup = lib.optionalString (originRpath name) ''
-        for exe in $out/bin/*; do
-          if [ -f "$exe" ] && patchelf --print-interpreter "$exe" >/dev/null 2>&1; then
-            patchelf \
-              --set-interpreter ${stdenv.cc.bintools.dynamicLinker} \
-              --set-rpath '$ORIGIN/../lib:${stdenv.cc.libc}/lib' \
-              "$exe"
-          fi
-        done
-      '';
+      nativeBuildInputs = lib.optional (lib.any (a: lib.hasSuffix ".zip" a.url) artifacts) unzip;
       dontBuild = true;
       dontConfigure = true;
 
@@ -117,7 +58,7 @@ let
         rm -f $out/env-vars
 
         # Archives wrap their tree in one versioned directory
-        # (`uv-x86_64-unknown-linux-gnu/`, `node-v26.12.1-linux-x64/`, `package/`).
+        # (`uv-aarch64-apple-darwin/`, `node-v26.12.1-darwin-arm64/`, `package/`).
         # pm's store strips it; mirror that so `$out/bin` is the entry point
         # instead of `$out/<archive-name>/bin`.
         shopt -s dotglob nullglob

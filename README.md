@@ -210,6 +210,12 @@ HERMES_DESKTOP_HERMES_ROOT="$PWD" npm run dev --workspace apps/desktop
 
 首次使用独立数据目录，需要重新配置模型提供方；其他配置空间的凭证不会自动继承。环境、连接、调试、Token 解析开关与完整命令见[产品与运行参考](docs/operations-reference.md#本地开发)。
 
+### 可选的 Nix 环境
+
+Nix 配置仅面向 Apple Silicon macOS：`nix develop` 提供开发环境，`nix build .#desktop` 构建桌面包；也保留 Home Manager 的 macOS 安装与可选 launchd 服务。普通开发仍按上面的 PM 流程进行。
+
+不再提供 messaging 包变体、旧终端聊天入口、Linux 构建目标、NixOS/systemd 或容器部署模块。终端工具、桌面 Gateway 与管理命令继续保留。
+
 ### 验证与构建
 
 ```bash

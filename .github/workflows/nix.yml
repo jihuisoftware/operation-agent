@@ -1,8 +1,6 @@
 name: Nix flake check
 
-# Builds every output of the flake: the package, the devShell, and the 21
-# checks under nix/checks.nix — module evaluation, option parity, .env
-# assembly, service argv, and the rest.
+# Builds the macOS package, development shell and Desktop/Home Manager checks.
 #
 # This workflow owns its triggers and ci.yml does not call it: a reusable
 # workflow call holds the caller run in progress
@@ -81,13 +79,12 @@ jobs:
     if: needs.detect.outputs.nix == 'true' || inputs.release == true
     # The build compiles the package and its whole dependency closure, so this
     # takes minutes and not seconds when the cache misses. `nix flake check`
-    # builds 21 checks, and --max-jobs defaults to the core count. It uses the
-    # wider runner with no more configuration.
-    runs-on: blacksmith-32vcpu-ubuntu-2404
+    # runs the supported Apple Silicon target on a native builder.
+    runs-on: macos-15
     timeout-minutes: 60
     steps:
       - name: Checkout code
-        uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.1
         with:
           # A stable run passes the claim commit. Every other event tests its own head SHA.
           ref: ${{ inputs.commit || github.sha }}
@@ -117,11 +114,11 @@ jobs:
           # The closure changes when the flake inputs change or when the
           # dependencies of the project change. The key hashes both, so an
           # edit to the source alone keeps the hit.
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'nix/**', 'pyproject.toml', 'uv.lock') }}
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'nix/**', 'pyproject.toml', 'uv.lock') }}
           # On a miss, restore the newest store for this runner. Most of the
           # closure — Python, node, each transitive library — survives a bump
           # of the lockfile, so an old store still removes most of the work.
-          restore-prefixes-first-match: nix-${{ runner.os }}-
+          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
 
           # Save from main only. A cache that a PR writes is visible to that
           # PR alone and never to another branch, so a save there spends the
@@ -134,13 +131,13 @@ jobs:
           # each merge until GitHub removes the entry, and the next PR then
           # gets nothing. This number is the size of the store and not the
           # size of the compressed archive.
-          gc-max-store-size-linux: 5G
+          gc-max-store-size-macos: 5G
 
           # Delete the caches that this key replaces. GitHub removes caches by
           # least recent use across the whole repository, so a Nix store that
           # is never purged pushes out the caches of the other workflows.
           purge: true
-          purge-prefixes: nix-${{ runner.os }}-
+          purge-prefixes: nix-${{ runner.os }}-${{ runner.arch }}-
           purge-created: 0
           purge-primary-key: never
 

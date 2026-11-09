@@ -1,21 +1,4 @@
-# nix/moduleCommon.nix — the code that the NixOS and Home Manager modules share
-#
-# `services.hermes-agent` is the same option set on both modules. Both modules
-# get their options, their renderers for config.yaml, .env and documents, and
-# their state setup from this file. A NixOS example works on Home Manager
-# without a change. An option added here appears on both modules at once.
-#
-# Each module keeps only the parts that belong to its own scope:
-#
-#   nixosModules.nix        the service user and group, stateDir,
-#                           addToSystemPackages, container mode, tmpfiles,
-#                           system.activationScripts, system systemd units
-#   homeManagerModules.nix  hermesHome, programs.hermes-agent (the CLI and
-#                           the desktop application), home.activation,
-#                           systemd.user.services, launchd.agents
-#
-# The split is by scope, not by feature. Code that needs root or a system
-# identity stays in the NixOS module. All other code is here.
+# macOS Home Manager options, configuration rendering and runtime launchers.
 { lib }:
 
 let
@@ -223,9 +206,8 @@ let
 
   documentsType = types.attrsOf (types.either types.str types.path);
 
-  # ── The options that both modules share ─────────────────────────────────
-  # `defaultPackage` and `defaultWorkingDirectory` are different on each
-  # module, so the caller gives them. All other options are the same.
+  # ── Home Manager options ────────────────────────────────────────────────
+  # Package and home-directory defaults come from the Home Manager caller.
   sharedOptions =
     {
       defaultPackage,
@@ -277,7 +259,7 @@ let
           The merge into the config.yaml on disk is also a deep merge. These
           keys replace the keys on disk. The module keeps all other keys,
           which includes the keys that `hermes config set` and the settings
-          panes of the TUI and the desktop app write at runtime.
+          panes of the desktop app write at runtime.
         '';
         example = literalExpression ''
           {
@@ -474,9 +456,9 @@ let
           dependencies — no PYTHONPATH patching or collision risk.
 
           They add to the groups `package` already ships (the default
-          package ships "messaging", "voice", "exa", ...); they never
+          package ships "voice", "exa", ...); they never
           replace them. For a smaller venv pick a smaller `package`
-          (`minimal`, `messaging`) or override its defaultDependencyGroups.
+          (`minimal`) or override its defaultDependencyGroups.
 
           Use this for optional extras already declared in hermes-agent's
           pyproject.toml (e.g. "google-meet").
@@ -495,13 +477,13 @@ let
       restart = mkOption {
         type = types.str;
         default = "always";
-        description = "The systemd Restart= policy. Darwin does not use this option.";
+        description = "Use always for launchd KeepAlive; other values restart after failure.";
       };
 
       restartSec = mkOption {
         type = types.int;
         default = 5;
-        description = "The systemd RestartSec= value. Darwin does not use this option.";
+        description = "The launchd restart throttle interval in seconds.";
       };
 
       # Hermes Desktop connects to the shared headless API/WebSocket backend.
@@ -513,11 +495,11 @@ let
           ];
           default = "none";
           description = ''
-            The backend process to run with the messaging gateway.
+            An optional private HTTP backend beside the local Gateway.
 
             - "none"      — no backend
             - "serve"     — the backend without a user interface. It gives
-                            the /api/ws and /api/pty sockets that Hermes
+                            the HTTP and /api/ws endpoints that Hermes
                             Desktop connects to.
           '';
         };
@@ -544,7 +526,6 @@ let
           type = types.nullOr (
             types.enum [
               "hostname"
-              "interface"
             ]
           );
           default = null;
@@ -557,36 +538,10 @@ let
             unit that starts at boot can lose this race against the daemon
             that supplies the target, such as tailscaled or a VPN client.
 
-            A systemd user unit cannot order itself after a system unit.
-            `After=` and `Requires=` are silent no-ops across that boundary.
-            Thus the wait is a poll, and not a dependency.
-
-            The values are:
-
-            - `null` — bind immediately. `Restart=on-failure` retries the unit
-              until the target is ready.
-            - `"hostname"` — poll until `host` resolves, then bind to `host`.
-              Use this for a name, such as a Tailscale MagicDNS name.
-            - `"interface"` — poll until `interfaceName` has an IPv4 address,
-              then bind to that address. Use this when the address changes,
-              and a name for it does not exist.
-
-            CAUTION: The `"interface"` value ignores `host`. The unit binds to
-            the address of the interface.
+            Use null to bind immediately, or "hostname" to wait until the
+            configured host resolves before launchd starts the backend.
           '';
           example = "hostname";
-        };
-
-        interfaceName = mkOption {
-          type = types.nullOr types.str;
-          default = null;
-          description = ''
-            The interface to take the bind address from.
-
-            This option is necessary when `waitFor` is `"interface"`, and it
-            has no effect for the other values.
-          '';
-          example = "tailscale0";
         };
 
         waitTimeout = mkOption {
@@ -777,48 +732,26 @@ let
     '';
 
   # ── State setup ─────────────────────────────────────────────────────────
-  # The activation code that both modules run. It makes the directories and
-  # installs config.yaml, .env, auth.json, the documents and the plugins. The
-  # differences between the two modules are only the install flags for the
-  # owner and the file modes. Thus they are arguments, and not a second copy
-  # of the script.
-  #
-  #   run       the command prefix ("" on NixOS, "$DRY_RUN_CMD " on
-  #             Home Manager)
-  #   owner     "user:group" that owns each file, or null for the user that
-  #             runs the activation
-  #   modes     the file mode for each kind of file
+  # Home Manager activation installs private configuration, secrets and documents.
   mkStateScript =
     {
       pkgs,
       cfg,
       hermesHome,
       workingDirectory,
-      # The value to write as terminal.cwd. It is different from
-      # workingDirectory only in the container mode of NixOS. There the agent
-      # sees the directory at its mount point in the container, but
-      # activation writes to the path on the host.
-      configWorkingDirectory ? workingDirectory,
       run ? "",
-      owner ? null,
       modes,
       stateDirs ? [ ],
       # The module writes this value into the .managed marker. An
       # interactive shell reads the marker, because it does not see the
       # HERMES_MANAGED variable of the service. The value tells the shell
       # which system owns the install and which rebuild command to name.
-      managedSystem ? "nixos",
+      managedSystem ? "home-manager",
     }:
     let
-      installFlags = lib.optionalString (owner != null) (
-        let
-          parts = lib.splitString ":" owner;
-        in
-        "-o ${lib.head parts} -g ${lib.last parts}"
-      );
       configFiles = mkConfigFiles {
         inherit pkgs cfg;
-        workingDirectory = configWorkingDirectory;
+        inherit workingDirectory;
       };
       envScript = mkEnvScript {
         inherit pkgs;
@@ -833,7 +766,7 @@ let
         documents = cfg.hermesHomeFiles;
       };
 
-      inst = "${run}install ${installFlags}";
+      inst = "${run}${pkgs.coreutils}/bin/install";
 
       installDocuments =
         tree: root: docs:
@@ -878,7 +811,6 @@ let
 
       ${lib.optionalString (cfg.environment != { } || cfg.environmentFiles != [ ]) ''
         ${run}${envScript} ${hermesHome}/.env ${modes.env} ${lib.escapeShellArgs cfg.environmentFiles}
-        ${lib.optionalString (owner != null) "${run}chown ${owner} ${hermesHome}/.env"}
       ''}
 
       ${lib.optionalString (cfg.authFile != null) (
@@ -935,15 +867,8 @@ let
   # The launcher that reads the session token, waits for the bind target,
   # then starts the backend.
   #
-  # The token cannot go in the unit environment. A systemd `Environment=`
-  # value and a launchd EnvironmentVariables value both land in the Nix
-  # store, which all users can read. Thus the launcher reads the file at
-  # start time. launchd has no EnvironmentFile, so a script is the one shape
-  # that works on both hosts.
-  #
-  # `exec` on the last line keeps hermes as the MainPID of the unit. No shell
-  # stays in the cgroup, and the restart logic of systemd sees the real
-  # process.
+  # launchd environment values land in the readable Nix store. Read the token
+  # at start time instead, then exec so launchd supervises the backend itself.
   backendLauncher =
     { pkgs, cfg }:
     # The bind address is known only at start time, but escapeShellArgs quotes
@@ -981,13 +906,13 @@ let
               _target=${lib.escapeShellArg cfg.backend.host}
               _how="the configured address"
             ''
-          else if cfg.backend.waitFor == "hostname" then
+          else
             ''
               _target=${lib.escapeShellArg cfg.backend.host}
               _how="hostname"
 
               while :; do
-                if ${pkgs.getent}/bin/getent hosts "$_target" >/dev/null 2>&1; then
+                if /usr/bin/dscacheutil -q host -a name "$_target" | ${pkgs.gnugrep}/bin/grep -Eq "(ip_address|ipv6_address):" >/dev/null 2>&1; then
                   break
                 fi
 
@@ -1003,34 +928,7 @@ let
                 _waited=$(( _waited + 2 ))
               done
             ''
-          else
-            ''
-              _iface=${lib.escapeShellArg cfg.backend.interfaceName}
-              _how="interface $_iface"
 
-              while :; do
-                _target="$(${pkgs.iproute2}/bin/ip -4 -oneline addr show dev "$_iface" 2>/dev/null \
-                             | ${pkgs.gawk}/bin/awk '{print $4}' \
-                             | ${pkgs.coreutils}/bin/cut -d/ -f1 \
-                             | ${pkgs.coreutils}/bin/head -n1 || true)"
-
-                if [ -n "''${_target:-}" ]; then
-                  break
-                fi
-
-                if [ "$_waited" -ge "$_timeout" ]; then
-                  echo "hermes-backend: interface '$_iface' had no IPv4 address after ''${_timeout}s. The unit stops." >&2
-                  echo "hermes-backend: a fallback address can expose the backend more widely than you intend." >&2
-                  exit 1
-                fi
-
-                if [ "$_waited" = 0 ]; then
-                  echo "hermes-backend: waits for an IPv4 address on '$_iface'..." >&2
-                fi
-                ${pkgs.coreutils}/bin/sleep 2
-                _waited=$(( _waited + 2 ))
-              done
-            ''
         }
 
         echo "hermes-backend: binds to $_target:${toString cfg.backend.port} (from $_how)" >&2
@@ -1077,12 +975,8 @@ let
     ]
     ++ cfg.extraPackages;
 
-  # workingDirectory has a default on both modules, but a bad one. It is the
-  # home directory of the user on Home Manager, and ${stateDir}/workspace on
-  # NixOS. A user who declares files without a directory therefore gets a
-  # place that the user did not select. The place is also different on each
-  # module. The modules refuse that combination.
-  #
+  # Declaring workspace files requires an explicit directory; the default user
+  # home is not evidence that the user wants application documents written there.
   # The test is on the priority of the option and not on its value. An option
   # that nothing sets keeps the priority of its own default, and each
   # definition from a user is stronger. Thus a directory that has the same
@@ -1104,7 +998,7 @@ let
           ${optionPath}.documents needs an explicit ${optionPath}.workingDirectory.
 
           The files go into workingDirectory. The default of that option is
-          different on each module, so an unset default puts the files in a
+          the user home, so an unset default puts the files in a
           directory that you did not select. Set the directory:
 
             ${optionPath}.workingDirectory = "/path/you/want";
@@ -1117,7 +1011,7 @@ let
     ];
 
   # Two plugins with the same name use one nix-managed-<name> symlink. One of
-  # the plugins then disappears without a message. Both modules assert
+  # the plugins then disappears without a message. The module asserts
   # against this condition.
   pluginNameAssertions =
     { cfg, optionPath }:
@@ -1131,21 +1025,7 @@ let
       }
     ];
 
-  # The backend wait needs an interface name when it polls an interface.
-  backendBindAssertions =
-    { cfg, optionPath }:
-    [
-      {
-        assertion = cfg.backend.waitFor != "interface" || cfg.backend.interfaceName != null;
-        message = "${optionPath}.backend.interfaceName must be set when backend.waitFor is \"interface\".";
-      }
-      {
-        assertion = cfg.backend.waitFor == "interface" || cfg.backend.interfaceName == null;
-        message = "${optionPath}.backend.interfaceName has no effect unless backend.waitFor is \"interface\".";
-      }
-    ];
-
-  # The subdirectories of HERMES_HOME that both modules make.
+  # The subdirectories of HERMES_HOME that Home Manager creates.
   stateSubdirs = [
     "cron"
     "sessions"
@@ -1157,7 +1037,6 @@ in
 {
   inherit
     backendArgv
-    backendBindAssertions
     backendDescription
     deepConfigType
     effectivePackage
