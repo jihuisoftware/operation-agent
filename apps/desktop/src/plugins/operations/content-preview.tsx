@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { AssetImage } from './asset-image'
 import { ContentReview } from './content-review'
+import { versionRequest } from './content-version-actions'
 import { CoverStudio } from './cover-studio'
+import { ImageStudio } from './image-studio'
 import { ActionManager } from './management'
 import type { RecordRow } from './types'
 import { Records } from './workbench-widgets'
@@ -16,6 +18,8 @@ export function ContentPreview({ ctx, identity, publication, refresh, snapshotKe
   const [error, setError] = useState('')
   const [evidence, setEvidence] = useState(false)
   const [coverOpen, setCoverOpen] = useState(false)
+  const [visualOpen, setVisualOpen] = useState(false)
+  const [newVersion, setNewVersion] = useState('')
   const [revision, setRevision] = useState(0)
   const changed = useCallback(async () => { setRevision(value => value + 1); await refresh() }, [refresh])
   useEffect(() => {
@@ -38,6 +42,13 @@ export function ContentPreview({ ctx, identity, publication, refresh, snapshotKe
       {data.content.id && <details onToggle={event => setCoverOpen(event.currentTarget.open)}><summary className="cursor-pointer">设计封面 · 三个候选与样式编辑</summary>
         {coverOpen && <CoverStudio ctx={ctx} refresh={changed} row={data.content} />}
       </details>}
+      <details onToggle={event => setVisualOpen(event.currentTarget.open)}><summary className="cursor-pointer">杂志组图 · AI 主视觉与信息图</summary>
+        {visualOpen && <ImageStudio apply={async job => {
+          const result = await ctx.rest<{ id: string }>(`/visual-sets/${encodeURIComponent(job)}/apply`, { method: 'POST', body: versionRequest(data.content, {}) })
+          setNewVersion(result.id); await changed()
+        }} ctx={ctx} identity={data.content.id} kind="content" prepare={async () => ({ content_revision: data.content.content_revision })} />}
+        {newVersion && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${newVersion}`)} variant="link">查看新待审版本</Button>}
+      </details>
       <ContentReview ctx={ctx} refresh={changed} row={data.content} />
       {data.action && <ActionManager ctx={ctx} onError={setError} refresh={changed} rows={[data.action]} />}
       {data.content.id && <Button onClick={() => openWriter(data.content.id)} variant="outline">编辑为新版本</Button>}

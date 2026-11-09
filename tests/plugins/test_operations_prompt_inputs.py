@@ -12,7 +12,7 @@ def test_generation_and_review_bound_inputs_but_keep_full_saved_lineage(tmp_path
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     store = Store(tmp_path / 'inputs.db')
     policy = deepcopy(DEFAULT)
-    policy.update(enabled=True, topic='输入复用', goal='有依据地生成内容', knowledge=['不得进入公开内容的内部回复知识'])
+    policy.update(image_mode='basic', enabled=True, topic='输入复用', goal='有依据地生成内容', knowledge=['不得进入公开内容的内部回复知识'])
     policy['modules'].update(research=True, organize=True, analytics=True, industry=True, topics=True, content=True)
     store.configure(policy, 0)
     day = local_day(policy)

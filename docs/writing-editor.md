@@ -16,6 +16,10 @@
 
 前端：`apps/desktop/src/plugins/operations/writing/`；后端：`plugins/operations/writing_*.py`。私有接口位于 `/content/writing-drafts`，共用原连接、Profile、主题鉴权。更新使用修订号 CAS，所有变更带幂等请求 ID。列表不返回大文档，详情按需加载。保存、预览和提交不调用模型；无图时提交沿用本地文字封面。
 
+## 按需生成组图
+
+写稿页可展开“生成杂志组图”，生成后明确应用整套配图，保留正文和表格。模型调用只发生在点击生成或检查时，自动保存不生图。详见 [组图样张与费用说明](visual-generation.md)。
+
 ## 本机验收
 
 `npm run test:writing-native --workspace apps/desktop` 构建隔离页面，以临时 Electron 用户目录和模拟 API 验证中文组合输入、格式、表格、保存及离线恢复，并输出截图位置。不使用生产账号或后台。这里验证 Chromium 的 IME 组合事件；实际 macOS 输入法候选词选择仍建议由使用者体验确认。

@@ -27,7 +27,7 @@ def policy(value):
 
 
 def assets(rows):
-    return [fields(row, ('id', 'name', 'authorized', 'revoked', 'generated_typography', 'cover_title', 'cover_spec')) for row in rows]
+    return [fields(row, ('id', 'name', 'authorized', 'revoked', 'generated_typography', 'cover_title', 'cover_spec', 'generated_magazine', 'visual_page')) for row in rows]
 
 
 def evidence(rows, required_ids=()):

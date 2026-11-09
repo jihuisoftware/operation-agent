@@ -14,7 +14,11 @@ import { ImageDrag } from './image-drag'
 import { cleanPaste, mediaNodes, uploadImages } from './media'
 import { Toolbar } from './toolbar'
 
-interface Props { controller: Writer; ctx: PluginContext; disabled: boolean }
+interface Props {
+  controller: Writer
+  ctx: PluginContext
+  disabled: boolean
+}
 
 export function WritingEditor({ controller, ctx, disabled }: Props) {
   const editor = useEditor(
@@ -84,6 +88,32 @@ export function WritingEditor({ controller, ctx, disabled }: Props) {
   useEffect(() => {
     editor?.setEditable(!disabled)
   }, [editor, disabled])
+
+  useEffect(() => {
+    if (!editor) {
+      return
+    }
+
+    return controller.bindImages(ids => {
+      const transaction = editor.state.tr
+      const ranges: [number, number][] = []
+      editor.state.doc.descendants((node, pos) => {
+        if (['image', 'uploadPlaceholder'].includes(node.type.name)) {
+          ranges.push([pos, pos + node.nodeSize])
+        }
+      })
+
+      for (const [from, to] of ranges.reverse()) {
+        transaction.delete(from, to)
+      }
+
+      transaction.insert(
+        transaction.doc.content.size,
+        ids.map(assetId => editor.schema.nodes.image.create({ assetId, alt: '图文页面' }))
+      )
+      editor.view.dispatch(transaction)
+    })
+  }, [editor, controller])
 
   return (
     <div className="min-w-0 flex-1">

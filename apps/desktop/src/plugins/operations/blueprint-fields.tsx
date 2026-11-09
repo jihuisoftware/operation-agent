@@ -31,6 +31,13 @@ export function GoalFields({ policy, onChange }: PolicyFieldsProps) {
         options={styleChoices}
         value={policy.style}
       />
+      <label className="grid gap-2">自动配图方式
+        <select className="rounded border bg-background p-2" onChange={event => onChange({ ...policy, image_mode: event.target.value as 'magazine' | 'basic' })} value={policy.image_mode || 'magazine'}>
+          <option value="magazine">杂志组图：3–6 页，最多 2 张 AI 主视觉</option>
+          <option value="basic">基础文字封面：仅本地排版，不调用生图</option>
+        </select>
+        <span className="text-xs text-muted-foreground">杂志组图需配置生图模型；失败会保留草稿，不会静默切换成基础封面。</span>
+      </label>
       <h3 className="font-medium">需要执行哪些模块</h3>
       <p className="text-xs text-muted-foreground">
         采集保存原文，整理模块分类并提炼依据，选题与内容使用整理资料；各环节可独立启停。

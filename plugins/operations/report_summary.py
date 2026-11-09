@@ -23,17 +23,17 @@ def consumption(scope):
     stages = {row['id']: row['stage'] for row in scope.runs}
     groups, budgets = {}, {}
     for event in scope.events:
-        if event['kind'] not in {'model_call', 'usage'}:
+        if event['kind'] not in {'model_call', 'usage', 'image_call', 'image_usage'}:
             continue
         data = json.loads(event['data'])
-        stage = stages.get(data.get('run_id'), '其他')
+        stage = '图片生成' if event['kind'].startswith('image_') else stages.get(data.get('run_id'), '其他')
         if data.get('budget_id'):
             item = budgets.setdefault(data['budget_id'], {'stage': stage, 'usage': None})
             if event['kind'] == 'usage':
                 item['usage'] = data.get('tokens')
             continue
         group = _group(groups, stage)
-        if event['kind'] == 'model_call':
+        if event['kind'] in {'model_call', 'image_call'}:
             group['calls'] += 1
             continue
         group['receipts'] += 1

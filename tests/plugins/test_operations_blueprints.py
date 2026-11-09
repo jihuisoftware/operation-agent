@@ -20,7 +20,7 @@ def store(tmp_path, monkeypatch):
 
 def request(store, *, mode="enable", request_id="one", modules=("research", "content", "report")):
     version, policy = store.policy()
-    policy.update(topic="城市步行", goal="整理真实路线")
+    policy.update(topic="城市步行", goal="整理真实路线", image_mode="basic")
     policy["modules"] = {key: key in modules for key in policy["modules"]}
     return {"version": version, "policy": policy, "request_id": request_id, "mode": mode}
 

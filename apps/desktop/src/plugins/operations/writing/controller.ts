@@ -25,6 +25,7 @@ export function writer(ctx: PluginContext, key: string, initial: Recovery) {
   let writes = Promise.resolve(),
     retries = 0
 
+  let replaceImages: ((ids: string[]) => void) | undefined
   const patch = (value: Partial<State>) => state.set({ ...state.get(), ...value })
 
   const persist = () => {
@@ -129,6 +130,22 @@ export function writer(ctx: PluginContext, key: string, initial: Recovery) {
   return {
     state,
     save,
+    bindImages(handler: (ids: string[]) => void) {
+      replaceImages = handler
+
+      return () => {
+        if (replaceImages === handler) {
+          replaceImages = undefined
+        }
+      }
+    },
+    applyImages(ids: string[]) {
+      if (!replaceImages) {
+        throw new Error('编辑器尚未就绪')
+      }
+
+      replaceImages(ids)
+    },
     edit(value: Partial<Fields>) {
       patch({ draft: { ...state.get().draft, ...value }, dirty: true, status: '等待保存' })
       void persist().catch(() => undefined)

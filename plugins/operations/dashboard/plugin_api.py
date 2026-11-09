@@ -31,6 +31,8 @@ from plugins.operations.dashboard.content_api import router as content_router
 router.include_router(content_router)
 from plugins.operations.dashboard.writing_api import router as writing_router
 router.include_router(writing_router)
+from plugins.operations.dashboard.visual_api import router as visual_router
+router.include_router(visual_router)
 
 # Development tooling is absent from release payloads and wheels.
 _source_root = Path(__file__).resolve().parents[3]

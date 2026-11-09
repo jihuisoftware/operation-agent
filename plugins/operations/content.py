@@ -47,9 +47,16 @@ def check_content(store, policy, day, version, content, sources):
         '不能把未提供的原文当作已经核对或断言原文没有相关内容，证据不足时指出具体需补证的句子。')
     if any(asset.get('cover_spec') for asset in assets):
         instruction += 'cover_spec是实际绘制的封面文案，也应核对是否含有无依据的数字、承诺或实测说法；不评价图片视觉质量。'
+    if any(asset.get('visual_page') for asset in assets):
+        instruction += 'visual_page是实际组图的所有可见文案，同样逐条核对事实、范围和来源；AI插画为概念示意，不是实拍或真实界面。'
+    visual = None
+    if any(asset.get('generated_magazine') for asset in assets):
+        from .visual_review import for_assets
+        visual = for_assets(store, content.get('asset_ids', []))
     data = inputs.checked(store, 'content_check', {"policy": inputs.policy(policy),
          "content": {**inputs.fields(content, ('id', 'title', 'body', 'source_ids', 'asset_ids')), 'selected_topic': inputs.selected_topic(content.get('selected_topic'))},
-         "sources": review_sources(content, sources), "assets": inputs.assets(assets), "history": inputs.history(history)})
+         "sources": review_sources(content, sources), "assets": inputs.assets(assets), "history": inputs.history(history),
+         **({"visual_review": visual} if visual else {})})
     signature = hashlib.sha256(encoded({'instruction': instruction, 'data': data, 'version': version}).encode()).hexdigest()
     cached = next((row for row in store.objects('check', day) if row.get('input_signature') == signature and row['result'].get('pass') is True), None)
     if cached:
@@ -65,6 +72,13 @@ def check_content(store, policy, day, version, content, sources):
     if issues:
         result['pass'] = False
     result.update(scope="text_and_asset_metadata", visual_review="not_performed")
+    if visual:
+        result['visual_review'] = visual
+        if visual.get('pass') is not True:
+            result['pass'] = False
+            result['reason'] = visual.get('reason') or '组图视觉检查未通过'
+            result['issues'] = [*issues, {'code': 'visual', 'message': result['reason']}]
+
     store.put("check", {"day": day, "content_id": content.get("id", digest), "version": version, "automatic": True, "input_signature": signature, "result": result})
     return result
 
@@ -87,8 +101,8 @@ def produce_content(store, policy, day, version):
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
     from .content_recovery import fingerprint, pending, review
     data = inputs.checked(store, 'content', {"analysis": inputs.analysis(analysis, evidence), "policy": inputs.policy(policy), "sources": evidence,
-         "assets": inputs.assets([asset for asset in assets if not asset.get('generated_typography')]), "tasks": inputs.tasks(store.objects("task", day)),
-         "selected_topic": inputs.selected_topic(topic), "recent_content": inputs.history(public_history(store, policy, day)), "performance_review": []})
+         "assets": inputs.assets([asset for asset in assets if not any(asset.get(key) for key in ('generated_typography', 'generated_magazine', 'generated_visual_art'))]), "tasks": inputs.tasks(store.objects("task", day)),
+         "image_mode": policy.get("image_mode", "magazine"), "selected_topic": inputs.selected_topic(topic), "recent_content": inputs.history(public_history(store, policy, day)), "performance_review": []})
     signature = fingerprint(data, version, analysis)
     draft = pending(store, day, signature)
     if draft:
@@ -112,15 +126,19 @@ def produce_content(store, policy, day, version):
         data)
     if not content.get("title"):
         raise StageSkipped(content.get("reason", "无合适选题"))
-    content = inputs.fields(content, ('title', 'body', 'source_ids', 'asset_ids', 'reason', 'cover'))
+    content = inputs.fields(content, ('title', 'body', 'source_ids', 'asset_ids', 'reason', 'cover', 'visual_plan'))
     from .cover_design import normalized
     if 'cover' in content:
         content['cover'] = normalized(content['cover'], content['title'])
     content["analysis_context"] = analysis
     content["selected_topic"] = topic
     validate_content(content, sources, assets)
-    from .content_cover import ensure_cover
-    content = ensure_cover(store, content)
+    content['visual_required'] = policy.get('image_mode', 'magazine') == 'magazine'
+    if content['visual_required']:
+        content['asset_ids'] = []
+    else:
+        from .content_cover import ensure_cover
+        content = ensure_cover(store, content)
     cited = [row for row in source_evidence if row['id'] in content['source_ids']]
     content['organization_ids'] = [row['organization_id'] for row in cited]
     content['organized_evidence'] = cited

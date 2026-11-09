@@ -4,6 +4,9 @@ import type { PluginContext } from '@hermes/plugin-sdk'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router'
 
+import sample1 from '../../../../../docs/assets/visual-samples/page-1.webp?inline'
+import sample2 from '../../../../../docs/assets/visual-samples/page-2.webp?inline'
+import sample3 from '../../../../../docs/assets/visual-samples/page-3.webp?inline'
 import { $workspaces, ownerKey } from '../../plugins/operations/workspace-state'
 import { WritingPage } from '../../plugins/operations/writing/page'
 import { projection } from '../../plugins/operations/writing/projection'
@@ -29,6 +32,17 @@ const initial: Draft = {
   policy_version: 1
 }
 
+const samples = [sample1, sample2, sample3]
+
+const visualJob = {
+  id: 'visual-set:fixture',
+  state: 'completed',
+  detail: '隔离模拟组图完成',
+  pages: samples.map((_, i) => ({ asset_id: `page-${i}`, title: ['可靠的 Agent', '执行步骤', '能力对比'][i] })),
+  attempts: [{ state: 'completed' }],
+  review: { pass: true, reason: '模拟检查' }
+}
+
 const state = {
   draft: JSON.parse(localStorage.getItem('fixture-draft') || JSON.stringify(initial)) as Draft,
   calls: [] as string[],
@@ -43,6 +57,24 @@ const ctx = {
 
     if (state.offline) {
       throw new Error('离线测试')
+    }
+
+    if (path.startsWith('/visual-sets?')) {
+      return { item: null }
+    }
+
+    if (path === '/visual-sets') {
+      return visualJob
+    }
+
+    if (path.includes('/visual-sets/') && path.endsWith('/apply')) {
+      return { asset_ids: visualJob.pages.map(page => page.asset_id) }
+    }
+
+    const sample = /^\/assets\/page-(\d)/.exec(path)
+
+    if (sample) {
+      return { name: '杂志样张', mime: 'image/webp', data: samples[Number(sample[1])].split(',')[1] }
     }
 
     if (path === '/assets') {

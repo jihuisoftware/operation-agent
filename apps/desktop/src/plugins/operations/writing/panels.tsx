@@ -3,13 +3,17 @@ import { useEffect, useState } from 'react'
 
 import { AssetImage } from '../asset-image'
 import { CoverStudio } from '../cover-studio'
+import { ImageStudio } from '../image-studio'
 import type { RecordRow } from '../types'
 
 import type { Writer } from './controller'
 import { projection } from './projection'
 import { base, type Preview } from './types'
 
-interface Props { controller: Writer; ctx: PluginContext }
+interface Props {
+  controller: Writer
+  ctx: PluginContext
+}
 
 export function WritingPanels({ controller, ctx }: Props) {
   const { draft, dirty } = useValue(controller.state)
@@ -52,6 +56,37 @@ export function WritingPanels({ controller, ctx }: Props) {
 
   return (
     <aside className="w-full space-y-5 border-t p-4 xl:w-80 xl:shrink-0 xl:border-l xl:border-t-0">
+      <details>
+        <summary>生成杂志组图 · AI 主视觉与信息图</summary>
+        <ImageStudio
+          apply={async job => {
+            await controller.save()
+            const revision = controller.state.get().draft.revision
+
+            const result = await ctx.rest<{ asset_ids: string[] }>(`/visual-sets/${encodeURIComponent(job)}/apply`, {
+              method: 'POST',
+              body: { expected_revision: revision }
+            })
+
+            if (controller.state.get().dirty || controller.state.get().draft.revision !== revision) {
+              throw new Error('稿件刚刚变化，请重新检查后应用')
+            }
+
+            controller.applyImages(result.asset_ids)
+            controller.edit({ cover_asset_id: result.asset_ids[0] })
+            await controller.save()
+          }}
+          compact
+          ctx={ctx}
+          identity={draft.id}
+          kind="writing"
+          prepare={async () => {
+            await controller.save()
+
+            return { expected_revision: controller.state.get().draft.revision }
+          }}
+        />
+      </details>
       <details open>
         <summary>原创与来源</summary>
         <label className="my-3 block text-sm">
@@ -105,7 +140,7 @@ export function WritingPanels({ controller, ctx }: Props) {
         )}
       </details>
       <details onToggle={event => setCoverOpen(event.currentTarget.open)}>
-        <summary>封面设计</summary>
+        <summary>基础文字封面 · 本地排版</summary>
         {draft.cover_asset_id && <AssetImage ctx={ctx} id={draft.cover_asset_id} />}
         {coverOpen && (
           <CoverStudio

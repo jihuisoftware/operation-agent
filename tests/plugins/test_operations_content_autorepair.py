@@ -13,7 +13,7 @@ def configured(tmp_path, monkeypatch):
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     store = Store(tmp_path / 'repair.db')
     policy = deepcopy(DEFAULT)
-    policy.update(enabled=True, topic='工程实践', goal='准确分享')
+    policy.update(image_mode='basic', enabled=True, topic='工程实践', goal='准确分享')
     policy['modules'].update(content=True, organize=True)
     store.configure(policy, 0)
     day = local_day(policy)

@@ -57,6 +57,8 @@ def finish(store, attempt, **result):
 
 
 def revised_cover(store, parent, proposed):
+    if parent.get('visual_required') and any(proposed.get(key) != parent.get(key) for key in ('title', 'body')):
+        return {**proposed, 'asset_ids': [], 'visual_required': True}
     from .content_cover import ensure_cover
     original = parent.get('asset_ids', [])
     first = next((a for a in store.objects('asset') if original and a['id'] == original[0]), None)
@@ -114,7 +116,7 @@ def revise(store, policy, day, version, draft, sources):
         return None, '自动修订未产生有效修改，原草稿已保留'
     proposed = revised_cover(store, draft, proposed)
     evidence = [row for row in draft.get('organized_evidence', []) if row['id'] in proposed['source_ids']]
-    child = {**proposed, **inputs.fields(draft, ('analysis_context', 'selected_topic', 'production_input', 'cover_origin')),
+    child = {**proposed, **inputs.fields(draft, ('analysis_context', 'selected_topic', 'production_input', 'cover_origin', 'visual_required')),
              'day': day, 'version': version, 'created': now_iso(), 'ready': False, 'state': 'needs_review', 'review_pending': True,
              'quality': {'pass': False, 'reason': '修订版本已保存，等待复检'}, 'parent_content_id': draft['id'],
              'revision_root_id': attempt['root_id'], 'revision_index': attempt['revision'], 'revision_reason': draft['quality'],

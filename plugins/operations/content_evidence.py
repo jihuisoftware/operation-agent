@@ -7,6 +7,9 @@ REVIEW_CHARACTERS = 32_000
 
 def terms(content):
     text = str(content.get('title', '')) + '\n' + str(content.get('body', ''))
+    if isinstance(content.get('visual_plan'), dict):
+        from .visual_plan import visible_copy
+        text += '\n' + visible_copy(content['visual_plan'])
     result = set(re.findall(r'[a-z][a-z0-9_-]{2,}|\d+(?:[.%–-]\d+)*%?', text.lower()))
     for phrase in re.findall(r'[\u4e00-\u9fff]{2,}', text):
         if len(phrase) <= 12:
