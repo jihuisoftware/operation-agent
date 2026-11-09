@@ -5,7 +5,7 @@ coverage run, so a test filed under a directory that does not correspond to
 the code it exercises is a test nobody runs when that code changes. Two
 drifts had accumulated: parallel directories for one source package
 (``tests/cli`` beside ``tests/hermes_cli``, ``tests/run_agent`` beside
-``tests/agent``, ``tests/state`` beside ``tests/hermes_state``) and ~250
+``tests/agent``) and ~250
 loose files at ``tests/`` root that belonged to a package.
 
 Filenames also stopped carrying issue numbers: ``test_89315_x.py`` reads as
@@ -33,7 +33,7 @@ _NON_MIRROR_DIRS = {
     "ci", "conformance", "dashboard", "desktop", "docker", "e2e", "evals",
     "fakes", "fixtures", "install", "integration", "manual",
     "monitoring", "perf_guards", "scripts", "secret_sources",
-    "security", "skills", "verify", "website", "computer_use", "hermes_state",
+    "security", "skills", "verify", "website", "computer_use",
 }
 
 # Root-level modules whose tests sit directly in tests/ (no package to mirror).

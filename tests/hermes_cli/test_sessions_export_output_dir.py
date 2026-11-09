@@ -3,7 +3,7 @@
 import json
 import sys
 
-import hermes_state
+import state.store as hermes_state
 import hermes_cli.main as main_mod
 
 

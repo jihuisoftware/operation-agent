@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timedelta, timezone, UTC
 from typing import TYPE_CHECKING, Optional
 
-from hermes_state_ids import new_session_id
+from state.ids import new_session_id
 
 if TYPE_CHECKING:
     from gateway.session import SessionEntry, SessionSource
@@ -106,8 +106,8 @@ class SessionLifecycleMixin:
             return None
         import sqlite3
 
-        from hermes_state_local import local_receipt
-        from hermes_state_runtime import RuntimeStoreError
+        from state.local import local_receipt
+        from state.runtime import RuntimeStoreError
         try:
             receipt = local_receipt(db, str(origin.chat_id))
             if receipt.get("route") != entry.session_key:

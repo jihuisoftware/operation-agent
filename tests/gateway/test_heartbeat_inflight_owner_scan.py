@@ -8,8 +8,8 @@ from gateway.config import Platform
 from gateway.session import SessionSource
 from gateway.session_authority import SessionAuthority
 from hermes_cli.heartbeat import HeartbeatState, save_heartbeat
-from hermes_state import SessionDB
-from hermes_state_runtime import admit_session_input, begin_runtime_epoch
+from state.store import SessionDB
+from state.runtime import admit_session_input, begin_runtime_epoch
 
 
 @pytest.mark.asyncio

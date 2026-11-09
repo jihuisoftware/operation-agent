@@ -13,7 +13,7 @@ import time
 import pytest
 
 import gateway.rpc.server as srv
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.rpc import profile_roster_cache as cache
 
 @pytest.fixture(autouse=True)

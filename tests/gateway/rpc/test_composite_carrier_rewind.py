@@ -12,7 +12,7 @@ from agent.context_compressor import (
     SUMMARY_PREFIX,
     _SUMMARY_END_MARKER,
 )
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.rpc import server
 
 

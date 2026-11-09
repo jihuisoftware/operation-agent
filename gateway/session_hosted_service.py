@@ -7,7 +7,7 @@ from pathlib import Path
 from gateway.session_contract import Principal
 from gateway.session_authorities import active_authority, all_authorities, owner_scope, serving_authorities
 from gateway.session_hosted_controls import HostedControls
-from hermes_state_runtime import RuntimeStoreError, _epoch
+from state.runtime import RuntimeStoreError, _epoch
 from gateway.rpc.hosted_room_service import HostedRoomService
 
 _OWNER = 'gateway.hosted.owner.v1:'

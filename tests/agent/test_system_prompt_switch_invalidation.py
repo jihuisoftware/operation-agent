@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 SESSION_ID = "switch-session"
 

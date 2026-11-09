@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from gateway.restart import GATEWAY_SERVICE_RESTART_EXIT_CODE
+from hermes_cli.update_downgrade_guard import STATE_MODULES
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 def tree_predates_runtime(root: Path = _PROJECT_ROOT) -> bool:
     """True only when the checkout's state-store modules are readable and none defines the ledger."""
     try:
-        sources = [path.read_text(encoding="utf-8-sig", errors="replace") for path in root.glob("hermes_state*.py")]
+        sources = [path.read_text(encoding="utf-8-sig", errors="replace") for pattern in STATE_MODULES
+                   for path in root.glob(pattern)]
     except OSError:
         return False  # mid-checkout or unreadable: proves nothing
     return bool(sources) and not any(_RUNTIME_SCHEMA_MARKER in text for text in sources)

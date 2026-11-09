@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 def test_seeded_desktop_branch_title_is_derived_until_the_user_renames(monkeypatch, tmp_path):
@@ -37,7 +37,7 @@ def test_seeded_desktop_branch_title_is_derived_until_the_user_renames(monkeypat
         assert "error" not in response, response
         child = response["result"]["stored_session_id"]
         # A DERIVED title is what memory providers skip when naming sessions (the provenance
-        # contract in hermes_state_common); a generated parent title must not arrive as USER/LLM.
+        # contract in state.common); a generated parent title must not arrive as USER/LLM.
         assert db.get_session_title_source(child) == SessionDB.TITLE_SOURCE_DERIVED
         assert db.message_count(child) == len(history)
         # A subsequent explicit rename must retain user authority.

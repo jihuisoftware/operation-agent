@@ -5,8 +5,8 @@ import pytest
 
 from gateway.session_authority import LiveSession, SessionAuthority
 from gateway.session_contract import Principal, SessionRef, Submission
-from hermes_state import SessionDB
-from hermes_state_runtime import RuntimeStoreError, begin_runtime_epoch, list_session_admissions
+from state.store import SessionDB
+from state.runtime import RuntimeStoreError, begin_runtime_epoch, list_session_admissions
 
 PNG = b'\x89PNG\r\n\x1a\n' + b'\x00' * 8
 

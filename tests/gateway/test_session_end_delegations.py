@@ -198,7 +198,7 @@ async def _local(tmp_path, monkeypatch):
     from gateway.session_authority import SessionAuthority, initialize_session_authority
     from gateway.session_contract import Principal
     from gateway.session_local import create_local_session
-    from hermes_state import AsyncSessionDB, SessionDB
+    from state.store import AsyncSessionDB, SessionDB
 
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     monkeypatch.setattr(SessionAuthority, '_schedule', lambda self, ref: None)  # admitted rows stay queued
@@ -232,7 +232,7 @@ async def _deliver(runner, authority, ref, producer):
 
 
 def _admissions(authority, ref):
-    from hermes_state_runtime import list_session_admissions
+    from state.runtime import list_session_admissions
     return [r for r in list_session_admissions(authority.db, session_id=ref.session_id, pending_only=False)
             if r['principal_id'].startswith('automation:')]
 

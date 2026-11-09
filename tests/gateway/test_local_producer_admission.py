@@ -22,7 +22,7 @@ import pytest_asyncio
 
 from gateway.config import GatewayConfig
 from gateway.run import GatewayRunner
-from hermes_state_runtime import list_session_admissions
+from state.runtime import list_session_admissions
 from tests.waiting import async_wait_until
 
 AUTHOR = {'id': 'bot:alpha', 'name': 'alpha', 'is_bot': True}
@@ -43,7 +43,7 @@ class _Gateway:
                 'api_key': 'loopback-only'}}))
         monkeypatch.setattr(Path, 'home', lambda: tmp_path)
         monkeypatch.setenv('HERMES_HOME', str(root))
-        import hermes_state
+        import state.store as hermes_state
         monkeypatch.setattr(hermes_state, 'DEFAULT_DB_PATH', hermes_state._IMPORT_DEFAULT_DB_PATH)
         self.turns, self.gate = [], None
         self.runner, self.connections = None, []

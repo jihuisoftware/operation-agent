@@ -114,7 +114,7 @@ def _normalize_path(path: str) -> str:
 def connect(db_path: Optional[Path] = None) -> sqlite3.Connection:
     """Open (and initialize if needed) the per-profile projects DB.
 
-    WAL with DELETE fallback for network filesystems (``hermes_state`` helper). Schema init is
+    WAL with DELETE fallback for network filesystems (``state.store`` helper). Schema init is
     idempotent (``CREATE TABLE IF NOT EXISTS`` + additive migrations) and cached per-path per-process.
     """
     path = db_path if db_path is not None else projects_db_path()

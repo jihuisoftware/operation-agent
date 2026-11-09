@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gateway.rpc import server
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 def _seed_store(home: Path) -> Path:

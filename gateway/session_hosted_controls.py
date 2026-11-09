@@ -1,6 +1,6 @@
 """Exact operator controls for canonical hosted attempts, never legacy replay."""
 from gateway import hosted_room_driver as tasks
-from hermes_state_runtime import RuntimeStoreError
+from state.runtime import RuntimeStoreError
 from gateway.rpc.hosted_room_driver import HostedRoomBinding
 
 

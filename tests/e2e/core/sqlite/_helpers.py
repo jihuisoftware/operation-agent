@@ -5,7 +5,7 @@ role is a separate OS process running ``_roles.py`` against it (see that module 
 protocol). This module owns:
 
 * journal-mode selection through the PRODUCTION decision path: the ``delete`` arm pins the version the
-  children's ``hermes_state_wal.is_sqlite_wal_reset_vulnerable()`` probe sees to a WAL-reset-vulnerable
+  children's ``state.wal.is_sqlite_wal_reset_vulnerable()`` probe sees to a WAL-reset-vulnerable
   SQLite (the one CI's uv CPython 3.11.14 bundles), so ``apply_wal_with_fallback`` itself picks DELETE
   exactly as it does for every user on such a build — the same DELETE store its network/FUSE fallbacks end
   in; nothing in the harness issues a journal-mode pragma;
@@ -15,7 +15,7 @@ protocol). This module owns:
   (a store swapped under a live holder) and, in WAL mode, any ``(deleted)`` ``-wal``/``-shm`` — the
   kernel-level signature of a WAL generation unlinked under a live holder;
 * the invariant checks, done in the test process with short-lived bare ``sqlite3`` connections only (the
-  test process never imports ``hermes_state``, so it never becomes a foreign holder of the file).
+  test process never imports ``state.store``, so it never becomes a foreign holder of the file).
 
 Reuses the conformance harness's deadline polling / SIGKILL reaping (``tests/conformance/persistence``).
 """

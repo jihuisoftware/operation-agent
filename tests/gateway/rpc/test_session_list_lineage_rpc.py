@@ -1,6 +1,6 @@
 """``session.list`` must forward the durable lineage root. Regression for #66663.
 
-``hermes_state.list_sessions_rich`` already returns ``_lineage_root_id`` on projected
+``state.store.list_sessions_rich`` already returns ``_lineage_root_id`` on projected
 compression rows, and the REST ``/api/sessions`` path projects it
 (``gateway/platforms/api_server.py::_session_response``). The ``session.list`` RPC row
 summary dropped the field, so RPC consumers could not group a compressed conversation
@@ -14,7 +14,7 @@ import pytest
 
 import gateway.rpc.server as srv
 import gateway.rpc.methods_session
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 @pytest.fixture

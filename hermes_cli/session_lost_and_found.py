@@ -16,7 +16,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from hermes_cli.session_schema_history import SCHEMA_HISTORY, reachable_physical_layouts
 
-from hermes_state_ids import is_known_session_id  # every minted id shape: sentinel for schema-less rows
+from state.ids import is_known_session_id  # every minted id shape: sentinel for schema-less rows
 from hermes_cli.session_recovery import (
     _AUXILIARY_TABLE_SCHEMAS, _AUXILIARY_TABLES, _CANONICAL_TABLES, _DANGLING_TOOL_PIN, _count_rows,
     _immediate_transaction, _placeholder_titles, _quoted_columns, _table_columns,
@@ -74,7 +74,7 @@ SQLITE3_CLI_GUIDANCE = (
 # fresh opener unlink a live WAL/SHM sidecar pair and split the database into
 # two concurrent generations whose acknowledged writes can silently vanish.
 # It is real in CLI builds up to 3.51.2; fixed in 3.51.3+ with backports
-# 3.50.7 and 3.44.6 — the same version gate hermes_state applies to the
+# 3.50.7 and 3.44.6 — the same version gate state.store applies to the
 # embedded library (#69784). The system `sqlite3` CLI on Debian/Ubuntu is
 # routinely in the vulnerable band (e.g. 3.45.1), and #100368's forensics
 # caught exactly this shell converting a live Hermes state.db into two
@@ -415,7 +415,7 @@ _SESSION_KEY_PATTERN = re.compile(r"^agent:[^:]+:")
 # Machine tokens (``compression``, ``agent.compression_timeout``, ``api_key``,
 # ``compute_host_shutdown``): never spaces, never mixed case.
 _TOKEN_PATTERN = re.compile(r"^[a-z][a-z0-9_.:-]*$")
-# The closed sets SessionDB writes (hermes_state.py: request/claim/complete/
+# The closed sets SessionDB writes (state/store.py: request/claim/complete/
 # fail_handoff; TITLE_SOURCE_* + _title_rank). chat_type is platform-supplied
 # and open-ended, so it only gets the identifier shape.
 _HANDOFF_STATES = frozenset({"pending", "running", "completed", "failed"})

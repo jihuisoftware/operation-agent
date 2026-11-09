@@ -2,7 +2,7 @@
 
 import json
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.rpc import server
 
 

@@ -12,9 +12,9 @@ from unittest.mock import Mock
 
 import pytest
 
-import hermes_state_runtime as rt
+import state.runtime as rt
 from hermes_cli import update_downgrade_guard as guard
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 def _git(root, *args):
@@ -134,7 +134,7 @@ def test_check_holds_a_release_that_update_would_refuse(repo, tmp_path, monkeypa
 
 
 def test_the_runtime_schema_marker_is_still_in_this_trees_state_schema():
-    from hermes_state_common import SCHEMA_SQL
+    from state.common import SCHEMA_SQL
 
     assert guard.defines_runtime([SCHEMA_SQL])
 
@@ -174,7 +174,7 @@ def test_present_commit_with_missing_schema_blobs_uses_remote_without_git_writes
     before = {p.relative_to(clone): p.read_bytes() for p in (clone / ".git").rglob("*") if p.is_file()}
     assert git("cat-file", "-e", f"{target}^{{commit}}") == 0
     assert git("cat-file", "-e", f"{target}:hermes_state_common.py") != 0
-    grep = probe("grep", "-q", "-F", guard._RUNTIME_SCHEMA_MARKER, target, "--", guard.STATE_MODULES)
+    grep = probe("grep", "-q", "-F", guard._RUNTIME_SCHEMA_MARKER, target, "--", *guard.STATE_MODULES)
     assert grep.returncode != 0 and grep.stderr
     remote = None if remote_result == "no-reader" else Mock(return_value=remote_result)
     assert guard.target_predates_runtime(None, clone, target, git=git, remote=remote) is (remote_result is True)

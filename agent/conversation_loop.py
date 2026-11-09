@@ -64,8 +64,8 @@ from utils import base_url_host_matches
 
 logger = logging.getLogger(__name__)
 
-# Must mirror _STALE_TOOL_CALL_MARKER_RE in hermes_state.py; kept local so importing
-# hermes_state (module-level DEFAULT_DB_PATH) is not forced at load time.
+# Must mirror _STALE_TOOL_CALL_MARKER_RE in state/store.py; kept local so importing
+# state.store (module-level DEFAULT_DB_PATH) is not forced at load time.
 _STALE_MARKER_RE = re.compile(r"^\[[A-Za-z_][A-Za-z0-9_.-]*\]$")
 
 # Shared by _apply_active_turn_redirect and the api_messages ghost-row filter so both sites cannot drift.

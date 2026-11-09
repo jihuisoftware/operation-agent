@@ -19,7 +19,7 @@ from gateway.config import GatewayConfig, Platform
 from gateway.platforms.event import MessageEvent, MessageType
 from gateway.run import GatewayRunner
 from gateway.session_envelope import snapshot_native
-from hermes_state_runtime import RuntimeStoreError
+from state.runtime import RuntimeStoreError
 
 
 def _clear_authz_env(monkeypatch) -> None:

@@ -15,7 +15,7 @@ import pytest
 
 import gateway.rpc.server as srv
 import gateway.rpc.methods_session
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 @pytest.fixture

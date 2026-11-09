@@ -151,7 +151,8 @@ FIRST_PARTY_ROOTS = frozenset(
         "gateway",
         "hermes_cli",
         "hermes_constants",
-        "hermes_state",
+        "hermes_state",  # historical updater import inventory
+        "state",
         "installation",
         "plugins",
         "pm",

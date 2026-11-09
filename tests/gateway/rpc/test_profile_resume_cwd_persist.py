@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 from tests.gateway.rpc.test_tui_gateway_server import _write_profile_cfg
 from gateway.rpc import server
 

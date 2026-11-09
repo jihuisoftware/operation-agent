@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 from gateway.session_contract import Principal
 from gateway.session_group_controls import _profiles
-from hermes_state import SessionDB
-from hermes_state_local_migration import bind_legacy_target
+from state.store import SessionDB
+from state.local_migration import bind_legacy_target
 
 
 def test_adopted_hidden_bot_chat_is_canonical_but_not_recent(tmp_path, monkeypatch):

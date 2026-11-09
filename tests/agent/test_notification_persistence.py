@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from agent.notification_presentation import notification_turn
 from agent.session_persistence import _db_flush_collect
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.rpc.server import _history_to_messages
 
 

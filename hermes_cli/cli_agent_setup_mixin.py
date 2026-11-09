@@ -804,7 +804,7 @@ class CLIAgentSetupMixin:
         if not self._session_db:
             return None
         from cli import logger
-        from hermes_state import SessionResumeTooLargeError
+        from state.store import SessionResumeTooLargeError
         try:
             safety_check = getattr(self._session_db, "assert_resume_safe", None)
             if not callable(safety_check):
@@ -842,7 +842,7 @@ class CLIAgentSetupMixin:
         if (kanban_refusal := kanban_resume_refusal(self._session_db, self._resume_read_id)):
             self._console_print(f"[bold red]{_escape(kanban_refusal)}[/]")
             self._resumed = False
-            from hermes_state_ids import new_session_id
+            from state.ids import new_session_id
             self.session_id = new_session_id(self.session_start)
             return False
         resume_limit_error = self._resume_history_limit_error()

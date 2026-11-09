@@ -499,7 +499,7 @@ def _codex_developer_instructions(agent) -> str:
     return developer_instructions
 
 
-# Durable codex thread binding: ``sessions.model_config.codex_thread_id`` (hermes_state), written after the
+# Durable codex thread binding: ``sessions.model_config.codex_thread_id`` (state.store), written after the
 # turn's projected rows were committed, read by the next AIAgent built for the same Hermes session so an
 # API-server restart (or the per-request agents of /api/sessions/{id}/chat) resumes the model-side thread
 # instead of starting an empty one while Hermes' own transcript continues (#100531).

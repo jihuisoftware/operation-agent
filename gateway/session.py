@@ -20,8 +20,8 @@ from gateway.session_prompt_pin import SessionPromptPinMixin, sanitize_prompt_pi
 from gateway.session_recovery import SessionRecoveryMixin
 from gateway.session_lifecycle import SessionLifecycleMixin, _iso, _new_session_id, _now, _parse_iso
 from gateway.session_transcript import SessionTranscriptMixin
-# Inverse of _session_key_namespace, defined storage-side (hermes_state must not import gateway).
-from hermes_state_keys import profile_from_session_key_namespace
+# Inverse of _session_key_namespace, defined storage-side (state.store must not import gateway).
+from state.keys import profile_from_session_key_namespace
 
 logger = logging.getLogger(__name__)
 

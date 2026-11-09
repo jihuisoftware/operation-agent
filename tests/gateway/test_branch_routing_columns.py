@@ -30,13 +30,13 @@ import pytest
 from gateway.config import GatewayConfig, Platform
 from gateway.platforms.event import MessageEvent
 from gateway.session import SessionSource, SessionStore, build_session_key
-from hermes_state import AsyncSessionDB, SessionDB
+from state.store import AsyncSessionDB, SessionDB
 
 
 @pytest.fixture()
 def store(tmp_path, monkeypatch):
     """Real SessionStore backed by a real SessionDB (SQLite in tmp_path)."""
-    import hermes_state
+    import state.store as hermes_state
 
     monkeypatch.setattr(hermes_state, "DEFAULT_DB_PATH", tmp_path / "state.db")
     config = GatewayConfig()
@@ -129,7 +129,7 @@ class TestBranchRoutingColumns:
         assert row["chat_type"] == "dm"
         assert row["thread_id"] == "544520"
         # user_id and session_key are also required for the fallback lookup
-        # path (hermes_state.py:1994-2009) when session_key-based lookup fails
+        # path (state/store.py:1994-2009) when session_key-based lookup fails
         assert row["user_id"] == "170829464", (
             "branched session lost user_id — fallback peer-tuple lookup "
             "in find_latest_gateway_session_for_peer can never match"

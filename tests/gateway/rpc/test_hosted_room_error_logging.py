@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hermes_state_runtime import RuntimeStoreError
+from state.runtime import RuntimeStoreError
 from tests.gateway.rpc import test_hosted_room_driver_runtime as runtime_fixtures
 from tests.gateway.rpc.test_hosted_room_driver_runtime import (
     BINDING, FakeSessionRPC, _admit, _identity, _runtime,

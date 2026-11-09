@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 def test_persist_branch_copies_the_parent_system_prompt(tmp_path, monkeypatch):
-    from hermes_state import SessionDB
+    from state.store import SessionDB
     from gateway.rpc import server
 
     home = tmp_path / ".hermes"

@@ -37,7 +37,7 @@ def _skill(monkeypatch):
 
 
 def _rows(rig):
-    from hermes_state_runtime import list_session_admissions
+    from state.runtime import list_session_admissions
     sid = rig.runner.session_store.peek_session_id(rig.key)
     return [row['request_id'] for row in list_session_admissions(rig.authority.db, session_id=sid, pending_only=False)]
 

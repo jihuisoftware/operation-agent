@@ -6,7 +6,7 @@ import pytest
 
 def test_explicit_profile_target_never_falls_back(tmp_path, monkeypatch):
     from gateway.rpc import server
-    from hermes_state import SessionDB
+    from state.store import SessionDB
 
     home = tmp_path / ".hermes"
     worker = home / "profiles" / "worker"

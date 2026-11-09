@@ -7,8 +7,8 @@ import pytest
 
 from gateway.session_bot import _migrate, recover_bot_deliveries
 from gateway.session_results import retain_result
-from hermes_state import SessionDB
-from hermes_state_runtime import (
+from state.store import SessionDB
+from state.runtime import (
     admit_session_input,
     begin_runtime_epoch,
     claim_session_input,

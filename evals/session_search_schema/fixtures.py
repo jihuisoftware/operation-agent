@@ -23,7 +23,7 @@ from pathlib import Path
 
 
 def seed(dbdir: Path) -> None:
-    from hermes_state import SessionDB
+    from state.store import SessionDB
 
     dbdir.mkdir(parents=True, exist_ok=True)
     now = int(time.time())

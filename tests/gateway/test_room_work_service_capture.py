@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hermes_state import SessionDB
-from hermes_state_runtime import begin_runtime_epoch
+from state.store import SessionDB
+from state.runtime import begin_runtime_epoch
 
 
 @pytest.mark.asyncio

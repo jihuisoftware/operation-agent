@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 def _db(tmp_path, *, source="cli", flip_source_to=None, parent=None, end_reason=None,

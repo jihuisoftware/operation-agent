@@ -15,7 +15,7 @@ import io
 import time
 import types
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.transport import entry; from gateway.rpc import server
 from hermes_cli import model_switch_providers
 

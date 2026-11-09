@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.rpc import server
 
 TURN = f"pid={os.getpid()}:turn=tui:platform=tui"

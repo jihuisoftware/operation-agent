@@ -666,6 +666,8 @@ exclude-newer-package = { certifi = false }
 
 [tool.setuptools.packages.find]
 include = [
+  "state",
+  "state.*",
   "agent",
   "agent.*",
   "tools",

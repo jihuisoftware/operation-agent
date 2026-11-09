@@ -14,7 +14,7 @@ identity-less: nothing is inferred and nothing is stamped.
 
 from __future__ import annotations
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.rpc import server
 from gateway.transport.transport import bind_transport, reset_transport
 

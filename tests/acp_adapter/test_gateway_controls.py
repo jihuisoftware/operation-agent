@@ -3,7 +3,7 @@ import pytest
 
 from acp_adapter.server import HermesACPAgent
 from hermes_cli.gateway_client import GatewayClientError
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 @pytest.mark.asyncio

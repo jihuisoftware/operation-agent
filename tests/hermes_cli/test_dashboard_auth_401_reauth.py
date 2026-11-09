@@ -225,7 +225,7 @@ class TestTransparentRefreshOnAccessTokenEviction:
 
         # Browsing is read-only; initialize the real store as its owner would.
         from contextlib import closing
-        from hermes_state import SessionDB
+        from state.store import SessionDB
 
         with closing(SessionDB()) as db:
             db.create_session("refresh-owner-session", source="cli")

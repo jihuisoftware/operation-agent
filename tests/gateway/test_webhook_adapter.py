@@ -910,7 +910,7 @@ class TestCrossPlatformDeliveryMirror:
 
     @staticmethod
     def _seed_dm(home, sid, chat):
-        from hermes_state import SessionDB
+        from state.store import SessionDB
         db = SessionDB(db_path=home / "state.db")
         db.create_session(sid, source="telegram")
         db._conn.execute("UPDATE sessions SET session_key=?, chat_id=?, user_id=? WHERE id=?",
@@ -920,7 +920,7 @@ class TestCrossPlatformDeliveryMirror:
 
     @staticmethod
     def _transcript(home, sid):
-        from hermes_state import SessionDB
+        from state.store import SessionDB
         db = SessionDB(db_path=home / "state.db")
         rows = db._conn.execute("SELECT role, content FROM messages WHERE session_id=? ORDER BY id", (sid,)).fetchall()
         db.close()
@@ -929,13 +929,13 @@ class TestCrossPlatformDeliveryMirror:
     @pytest.fixture
     def homes(self, tmp_path, monkeypatch):
         from pathlib import Path
-        import hermes_state
+        import state.store as hermes_state
         from hermes_cli.profiles import get_profile_dir
         default_home = tmp_path / ".hermes"
         default_home.mkdir()
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         monkeypatch.setenv("HERMES_HOME", str(default_home))
-        # The hermetic conftest pins DEFAULT_DB_PATH when hermes_state is already imported; un-pin it so
+        # The hermetic conftest pins DEFAULT_DB_PATH when state.store is already imported; un-pin it so
         # state.db resolves from the active (profile-scoped) home at call time, as in production.
         monkeypatch.setattr(hermes_state, "DEFAULT_DB_PATH", hermes_state._IMPORT_DEFAULT_DB_PATH)
         work_home = get_profile_dir("work")

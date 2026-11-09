@@ -545,7 +545,7 @@ class Scenario:
 
     # agent side ---------------------------------------------------------------------------------
     def build_agent(self) -> Any:
-        from hermes_state import SessionDB
+        from state.store import SessionDB
         from run_agent import AIAgent
 
         if self.db is None:

@@ -32,7 +32,7 @@ from agent.conversation_compression import (
     _is_real_user_message,
 )
 from agent.message_metadata import DB_ROW_SNAPSHOT
-from hermes_state import SessionDB
+from state.store import SessionDB
 import itertools
 
 
@@ -718,7 +718,7 @@ class TestRotationChildFlushDedup:
         )
 
         # (f) Markers on BOTH views. Note: the adopted view's rows are
-        # "born durable" (hermes_state stamps _DB_PERSISTED_MARKER on rows
+        # "born durable" (state.store stamps _DB_PERSISTED_MARKER on rows
         # materialized from the DB), so the adopted assert holds even
         # pre-fix; the DISCRIMINATING assert is the twin's — the old live
         # view is a constructed list the production code only stamps via

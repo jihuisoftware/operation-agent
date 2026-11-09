@@ -11,10 +11,10 @@ import json
 import pytest
 
 from gateway.session_contract import Principal
-from hermes_state import SessionDB
-from hermes_state_local_migration import validate_legacy_row
-from hermes_state_mutation_binding import authorize_history, same_history_owner
-from hermes_state_runtime import RuntimeStoreError
+from state.store import SessionDB
+from state.local_migration import validate_legacy_row
+from state.mutation_binding import authorize_history, same_history_owner
+from state.runtime import RuntimeStoreError
 
 
 def _login(user, issuer=''):

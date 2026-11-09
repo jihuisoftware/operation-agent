@@ -231,7 +231,7 @@ _DEFAULT_EXPORT_EXCLUDE_ROOT = DEFAULT_EXPORT_EXCLUDE_ROOT = frozenset({
     "node",                 # legacy pre-split managed Node tree
     # Databases & runtime state
     "state.db", "state.db-shm", "state.db-wal",
-    "hermes_state.db",
+    "state.store.db",
     "response_store.db", "response_store.db-shm", "response_store.db-wal",
     "gateway.pid", "gateway_state.json", "processes.json",
     "auth.json",            # API keys, OAuth tokens, credential pools
@@ -1815,7 +1815,7 @@ def delete_profile(name: str, yes: bool = False) -> Path:
         if _released:
             print(f"✓ Released {_released} memory-store connection(s) held by this process")
     with contextlib.suppress(Exception):
-        from hermes_state_registry import close_all_under as _close_session_dbs_under
+        from state.registry import close_all_under as _close_session_dbs_under
         _closed = _close_session_dbs_under(profile_dir)
         if _closed:
             print(f"✓ Released {_closed} session database connection(s) held by this process")

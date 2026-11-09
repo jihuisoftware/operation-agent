@@ -76,7 +76,7 @@
 | CLI、配置、私有 HTTP 服务 | `cli.py` / `hermes_cli/cli_*_mixin.py`；`hermes_cli/web_server*.py`；规则见 [hermes_cli/AGENTS.md](../hermes_cli/AGENTS.md) |
 | 桌面运行时与退役接入清理 | `gateway/config.py`（仅 local）、`gateway/run_adapters.py`；[保留边界](../gateway/platforms/ADDING_A_PLATFORM.md) | `session_model_options.py` 模型参数、`session_legacy_identity.py` 历史身份；私有 API 与调度继续保留 |
 | Gateway、JSON-RPC、Profile | `gateway/run*.py` / `session_*.py`；`rpc/`、`transport/`、`contracts/`、`runtime/` | [统一分层说明](gateway-rpc.md)；区域规则见 [Gateway](../gateway/AGENTS.md) 与 [RPC](../gateway/rpc/AGENTS.md) | `tests/gateway/rpc/`、`tests/gateway/contracts/` 和原生会话测试 |
-| 会话存储、Profile 路径 | `hermes_state.py` / `hermes_state_*.py`；`hermes_constants.py` 的 `get_hermes_home()` |
+| 会话存储、Profile 路径 | `state/store.py` / `state/*.py`；`hermes_constants.py` 的 `get_hermes_home()` |
 | 工具、技能、插件 | `model_tools.py` / `toolsets.py` / `tools/registry.py`；按根路由读取对应 AGENTS；不要为找一个工具读取全部注册表 |
 | 环境、依赖、机器事实 | `pm/`、`hermes_platform/`；按根路由读取对应约束，不直接修改托管环境 |
 

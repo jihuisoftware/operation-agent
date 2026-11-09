@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 from gateway.rpc import server
-import hermes_state_registry as registry
+from state import registry
 
 
 original_target = server._config_model_target

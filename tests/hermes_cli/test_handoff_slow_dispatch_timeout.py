@@ -28,7 +28,7 @@ import pytest
 
 from agent.i18n import t
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 @pytest.fixture()

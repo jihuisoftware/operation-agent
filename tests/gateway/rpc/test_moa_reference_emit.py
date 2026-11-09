@@ -26,7 +26,7 @@ def server():
             ),
             "hermes_cli.env_loader": MagicMock(),
             "hermes_cli.banner": MagicMock(),
-            "hermes_state": MagicMock(),
+            "state.store": MagicMock(),
         },
     ):
         import importlib

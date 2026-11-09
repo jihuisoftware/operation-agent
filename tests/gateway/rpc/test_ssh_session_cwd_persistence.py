@@ -12,7 +12,7 @@ import contextlib
 import pytest
 
 from gateway.rpc import server
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 class _ImmediateThread:

@@ -143,7 +143,7 @@ added = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "--diff-f
                         *[f"{t}/*.py" for t in tops]], capture_output=True, text=True).stdout.split()
 added = [a[:-3].replace("/", ".") for a in added if "/tests/" not in a and not a.endswith("__init__.py")][:3]
 bad = []
-for name in tops + ["hermes_cli.main", "run_agent", "hermes_state"] + added:
+for name in tops + ["hermes_cli.main", "run_agent", "state.store"] + added:
     try:
         mod = importlib.import_module(name)
     except BaseException as exc:

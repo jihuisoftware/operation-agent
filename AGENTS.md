@@ -89,7 +89,7 @@ User state is profile-aware via `get_hermes_home()`: `config.yaml` for settings,
 ### Facade + siblings layout
 
 Every former god file is a **facade** (public entry points + the names other packages import) plus
-**siblings** `<stem>_<topic>.py`, each owning one topic (`hermes_state.py`, `gateway/run.py`,
+**siblings** `<stem>_<topic>.py`, each owning one topic (`gateway/run.py`,
 `tools/mcp_tool.py`, `hermes_cli/kanban.py`, `hermes_cli/web_server.py`, `cli.py` →
 `hermes_cli/cli_*_mixin.py`, `run_agent.py` → `agent/turn_*.py`).
 
@@ -137,6 +137,7 @@ Every former god file is a **facade** (public entry points + the names other pac
 
 | Area | Read | Covers |
 |---|---|---|
+| `state/` | `state/AGENTS.md` | shared session persistence, SQLite lifecycle, history and usage |
 | `run_agent.py`, `agent/` | `agent/AGENTS.md` | turn phases, caching and message-flow invariants, compression, model/aux resolution |
 | `cli.py`, `hermes_cli/` | `hermes_cli/AGENTS.md` | CLI mixins, slash registry, config system, skins, `hermes update`, profiles / multiplex |
 | `gateway/` | `gateway/AGENTS.md` | adapters, message guards, streaming, notifications, token locks, § Profile scope |

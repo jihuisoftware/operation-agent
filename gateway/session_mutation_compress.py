@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path
 
-from hermes_state_runtime import RuntimeStoreError
+from state.runtime import RuntimeStoreError
 
 logger = logging.getLogger(__name__)
 

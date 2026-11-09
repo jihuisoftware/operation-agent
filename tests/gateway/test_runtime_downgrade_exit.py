@@ -10,6 +10,8 @@ service-restart code so the supervisor relaunches and the settled tree on disk s
 import asyncio
 import subprocess
 
+import pytest
+
 from gateway import runtime_downgrade_exit as rde
 from gateway.restart import GATEWAY_SERVICE_RESTART_EXIT_CODE
 
@@ -63,18 +65,20 @@ def test_a_confirmed_move_to_a_pre_runtime_tree_stops_without_a_restart(tmp_path
     assert exits == [1]
 
 
-def test_the_tree_probe_reads_the_checkout_on_disk(tmp_path):
+@pytest.mark.parametrize("module_path", ["hermes_state_common.py", "state/common.py"])
+def test_the_tree_probe_reads_the_checkout_on_disk(tmp_path, module_path):
     def git(*args):
         subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
 
+    (tmp_path / module_path).parent.mkdir(parents=True, exist_ok=True)
     git("init", "-b", "main")
     git("config", "user.email", "t@example.invalid")
     git("config", "user.name", "T")
-    (tmp_path / "hermes_state_common.py").write_text("SCHEMA = 'CREATE TABLE IF NOT EXISTS sessions'\n")
+    (tmp_path / module_path).write_text("SCHEMA = 'CREATE TABLE IF NOT EXISTS sessions'\n")
     git("add", ".")
     git("commit", "-m", "old release")
     git("tag", "old")
-    (tmp_path / "hermes_state_common.py").write_text("SCHEMA = 'CREATE TABLE IF NOT EXISTS session_admissions'\n")
+    (tmp_path / module_path).write_text("SCHEMA = 'CREATE TABLE IF NOT EXISTS session_admissions'\n")
     git("commit", "-am", "runtime")
     assert rde.tree_predates_runtime(tmp_path) is False
     git("checkout", "-q", "--detach", "old")

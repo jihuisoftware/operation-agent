@@ -29,11 +29,11 @@ _HOLDER = (
 
 @pytest.fixture
 def state_db(monkeypatch, tmp_path):
-    from hermes_state import SessionDB
+    from state.store import SessionDB
 
     db_path = tmp_path / "state.db"
     # cmd_sessions opens the ACTIVE home's store by explicit path (a served-profile process has
-    # no single default store), so the home is the seam, not hermes_state's default resolver.
+    # no single default store), so the home is the seam, not state.store's default resolver.
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     seed = SessionDB(db_path=db_path)
     seed.create_session("seed", "cli")

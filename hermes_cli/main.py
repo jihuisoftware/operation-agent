@@ -1219,14 +1219,14 @@ def _resolve_workspace_key() -> Optional[str]:
 
 @contextlib.contextmanager
 def _session_db():
-    """Yield a read-only ``SessionDB`` (lazy import, so test patches on ``hermes_state``
+    """Yield a read-only ``SessionDB`` (lazy import, so test patches on ``state.store``
     intercept). Every caller is a lookup (last session, title → id, recorded cwd), so it
     never opens a writer beside the one the CLI acquires from the registry a moment later.
     Open failures yield None and any error raised by the ``with`` body is swallowed —
     callers fall through to their ``return None``."""
     db = None
     try:
-        from hermes_state import SessionDB
+        from state.store import SessionDB
 
         db = SessionDB(db_path=get_hermes_home() / "state.db", read_only=True)
     except Exception:

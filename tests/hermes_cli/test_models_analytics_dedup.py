@@ -13,7 +13,7 @@ import time
 import pytest
 
 from hermes_cli.web_routers import analytics as web_server
-from hermes_state import SessionDB
+from state.store import SessionDB
 
 
 @pytest.fixture

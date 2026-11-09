@@ -174,7 +174,7 @@ def _mirror_config_to_env(defaults, _file_has_terminal_config):
         if redact is not None:
             os.environ["HERMES_REDACT_SECRETS"] = str(redact).lower()
 
-    # Session-search index knobs (hermes_state reads the env carriers).
+    # Session-search index knobs (state.store reads the env carriers).
     sessions_config = defaults.get("sessions", {})
     if isinstance(sessions_config, dict):
         if "cjk_fts" in sessions_config:

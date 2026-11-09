@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.rpc import server
 
 _BASE_URL = "http://127.0.0.1:59999/v1"

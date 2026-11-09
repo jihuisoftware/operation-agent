@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import time
 
-from hermes_state import SessionDB
+from state.store import SessionDB
 from gateway.rpc.session_reaper import _ORPHAN_SWEEP_SOURCES
 
 # One of the four orphan ids from the report.

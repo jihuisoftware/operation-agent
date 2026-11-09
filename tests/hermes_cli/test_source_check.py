@@ -658,7 +658,9 @@ def test_stable_release_the_updater_refuses_is_held_not_offered(
 
 
 @pytest.mark.parametrize("ledgered", [True, False])
-def test_an_unfetched_release_is_judged_from_github(installation, tmp_path, monkeypatch, ledgered):
+@pytest.mark.parametrize("layout", [("hermes_state.py", "hermes_state_common.py"),
+                                    ("state/store.py", "state/common.py")])
+def test_an_unfetched_release_is_judged_from_github(installation, tmp_path, monkeypatch, ledgered, layout):
     """The usual install tracks only ``main``, so a release cut beside it is absent until `hermes
     update` fetches it, and a local probe proves nothing. The check reads the release's state modules
     from GitHub instead, so it still holds what the update would refuse (#140215 review)."""
@@ -683,11 +685,12 @@ def test_an_unfetched_release_is_judged_from_github(installation, tmp_path, monk
     responses[f"{api}/releases/latest"] = (200, {"draft": False, "prerelease": False, "tag_name": "v1.2.3"})
     responses[f"{api}/commits/v1.2.3"] = (200, {"sha": release})
     responses[f"{api}/compare/{git('rev-parse', 'HEAD')}...{release}"] = (200, {"status": "diverged"})
+    facade, schema = layout
     responses[f"{api}/git/trees/{release}"] = (200, {"truncated": False, "tree": [
-        {"path": "hermes_state.py", "type": "blob"}, {"path": "hermes_state_common.py", "type": "blob"},
+        {"path": facade, "type": "blob"}, {"path": schema, "type": "blob"},
         {"path": "run_agent.py", "type": "blob"}]})
-    responses[f"/NousResearch/hermes-agent/{release}/hermes_state.py"] = (200, "from hermes_state_common import *\n")
-    responses[f"/NousResearch/hermes-agent/{release}/hermes_state_common.py"] = (
+    responses[f"/NousResearch/hermes-agent/{release}/{facade}"] = (200, "from state.common import *\n")
+    responses[f"/NousResearch/hermes-agent/{release}/{schema}"] = (
         200, "SCHEMA_SQL = 'CREATE TABLE IF NOT EXISTS sessions (id)'\n")
     if ledgered:
         _ledgered_store(home)
@@ -771,7 +774,7 @@ def test_unknown_runtime_verdict_expires_but_definite_verdict_does_not(installat
     tree = f"/repos/fixture/fork/git/trees/{sha}"
     module = f"/fixture/fork/{sha}/hermes_state_common.py"
     responses[tree] = (200, {"tree": [{"path": "hermes_state_common.py", "type": "blob"}]})
-    from hermes_state_common import SCHEMA_SQL
+    from state.common import SCHEMA_SQL
     responses[module] = (200, SCHEMA_SQL if runtime else "SCHEMA_SQL = 'old schema'")
     failed_path = tree if failure == "tree" else module
     good = responses[failed_path]
