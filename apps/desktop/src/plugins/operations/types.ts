@@ -64,6 +64,8 @@ export interface Guest extends HTMLElement {
   capturePage?: () => Promise<{ resize: (options: { width: number }) => { toDataURL: () => string } }>
   executeJavaScript: (code: string) => Promise<any>
   loadURL: (url: string) => Promise<void>
+  canGoBack: () => boolean
+  goBack: () => void
   isLoadingMainFrame?: () => boolean
   getURL: () => string
 }

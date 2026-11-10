@@ -51,6 +51,39 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+it('takes over before returning from the creator page and keeps the same account guest for home navigation', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
+  let allowTakeover!: () => void
+
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/workspaces') { return catalog }
+
+    if (path.startsWith('/worker/takeover?')) { await new Promise<void>(resolve => { allowTakeover = resolve }) }
+
+    return { ok: true }
+  })
+
+  const { container } = render(<OperationsWorker ctx={{ rest } as unknown as PluginContext} />)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1)
+    $showOperationsBrowser.set(true)
+  })
+  const guest = container.querySelector('webview') as Guest
+  const partition = guest.getAttribute('partition')
+  Object.assign(guest, { canGoBack: () => true, goBack: vi.fn(), loadURL: vi.fn(async () => {}) })
+  fireEvent.click(screen.getByRole('button', { name: '返回上一页' }))
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(guest.goBack).not.toHaveBeenCalled()
+  await act(async () => { allowTakeover() })
+  expect(guest.goBack).toHaveBeenCalledOnce()
+  fireEvent.click(screen.getByRole('button', { name: '返回首页' }))
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); allowTakeover() })
+  expect(guest.loadURL).toHaveBeenCalledWith('https://www.xiaohongshu.com/explore')
+  expect(container.querySelector('webview')).toBe(guest)
+  expect(guest.getAttribute('partition')).toBe(partition)
+})
+
 it('keeps the hidden guest mounted and heartbeats without claiming another task while busy', async () => {
   vi.useFakeTimers()
   vi.stubGlobal('crypto', { randomUUID: () => 'worker', subtle: { digest: async () => new Uint8Array([1, 2]).buffer } })
@@ -200,6 +233,7 @@ it('shows navigation failure with a recovery action instead of an unexplained bl
   })
   const guest = container.querySelector('webview') as Guest
   guest.loadURL = vi.fn(async () => {})
+  guest.executeJavaScript = vi.fn(async () => undefined)
 
   const error = Object.assign(new Event('did-fail-load'), {
     isMainFrame: true,

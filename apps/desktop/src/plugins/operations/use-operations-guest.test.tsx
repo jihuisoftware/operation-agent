@@ -15,6 +15,53 @@ function Viewer({ connectionId, profile, account_id, home }: { connectionId: str
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
+it('returns to the platform home when a guest has no history and surfaces back failures', async () => {
+  vi.stubGlobal('crypto', webcrypto)
+
+  function Navigation() {
+    const container = useRef<HTMLDivElement>(null)
+    const { back, error } = useOperationsGuest({ connectionId: 'local', profile: 'one', account_id: 'a' }, container, 'https://www.zhihu.com/')
+
+    return <><button onClick={() => void back()}>返回</button><p>{error}</p><div ref={container} /></>
+  }
+
+  const view = render(<Navigation />)
+  await waitFor(() => expect(view.container.querySelector('webview')).not.toBeNull())
+  const guest = view.container.querySelector('webview')!
+  const loadURL = vi.fn(async () => {})
+  Object.assign(guest, { canGoBack: () => false, loadURL })
+  fireEvent.click(view.getByRole('button', { name: '返回' }))
+  await waitFor(() => expect(loadURL).toHaveBeenCalledWith('https://www.zhihu.com/'))
+  Object.assign(guest, { canGoBack: () => true, goBack: () => { throw new Error('网页已关闭') } })
+  fireEvent.click(view.getByRole('button', { name: '返回' }))
+  expect(view.getByText('无法返回上一页：Error: 网页已关闭')).toBeTruthy()
+})
+
+it('installs the in-page publishing entry when the guest document is ready without enabling popups', async () => {
+  vi.stubGlobal('crypto', webcrypto)
+  const view = render(<Viewer account_id="a" connectionId="local" profile="one" />)
+  await waitFor(() => expect(view.container.querySelector('webview')).not.toBeNull())
+  const guest = view.container.querySelector('webview')!
+  const page = window.document.implementation.createHTMLDocument()
+  const listen = vi.spyOn(page, 'addEventListener')
+  const navigate = vi.fn()
+
+  const execute = vi.fn(async (code: string) => {
+    // Execute the serialized guest script, including its defaults, across the webview boundary.
+    Function('document', 'location', code)(page, { href: 'https://www.xiaohongshu.com/explore', assign: navigate })
+  })
+
+  Object.assign(guest, { executeJavaScript: execute })
+  fireEvent(guest, new Event('dom-ready'))
+  expect(execute).toHaveBeenCalledOnce()
+  page.body.innerHTML = '<button class="publish-btn"><span>＋</span></button>'
+  const listener = listen.mock.calls.find(([type]) => type === 'click')?.[1] as EventListener
+  listener({ target: page.querySelector('span'), isTrusted: true, button: 0,
+    preventDefault() {}, stopImmediatePropagation() {} } as unknown as Event)
+  expect(navigate).toHaveBeenCalledWith('https://creator.xiaohongshu.com/publish/publish?source=official')
+  expect(guest.hasAttribute('allowpopups')).toBe(false)
+})
+
 it('reuses the deployed cookie partition across remounts and isolates other owners', async () => {
   vi.stubGlobal('crypto', webcrypto)
   const first = render(<Viewer connectionId="local" profile="default" />)

@@ -56,9 +56,11 @@ function Worker({
   const surface = useRef<HTMLElement>(null)
   const execution = useRef<ActiveBrowserExecution>({ pending: null })
   const [worker] = useState(() => crypto.randomUUID())
+
   const powerControl = useRef<BrowserPower | null>(null)
   execution.current.worker = worker
-  const { guest, loading, error, reopen, replace } = useOperationsGuest(scope, container)
+  const { guest, loading, error, reopen, replace, back } = useOperationsGuest(scope, container)
+
   const pages = usePlatformPages(guest)
 
   useEffect(() => {
@@ -216,7 +218,10 @@ function Worker({
       <AccountViewHeader scope={scope} taskLabel={taskLabel} />
       <PlatformPageTabs active={pages.active} opened={pages.opened} owner={scope} select={pages.select} />
       <PlatformPageFrame name="小红书" visible={visible && pages.active === 'xiaohongshu'}>
-        <BrowserToolbar error={error}
+        <BrowserToolbar
+          back={() => void takeOver().then(back).catch(failed)}
+          error={error}
+
           hide={() => $showOperationsBrowser.set(false)}
           loading={loading}
           login={() =>
