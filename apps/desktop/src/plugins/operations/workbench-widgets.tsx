@@ -1,4 +1,4 @@
-import type { PluginContext } from '@hermes/plugin-sdk'
+import { Button, Codicon, type PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
 import { AssetImage } from './asset-image'
@@ -84,6 +84,26 @@ export function Assets({
   onError: (error: string) => void
 }) {
   const [authorized, setAuthorized] = useState(false)
+  const [removed, setRemoved] = useState<string[]>([])
+
+  async function removeAsset(id: string) {
+    setRemoved(current => [...current, id])
+
+    try {
+      await ctx.rest(`/assets/${encodeURIComponent(id)}/revoke`, { method: 'POST', body: {} })
+    } catch (error) {
+      setRemoved(current => current.filter(value => value !== id))
+      onError(String(error))
+
+      return
+    }
+
+    try {
+      await refresh()
+    } catch (error) {
+      onError(String(error))
+    }
+  }
 
   return (
     <div className="grid gap-3">
@@ -93,11 +113,16 @@ export function Assets({
       </label>
       <input
         accept="image/png,image/jpeg,image/webp"
+        aria-label="上传图片素材"
         disabled={!authorized}
         multiple
         onChange={async e => {
+          const input = e.currentTarget
+          const files = Array.from(input.files || [])
+          input.value = ''
+
           try {
-            for (const file of Array.from(e.target.files || [])) {
+            for (const file of files) {
               if (file.size > 20 * 1024 * 1024) {
                 throw new Error('图片不能超过 20 MB')
               }
@@ -109,7 +134,12 @@ export function Assets({
                 reader.readAsDataURL(file)
               })
 
-              await ctx.rest('/assets', { method: 'POST', body: { name: file.name, data, authorized } })
+              const uploaded = await ctx.rest<{ id: string }>('/assets', {
+                method: 'POST',
+                body: { name: file.name, data, authorized }
+              })
+
+              setRemoved(current => current.filter(id => id !== uploaded.id))
             }
 
             await refresh()
@@ -119,31 +149,29 @@ export function Assets({
         }}
         type="file"
       />
-      <div className="grid gap-4 sm:grid-cols-3">
-        {rows.map(row => (
-          <div key={row.id}>
-            <AssetImage ctx={ctx} id={row.id} />
-            <p className="text-xs">
-              {String(row.name)} · {row.revoked ? '已撤回' : '可用于发布'}
-            </p>
-          </div>
-        ))}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,13rem))] gap-4">
+        {rows
+          .filter(row => !row.revoked && !removed.includes(row.id))
+          .map(row => (
+            <div className="min-w-0 space-y-2" key={row.id}>
+              <div className="relative aspect-square overflow-hidden rounded-lg bg-(--ui-bg-quaternary)">
+                <AssetImage className="h-full w-full object-cover" ctx={ctx} id={row.id} />
+                <Button
+                  aria-label={`删除图片：${String(row.name)}`}
+                  className="absolute right-2 top-2"
+                  onClick={() => void removeAsset(row.id)}
+                  size="icon-xs"
+                  title="删除图片"
+                  type="button"
+                  variant="floating"
+                >
+                  <Codicon name="close" />
+                </Button>
+              </div>
+              <p className="truncate text-xs" title={String(row.name)}>{String(row.name)}</p>
+            </div>
+          ))}
       </div>
-      {rows
-        .filter(row => !row.revoked)
-        .map(row => (
-          <button
-            key={row.id}
-            onClick={() =>
-              void ctx
-                .rest(`/assets/${row.id}/revoke`, { method: 'POST', body: {} })
-                .then(refresh)
-                .catch(error => onError(String(error)))
-            }
-          >
-            撤回素材授权：{String(row.name)}
-          </button>
-        ))}
       <h2>内容版本</h2>
       <Records rows={content} />
     </div>
