@@ -10,7 +10,7 @@ const candidates = ['编辑精选', '醒目标题', '清单要点'].map((label, 
 const options = { templates: [{ id: 'editorial', label: '编辑精选' }, { id: 'spotlight', label: '醒目标题' }, { id: 'checklist', label: '清单要点' }], palettes: [{ id: 'blue', label: '深海蓝', color: '#123456' }] }
 const row = { id: 'draft', title: '文章原始标题', content_revision: 'fingerprint', policy_version: 4, asset_ids: ['original', 'second'] }
 
-it('previews three local variants and saves the selected cover as a new version', async () => {
+it('previews three local variants and updates the original content with the selected cover', async () => {
   const rest = vi.fn(async (path: string) => {
     if (path === '/content/cover-options') { return options }
 
@@ -18,7 +18,7 @@ it('previews three local variants and saves the selected cover as a new version'
 
     if (path.includes('/assets/')) { return { data: 'aW1hZ2U=', mime: 'image/png' } }
 
-    return { id: 'new-version', original_schedule_retained: true }
+    return { id: 'draft', updated_in_place: true, original_schedule_retained: false }
   })
 
   const refresh = vi.fn(async () => {})
@@ -28,12 +28,12 @@ it('previews three local variants and saves the selected cover as a new version'
   fireEvent.click(screen.getByRole('button', { name: '生成三个候选封面' }))
   await screen.findByRole('button', { name: '选用醒目标题' })
   fireEvent.click(screen.getByRole('button', { name: '选用醒目标题' }))
-  fireEvent.click(screen.getByRole('button', { name: '应用封面并保存新版本' }))
+  fireEvent.click(screen.getByRole('button', { name: '应用封面并保存' }))
   await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/draft/versions', { method: 'POST', body: {
     asset_ids: ['candidate-1', 'second'], cover_set_id: 'set', version: 4, content_revision: 'fingerprint',
-    request_id: expect.any(String), cancel_original_schedule: false
+    request_id: expect.any(String)
   } }))
-  expect(await screen.findByText('已保存为新待审版本；旧版本排期仍然有效。')).toBeTruthy()
+  expect(await screen.findByText('封面已更新到原内容，原审核与排期已失效；请重新审核后安排发布。')).toBeTruthy()
   expect(rest.mock.calls.some(([path]) => path.includes('/approve') || path.includes('/generate'))).toBe(false)
   expect(refresh).toHaveBeenCalledOnce()
 })
@@ -43,9 +43,9 @@ it('uses cached candidates and refuses applying an image after its text has chan
   render(<CoverStudio ctx={{ rest } as unknown as PluginContext} refresh={async () => {}} row={{ ...row, cover: spec, cover_candidates: candidates }} />)
   await screen.findByLabelText('封面版式')
   fireEvent.click(screen.getByRole('button', { name: '选用醒目标题' }))
-  expect((screen.getByRole('button', { name: '应用封面并保存新版本' }) as HTMLButtonElement).disabled).toBe(false)
+  expect((screen.getByRole('button', { name: '应用封面并保存' }) as HTMLButtonElement).disabled).toBe(false)
   fireEvent.change(screen.getByLabelText('封面副标题'), { target: { value: '新副标题' } })
-  expect((screen.getByRole('button', { name: '应用封面并保存新版本' }) as HTMLButtonElement).disabled).toBe(true)
+  expect((screen.getByRole('button', { name: '应用封面并保存' }) as HTMLButtonElement).disabled).toBe(true)
   expect(screen.getByText('文字或样式已修改，请重新生成候选后再应用。')).toBeTruthy()
   expect(rest.mock.calls.some(([path]) => path.includes('/covers/preview'))).toBe(false)
 })

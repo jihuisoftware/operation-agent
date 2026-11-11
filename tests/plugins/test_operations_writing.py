@@ -33,7 +33,7 @@ def test_long_incomplete_draft_cas_and_idempotency_survive_reopening(tmp_path, m
         submission.submit(store, data['id'], request(expected_revision=2, version=0))
 
 
-def test_original_submit_is_idempotent_and_editing_does_not_mutate_version(tmp_path, monkeypatch):
+def test_original_submit_is_idempotent_and_reuses_content_after_working_draft_save(tmp_path, monkeypatch):
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     store = Store()
     created = drafts.create(store, request())
@@ -52,8 +52,11 @@ def test_original_submit_is_idempotent_and_editing_does_not_mutate_version(tmp_p
     assert not store.objects('content_release')
     changed = submission.submit(store, data['id'], request(expected_revision=3, version=0))
     child = next(row for row in store.objects('content') if row['id'] == changed['content_id'])
-    assert child['parent_content_id'] == content['id'] and child['revision_root_id'] == content['id']
-    assert changed['content_id'] != first['content_id']
+    assert child['revision_root_id'] == content['id']
+    assert changed['content_id'] == first['content_id']
+    assert len(store.objects('content')) == 1
+    assert child['title'] == '修改标题'
+    assert store.objects('content_edit_history')[0]['content']['title'] == content['title']
 
 
 def test_derived_draft_cannot_erase_provenance(cover_manuscript):
@@ -66,7 +69,8 @@ def test_derived_draft_cannot_erase_provenance(cover_manuscript):
     result = submission.submit(store, data['id'], request(expected_revision=1, version=1))
     child = next(row for row in store.objects('content') if row['id'] == result['content_id'])
     assert child['analysis_context'] == parent['analysis_context']
-    assert child['parent_content_id'] == parent['id']
+    assert child['id'] == parent['id']
+    assert len(store.objects('content')) == 1
 
 
 def test_projection_keeps_literal_legacy_text_and_orders_images():

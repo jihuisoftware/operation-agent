@@ -10,7 +10,7 @@ from .policy import now_iso
 def fingerprint(content):
     keys = ('title', 'body', 'asset_ids', 'source_ids', 'organization_ids', 'analysis_context')
     value = {key: content.get(key) for key in keys}
-    value.update({key: content[key] for key in ('editor_document', 'editor_document_version', 'authorship') if key in content})
+    value.update({key: content[key] for key in ('editor_document', 'editor_document_version', 'authorship', 'edit_revision') if key in content})
     return hashlib.sha256(encoded(value).encode()).hexdigest()
 
 
@@ -103,7 +103,8 @@ def cancel(store, identity, revision):
         value = load(db, identity)
         if not value or value['revision'] != revision:
             raise ValueError('审核排期已变化，请刷新')
-        if db.execute("SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=?", (identity,)).fetchone():
+        from .content_edits import latest_action
+        if latest_action(db, identity, manuscript(store, identity)):
             raise ValueError('发布动作已建立，请在执行记录中核对或取消，不能假定撤回成功')
         value.update(state='cancelled', revision=revision + 1)
         db.execute("UPDATE objects SET data=? WHERE id=?", (encoded(value), 'content-release:' + identity))

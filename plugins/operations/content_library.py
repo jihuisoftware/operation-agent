@@ -3,6 +3,7 @@ import json
 import time
 
 from .content_release import fingerprint, load
+from .content_edits import action_match, latest_action
 
 STATES = {
     'all': (), 'in_progress': ('queued', 'executing'), 'needs_attention': ('submitted', 'unknown', 'blocked'),
@@ -10,7 +11,7 @@ STATES = {
 }
 JOIN = ("FROM objects c LEFT JOIN objects r ON r.id='content-release:'||c.id AND r.kind='content_release' "
         "LEFT JOIN actions a ON a.rowid=(SELECT max(x.rowid) FROM actions x WHERE x.kind='publish' "
-        "AND json_extract(x.data,'$.content.id')=c.id) WHERE c.kind='content'")
+        "AND json_extract(x.data,'$.content.id')=c.id AND " + action_match("x") + ") WHERE c.kind='content'")
 FILTERS = {'drafts': "a.id IS NULL AND COALESCE(json_extract(r.data,'$.state'),'')!='scheduled'",
            'pending': "a.id IS NULL AND json_extract(r.data,'$.state')='scheduled'", '': '1=1'}
 
@@ -102,7 +103,7 @@ def detail(store, identity, *, publication=False):
         if not target_account and store.workspace:
             target_account = db.execute('SELECT a.identity FROM directory.accounts a JOIN directory.businesses b ON b.account=a.id WHERE b.id=?', (store.scope['business_id'],)).fetchone()[0]
         if not action:
-            action = db.execute("SELECT * FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=? ORDER BY rowid DESC LIMIT 1", (identity,)).fetchone()
+            action = latest_action(db, identity, content)
         content = {**content, 'id': identity, 'content_revision': fingerprint(content), 'policy_version': version,
                    'release': load(db, identity), 'publication_state': action['state'] if action else None,
                    'publication_action_id': action['id'] if action else None}

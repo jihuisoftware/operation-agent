@@ -20,7 +20,8 @@ def objects(db, kind, identities=None):
 def content_data(db, rows):
     content = [{**json.loads(r['data']), 'id': r['id'], 'created': r['created']} for r in rows]
     for item in content:
-        action = db.execute("SELECT state FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=? ORDER BY rowid DESC LIMIT 1", (item['id'],)).fetchone()
+        from plugins.operations.content_edits import latest_action
+        action = latest_action(db, item['id'], item)
         item['publication_state'] = action['state'] if action else None
         from plugins.operations.content_release import load, fingerprint
         item['release'] = load(db, item['id'])

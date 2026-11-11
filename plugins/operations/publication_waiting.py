@@ -30,10 +30,11 @@ def annotate(db, rows):
 
 def pending_detail(store, now):
     with store.connection() as db:
-        row = db.execute("SELECT r.data FROM objects r WHERE r.kind='content_release' "
+        from .content_edits import action_match
+        row = db.execute("SELECT r.data FROM objects r JOIN objects c ON c.id=json_extract(r.data,'$.content_id') WHERE r.kind='content_release' "
                          "AND json_extract(r.data,'$.state')='scheduled' "
                          "AND NOT EXISTS (SELECT 1 FROM actions a WHERE a.kind='publish' "
-                         "AND json_extract(a.data,'$.content.id')=json_extract(r.data,'$.content_id')) "
+                         "AND json_extract(a.data,'$.content.id')=json_extract(r.data,'$.content_id') AND " + action_match() + ") "
                          "ORDER BY json_extract(r.data,'$.publish_at') LIMIT 1").fetchone()
         release = project(db, json.loads(row[0]), now=now) if row else None
     return (release or {}).get('waiting', {}).get('detail')

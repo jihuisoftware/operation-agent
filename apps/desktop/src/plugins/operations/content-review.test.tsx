@@ -44,7 +44,7 @@ it('replaces a cover through its original version instead of losing evidence in 
   }} />)
   fireEvent.change(screen.getByLabelText(/替换封面/), { target: { files: [new File(['image'], 'cover.png', { type: 'image/png' })] } })
   await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/draft/versions', { method: 'POST', body: {
-    content_revision: 'digest', version: 4, request_id: expect.any(String), cancel_original_schedule: false, asset_ids: ['new-cover', 'second-image']
+    content_revision: 'digest', version: 4, request_id: expect.any(String), asset_ids: ['new-cover', 'second-image']
   } }))
   expect(rest).toHaveBeenCalledTimes(2)
 })

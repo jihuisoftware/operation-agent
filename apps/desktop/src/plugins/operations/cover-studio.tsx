@@ -53,7 +53,6 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
   const [notice, setNotice] = useState('')
   const [savedId, setSavedId] = useState('')
   const [large, setLarge] = useState(false)
-  const [cancelSchedule, setCancelSchedule] = useState(false)
   const release = row.release as { state?: string } | undefined
   useEffect(() => {
     let disposed = false
@@ -92,10 +91,10 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
       const assetIds = coverAssetIds(row, choice.asset_id)
 
       const result = await ctx.rest<{ id: string; original_schedule_retained: boolean }>(`/content/${row.id}/versions`, { method: 'POST',
-        body: versionRequest(row, { asset_ids: assetIds, ...(setId ? { cover_set_id: setId } : {}) }, cancelSchedule) })
+        body: versionRequest(row, { asset_ids: assetIds, ...(setId ? { cover_set_id: setId } : {}) }) })
 
       setSavedId(result.id)
-      setNotice(result.original_schedule_retained ? '已保存为新待审版本；旧版本排期仍然有效。' : '已保存为新待审版本，审核后再安排发布。')
+      setNotice('封面已更新到原内容，原审核与排期已失效；请重新审核后安排发布。')
       await refresh()
     } catch (reason) { setError(String(reason)) } finally { setBusy(false) }
   }
@@ -122,8 +121,8 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
     }} selected={selected} />
     {dirty && <p className="text-sm">文字或样式已修改，请重新生成候选后再应用。</p>}
     {choice && <><Button onClick={() => setLarge(value => !value)} variant="outline">{large ? '收起大图' : '查看大图'}</Button>{large && <CoverArt ctx={ctx} item={choice} large />}</>}
-    {release?.state === 'scheduled' && <label className="block text-sm"><input checked={cancelSchedule} disabled={busy} onChange={event => setCancelSchedule(event.target.checked)} type="checkbox" /> 应用时同时取消旧版本排期；新版本重新审核</label>}
-    <Button disabled={busy || dirty || !choice || selected === firstAsset(row)} onClick={() => void save()}>{working ? '应用到写作草稿' : '应用封面并保存新版本'}</Button>
-    {savedId && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(savedId)}`)} variant="link">查看新版本</Button>}
+    {release?.state === 'scheduled' && <p className="text-sm">应用封面会更新原内容并取消当前排期，请重新审核后设置发布时间。</p>}
+    <Button disabled={busy || dirty || !choice || selected === firstAsset(row)} onClick={() => void save()}>{working ? '应用到写作草稿' : '应用封面并保存'}</Button>
+    {savedId && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(savedId)}`)} variant="link">查看内容</Button>}
   </section>
 }

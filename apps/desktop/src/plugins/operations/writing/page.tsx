@@ -206,6 +206,7 @@ function WritingSession({ controller, ctx }: SessionProps) {
           提交审核
         </Button>
       </header>
+      {state.draft.origin.content_id && <p className="px-4 py-2 text-sm text-muted-foreground">提交审核会更新原内容并取消旧排期，请重新审核后安排发布时间。</p>}
       {(state.error || error) && (
         <p className="p-3" role="alert">
           {error || state.error}

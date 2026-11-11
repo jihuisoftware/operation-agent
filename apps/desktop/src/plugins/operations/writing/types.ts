@@ -12,7 +12,7 @@ export interface Draft extends Fields {
   revision: number
   updated: string
   archived: boolean
-  origin: { kind: string }
+  origin: { kind: string; content_id?: string; content_revision?: string }
   policy_version: number
   last_submission?: { content_id: string }
 }

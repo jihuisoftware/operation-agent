@@ -40,6 +40,8 @@ def publish_due(store, now):
     state, detail = 'needs_attention', '此前排期执行已开始，请先核对执行记录；不会自动重发'
     if run:
         try:
+            from .execution_preflight import verify_for_start
+            verify_for_start(store, version)
             result = publish(store, policy, local_day(policy, now), version, content_id=release['content_id'])
             state, detail = describe('publish', result)
         except ExecutionPaused as exc:

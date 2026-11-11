@@ -25,7 +25,7 @@ def request(draft, **extra):
     return {'request_id': 'edit', 'version': 1, 'content_revision': content_release.fingerprint(draft), **extra}
 
 
-def test_new_version_inherits_evidence_is_idempotent_and_keeps_original_schedule(version_case):
+def test_edit_in_place_inherits_evidence_is_idempotent_and_invalidates_schedule(version_case):
     store, _, _, draft = version_case
     _, _, release = support.approve(store, draft)
     with store.connection() as db:
@@ -35,18 +35,20 @@ def test_new_version_inherits_evidence_is_idempotent_and_keeps_original_schedule
     assert result == create(store, draft['id'], request(draft, title='新标题'))
     for field in ('analysis_context', 'organization_ids', 'organized_evidence'):
         assert child[field] == draft[field]
-    assert child['parent_content_id'] == draft['id'] and child['manual_revision']
+    assert child['id'] == draft['id'] and child['manual_revision']
+    assert len(store.objects('content')) == 1
+    assert store.objects('content_edit_history')[0]['content']['title'] == draft['title']
     assert child['asset_ids'][0] != draft['asset_ids'][0]
     assert child['state'] == 'pending_review'
     with store.connection() as db:
-        assert content_release.load(db, draft['id']) == release
-        assert content_release.load(db, child['id']) is None
-    assert result['original_schedule_retained'] is True
+        assert content_release.load(db, draft['id'])['state'] == 'cancelled'
+        assert content_release.load(db, draft['id'])['revision'] == release['revision'] + 1
+    assert result['original_schedule_retained'] is False
     with pytest.raises(ValueError, match='同一保存请求'):
         create(store, draft['id'], request(draft, title='其他标题'))
 
 
-def test_cancel_old_schedule_is_explicit_and_atomic_with_version_creation(version_case):
+def test_edit_rejects_stale_content_and_cancels_schedule_atomically(version_case):
     store, _, _, draft = version_case
     _, _, release = support.approve(store, draft)
     body = request(draft, cancel_original_schedule=True, expected_release_revision=release['revision'])
@@ -55,7 +57,7 @@ def test_cancel_old_schedule_is_explicit_and_atomic_with_version_creation(versio
         assert content_release.load(db, draft['id'])['state'] == 'cancelled'
     assert not result['original_schedule_retained']
     assert create(store, draft['id'], body) == result
-    with pytest.raises(ValueError, match='排期已变化'):
+    with pytest.raises(ValueError, match='原稿或规则'):
         create(store, draft['id'], {**body, 'request_id': 'stale'})
 
 
@@ -91,3 +93,27 @@ def test_content_endpoints_bind_profile_scope_and_match_the_editor_contract(vers
         saved = content_release.manuscript(store, created.json()['id'])
         assert saved['analysis_context'] == draft['analysis_context']
         assert client.get(f"{base}/content/{draft['id']}/details", params={**scope, 'topic_id': 'foreign'}).status_code == 404
+
+
+def test_edit_keeps_published_snapshot_and_returns_original_to_review(version_case, monkeypatch):
+    from datetime import timedelta
+    from plugins.operations.runtime import tick
+    from plugins.operations.content_library import listing, detail
+    store, _, _, draft = version_case
+    due, _, _ = support.approve(store, draft)
+    support.desktop(store, monkeypatch)
+    tick(store, due + timedelta(seconds=1), scheduled=True)
+    with store.connection() as db:
+        action = dict(db.execute("SELECT * FROM actions WHERE kind='publish'").fetchone())
+    result = create(store, draft['id'], request(draft, title='更新后的路线'))
+    assert result['id'] == draft['id']
+    assert [row['id'] for row in listing(store, filter='drafts', compact=True)['content']] == [draft['id']]
+    assert detail(store, draft['id'])['content']['publication_state'] is None
+    historical = detail(store, action['id'], publication=True)
+    assert historical['content']['title'] == draft['title']
+    with store.connection() as db:
+        assert dict(db.execute('SELECT * FROM actions WHERE id=?', (action['id'],)).fetchone()) == action
+    current = content_release.manuscript(store, draft['id'])
+    with pytest.raises(ValueError, match='原稿或规则'):
+        create(store, draft['id'], {**request(draft, title='过期编辑'), 'request_id': 'stale-window'})
+    assert current['title'] == '更新后的路线'

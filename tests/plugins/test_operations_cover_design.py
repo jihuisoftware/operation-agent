@@ -92,7 +92,7 @@ def test_preview_api_is_local_scoped_and_does_not_change_the_manuscript(cover_ma
     assert manuscript(store, draft['id']) == original
 
 
-def test_preview_and_apply_keep_article_evidence_and_old_schedule(cover_manuscript):
+def test_preview_and_apply_update_original_content_and_invalidate_schedule(cover_manuscript):
     from plugins.operations.cover_studio import preview
     from plugins.operations.content_versions import create
     from plugins.operations.content_release import fingerprint, manuscript, load
@@ -110,9 +110,10 @@ def test_preview_and_apply_keep_article_evidence_and_old_schedule(cover_manuscri
     assert child['organization_ids'] == draft['organization_ids']
     assert len(child['cover_candidates']) == 3
     with store.connection() as db:
-        assert load(db, draft['id'])['state'] == 'scheduled'
-        assert load(db, child['id']) is None
-    assert manuscript(store, draft['id'])['asset_ids'] == draft['asset_ids']
-    with pytest.raises(ValueError, match='候选'):
+        assert load(db, draft['id'])['state'] == 'cancelled'
+        assert child['id'] == draft['id']
+    assert manuscript(store, draft['id'])['asset_ids'] == [selected['asset_id']]
+    assert len(store.objects('content')) == 1
+    with pytest.raises(ValueError, match='原稿或规则'):
         create(store, draft['id'], {'request_id': 'wrong-choice', 'version': 1, 'content_revision': fingerprint(draft),
             'asset_ids': draft['asset_ids'], 'cover_set_id': result['set_id']})

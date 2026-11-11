@@ -104,7 +104,7 @@ def test_uncertain_action_blocks_resume_before_login_probe(configured, monkeypat
     saved = paused_run(store, policy, 'comments')
     with store.connection() as db:
         db.execute("INSERT INTO actions VALUES (?,?,?,?,?,?,?,?,?)", ('uncertain', local_day(policy), 1,
-                   'comment', 'note', state, json.dumps({'account_id': 'me'}), '{}', '2026-11-04T00:00:00+00:00'))
+                   'comment', 'note', state, json.dumps({'account_id': 'me', 'run_id': saved['run_id']}), '{}', '2026-11-04T00:00:00+00:00'))
     monkeypatch.setattr(workflow, 'browser', lambda *args, **kwargs: pytest.fail('不得在未知动作核对前发起恢复探测'))
     with pytest.raises(ValueError, match='未知|未完成'):
         execution_resume.prepare(store, saved['id'], {'request_id': 'unsafe', 'expected_revision': saved['revision']})

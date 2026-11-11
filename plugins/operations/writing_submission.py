@@ -1,4 +1,4 @@
-"""Freeze an explicitly submitted working copy; never approve, schedule or publish it."""
+"""Commit a working draft to its original manuscript; never approve, schedule or publish it."""
 import hashlib
 import json
 import uuid
@@ -63,9 +63,6 @@ def build(store, data, version, policy):
     if data['origin']['kind'] == 'original' and not data['original']:
         content.pop('authorship', None)
     content.update(editor_document=data['document'], editor_document_version=data['document_version'], writing_draft_id=data['id'])
-    if data.get('last_submission'):
-        content['parent_content_id'] = data['last_submission']['content_id']
-        content.setdefault('revision_root_id', data['last_submission'].get('revision_root_id') or data['last_submission']['content_id'])
     return content
 
 
@@ -77,6 +74,14 @@ def submit(store, identity, body):
             return previous
         data = drafts.read(db, identity)
     drafts.check_revision(data, body)
+    last = data.get('last_submission')
+    if last:
+        from .content_release import manuscript
+        target = manuscript(store, last['content_id'])
+        expected = last.get('content_revision')
+        if (expected and fingerprint(target) != expected) or (not expected and target.get('edit_revision')):
+            raise drafts.DraftConflict('原内容已在其他窗口修改，请重新打开后编辑')
+        data['origin'] = {**data['origin'], 'content_id': target['id'], 'content_revision': expected or fingerprint(target)}
     version, policy = store.policy()
     if body.get('version') != version:
         raise drafts.DraftConflict('运营规则已变化，请刷新发布预览')
@@ -117,11 +122,18 @@ def submit(store, identity, body):
             parent = db.execute("SELECT data FROM objects WHERE id=? AND kind='content'", (origin['content_id'],)).fetchone()
             if not parent or fingerprint(json.loads(parent[0])) != origin['content_revision']:
                 raise drafts.DraftConflict('原稿已变化，请重新核对')
-        content_id = uuid.uuid4().hex
-        db.execute("INSERT INTO objects VALUES (?,'content',?,?)", (content_id, encoded(content), now_iso()))
+        content_id = origin.get('content_id') if last or not data.get('copied_from') else None
+        updated = bool(content_id)
+        if content_id:
+            from .content_edits import write
+            write(db, content_id, json.loads(parent[0]), content)
+        else:
+            content_id = uuid.uuid4().hex
+            db.execute("INSERT INTO objects VALUES (?,'content',?,?)", (content_id, encoded(content), now_iso()))
         result = {'id': identity, 'revision': current['revision'], 'content_id': content_id, 'signature': signature,
-                  'revision_root_id': content.get('revision_root_id') or content_id,
-                  'detail': '已创建待审核版本；尚未授权发布', 'at': now_iso()}
+                  'content_revision': fingerprint(content), 'revision_root_id': content.get('revision_root_id') or content_id,
+                  'updated_in_place': updated, 'detail': '已保存到原内容；请重新审核后安排发布' if updated else '已创建待审核内容；尚未授权发布', 'at': now_iso()}
+        current['origin'] = {**origin, 'content_id': content_id, 'content_revision': fingerprint(content)}
         current['last_submission'] = result
         drafts.store_draft(db, current)
         return drafts.remember(db, request_key, digest, result)

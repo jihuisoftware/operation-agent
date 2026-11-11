@@ -17,7 +17,6 @@ export function ContentReview({ ctx, row, refresh }: Props) {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [newVersion, setNewVersion] = useState('')
-  const [cancelOriginal, setCancelOriginal] = useState(false)
   const [rescheduling, setRescheduling] = useState(false)
   const release = row.release as { state: string; publish_at: string; revision: number; detail?: string; waiting?: PublicationWait } | null
 
@@ -51,11 +50,11 @@ export function ContentReview({ ctx, row, refresh }: Props) {
 
       const result = await ctx.rest<{ id: string; original_schedule_retained: boolean }>(`/content/${row.id}/versions`, { method: 'POST', body: versionRequest(row, {
         asset_ids: coverAssetIds(row, asset.id)
-      }, cancelOriginal) })
+      }) })
 
       await refresh()
       setNewVersion(result.id)
-      setNotice(result.original_schedule_retained ? '新封面已保存为待审核版本；旧版本的发布排期仍然有效。' : '新封面已保存为待审核版本，请审核后排期。')
+      setNotice('封面已更新到原内容，原审核与排期已失效；请重新审核后排期。')
     } catch (reason) { setError(String(reason)) } finally { setPending(false) }
   }
 
@@ -74,9 +73,8 @@ export function ContentReview({ ctx, row, refresh }: Props) {
           <p className="text-xs text-muted-foreground">请核对全部图片与正文。此操作仅授权本篇稿件；到时需保持应用和账号在线。</p></>}
     <PublicationWaiting waiting={release?.waiting} />
     {release?.detail && <p>{release.detail}</p>}
-    {release?.state === 'scheduled' && <div className="rounded border p-3 text-sm"><p>换封面会创建新版本，旧版本仍保留 {formatTimestamp(release.publish_at)} 的发布排期。</p>
-      <label><input checked={cancelOriginal} disabled={pending} onChange={event => setCancelOriginal(event.target.checked)} type="checkbox" /> 同时取消旧版本排期，新版本重新审核</label></div>}
-    <label className="grid gap-1 text-sm">替换封面（上传即确认具有使用权，保存为新待审版本）
+    {release?.state === 'scheduled' && <p className="text-sm">保存封面修改会更新原内容并取消当前排期，请重新审核后设置发布时间。</p>}
+    <label className="grid gap-1 text-sm">替换封面（上传即确认具有使用权，更新原内容并重新审核）
       <input accept="image/png,image/jpeg,image/webp" disabled={pending} onChange={event => {
         const file = event.target.files?.[0]
 
@@ -85,7 +83,7 @@ export function ContentReview({ ctx, row, refresh }: Props) {
     </label>
     {error && <p role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
-    {newVersion && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(newVersion)}`)} variant="link">查看新版本</Button>}
+    {newVersion && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(newVersion)}`)} variant="link">查看内容</Button>}
   </section>
 }
 

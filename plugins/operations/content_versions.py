@@ -1,8 +1,7 @@
-"""Human edits derive from a trusted manuscript and retain its evidence lineage."""
+"""Human edits replace the current manuscript while retaining its evidence and audit history."""
 import hashlib
 import json
 import re
-import uuid
 
 from .content_release import fingerprint, manuscript, validate, sources_unchanged, load
 from .policy import local_day, now_iso
@@ -54,7 +53,7 @@ def proposed(store, parent, body, policy, version):
                  parent_content_id=parent['id'], revision_root_id=parent.get('revision_root_id') or parent['id'],
                  manual_revision=True, manual=True, version=version, scope_topic=policy['topic'],
                  day=parent.get('day', local_day(policy)) if value.get('analysis_context') else local_day(policy),
-                 created=now_iso(), ready=True, state='pending_review', quality={'pass': None, 'reason': '人工编辑版本，等待审核'})
+                 created=now_iso(), ready=True, state='pending_review', quality={'pass': None, 'reason': '内容已编辑，等待重新审核'})
     # Legacy manual drafts may have no organization signatures to inherit.
     if not signatures:
         value.pop('organization_ids')
@@ -103,20 +102,11 @@ def create(store, identity, body):
         if not sources_unchanged(db, {'source_signatures': signatures}, policy):
             raise ValueError('编辑期间来源已变化，请刷新后核对')
         release = load(db, identity)
-        if body.get('cancel_original_schedule'):
-            cancel_schedule(db, identity, release, body.get('expected_release_revision'))
-        child = uuid.uuid4().hex
-        db.execute("INSERT INTO objects VALUES (?,'content',?,?)", (child, encoded(value), value['created']))
-        result = {'id': child, 'parent_content_id': identity, 'original_schedule_retained': bool(release and release['state'] == 'scheduled'),
-                  'detail': '已保存新的待审核版本，尚未授权发布'}
+        if body.get('expected_release_revision') is not None and (not release or release['revision'] != body['expected_release_revision']):
+            raise ValueError('原排期已变化，请刷新后编辑')
+        from .content_edits import write
+        write(db, identity, current, value)
+        result = {'id': identity, 'updated_in_place': True, 'original_schedule_retained': False,
+                  'detail': '已更新原内容，原审核与排期已失效；请重新审核后安排发布'}
         db.execute("INSERT INTO objects VALUES (?,'content_version_request',?,?)", (key, encoded({'digest': digest, 'result': result}), now_iso()))
     return result
-
-
-def cancel_schedule(db, identity, release, revision):
-    if not release or release['state'] != 'scheduled' or release['revision'] != revision:
-        raise ValueError('原排期已变化，请刷新后决定是否取消')
-    if db.execute("SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=?", (identity,)).fetchone():
-        raise ValueError('原版本已建立发布动作，请先核对，不能同时取消排期')
-    release.update(state='cancelled', revision=revision + 1)
-    db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(release), 'content-release:' + identity))

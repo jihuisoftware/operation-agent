@@ -31,6 +31,10 @@ def _snapshot(store, version, db):
 
 
 def verify_for_start(store, version):
+    from .execution_pause import identity, load
+    current = load(store, identity(store))
+    if current and current['state'] == 'paused':
+        raise ExecutionPaused(current)
     old = block(store)
     if not old or not recoverable(old):
         return None

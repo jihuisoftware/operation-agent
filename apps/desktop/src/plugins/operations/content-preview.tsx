@@ -51,7 +51,7 @@ export function ContentPreview({ ctx, identity, publication, refresh, snapshotKe
       </details>
       <ContentReview ctx={ctx} refresh={changed} row={data.content} />
       {data.action && <ActionManager ctx={ctx} onError={setError} refresh={changed} rows={[data.action]} />}
-      {data.content.id && <Button onClick={() => openWriter(data.content.id)} variant="outline">编辑为新版本</Button>}
+      {data.content.id && <Button onClick={() => openWriter(data.content.id)} variant="outline">编辑内容</Button>}
       {typeof data.content.parent_content_id === 'string' && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(String(data.content.parent_content_id))}`)} variant="link">查看上一版本</Button>}
       <details><summary className="cursor-pointer">引用来源</summary>{data.sources.filter(row => (data.content.source_ids as string[] || []).includes(row.id)).map(row => <p className="break-all text-sm" key={row.id}>{String(row.title || row.id)} · {String(row.url || '')}</p>)}</details>
       <details onToggle={event => setEvidence(event.currentTarget.open)}><summary className="cursor-pointer">完整依据与版本记录</summary>{evidence && <Records rows={[data.content]} />}</details>

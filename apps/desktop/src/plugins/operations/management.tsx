@@ -115,6 +115,6 @@ export function ContentEditor({ rows }: ManagementProps & { rows: RecordRow[]; a
       <option value="">全新手稿</option>{rows.map(row => <option key={row.id} value={row.id}>{String(row.title || row.id)}</option>)}
     </select>
     <Button onClick={() => openWriter(selected)}>打开独立写稿页</Button>
-    <p className="text-sm text-muted-foreground">编辑现有稿件会建立工作副本，原稿和排期保持不变。</p>
+    <p className="text-sm text-muted-foreground">编辑现有稿件后提交审核，会更新原内容并取消旧排期；请重新审核后安排发布。</p>
   </section>
 }

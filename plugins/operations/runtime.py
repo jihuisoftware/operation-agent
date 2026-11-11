@@ -125,6 +125,8 @@ def _execute(store, policy, day, version, stage, identity, *, delayed=False):
         from .plan_controls import check_cancelled
         check_cancelled(store)
         if stage in EXTERNAL:
+            from .execution_preflight import verify_for_start
+            verify_for_start(store, version)
             from .execution_pause import guard
             guard(store, web=True)
         current_version, current = store.policy()

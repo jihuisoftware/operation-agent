@@ -1,5 +1,5 @@
 """A newly reviewed version can replace a cancelled, explicitly unsubmitted attempt."""
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from plugins.operations import content_release, publication_plan, service
 from plugins.operations.content import content_digest
@@ -31,7 +31,11 @@ def test_identical_new_version_can_run_after_old_attempt_and_retry_were_cancelle
         old_row = dict(db.execute('SELECT * FROM actions WHERE id=?', (old,)).fetchone())
     child = create(store, original['id'], {'request_id': 'new-copy', 'version': 1, 'content_revision': content_release.fingerprint(original)})
     new_content = content_release.manuscript(store, child['id'])
-    new_due, _, _ = support.approve(store, new_content)
+    new_due = datetime.now(UTC) + timedelta(minutes=5)
+    with store.connection() as db:
+        release_revision = content_release.load(db, original['id'])['revision']
+    content_release.review(store, new_content['id'], {'version': 1, 'content_revision': content_release.fingerprint(new_content),
+        'expected_revision': release_revision, 'publish_at': new_due.isoformat()})
     store.execution_now = new_due + timedelta(seconds=1)
     seen = support.desktop(store, monkeypatch)
     assert publication_plan.publish_due(store, store.execution_now)
