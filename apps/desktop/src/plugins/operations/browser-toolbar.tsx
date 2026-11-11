@@ -14,8 +14,7 @@ interface Props {
   retryCheck?: () => void
 }
 
-export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen, release, retryCheck, platformName = '小红书' }: Props) {
-
+export function BrowserToolbar({ status, loading, error, takeOver, login, hide, reopen, back, release, retryCheck, platformName = '小红书' }: Props) {
   return (
     <>
       <header className="shrink-0 border-b border-(--ui-stroke-secondary) bg-(--ui-bg-secondary)">
