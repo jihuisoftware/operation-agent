@@ -26,6 +26,8 @@ def content_data(db, rows):
         item['release'] = load(db, item['id'])
         item['content_revision'] = fingerprint(item)
         item['policy_version'] = db.execute('SELECT version FROM settings WHERE id=1').fetchone()[0]
+    from plugins.operations.publication_waiting import annotate
+    annotate(db, content)
     sources = {s['id']: s for s in objects(db, 'source')}
     sources.update({s['id']: s for s in objects(db, 'source', [identity for item in content for identity in item.get('source_ids', [])])})
     return {'content': content, 'asset': objects(db, 'asset'), 'source': list(sources.values())}

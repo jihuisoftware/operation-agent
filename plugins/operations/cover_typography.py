@@ -52,8 +52,9 @@ def wrap(draw, value, font, width, protected=()):
 
 def fit(draw, value, path, *, width, height, maximum=120, minimum=36, max_lines=4, protected=()):
     # A named tool followed by Chinese copy deserves its own line, rather than
-    # squeezing the final Chinese syllable onto the next row.
-    if '\n' not in value:
+    # squeezing the final Chinese syllable onto the next row. Single-line labels
+    # must keep the original text: an inserted break cannot fit their line budget.
+    if max_lines > 1 and '\n' not in value:
         value = re.sub(r'^([A-Za-z][A-Za-z0-9._+#/-]{2,})\s*(?=[\u4e00-\u9fff])', r'\1\n', value)
     paragraphs = [line.strip() for line in value.splitlines() if line.strip()]
     if len(paragraphs) > 1:

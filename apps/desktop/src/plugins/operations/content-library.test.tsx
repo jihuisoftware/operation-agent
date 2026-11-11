@@ -84,3 +84,20 @@ it('releases the deep-link record when filtering and can reload the same filter 
   await waitFor(() => expect(queries().length).toBeGreaterThan(previous))
   expect(await screen.findByText('失败稿件')).toBeTruthy()
 })
+
+it('shows an overdue executor wait and removes it after a refreshed heartbeat', async () => {
+  const release = { state: 'scheduled', publish_at: '2026-11-10T09:30:00Z', waiting: {
+    code: 'WORKER_OFFLINE', detail: '发布时间已到，正在等待桌面网页执行器连接；尚未提交。', last_seen: '2026-11-10T02:39:01Z'
+  } }
+  let online = false
+  const rest = vi.fn(async () => ({ compact: true, content: [{ ...content, release: online ? { ...release, waiting: undefined } : release }],
+    actions: [], counts: { ...counts, pending: 1 }, has_active: false }))
+  render(<ContentLibrary ctx={{ rest } as unknown as PluginContext} tab="pending" />)
+  expect(await screen.findByText('等待网页执行器')).toBeTruthy()
+  expect(screen.getByText(release.waiting.detail)).toBeTruthy()
+  expect(screen.getByText(/执行器最后连接/)).toBeTruthy()
+  online = true
+  fireEvent.click(screen.getByRole('button', { name: '刷新内容' }))
+  expect(await screen.findByText('已排期')).toBeTruthy()
+  expect(screen.queryByText(release.waiting.detail)).toBeNull()
+})

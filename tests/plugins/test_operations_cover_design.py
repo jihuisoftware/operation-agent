@@ -77,7 +77,10 @@ def test_preview_api_is_local_scoped_and_does_not_change_the_manuscript(cover_ma
     store, _, _, draft = cover_manuscript
     path = f"/api/plugins/operations/content/{draft['id']}/covers/preview"
     scope = {'business_id': store.scope['business_id'], 'topic_id': store.scope['id']}
-    body = {'version': 1, 'content_revision': fingerprint(draft), 'cover': {'title': '自定义封面'}}
+    body = {'version': 1, 'content_revision': fingerprint(draft), 'cover': {
+        'title': '子Agent还是单Agent循环', 'subtitle': '', 'eyebrow': 'Agent架构',
+        'keywords': ['子Agent', '单Agent循环', 'Token成本'], 'template': 'comparison',
+        'palette': 'blue', 'size': 'normal'}}
     original = manuscript(store, draft['id'])
     with TestClient(web_server.app) as client:
         assert client.post(path, params=scope, json=body).status_code in (401, 403)

@@ -52,6 +52,8 @@ def listing(store, before=0, filter='', record='', status='all', compact=False):
                   'next': str(page[-1]['cursor']) if len(rows) > size else None}
         if compact:
             result['content'] = summaries(page)
+            from .publication_waiting import annotate
+            annotate(db, result['content'])
         else:
             from .dashboard.library_api import content_data
             result.update(content_data(db, page))
@@ -105,6 +107,8 @@ def detail(store, identity, *, publication=False):
                    'release': load(db, identity), 'publication_state': action['state'] if action else None,
                    'publication_action_id': action['id'] if action else None}
         content['target_account'] = json.loads(action['data']).get('account_id') if action else target_account
+        from .publication_waiting import annotate
+        annotate(db, [content])
         options = editor_options(db, content)
     return {'content': content, **options, 'action': dict(action) if action else None}
 

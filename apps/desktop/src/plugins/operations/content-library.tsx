@@ -5,6 +5,7 @@ import { AssetImage } from './asset-image'
 import { ContentPreview } from './content-preview'
 import { GenerateContent } from './content-review'
 import type { RecordRow } from './types'
+import { PublicationWaiting, type PublicationWait } from './publication-waiting'
 import { openWriter } from './writing/navigation'
 
 interface Summary extends RecordRow {
@@ -15,7 +16,7 @@ interface Summary extends RecordRow {
   publication_state?: string
   quality_pass?: boolean | number
   quality_reason?: string
-  release?: { state: string; publish_at?: string; account_id?: string; detail?: string }
+  release?: { state: string; publish_at?: string; account_id?: string; detail?: string; waiting?: PublicationWait }
 }
 interface Catalog {
   compact: boolean
@@ -41,7 +42,7 @@ function label(row: Summary) {
 
   if (row.publication_state) { return states[row.publication_state] || row.publication_state }
 
-  if (row.release?.state === 'scheduled') { return '已排期' }
+  if (row.release?.state === 'scheduled') { return row.release.waiting ? '等待网页执行器' : '已排期' }
 
   if (['paused', 'needs_attention'].includes(row.release?.state || '')) { return '排期待处理' }
 
@@ -126,6 +127,7 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
           {Boolean(row.parent_content_id) && <p className="text-xs text-muted-foreground">{row.manual_revision ? '人工编辑版本' : '自动修订版本'} · 原稿已保留</p>}
           {row.release?.account_id && <p className="text-xs">发布账号：{row.release.account_id}</p>}
           {(row.quality_pass === false || row.quality_pass === 0) && <p className="text-sm">自动检查待完善：{row.quality_reason}</p>}
+          <PublicationWaiting waiting={row.release?.waiting} />
           {row.release?.detail && <p className="text-sm">{row.release.detail}</p>}
           <Button aria-expanded={selected === row.id} onClick={() => setSelected(selected === row.id ? null : row.id)} size="sm" variant="outline">
             {selected === row.id ? '收起详情' : actionLabel(row, tab)}

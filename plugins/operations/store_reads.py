@@ -1,6 +1,7 @@
 """Bounded state projections and lightweight worker liveness queries."""
 import json
 import time
+from datetime import UTC, datetime
 
 
 def objects(store, kind, day=None, *, limit=None):
@@ -12,9 +13,15 @@ def objects(store, kind, day=None, *, limit=None):
             (kind, day, day, -1 if limit is None else limit))]
 
 
+def worker_status(db):
+    seen = db.execute('SELECT max(seen) FROM workers').fetchone()[0]
+    return {'online': seen is not None and seen > time.time() - 15,
+            'last_seen': datetime.fromtimestamp(seen, UTC).isoformat() if seen is not None else None}
+
+
 def online(store):
     with store.connection() as db:
-        return bool(db.execute('SELECT 1 FROM workers WHERE seen>? LIMIT 1', (time.time() - 15,)).fetchone())
+        return worker_status(db)['online']
 
 
 def snapshot(store):

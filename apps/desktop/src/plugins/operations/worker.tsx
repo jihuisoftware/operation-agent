@@ -7,6 +7,7 @@ import type { ExecutionBlock } from './browser-execution'
 import { type BrowserPower, createBrowserPower } from './browser-power'
 import { BACKEND_MS } from './browser-timeouts'
 import { BrowserToolbar } from './browser-toolbar'
+import { WorkerBoundary } from './worker-boundary'
 import { createExecutionClock } from './execution-clock'
 import { $loginNavigation, $loginNavigationOwner, type LoginObservation, sameLoginOwner } from './login-state'
 import { PlatformLoginPage, PlatformPageFrame, PlatformPageTabs, usePlatformPages } from './platform-pages'
@@ -287,7 +288,7 @@ function OwnedAccountWorker({ ctx, owner, accountId, businessId, topicId, visibl
 }) {
   const scope = useMemo(() => ({ ...owner, account_id: accountId, business_id: businessId, topic_id: topicId }), [owner, accountId, businessId, topicId])
 
-  return <Worker ctx={ctx} scope={scope} visible={visible} />
+  return <WorkerBoundary visible={visible}><Worker ctx={ctx} scope={scope} visible={visible} /></WorkerBoundary>
 }
 
 function publishNotices(

@@ -112,7 +112,9 @@ def _tick(store, now, *, one_stage=False):
             _execute(store, policy, work_day, version, stage, identity, delayed=scheduled_day < day)
             if one_stage:
                 break
-    return "本轮运营检查完成"
+    from .publication_waiting import pending_detail
+    waiting = pending_detail(store, now) if policy['modules']['publish'] else None
+    return waiting or "本轮运营检查完成"
 
 
 def _execute(store, policy, day, version, stage, identity, *, delayed=False):

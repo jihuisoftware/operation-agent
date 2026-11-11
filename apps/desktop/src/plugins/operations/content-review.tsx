@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { coverAssetIds, localInput, versionRequest } from './content-version-actions'
 import type { RecordRow } from './types'
+import { PublicationWaiting, type PublicationWait } from './publication-waiting'
 
 interface Props {
   ctx: PluginContext
@@ -18,7 +19,7 @@ export function ContentReview({ ctx, row, refresh }: Props) {
   const [newVersion, setNewVersion] = useState('')
   const [cancelOriginal, setCancelOriginal] = useState(false)
   const [rescheduling, setRescheduling] = useState(false)
-  const release = row.release as { state: string; publish_at: string; revision: number; detail?: string } | null
+  const release = row.release as { state: string; publish_at: string; revision: number; detail?: string; waiting?: PublicationWait } | null
 
   const submit = async (operation: 'approve' | 'cancel-schedule') => {
     setPending(true)
@@ -71,6 +72,7 @@ export function ContentReview({ ctx, row, refresh }: Props) {
           <Button disabled={pending || !time || !(row.asset_ids as string[] | undefined)?.length} onClick={() => void submit('approve')}>{rescheduling ? '确认改期' : '审核通过并定时发布'}</Button>
           {rescheduling && <Button disabled={pending} onClick={() => setRescheduling(false)} variant="ghost">放弃改期</Button>}
           <p className="text-xs text-muted-foreground">请核对全部图片与正文。此操作仅授权本篇稿件；到时需保持应用和账号在线。</p></>}
+    <PublicationWaiting waiting={release?.waiting} />
     {release?.detail && <p>{release.detail}</p>}
     {release?.state === 'scheduled' && <div className="rounded border p-3 text-sm"><p>换封面会创建新版本，旧版本仍保留 {formatTimestamp(release.publish_at)} 的发布排期。</p>
       <label><input checked={cancelOriginal} disabled={pending} onChange={event => setCancelOriginal(event.target.checked)} type="checkbox" /> 同时取消旧版本排期，新版本重新审核</label></div>}
