@@ -103,6 +103,9 @@ cache break — keep it the only one. Full detail:
   `_relay_sync_stream`, where `agent/auxiliary_hooks.py` emits `pre_auxiliary_call` /
   `post_auxiliary_call` (observer-only, fail-open, `aux_task` set); the main-loop
   `pre/post_api_request` events must NOT fire for aux calls (#79733).
+  `auxiliary_observers.observe` binds a request-local observer to the same physical attempts;
+  operations uses it for local request details joined to the token ledger. Keep observers scoped,
+  fail-open and outside prompt construction; unbound callers do not record request bodies.
 - Fallback models and credential pools are resolution-chain code: E2E them with real imports
   against a temp `HERMES_HOME`, not mocks (root rubric).
 

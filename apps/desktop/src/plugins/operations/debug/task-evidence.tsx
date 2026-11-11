@@ -2,6 +2,7 @@ import { Button, CopyButton, formatTimestamp, LogView, type PluginContext } from
 import { useEffect, useState } from 'react'
 
 import { ActionManager } from '../management'
+import { CallDetailToggle } from '../token-usage/call-detail'
 import type { RecordRow } from '../types'
 
 import { ActionBlocker } from './action-blocker'
@@ -81,6 +82,7 @@ export function TaskEvidence({ detail, api, base, ctx, refresh, error }: { detai
       {calls.map((call, index) => <div className="border-b py-2" key={call.id}>
         <p>尝试 {index + 1} · {call.model} · {call.provider} · {call.state === 'confirmed' ? '已收到结果' : states[call.state] || call.state} · {((call.received ? call.received - call.started : Date.now() / 1000 - call.started)).toFixed(1)} 秒</p>
         <p className="text-xs text-muted-foreground">{formatTimestamp(new Date(call.started * 1000).toISOString())} · Token：{tokens(call) ?? '未知'} {call.error_type}</p>
+        <CallDetailToggle ctx={ctx} identity={call.id} />
       </div>)}
     </section>
     <section className="space-y-2"><h2 className="font-semibold">输入、输出与保存产物</h2><p className="text-sm text-muted-foreground">{detail.trace_notice}</p>

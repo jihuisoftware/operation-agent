@@ -1,4 +1,4 @@
-"""Debug-only business request snapshots; never change prompts or provider routing."""
+"""Scoped request recording plus debug business snapshots; prompts stay unchanged."""
 import json
 import re
 
@@ -31,8 +31,16 @@ def capture_response(store, budget_id, response):
 
 
 def traced(store, instruction, data, budget_id, call, *, options):
-    if not getattr(store, 'debug_id', None):
-        return call()
+    from functools import partial
+    from agent.auxiliary_observers import observe
+    from .model_call_details import record
+    with observe(partial(record, trace_id=budget_id)):
+        if not getattr(store, 'debug_id', None):
+            return call()
+        return _debug_trace(store, instruction, data, budget_id, call, options)
+
+
+def _debug_trace(store, instruction, data, budget_id, call, options):
     identity = store.put('model_trace', {'instruction': instruction, 'input': redact(data), 'budget_id': budget_id,
                          'started': now_iso(), 'state': 'running', 'options': options, 'step_id': getattr(store, 'debug_step', None)}, 'model-trace:' + budget_id)
     store.event('model_trace_started', {'trace_id': identity})

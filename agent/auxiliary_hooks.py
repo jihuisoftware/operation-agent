@@ -121,6 +121,8 @@ class _AuxCallHooks:
                                        api_mode='chat_completions', scope=usage_ownership())
 
     def pre(self) -> None:
+        from agent.auxiliary_observers import notify
+        notify('request', self)
         if not _has_hook(PRE_AUXILIARY_CALL):
             return
         from agent.api_request_hooks import ApiRequestHooksMixin as _Sanitize
@@ -233,6 +235,8 @@ def finish_aux_call_hooks(
     if not hooks.streaming or error is not None:
         safe_finish(hooks.usage_record, response=response, error=error,
                     normalized=normalized[2] if normalized else None)
+    from agent.auxiliary_observers import notify
+    notify('response', hooks, response=response, error=error, normalized=normalized)
     try:
         hooks.post(response, error, normalized=normalized)
     except Exception:

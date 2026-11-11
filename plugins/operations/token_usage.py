@@ -72,6 +72,8 @@ class UsageQuery:
         self.start, self.end, self.zone = window(period, tz, until)
         self.period = period
         clauses, args, self.businesses, self.topics = filters(self.directory, selected or {})
+        self.detail_where = ''.join(' AND ' + clause for clause in clauses)
+        self.detail_args = list(args)
         if period == 'live':
             clauses.append("t.state='running'")
         else:
@@ -133,15 +135,17 @@ class UsageQuery:
             row.pop('process_started', None)
         return {'items': rows, 'cursor': cursor_encode([rows[-1]['total_tokens'], rows[-1]['id']]) if more else None, 'until': self.end}
 
-    def calls(self, task, cursor=None):
-        args = [*self.args, task]
+    def calls(self, task, cursor=None, *, all_time=False):
+        source = (' FROM token_usage_calls c JOIN token_usage_tasks t ON t.id=c.task_id WHERE 1=1' + self.detail_where
+                  if all_time else self.source)
+        args = [*(self.detail_args if all_time else self.args), task]
         suffix = ' AND t.id=?'
         if cursor:
             stamp, identity = cursor_decode(cursor, 2)
             suffix += ' AND (c.started,c.id)>(?,?)'
             args.extend((stamp, identity))
         with connection(self.path) as db:
-            rows = [dict(r) for r in db.execute('SELECT c.*' + self.source + suffix + ' ORDER BY c.started,c.id LIMIT 101', args)]
+            rows = [dict(r) for r in db.execute('SELECT c.*' + source + suffix + ' ORDER BY c.started,c.id LIMIT 101', args)]
         more = len(rows) > 100
         rows = rows[:100]
         return {'items': rows, 'cursor': cursor_encode([rows[-1]['started'], rows[-1]['id']]) if more else None}

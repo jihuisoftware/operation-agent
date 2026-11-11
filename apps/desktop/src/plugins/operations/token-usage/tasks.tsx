@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { LibraryPage } from '../library-page'
 import { scopedContext } from '../workspace-state'
 
+import { CallDetailToggle } from './call-detail'
 import { number, statuses, timestamp, useUsage } from './data'
 import type { Page, UsageCall, UsageTask } from './types'
 import { purposeLabel } from './visuals'
@@ -45,7 +46,11 @@ function Calls({ ctx, query, task }: { ctx: PluginContext; query: string; task: 
   const { data, error } = useUsage<Page<UsageCall>>(ctx, `/usage/tasks/${encodeURIComponent(task)}/calls?${query}&cursor=${encodeURIComponent(cursor)}`)
 
   return <div className="space-y-2 overflow-x-auto">{error && <p role="alert">{error}</p>}
-    <table className="w-full text-left text-xs"><thead><tr><th>步骤 / 用途</th><th>模型 / 提供方</th><th>回执时间</th><th>状态</th><th>Token</th><th>输入 / 输出</th></tr></thead><tbody>{data?.items.map(call => <tr className="border-b" key={call.id}><td className="py-2">{purposeLabel(call.purpose)}</td><td>{call.model || '未知模型'} / {call.provider || '未知提供方'}</td><td>{call.received ? formatTimestamp(timestamp(call.received)) : '等待回执'}</td><td>{statuses[call.state] || call.state}{call.error_type && ` · ${call.error_type}`}</td><td>{number(call.total_tokens)}</td><td>{number(call.prompt_tokens)} / {number(call.output_tokens)}</td></tr>)}</tbody></table>
+    {data?.items.map(call => <div className="py-2" key={call.id}>
+      <p>{purposeLabel(call.purpose)} · {call.model || '未知模型'} / {call.provider || '未知提供方'} · {call.received ? formatTimestamp(timestamp(call.received)) : '等待回执'} · {statuses[call.state] || call.state}{call.error_type && ` · ${call.error_type}`}</p>
+      <p className="text-xs">{number(call.total_tokens)} Token · 输入 / 输出：{number(call.prompt_tokens)} / {number(call.output_tokens)}</p>
+      <CallDetailToggle ctx={ctx} identity={call.id} query={query} />
+    </div>)}
     {cursor && <Button onClick={() => setCursor('')} variant="ghost">返回首批调用</Button>}{data?.cursor && <Button onClick={() => setCursor(data.cursor!)} variant="ghost">下一批调用</Button>}
   </div>
 }

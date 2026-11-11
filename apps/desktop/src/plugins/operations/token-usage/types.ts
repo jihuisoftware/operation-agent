@@ -34,3 +34,14 @@ export interface UsageCall {
   cache_read_tokens: number | null; cache_write_tokens: number | null; reasoning_tokens: number | null
 }
 export interface Page<T> { items: T[]; cursor: string | null; until?: number }
+
+export interface CallDetail {
+  call: UsageCall & { task_name: string; stage: string; run_id: string }
+  detail: {
+    state: string; request: unknown; raw_response?: string | null; parsed_result?: unknown
+    error?: string | null; parse_error?: string | null
+    cost?: { amount: number | null; currency: string | null; source: string }
+  } | null
+  attempts: UsageCall[]
+  notice: string
+}

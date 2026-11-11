@@ -7,6 +7,7 @@ import { EvidenceStorage } from './evidence-storage'
 import { ActionManager, ContentEditor } from './management'
 import { PausedRuns } from './paused-runs'
 import { ReportCard } from './report-card'
+import { RunCallList } from './token-usage/run-calls'
 import type { RecordRow } from './types'
 import { Assets, NewRecord, Records } from './workbench-widgets'
 import { InboxTransfer } from './workspace-inbox'
@@ -168,6 +169,7 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
           <Records rows={data.task || []} />
           <CopyButton label="复制执行记录" text={JSON.stringify(data.runs, null, 2)} />
           <Records rows={data.runs || []} />
+          <RunCallList ctx={ctx} runs={data.runs} />
         </>
       )}
       {section === 'reports' && (data.report || []).map(row => <ReportCard ctx={ctx} key={row.id} row={row} />)}
