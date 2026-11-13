@@ -7,7 +7,7 @@
 # The commit does not need to be pushed. The build is not notarized, and the
 # release signing variables in your shell are ignored. macOS can still sign
 # nested binaries with a Developer ID that it finds in your keychain.
-# This build targets macOS.
+# macOS local entry. Windows uses scripts/build-bundle.ps1.
 set -euo pipefail
 
 [ "$(uname -s)" = Darwin ] || { echo "此项目仅支持 macOS。" >&2; exit 1; }

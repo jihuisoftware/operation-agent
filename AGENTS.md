@@ -8,9 +8,8 @@ in the developer guide.
 
 ## Current product
 
-General operations platform; users enter or choose their topic. Desktop on macOS only. `ui-tui` and terminal chat entry points are removed; keep administrative CLI and batch commands.
-Only Simplified Chinese is supported; Bot Mode, Kanban/Radio UI, messaging adapters and Windows
-packaging are retired. Keep `gateway/` and `hermes_cli/web_server*` for Desktop.
+General operations platform; users enter or choose their topic. Desktop: macOS; Windows x64 under validation. `ui-tui` and terminal chat entry points are removed; keep administrative CLI and batch commands.
+Only Simplified Chinese is supported; Bot Mode, Kanban/Radio UI, messaging adapters are retired. Windows x64 packaging is being restored. Keep `gateway/` and `hermes_cli/web_server*` for Desktop.
 Memory, skills, scheduling, terminal and browser remain. Delegation, Kanban and MCP internals
 remain but their tools/services are disabled. Scope: `hermes_cli/data/operations-profile.json`;
 status and plans: `README.md`. Extend through plugins and skills; preserve shared runtime contracts.

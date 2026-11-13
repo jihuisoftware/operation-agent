@@ -9,7 +9,7 @@ Curated, Nous-approved Hermes plugins. Each YAML file in this directory
 
 This build filters discovery after resolving the live, cached or local catalog.
 The policy lives in `hermes_cli/data/operations-profile.json` (`pluginCatalog`):
-macOS-compatible model, memory, web and voice backends plus curated content,
+host-compatible model, memory, web and voice backends plus curated content,
 media, office and marketing integrations. Platform adapters and retired features
 are not offered. See [the operations plugin scope](../plugins/README.md).
 

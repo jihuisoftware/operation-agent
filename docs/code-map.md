@@ -62,6 +62,8 @@
 
 聊天预览与运营执行器有不同的生命周期和归属；先确认用户指的是哪一个。运营业务修改优先留在插件里，定时任务核心只负责通用贡献入口；SDK 契约在 [cron.ts](../apps/desktop/src/sdk/cron.ts)。
 
+Windows x64 恢复：`apps/desktop/platform-policy.cjs`、`scripts/build-bundle.ps1`、`scripts/bundles/desktop_prepare.py`；MSIX 资源与签名在 `apps/desktop/scripts/prepare-windows-manifest.mjs`、`sign-msix.mjs`；[开发与验收说明](windows-development.md)。
+
 ## 共享运行时的入口
 
 运营版插件目录筛选：`hermes_cli/data/operations-profile.json` 的 `pluginCatalog` 定义范围，

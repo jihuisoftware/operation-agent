@@ -213,7 +213,7 @@ export function nativeManifestTemplate(template, version) {
  *
  * @param {string} desktopDir absolute apps/desktop path
  * @param {string} [tag] the release tag (defaults to HERMES_PAYLOAD_TAG)
- * @returns {{ identity: object, version: string, name: string, fileVersion: string }}
+ * @returns {{ identity: import('../apps/desktop/product-identity.d.cts'), version: string, name: string, fileVersion: string }}
  */
 export function appIdentity(desktopDir, tag = process.env.HERMES_PAYLOAD_TAG || '') {
   const identity = require(path.join(desktopDir, 'product-identity.cjs'))

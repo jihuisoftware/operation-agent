@@ -88,15 +88,15 @@ def _build_prepared(prepared, builder_args: list[str], variant: str | None) -> N
 
     request = prepared.request
     validate_builder_identity(request, builder_args)
-    if request.channel_request is not None and not request.target.startswith("darwin-"):
-        raise ValueError("channel builds require a supported native macOS target")
+    if request.channel_request is not None and not request.target.startswith(("darwin-", "win32-")):
+        raise ValueError("channel builds require a supported native desktop target")
     variant = select_variant(prepared, variant)
     repo, node = request.source, str(prepared.node)
     env = build_environment(prepared, variant, os.environ)
     if request.release_epoch is not None:
         env["HERMES_RELEASE_EPOCH"] = str(request.release_epoch)
     desktop = repo / "apps/desktop"
-    targets = ["--mac", "dmg", "zip"]
+    targets = ["--win", "msix", "--x64"] if request.target == "win32-x64" else ["--mac", "dmg", "zip"]
     package_args = ["--prepared", str(prepared.packager), "--native-deps", str(prepared.native),
                     *targets, f"-c.extraMetadata.version={request.version}"]
     run([node, "scripts/run-electron-builder.mjs", "--validate-only", *package_args, *builder_args],
@@ -125,6 +125,9 @@ def _build_prepared(prepared, builder_args: list[str], variant: str | None) -> N
         run([node, "scripts/build/desktop.mjs", "--source", str(repo), "--icons", str(icons),
              "--stamp", str(desktop / "build/install-stamp.json"), "--native-deps", str(prepared.native),
              "--out", str(desktop / "dist")], cwd=repo, env=env)
+        if request.target == 'win32-x64' and request.channel_request is None:
+            quad = capture([node, '-e', "const m=require('./scripts/msix-shared.mjs');console.log(m.appIdentity(process.argv[1]).version)", str(desktop)], repo, env)
+            package_args.extend([f'-c.extraMetadata.shortVersion={quad}', f'-c.extraMetadata.shortVersionWindows={quad}'])
         run([node, "scripts/run-electron-builder.mjs", *package_args, *builder_args], cwd=desktop,
             env=packaging_environment(env, os.environ, request.target))
     require_source(repo, request.commit)

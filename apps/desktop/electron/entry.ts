@@ -1,4 +1,4 @@
-import { requireMacOS } from '../platform-policy.cjs'
+import { requireDesktopPlatform } from '../platform-policy.cjs'
 
-requireMacOS()
+requireDesktopPlatform()
 await import('./main')

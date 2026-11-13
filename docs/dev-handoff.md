@@ -1,5 +1,19 @@
 # 当前开发交接记录
 
+## Windows x64 恢复实施（2026-11-12）
+
+基准 `51ff94905f`；开始时仅有本线程恢复计划和交接修改。用户已确认先复用原有 Windows 身份/更新配置，后续再换自有配置。未提交、未推送、未触发远程 CI、未上传或签名生产安装包，也未启停生产后台。
+
+- Desktop 准入支持 macOS arm64/x64 和 Windows x64；拒绝 Windows ARM64/ia32、Linux 及跨宿主打包。恢复 bundled MSIX 目标、原生版本号、资源编辑工具/Windows SDK/ATS与.NET准备校验。
+- 从历史按需恢复 MSIX清单、sign-msix/windows-bundle-tools及测试、更新重启等待脚本；新清单准备器按当前载荷生成独立管理命令入口，保持共享数据目录虚拟化设置，不恢复终端聊天或Store发布。
+- 增加 `scripts/build-bundle.ps1`（默认隔离签名环境；显式Signed强制签名）、`scripts/windows-desktop-smoke.ps1`（临时Profile先停再启动、结束后停止）、`scripts/bundles/windows_descriptor.py`（签名文件存在性前提，单x64 MSIX的本地AppInstaller生成；默认pinned，不上传）。
+- `hermes_platform/fonts.py` 增加Windows系统和用户中文字体定位；插件目录按实际后台宿主系统筛选，不再固定macOS。macOS行为保留，产品权限范围不扩大。
+- 新增手动工作流 `windows-desktop-recovery.yml`：固定工具准备、隔离Python/桌面测试、可选完整包及解包启动验收。没有接入正式发布矩阵，避免未验收Windows影响macOS更新。首次运行可能需要先准备Windows简体中文字体能力；字体测试不把缺字体视为通过。
+- 本机Python8文件72项通过/3跳过，桌面打包9文件22项通过/2跳过，完整Desktop类型检查通过。跳过项含Windows原生用例；不能作为Windows运行证据。所有文档链接及YAML解析通过。
+- 实际Windows构建、MSIX安装、PowerShell执行、签名验证和A/B升级未完成：本机为macOS，无可连接Windows测试机；用户说复用配置但未提供原生执行入口。当前修改必须先进入可运行Windows分支才能在CI执行；不要宣称已产出可分发Windows安装包。
+- 用法与边界：`docs/windows-development.md`；计划进度：`docs/windows-desktop-recovery-plan.md`。恢复来源记于说明，未整体回退精简提交。
+
+
 ## 缩小历史阻塞与人工内容原位编辑（2026-11-11）
 
 基准 `8f61df0b5e`；开始时工作树干净，前次排期修复等已进入基准。未提交、未重启后台、未直接修改生产数据或发布。

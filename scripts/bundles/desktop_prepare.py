@@ -87,8 +87,8 @@ def validate_channel_request(value: dict) -> dict:
 
 
 def require_desktop_target(target: str) -> None:
-    if target not in {"darwin-arm64", "darwin-x64"}:
-        raise ValueError("此项目仅支持 macOS（Apple Silicon / Intel）。")
+    if target not in {"darwin-arm64", "darwin-x64", "win32-x64"}:
+        raise ValueError("此项目支持 macOS（Apple Silicon / Intel）和 Windows x64。")
 
 
 @dataclass(frozen=True)
@@ -191,6 +191,9 @@ class BuildRequest:
         return request
 
     def validate_channel(self) -> None:
+        require_desktop_target(self.target)
+        if self.target.startswith("win32-") and self.variant != "bundled":
+            raise ValueError("Windows recovery currently requires the bundled variant")
         if self.channel_request is None:
             return
         channel = validate_channel_request(self.channel_request)

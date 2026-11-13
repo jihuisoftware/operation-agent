@@ -131,7 +131,6 @@
     "mcp": false
   },
   "pluginCatalog": {
-    "platform": "macos",
     "categories": [
       "models",
       "memory",

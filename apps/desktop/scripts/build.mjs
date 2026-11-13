@@ -1,5 +1,5 @@
 // npm's source-development composition; the compiler consumes prepared inputs.
-import { requireMacOS } from '../platform-policy.cjs'
+import { requireDesktopPlatform } from '../platform-policy.cjs'
 import { execFileSync } from 'node:child_process'
 import { cpSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -8,7 +8,7 @@ import { isMain, repoRoot } from '../../../scripts/build/frontend-common.mjs'
 import { nativeInputsComplete } from './prepared-native-deps.mjs'
 
 export function buildSourceDesktop({ source = repoRoot, icons, run = execFileSync } = {}) {
-  requireMacOS()
+  requireDesktopPlatform()
   source = resolve(source)
   const app = join(source, 'apps/desktop')
   const step = (script, args = []) => run(process.execPath, [join(source, script), ...args], { cwd: app, stdio: 'inherit' })

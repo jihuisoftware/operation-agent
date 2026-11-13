@@ -1,4 +1,4 @@
-import { requireMacOS } from '../platform-policy.cjs'
+import { requireDesktopPlatform } from '../platform-policy.cjs'
 // Source convenience prepares first; --prepared only admits and consumes files.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -101,6 +101,7 @@ function runSourceBuilds(args, nativeDeps, spawn) {
   const env = { ...process.env, NODE_OPTIONS: builderNodeOptions() }
   for (const flag of requested.length ? requested : [`--${process.arch}`]) {
     const arch = flag.slice(2)
+    requireDesktopPlatform(platform, arch)
     const target = `${platform}-${arch}`
     const out = path.join(app, 'build/packager', target)
     const native = nativeDeps || path.join(app, requested.length ? `build/native-deps-${target}` : 'build/native-deps')
@@ -128,9 +129,10 @@ function runSourceBuilds(args, nativeDeps, spawn) {
 function selectedPlatform(args) {
   const platforms = [...new Set(args.filter(arg => platformFlags.has(arg)).map(arg => platformFlags.get(arg)))]
   if (platforms.length > 1) throw preparationRequired('Select one packaging platform per invocation')
-  requireMacOS()
+  requireDesktopPlatform()
   const selected = platforms[0] || process.platform
-  requireMacOS(selected)
+  requireDesktopPlatform(selected, selected === process.platform ? process.arch : 'x64')
+  if (selected !== process.platform) throw preparationRequired('Build desktop packages on their native operating system')
   return selected
 }
 
@@ -172,9 +174,9 @@ export function runElectronBuilder(args, { spawn = spawnSync } = {}) {
 /** @param {string[]} args @returns {string[]} */
 function sourceFormats(args) {
   if (args.includes('--dir')) return ['dir']
-  const formats = args.filter(arg => ['dmg', 'zip'].includes(arg))
-  selectedPlatform(args)
-  return formats.length ? formats : ['dmg', 'zip']
+  const formats = args.filter(arg => ['dmg', 'zip', 'msix'].includes(arg))
+  const platform = selectedPlatform(args)
+  return formats.length ? formats : platform === 'win32' ? ['msix'] : ['dmg', 'zip']
 }
 
 if (isMain(import.meta.url)) process.exitCode = runElectronBuilder(process.argv.slice(2))

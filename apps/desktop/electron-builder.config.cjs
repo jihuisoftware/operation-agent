@@ -1,4 +1,4 @@
-const { requireMacOS } = require('./platform-policy.cjs')
+const { requireDesktopPlatform } = require('./platform-policy.cjs')
 // THE electron-builder configuration — the whole thing, one file. There is
 // no "build" field in package.json: run-electron-builder.mjs always passes
 // --config for this file, so a stray package.json field would be silently
@@ -22,11 +22,13 @@ const {
   appId,
   appNamePascal,
   artifactNamePascal,
+  windowsExecutableName,
+  msixAppIdWithOrg,
   channel,
   token
 } = require('./product-identity.cjs')
 
-const { channelBuildRequest } = require('../../scripts/msix-shared.mjs')
+const { channelBuildRequest, OUT_OF_STORE_PUBLISHER } = require('../../scripts/msix-shared.mjs')
 const { macIconResource } = require('./scripts/mac-icon.cjs')
 const channelRequest = channelBuildRequest()
 
@@ -86,8 +88,13 @@ module.exports = {
   files: ['dist/**', 'assets/**', 'public/**', 'package.json'],
   /** @param {import('app-builder-lib').BeforeBuildContext} context */
   beforeBuild: async context => {
-    requireMacOS()
-    requireMacOS(context.platform.nodeName)
+    requireDesktopPlatform()
+    requireDesktopPlatform(context.platform.nodeName, context.arch)
+    if (context.platform.nodeName === 'win32') {
+      if (process.env.HERMES_DESKTOP_VARIANT !== 'bundled') throw new Error('Windows recovery currently requires the bundled variant')
+      const { prepareWindowsManifest } = await import('./scripts/prepare-windows-manifest.mjs')
+      prepareWindowsManifest(__dirname)
+    }
     return false
   },
   beforePack: 'scripts/before-pack.mjs',
@@ -108,6 +115,22 @@ module.exports = {
   ],
   asar: {
     unpack: ['**/*.node', '**/prebuilds/**', 'dist/**']
+  },
+  win: {
+    executableName: windowsExecutableName,
+    legalTrademarks: displayName,
+    target: [{ target: 'msix', arch: ['x64'] }],
+    extraResources: [{ from: 'scripts/update-relaunch-waiter.ps1', to: 'update-relaunch-waiter.ps1' }],
+    ...(process.env.AZURE_SIGN_ENDPOINT && process.env.AZURE_CLIENT_ID ? {
+      sign: { type: /** @type {const} */ ('signtool'), sign: './scripts/sign-msix.mjs',
+        signingHashAlgorithms: [/** @type {const} */ ('sha256')], publisherName: process.env.AZURE_SIGN_PUBLISHER }
+    } : {})
+  },
+  msix: {
+    identityName: msixAppIdWithOrg, applicationId: appNamePascal, displayName,
+    publisher: OUT_OF_STORE_PUBLISHER, publisherDisplayName: 'Nous Research',
+    setBuildNumber: false, minVersion: '10.0.22621.0', maxVersionTested: '10.0.26100.0',
+    customManifestPath: 'build/msix-manifest.xml', capabilities: ['unvirtualizedResources'], showNameOnTiles: true
   },
   mac: {
     // macOS 26 masks every icon into its own squircle: the layered Icon

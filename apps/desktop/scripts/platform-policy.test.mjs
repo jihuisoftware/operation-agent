@@ -1,18 +1,20 @@
 import { expect, it, vi } from 'vitest'
-import { requireMacOS } from '../platform-policy.cjs'
+import { requireDesktopPlatform } from '../platform-policy.cjs'
 import { runElectronBuilder } from './run-electron-builder.mjs'
 
-it('admits macOS and rejects other runtime platforms', () => {
-  expect(() => requireMacOS('darwin')).not.toThrow()
-  for (const platform of ['linux', 'win32', 'freebsd']) {
-    expect(() => requireMacOS(platform)).toThrow('仅支持 macOS')
+it('admits the native desktop architectures and rejects retired targets', () => {
+  for (const [platform, arch] of [['darwin', 'arm64'], ['darwin', 'x64'], ['win32', 'x64']]) {
+    expect(() => requireDesktopPlatform(platform, arch)).not.toThrow()
+  }
+  for (const [platform, arch] of [['linux', 'x64'], ['win32', 'arm64'], ['win32', 'ia32'], ['freebsd', 'x64']]) {
+    expect(() => requireDesktopPlatform(platform, arch)).toThrow('Windows x64')
   }
 })
 
-it('rejects unsupported build targets before starting preparation', () => {
+it('rejects unsupported or foreign-host packaging before preparation', () => {
   const spawn = vi.fn()
-  for (const target of ['--linux', '--win']) {
-    expect(() => runElectronBuilder([target], { spawn })).toThrow('仅支持 macOS')
-  }
+  expect(() => runElectronBuilder(['--linux'], { spawn })).toThrow()
+  const foreign = process.platform === 'darwin' ? '--win' : '--mac'
+  expect(() => runElectronBuilder([foreign], { spawn })).toThrow('native operating system')
   expect(spawn).not.toHaveBeenCalled()
 })

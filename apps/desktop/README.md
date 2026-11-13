@@ -1,6 +1,6 @@
 # 通用运营 Desktop
 
-本分支提供通用运营能力，主题由用户自行输入或选择，首批渠道为公众号、小红书和抖音。**仅支持 macOS，界面固定为简体中文**。旧语言设置会归一到中文，不提供语言切换。产品范围见[根 README](../../README.md)，业务模块进度见 [MVP 方案](../../docs/operations-platform-mvp.md)。
+本分支提供通用运营能力，主题由用户自行输入或选择，首批渠道为公众号、小红书和抖音。**macOS 已支持，Windows x64 恢复中（原生验收待完成）；界面固定为简体中文**。旧语言设置会归一到中文，不提供语言切换。产品范围见[根 README](../../README.md)，业务模块进度见 [MVP 方案](../../docs/operations-platform-mvp.md)。
 
 应用图标采用深蓝底、浅色对话气泡与青绿色增长箭头。矢量源为 `assets/operations-mark.svg`，通过根目录的 `scripts/generate-icons.mjs` 生成 Dock、ICNS、macOS 26 分层图标及界面品牌素材；保持现有深浅色和系统单色适配。替换图标资源后重启 Desktop 可更新开发版 Dock，已安装版本需重新构建安装包。
 
@@ -111,3 +111,5 @@ tccutil reset Microphone com.nousresearch.hermes
 ```
 
 修改代码前阅读 [AGENTS.md](AGENTS.md)、[src/AGENTS.md](src/AGENTS.md) 和 [DESIGN.md](DESIGN.md)。许可证状态见[根 README](../../README.md#许可证)。
+
+Windows 开发、测试包与原生验收入口见[Windows 恢复使用说明](../../docs/windows-development.md)。

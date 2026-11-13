@@ -20,8 +20,10 @@ def test_discovery_scope_survives_live_refresh_and_offline_fallback(tmp_path, mo
     from hermes_cli.plugin_catalog_presence import onboarding_names
     from tools.connectors.catalog_tool import _plugin_rows
 
+    from hermes_platform.host.facts import os_family
+    other = "windows" if os_family() == "macos" else "macos"
     entries = [_entry("writer", "models"), _entry("developer", "tools"),
-               _entry("chat-adapter", "platform"), _entry("pc-only", "models", platforms=["windows"])]
+               _entry("chat-adapter", "platform"), _entry("pc-only", "models", platforms=[other])]
     root = tmp_path / "catalog"
     root.mkdir()
     for entry in entries:
@@ -54,3 +56,13 @@ def test_curated_operations_entry_still_respects_platform_and_retirement():
                _entry("rss-reader", "desktop", platforms=["linux"])]
     parsed = [catalog.entry_from_mapping(entry, entry["name"]) for entry in entries]
     assert browse_catalog(parsed) == [parsed[0]]
+
+
+def test_catalog_platform_policy_distinguishes_windows_and_macos():
+    from hermes_cli.plugin_catalog_scope import catalog_entry_visible
+    windows = catalog.entry_from_mapping(_entry('native-windows', 'models', platforms=['windows']), 'fixture')
+    mac = catalog.entry_from_mapping(_entry('native-mac', 'models', platforms=['macos']), 'fixture')
+    assert catalog_entry_visible(windows, platform='windows')
+    assert not catalog_entry_visible(mac, platform='windows')
+    assert catalog_entry_visible(mac, platform='macos')
+    assert not catalog_entry_visible(windows, platform='macos')
