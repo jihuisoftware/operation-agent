@@ -118,7 +118,8 @@ def test_selection_is_scoped_and_preserves_worker_and_deny_boundaries(legacy, tm
     assert bool(_names(["all"])) is legacy
     assert not _names(["kanban"], ["kanban"])
     assert not _names([])
-    assert bool(_names(sorted(_get_platform_tools(load_config(), "cli")))) is legacy
+    # The operations profile supplies an explicit CLI selection; legacy top-level selection cannot replace it.
+    assert not _names(sorted(_get_platform_tools(load_config(), "cli")))
     # An explicitly saved (non-empty) selection is authoritative over the legacy key.
     cfg = load_config()
     cfg["platform_toolsets"]["cli"] = ["file"]

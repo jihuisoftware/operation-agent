@@ -86,3 +86,7 @@ Windows x64 恢复：`apps/desktop/platform-policy.cjs`、`scripts/build-bundle.
 定位示例和最小验证命令见 [开发工作流](development-workflow.md)。恢复上次工作时看 [任务交接记录](dev-handoff.md)，并先核对工作树。
 
 快速首轮与就绪边界：`plugins/operations/quick_start.py`、`readiness.py`、`plan_controls.py`，复用 Store/Cron；私有 HTTP 投影在 `dashboard/library_api.py`。验证：`test_operations_quick_start.py`、`test_operations_quick_http.py`。侧栏底部/首次首页通用机制在 `store/sidebar-nav.ts`、`app/contrib/hooks/initial-landing.ts`；任务页签在 `app/cron/task-sections.tsx`。
+
+## 通用任务看板
+
+Desktop `/kanban`：`apps/desktop/src/plugins/kanban/`；私有 API：`plugins/kanban/dashboard/`；看板执行开关、领取事务与停止证据：`hermes_cli/kanban_execution.py`；Gateway 调度：`gateway/kanban_watchers_dispatcher.py`。存储仍在同一 Hermes 根目录内跨 Profile 共享，自动执行逐看板默认关闭。任务 Worker 通过 `kanban_worker_client` 向所属 Profile 的 Gateway 提交，不启动终端聊天。

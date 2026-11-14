@@ -24,7 +24,6 @@
   ],
   "disabledToolsets": [
     "delegation",
-    "kanban",
     "computer_use",
     "connections",
     "catalog",
@@ -53,7 +52,7 @@
       "orchestrator_enabled": false
     },
     "kanban": {
-      "dispatch_in_gateway": false,
+      "dispatch_in_gateway": true,
       "notify_in_gateway": false,
       "auto_subscribe_on_create": false,
       "review_dispatch": false,
@@ -102,7 +101,6 @@
   "desktop": {
     "disabledPlugins": [
       "hermes-bots",
-      "kanban",
       "radio"
     ],
     "disabledRoutes": [
@@ -119,8 +117,7 @@
       "wake",
       "journey",
       "import",
-      "moa",
-      "kanban"
+      "moa"
     ],
     "labels": {
       "zh": "通用运营平台 · 主题由你定义"

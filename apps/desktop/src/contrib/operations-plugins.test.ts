@@ -6,15 +6,17 @@ import { $pluginDecisions, $pluginRecords, pluginActive, publishPlugin, setPlugi
 vi.mock('./runtime-loader', () => ({ watchRuntimePlugins: vi.fn() }))
 
 describe('operations plugin scope', () => {
-  it('does not load retired plugins even when an older install enabled them', async () => {
-    $pluginDecisions.set({ 'hermes-bots': true, kanban: true, radio: true })
+  it('loads Kanban by default while retired plugins stay unavailable', async () => {
+    $pluginDecisions.set({ 'hermes-bots': true, radio: true })
 
     await discoverBundledPlugins()
 
-    for (const id of ['hermes-bots', 'kanban', 'radio']) {
+    for (const id of ['hermes-bots', 'radio']) {
       expect($pluginRecords.get()[id]).toBeUndefined()
       expect(pluginActive(id)).toBe(false)
     }
+    expect(pluginActive('kanban')).toBe(true)
+    await setPluginEnabled('kanban', false)
   })
 
   it('refuses activation of retired plugins while keeping ordinary content extensions usable', async () => {

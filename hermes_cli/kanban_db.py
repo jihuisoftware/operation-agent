@@ -772,7 +772,9 @@ class Event:
 
 # --- Schema ---
 
-SCHEMA_SQL = """
+from hermes_cli.kanban_execution import EXECUTION_SCHEMA
+
+SCHEMA_SQL = EXECUTION_SCHEMA + """
 CREATE TABLE IF NOT EXISTS tasks (
     id                   TEXT PRIMARY KEY,
     title                TEXT NOT NULL,
@@ -2120,52 +2122,6 @@ def unsatisfied_parents(conn: sqlite3.Connection, task_id: str) -> list[tuple[st
     return [(row["id"], row["status"]) for row in rows]
 
 
-def _claim_and_open_run(
-    conn: sqlite3.Connection, task_id: str, source_status: str, lock: str, expires: int, now: int,
-    *, event_extra: Optional[dict] = None,
-) -> Optional[int]:
-    """CAS ``source_status -> running``, open a run row, emit ``claimed``; None
-    when the CAS lost. Caller holds the txn."""
-    cur = conn.execute(
-        f"""
-        UPDATE tasks
-           SET status        = 'running',
-               claim_lock    = ?,
-               claim_expires = ?,
-               started_at    = COALESCE(started_at, ?)
-         WHERE id = ?
-           AND status = '{source_status}'
-           AND claim_lock IS NULL
-        """,
-        (lock, expires, now, task_id),
-    )
-    if cur.rowcount != 1:
-        return None
-    trow = conn.execute(
-        "SELECT assignee, max_runtime_seconds, current_step_key "
-        "FROM tasks WHERE id = ?", (task_id,),
-    ).fetchone()
-    run_cur = conn.execute(
-        """
-        INSERT INTO task_runs (
-            task_id, profile, step_key, status,
-            claim_lock, claim_expires, max_runtime_seconds,
-            started_at
-        ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?)
-        """,
-        (
-            task_id, trow["assignee"] if trow else None, trow["current_step_key"] if trow else None,
-            lock, expires, trow["max_runtime_seconds"] if trow else None, now,
-        ),
-    )
-    run_id = run_cur.lastrowid
-    conn.execute("UPDATE tasks SET current_run_id = ? WHERE id = ?", (run_id, task_id))
-    _append_event(
-        conn, task_id, "claimed",
-        {"lock": lock, "expires": expires, "run_id": run_id, **(event_extra or {})}, run_id=run_id,
-    )
-    return run_id
-
 
 def claim_task(
     conn: sqlite3.Connection, task_id: str, *, ttl_seconds: Optional[int] = None,
@@ -2194,7 +2150,8 @@ def claim_task(
         _reclaim_dangling_run(
             conn, task_id, statuses=("ready",), now=now, note="invariant recovery on re-claim",
         )
-        run_id = _claim_and_open_run(conn, task_id, "ready", lock, expires, now)
+        from hermes_cli.kanban_execution import claim_and_open_run
+        run_id = claim_and_open_run(conn, task_id, "ready", lock, expires, now)
         if run_id is None:
             return None
         claimed = get_task(conn, task_id)
@@ -2224,7 +2181,8 @@ def claim_review_task(
                     {"reason": "parent_reopened", "source_status": "review"},
                 )
             return None
-        run_id = _claim_and_open_run(
+        from hermes_cli.kanban_execution import claim_and_open_run
+        run_id = claim_and_open_run(
             conn, task_id, "review", lock, expires, now, event_extra={"source_status": "review"},
         )
         if run_id is None:
@@ -2476,35 +2434,8 @@ def reclaim_task(
 ) -> bool:
     """Operator reclaim regardless of TTL: release the claim, restore the source
     phase, reset the failure counter. False when not running."""
-    row = conn.execute(
-        "SELECT status, claim_lock, worker_pid, worker_started_at FROM tasks WHERE id = ?", (task_id,),
-    ).fetchone()
-    if not row:
-        return False
-    if row["status"] != "running" and row["claim_lock"] is None:
-        # Nothing to reclaim — already ready / blocked / done.
-        return False
-    prev_lock = row["claim_lock"]
-    termination = _terminate_reclaimed_worker(
-        row["worker_pid"], prev_lock, signal_fn=signal_fn, started_at=row["worker_started_at"])
-    with write_txn(conn):
-        retry_status = _retry_status_for_run(conn, task_id)
-        cur = conn.execute(
-            "UPDATE tasks SET status = ?, claim_lock = NULL, "
-            "claim_expires = NULL, worker_pid = NULL, worker_started_at = NULL "
-            "WHERE id = ? AND status IN ('running', 'ready', 'blocked') "
-            "AND claim_lock IS ?", (retry_status, task_id, prev_lock),
-        )
-        if cur.rowcount != 1:
-            return False
-        _record_reclaim(
-            conn, task_id, termination,
-            error=f"manual_reclaim: {reason}" if reason else f"manual_reclaim lock={prev_lock}",
-            payload={"manual": True, "reason": reason, "prev_lock": prev_lock, "retry_status": retry_status},
-        )
-    # Operator intervention = fresh retry budget (own txn, runs after commit).
-    _clear_failure_counter(conn, task_id)
-    return True
+    from hermes_cli.kanban_execution import reclaim
+    return reclaim(conn, task_id, reason=reason, signal_fn=signal_fn)
 
 
 def reassign_task(

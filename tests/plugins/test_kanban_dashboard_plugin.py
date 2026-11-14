@@ -475,7 +475,7 @@ def test_dispatch_dry_run(client):
         "/api/plugins/kanban/tasks",
         json={"title": "work", "assignee": "researcher"},
     )
-    r = client.post("/api/plugins/kanban/dispatch?dry_run=true&max=4")
+    r = client.post("/api/plugins/kanban/dispatch?dry_run=true&max=1")
     assert r.status_code == 200
     body = r.json()
     # DispatchResult is serialized as a dataclass dict.

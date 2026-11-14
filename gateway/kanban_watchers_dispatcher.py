@@ -46,6 +46,7 @@ class _DispatcherSettings:
 
 def _resolve_dispatcher_settings(kanban_cfg: dict, kb: Any) -> _DispatcherSettings:
     """Parse and log the dispatcher settings in their established order."""
+    kanban_cfg = {'max_in_progress': 1, 'max_in_progress_per_profile': 1, **kanban_cfg}
     try:
         interval = float(kanban_cfg.get("dispatch_interval_seconds", 60) or 60)
     except (ValueError, TypeError):
@@ -193,7 +194,7 @@ class _KanbanDispatcher:
             from hermes_cli import kanban_db as _kb
             with _kb.pin_first_board_resolution():
                 conn = _kbc().connect(board=slug)
-                return _kbd().dispatch_once(conn, board=slug, **kwargs)
+                return _kbd().dispatch_once(conn, board=slug, automatic=True, **kwargs)
         except Exception as exc:
             if self.is_corrupt_board_db_error(exc):
                 self.disabled_corrupt_boards[slug] = (fingerprint, time.monotonic())
@@ -234,6 +235,9 @@ class _KanbanDispatcher:
                 conn = None
                 try:
                     conn = _kbc().connect(board=slug)
+                    from hermes_cli.kanban_execution import read
+                    if not read(conn)['enabled']:
+                        continue
                     if kbd.has_spawnable_ready(conn) or (_review_probe and kbd.has_spawnable_review(conn)):
                         return True
                 except Exception:

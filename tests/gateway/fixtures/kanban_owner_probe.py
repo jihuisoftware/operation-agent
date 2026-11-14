@@ -58,6 +58,22 @@ class Model(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
 
+def assert_outcome(mode, task, run, receipt):
+    expected = {
+        'rate_limit': ('ready', 0, 'rate_limited'),
+        'billing': ('ready', 0, 'rate_limited'),
+        'crash': ('ready', 1, 'crashed'),
+        'timeout': ('ready', 1, 'timed_out'),
+        'stop': ('blocked', 0, 'reclaimed'),
+    }
+    if mode in expected:
+        assert (task.status, task.consecutive_failures, run['outcome']) == expected[mode], receipt
+    if mode in {'rate_limit', 'billing'}:
+        from hermes_cli import kanban_db as kb
+        assert receipt['client_exit'] == ('rate_limited', kb.KANBAN_RATE_LIMIT_EXIT_CODE), receipt
+        assert receipt['cooldown'] == 'rate_limit_cooldown', receipt
+
+
 def main():
     root = Path(__file__).resolve().parents[3]
     home = Path(os.environ['HERMES_HOME'])
@@ -139,6 +155,9 @@ def main():
                         wait_for(lambda: not kb._pid_alive(receipt['managed_pid']))
                         receipt['managed_dead'] = True
                         assert receipt['pid_preserved'] and receipt['managed_dead'], receipt
+                    elif peer.mode == 'stop':
+                        from hermes_cli.kanban_execution import stop_run
+                        wait_for(lambda: stop_run(conn, tid, task.current_run_id, reason='隔离取消验收'))
                     elif peer.mode == 'crash':
                         import signal
                         # Windows has no SIGKILL; os.kill there is TerminateProcess for any signal.
@@ -158,15 +177,7 @@ def main():
                     receipt.update(task_status=task.status, failures=task.consecutive_failures, run_outcome=run['outcome'],
                         run_metadata=kb._json_dict(run['metadata']), rate_limited=swept.rate_limited,
                         cooldown=dispatch.check_respawn_guard(conn, tid))
-                    if peer.mode in {'rate_limit', 'billing'}:
-                        assert task.status == 'ready' and task.consecutive_failures == 0 and run['outcome'] == 'rate_limited', receipt
-                        assert receipt['client_exit'] == ('rate_limited', kb.KANBAN_RATE_LIMIT_EXIT_CODE), receipt
-                        assert receipt['cooldown'] == 'rate_limit_cooldown', receipt
-                    elif peer.mode == 'crash':
-                        # Killing the spawned worker ends the attempt: one crash, re-queued, as before the owner.
-                        assert task.status == 'ready' and task.consecutive_failures == 1 and run['outcome'] == 'crashed', receipt
-                    elif peer.mode == 'timeout':
-                        assert task.status == 'ready' and task.consecutive_failures == 1 and run['outcome'] == 'timed_out', receipt
+                    assert_outcome(peer.mode, task, run, receipt)
             finally:
                 subprocess.Popen = original_popen
             if peer.mode != 'complete':

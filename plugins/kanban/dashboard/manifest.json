@@ -1,0 +1,9 @@
+{
+  "name": "kanban",
+  "label": "看板",
+  "description": "通用任务看板与可选自动执行",
+  "version": "1.0.0",
+  "tab": {"path": "/kanban", "hidden": true},
+  "entry": null,
+  "api": "plugin_api.py"
+}

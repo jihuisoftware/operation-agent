@@ -122,8 +122,9 @@ zero outside a kanban task (footprint ladder rung 3).
   key alone.
 - **Dispatcher:** long-lived loop (default 60s) that reclaims stale claims, promotes ready tasks,
   atomically claims, and spawns assigned profiles. Runs **inside the gateway** by default
-  (`kanban.dispatch_in_gateway: true` upstream; disabled in the operations product).
-- **Retained API:** `plugins/kanban/dashboard/plugin_api.py`; the retired web UI and systemd unit
+  (`kanban.dispatch_in_gateway: true`). Every automatic claim checks the board's `kanban_execution_settings` within its write transaction; a missing row is disabled.
+  `hermes_cli/kanban_execution.py` owns execution CAS, host capacity lock and explicit stop/reclaim evidence.
+- **Desktop API:** `plugins/kanban/dashboard/plugin_api.py`; the retired web UI and systemd unit
   are no longer shipped. `kanban_db.connect` is its
   own connection helper — do not alias it to `projects_db.connect` (a path-proximity generator did).
 

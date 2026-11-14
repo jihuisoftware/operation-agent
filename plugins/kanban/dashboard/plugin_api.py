@@ -41,6 +41,9 @@ from hermes_cli.kanban_db import KANBAN_ATTACHMENT_MAX_BYTES, _collision_free_pa
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+from plugins.kanban.dashboard.execution_api import router as execution_router
+from hermes_cli import kanban_execution as execution
+router.include_router(execution_router)
 
 _BOARD_Q = Query(None, description="Kanban board slug (omit for current)")
 
@@ -421,6 +424,7 @@ class CreateTaskBody(BaseModel):
     workspace_path: Optional[str] = None
     parents: list[str] = Field(default_factory=list)
     triage: bool = False
+    status: Optional[str] = None
     idempotency_key: Optional[str] = None
     max_runtime_seconds: Optional[int] = None
     skills: Optional[list[str]] = None
@@ -435,8 +439,13 @@ class CreateTaskBody(BaseModel):
 @router.post("/tasks")
 def create_task(payload: CreateTaskBody, board: Optional[str] = Query(None)):
     with _board_conn(board) as (board, conn), _value_error_400():
-        # CreateTaskBody field names match create_task's keyword parameters.
-        task_id = kanban_db.create_task(conn, created_by="dashboard", board=board, **payload.model_dump())
+        if payload.status is not None and payload.status not in {"triage", "todo", "ready", "blocked"}:
+            raise HTTPException(400, "新任务只能进入待梳理、待办、待执行或已阻塞")
+        with kanban_db.write_txn(conn):
+            task_id = kanban_db.create_task(conn, created_by="dashboard", board=board, **payload.model_dump(exclude={"status"}))
+            if payload.status is not None:
+                from plugins.kanban.dashboard.execution_api import initialize_task_column
+                initialize_task_column(conn, task_id, payload.status)
         task = kanban_db.get_task(conn, task_id)
         body: dict[str, Any] = {"task": _task_dict(
             task, current_run_started_at=kanban_db.current_run_started_ats(conn, [task_id]).get(task_id)
@@ -445,7 +454,7 @@ def create_task(payload: CreateTaskBody, board: Optional[str] = Query(None)):
         # otherwise sit idle (no gateway / dispatch_in_gateway=false); triage/todo are expected
         # to wait, unassigned tasks can't dispatch anyway. Probe the request's active home: the
         # dashboard backend may run under a different HERMES_HOME than the board's profile.
-        if task and task.status == "ready" and task.assignee:
+        if task and task.status == "ready" and task.assignee and execution.read(conn)["enabled"]:
             try:
                 from hermes_cli.kanban import _check_dispatcher_presence
                 from hermes_constants import get_hermes_home
@@ -994,7 +1003,7 @@ def terminate_run_endpoint(run_id: int, payload: TerminateRunBody, board: Option
         r = _require_run(conn, run_id)
         if r.ended_at is not None:
             raise _conflict(f"run {run_id} already ended")
-        if not kanban_db.reclaim_task(conn, r.task_id, reason=payload.reason):
+        if not execution.stop_run(conn, r.task_id, run_id, reason=payload.reason):
             raise _conflict(f"cannot terminate run {run_id}: task {r.task_id} is no longer in a reclaimable state")
         return {"ok": True, "run_id": run_id, "task_id": r.task_id}
 
@@ -1267,10 +1276,10 @@ def get_task_log(task_id: str, tail: Optional[int] = Query(None, ge=1, le=2_000_
 
 
 @router.post("/dispatch")
-def dispatch(dry_run: bool = Query(False), max_n: int = Query(8, alias="max"), board: Optional[str] = Query(None)):
+def dispatch(dry_run: bool = Query(False), max_n: int = Query(1, ge=1, le=1, alias="max"), board: Optional[str] = Query(None)):
     """Dispatch nudge so the UI doesn't wait out the 60 s dispatcher tick."""
     with _board_conn(board) as (board, conn):
-        result = kbd.dispatch_once(conn, dry_run=dry_run, max_spawn=max_n, board=board)
+        result = kbd.dispatch_once(conn, dry_run=dry_run, max_spawn=max_n, max_in_progress=1, max_in_progress_per_profile=1, board=board)
         try:
             return asdict(result)  # DispatchResult is a dataclass
         except TypeError:

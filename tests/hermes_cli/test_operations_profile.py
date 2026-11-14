@@ -51,10 +51,10 @@ platform_hints:
     assert config["model"]["default"] == "content-model"
     assert config["model"]["api_key"] == "unchanged-secret"
     assert "tts" in config["agent"]["disabled_toolsets"]
-    assert {"delegation", "discord", "kanban"} <= set(config["agent"]["disabled_toolsets"])
+    assert {"delegation", "discord"} <= set(config["agent"]["disabled_toolsets"])
     assert {"google_meet", "my-disabled-plugin"} <= set(config["plugins"]["disabled"])
     assert config["agent"]["coding_context"] == "off"
-    assert config["kanban"]["dispatch_in_gateway"] is False
+    assert config["kanban"]["dispatch_in_gateway"] is True
     assert config["kanban"]["notify_in_gateway"] is False
     assert config["curator"]["enabled"] is False
     assert config["gateway"]["loop_watchdog"] is False
@@ -82,7 +82,8 @@ def test_desktop_selection_keeps_content_tools_and_respects_user_opt_out(tmp_pat
     assert "delegation" in _load_disabled_toolsets()
     catalog = {row[0] for row in _get_effective_configurable_toolsets()}
     assert {"web", "image_gen", "cronjob"} <= catalog
-    assert not catalog.intersection({"delegation", "kanban", "discord", "connections"})
+    assert "kanban" in catalog
+    assert not catalog.intersection({"delegation", "discord", "connections"})
 
     # An explicit empty selection is still a zero-tool session.
     (tmp_path / "config.yaml").write_text("platform_toolsets:\n  cli: []\n")

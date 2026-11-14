@@ -1982,6 +1982,7 @@ def dispatch_once(
     conn: sqlite3.Connection,
     *,
     spawn_fn=None,
+    automatic: bool = False,
     ttl_seconds: Optional[int] = None,
     dry_run: bool = False,
     max_spawn: Optional[int] = None,
@@ -2017,22 +2018,19 @@ def dispatch_once(
             reconcile_orphans=reconcile_orphans,
         )
 
-    try:
-        db_path = _kb.kanban_db_path(board=board)
-    except Exception:
-        # Must not lose the tick — fall through to an unguarded dispatch.
-        result = _locked_tick()
-        _kb._fire_dispatch_tick_hook(result, board=board, dry_run=dry_run)
-        return result
-    with _kbc._dispatch_tick_lock(db_path) as held:
-        if not held:
+    from hermes_cli.kanban_execution import dispatch_scope
+    with dispatch_scope(automatic) as admitted:
+        if not admitted:
             result = DispatchResult(skipped_locked=True)
         else:
-            result = _locked_tick()
-            # Still under the dispatch lock: periodic PASSIVE WAL checkpoint.
-            _kbc._maybe_checkpoint_wal(conn, db_path)
-    # Lock released. Fire the tick observer strictly OUTSIDE the critical
-    # section: a slow subscriber must never stall a sibling dispatcher's tick.
+            db_path = _kb.kanban_db_path(board=board)
+            with _kbc._dispatch_tick_lock(db_path) as held:
+                if not held:
+                    result = DispatchResult(skipped_locked=True)
+                else:
+                    result = _locked_tick()
+                    _kbc._maybe_checkpoint_wal(conn, db_path)
+    # Observers run after both locks are released, never delaying another board's admission.
     _kb._fire_dispatch_tick_hook(result, board=board, dry_run=dry_run)
     return result
 
@@ -2378,6 +2376,9 @@ def _dispatch_once_locked(
         conn, result, stale_timeout_seconds=stale_timeout_seconds,
         failure_limit=failure_limit, reconcile_orphans=reconcile_orphans, board=board,
     )
+    from hermes_cli.kanban_execution import claim_allowed
+    if not claim_allowed(conn):
+        return result
     may_spawn, spawn_budget = _tick_spawn_budget(
         conn, result, max_spawn=max_spawn, max_in_progress=max_in_progress, board=board,
     )
@@ -2753,7 +2754,7 @@ def _restart_safe_worker_argv(task: Task, command: list[str]) -> list[str]:
 
 
 def _default_spawn(task: Task, workspace: str, *, board: Optional[str] = None) -> Optional[int]:
-    """Fire-and-forget ``hermes -p <profile> chat -q ...`` subprocess.
+    """Launch the gateway-backed Kanban worker client subprocess.
 
     Returns the child's PID so the dispatcher can detect crashes before the
     claim TTL expires; completion is still observed via the worker's own
@@ -2856,8 +2857,6 @@ def _default_spawn(task: Task, workspace: str, *, board: Optional[str] = None) -
     # This is the grant boundary: the dispatcher assigned this new worker's task.
     from agent.delegation_context import DELEGATED_CHILD_ENV_MARKER
     env.pop(DELEGATED_CHILD_ENV_MARKER, None)
-    # `--cli` is the highest-precedence TUI override; dropping HERMES_TUI covers
-    # older hermes builds on PATH that predate the flag's precedence.
     env.pop("HERMES_TUI", None)
 
     cmd = _worker_argv(task, profile_arg, env.get("HERMES_HOME"))
@@ -2892,8 +2891,7 @@ def _default_spawn(task: Task, workspace: str, *, board: Optional[str] = None) -
             "`hermes` executable not found on PATH. "
             "Install Hermes Agent or activate its venv before running the kanban dispatcher."
         )
-    # Intentionally NOT closing log_f: the child keeps writing after return;
-    # the OS-level FD stays open in the child until it exits.
+    log_f.close()  # Popen duplicated the descriptor into the child.
     if _kb._IS_WINDOWS:
         _live_worker_procs[proc.pid] = proc
     return proc.pid
@@ -2944,7 +2942,9 @@ def run_daemon(
             with contextlib.closing(_kbc.connect()) as conn:
                 res = dispatch_once(
                     conn,
+                    automatic=True,
                     max_spawn=max_spawn,
+                    max_in_progress_per_profile=1,
                     max_in_progress=max_in_progress,
                     failure_limit=failure_limit,
                 )
