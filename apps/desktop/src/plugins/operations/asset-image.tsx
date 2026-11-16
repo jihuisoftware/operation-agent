@@ -1,7 +1,13 @@
 import type { PluginContext } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 
-export function AssetImage({ ctx, id }: { ctx: PluginContext; id: string }) {
+interface AssetImageProps {
+  ctx: PluginContext
+  id: string
+  className?: string
+}
+
+export function AssetImage({ ctx, id, className = 'max-h-56 w-full rounded object-contain' }: AssetImageProps) {
   const [image, setImage] = useState<{ name: string; data: string; mime?: string } | null>(null)
   useEffect(() => {
     let disposed = false
@@ -26,7 +32,7 @@ export function AssetImage({ ctx, id }: { ctx: PluginContext; id: string }) {
   return image ? (
     <img
       alt={image.name}
-      className="max-h-56 w-full rounded object-contain"
+      className={className}
       loading="lazy"
       src={`data:${image.mime || 'image/png'};base64,${image.data}`}
     />

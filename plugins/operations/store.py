@@ -488,6 +488,6 @@ class Store:
         (directory / (digest + suffix)).write_bytes(content)
         identity = self.put("asset", {"name": Path(filename).name, "file": digest + suffix,
                                      "authorized": True, "sha256": digest}, digest)
-        from .workspace_resources import save_asset
-        save_asset(self, identity)
+        from .workspace_resources import save_uploaded_asset
+        save_uploaded_asset(self, identity)
         return identity

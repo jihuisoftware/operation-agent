@@ -63,5 +63,17 @@ def save_asset(store, identity):
     if not store.workspace:
         return
     with store.connection() as db:
-        row = db.execute("SELECT * FROM objects WHERE id=? AND kind='asset'", (identity,)).fetchone()
-        db.execute("INSERT OR REPLACE INTO directory.resources VALUES (?,'asset',?,?,?)", (store.scope['business_id'], identity, row['data'], row['created']))
+        _save_asset_row(store, db, identity)
+
+
+def save_uploaded_asset(store, identity):
+    # A validated upload carries fresh consent even when its content hash already exists.
+    with store.connection() as db:
+        db.execute("UPDATE objects SET data=json_set(data,'$.authorized',json('true'),'$.revoked',json('false')) WHERE id=? AND kind='asset'", (identity,))
+        if store.workspace:
+            _save_asset_row(store, db, identity)
+
+
+def _save_asset_row(store, db, identity):
+    row = db.execute("SELECT * FROM objects WHERE id=? AND kind='asset'", (identity,)).fetchone()
+    db.execute("INSERT OR REPLACE INTO directory.resources VALUES (?,'asset',?,?,?)", (store.scope['business_id'], identity, row['data'], row['created']))
