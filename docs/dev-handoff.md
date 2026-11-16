@@ -1,5 +1,15 @@
 # 当前开发交接记录
 
+## 来源素材库页码跳转（2026-11-16）
+
+基准 `9fb1e32b32`，开始时工作树干净；已有交接冲突标记未改动。未提交。
+- SourceLibrary 改用直接页码查询，SourcePagination 提供总页数、首页/末页、前后页、输入页码与回车跳转；搜索回第一页，非法页码禁用提交。
+- 分页栏底部增加 `pb-6`（1.5rem）留白，避免贴住页面底部。
+- `/sources` 新增可选 page（每页24条），按筛选结果计算总页数并将过大页码收敛到末页；空结果为第1/共1页。统计和页面查询共用读事务，旧 cursor 调用保持兼容。
+- 后端真实私有HTTP与资料库5项、UI3项、renderer类型检查、ESLint、仓库12项检查通过。
+- 实际Desktop显示共48页，首页→末页→首页、输入2并回车跳页均已验收，完成后留在首页；布局截图 `/private/tmp/source-pagination.png`。
+- 确认开发Gateway active_agents=0后，在原HERMES_HOME激活环境，顺序gateway stop和ensure，后端ready。未修改资料、授权或运营任务。
+
 <<<<<<< HEAD
 ## Kanban 看板与可选自动执行恢复（2026-11-13）
 
