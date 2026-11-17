@@ -54,3 +54,27 @@ def display(action):
         'execution': 'verified' if action['state'] == 'published' else 'submitted' if action['state'] == 'submitted' else 'unknown',
         'platform': 'unknown', 'content': 'unknown',
     }
+
+
+# Read-model predicate: publication on the platform and exact content approval are separate facts.
+# Preserve legacy/manual published receipts; never infer publication from submission or similarity.
+PLATFORM_PUBLISHED_SQL = """(
+    state IN ('published','confirmed') OR (
+        state IN ('submitted','unknown')
+        AND json_extract(result,'$.publication.execution')='verified'
+        AND json_extract(result,'$.publication.platform')='published'
+        AND coalesce(json_extract(result,'$.evidence'),'')!=''
+    )
+)"""
+
+
+def platform_published(action):
+    """Publication evidence only; this does not approve content or authorize another submission."""
+    if action['state'] in {'published', 'confirmed'}:
+        return True
+    if action['state'] not in {'submitted', 'unknown'}:
+        return False
+    result = action.get('result', {})
+    result = json.loads(result) if isinstance(result, str) else result
+    status = result.get('publication') or {}
+    return bool(result.get('evidence') and status.get('execution') == 'verified' and status.get('platform') == 'published')

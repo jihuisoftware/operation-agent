@@ -1,4 +1,4 @@
-/** Read-only DOM evidence. Serialized into the guest; no model-generated selectors or actions. */
+/** Publication evidence and a fixed read-only list filter; never a publish or edit control. */
 export function publicationPage(request: { operation: string; payload: Record<string, any> }) {
   const { operation, payload } = request
   const text = (e: Element | null) => (e?.textContent || '').trim()
@@ -55,31 +55,82 @@ export function publicationPage(request: { operation: string; payload: Record<st
     return { ready: true, id, url: location.href, checks, actual: { title: text(document.querySelector('#detail-title,.note-detail .title')), body: (description as HTMLElement).innerText || text(description) }, images: [...new Set(images)], platform: 'unknown' }
   }
 
-  const managerPage = () => {
-    if (!document.querySelector('.note-card') && !/暂无笔记/.test(document.body.innerText)) { return { ready: false } }
-    const imageKey = (url: string) => new URL(url).pathname.split('/').at(-1)
-
-    const cards = Array.from(document.querySelectorAll('.note-card')).filter(card =>
-      card.getAttribute('data-note-id') === payload.note_id ||
-      Array.from(card.querySelectorAll<HTMLAnchorElement>('a[href]')).some(a => noteId(new URL(a.href)) === payload.note_id) ||
-      (text(card.querySelector('.note-card__title')) === payload.content.title &&
-       Array.from(card.querySelectorAll<HTMLImageElement>('img')).some(img => (payload.images || []).some((url: string) => imageKey(url) === imageKey(img.src)))))
-
-    // Cards without a stable note ID cannot be joined to an action by title alone.
-    if (cards.length !== 1) { return { ready: true, platform: 'unknown' } }
+  const imageKey = (value: string) => {
+    try {
+      const url = new URL(value)
+      if (url.protocol !== 'https:' || !url.hostname.endsWith('.xhscdn.com')) { return '' }
+      return url.pathname.split('!')[0].split('/').at(-1) || ''
+    } catch { return '' }
+  }
+  const identifiesCard = (card: Element) => {
+    const ids = [card.getAttribute('data-note-id'), card.getAttribute('data-noteid'),
+      ...Array.from(card.querySelectorAll<HTMLAnchorElement>('a[href]')).map(a => noteId(new URL(a.href)))].filter(Boolean)
+    // An explicit different ID beats a coincidentally identical title/cover.
+    if (ids.length) { return ids.every(id => id === payload.note_id) }
+    const keys = (payload.images || []).map(imageKey).filter(Boolean)
+    return text(card.querySelector('.note-card__title,.note-title,.title')) === payload.content.title &&
+      Array.from(card.querySelectorAll<HTMLImageElement>('img')).some(img => keys.includes(imageKey(img.currentSrc || img.src)))
+  }
+  const statusLabel = (value: string) => {
+    const normalized = value.replace(/\s+/g, '').replace(/[（(]\d+[）)]$/, '')
     const statuses: Record<string, string> = { '审核中': 'reviewing', '审核未通过': 'rejected', '审核不通过': 'rejected', '未通过': 'rejected', '已发布': 'published' }
+    return statuses[normalized]
+  }
+  const cardStatuses = (card: Element) => [card, ...Array.from(card.querySelectorAll('*'))]
+    .filter(e => !e.closest('.note-card__title,.note-title,.title,.desc,.note-desc'))
+    .flatMap(e => Array.from(e.childNodes).filter(n => n.nodeType === 3).map(n => (n.textContent || '').trim()))
+    .filter(label => label !== payload.content.title && label !== payload.content.body)
+    .map(statusLabel).filter(Boolean)
 
-    // User-authored titles/descriptions are not evidence of platform review status.
-    const labels = [cards[0], ...Array.from(cards[0].querySelectorAll('*'))]
-      .filter(e => !e.closest('.note-card__title,.title,.desc'))
-      .flatMap(e => Array.from(e.childNodes).filter(n => n.nodeType === 3).map(n => (n.textContent || '').trim()))
-
-    const found = [...new Set(labels.map(label => statuses[label]).filter(Boolean))]
-
-    return { ready: true, platform: found.length === 1 ? found[0] : 'unknown' }
+  const visible = (element: Element) => {
+    for (let node: Element | null = element; node; node = node.parentElement) {
+      if (node.hasAttribute('hidden') || node.getAttribute('aria-hidden') === 'true') { return false }
+      const style = getComputedStyle(node)
+      if (style.display === 'none' || style.visibility === 'hidden') { return false }
+    }
+    return true
   }
 
-  const readers: Record<string, () => object> = { notes: notesPage, inspect: inspectPage, manager: managerPage }
+  const tabEvidence = () => Array.from(document.querySelectorAll('div,span,button,a,[role="tab"]'))
+    .filter(e => visible(e) && !e.closest('.note-card,[data-note-id],[data-noteid]') && Boolean(statusLabel(text(e))))
+    .slice(0, 12).map(e => ({ tag: e.tagName, class: String(e.className).slice(0, 160),
+      selected: e.getAttribute('aria-selected'), label: text(e).slice(0, 30) }))
+
+  const managerPage = () => {
+    if (location.hostname !== 'creator.xiaohongshu.com' || !location.pathname.includes('/note-manager')) {
+      return { ready: false, platform: 'unknown', reason: '不在笔记管理页' }
+    }
+    const all = Array.from(document.querySelectorAll('.note-card,[data-note-id],[data-noteid]')).filter(visible)
+    // Nested ID wrappers are one card, not multiple publications.
+    const cards = all.filter(card => !all.some(parent => parent !== card && parent.contains(card))).filter(identifiesCard)
+    const evidence = { cards: all.length, matched: cards.length, tabs: tabEvidence() }
+    if (cards.length !== 1) { return { ready: all.length > 0, platform: 'unknown', evidence, reason: '未唯一匹配目标笔记' } }
+    const found = [...new Set(cardStatuses(cards[0]))]
+    if (found.length) {
+      return { ready: true, platform: found.length === 1 ? found[0] : 'unknown', evidence, status_source: 'card' }
+    }
+    // Only an explicitly selected platform tab is evidence; an inactive tab or title is not.
+    const selected = Array.from(document.querySelectorAll('[role="tab"][aria-selected="true"],.tabs .active,.tab.active,.tab-item.active,.tab-item--active'))
+      .filter(tab => visible(tab) && !tab.closest('.note-card,[data-note-id],[data-noteid]'))
+      .map(tab => statusLabel(text(tab))).filter(Boolean)
+    const statuses = [...new Set(selected)]
+    return { ready: true, platform: statuses.length === 1 ? statuses[0] : 'unknown', evidence,
+      status_source: statuses.length === 1 ? 'selected_tab' : 'unavailable' }
+  }
+
+  const selectPublished = () => {
+    if (location.hostname !== 'creator.xiaohongshu.com' || !location.pathname.includes('/note-manager')) {
+      return { selected: false }
+    }
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>('[role="tab"],.tab-item,.tab,.tabs > *'))
+      .filter(e => visible(e) && !e.closest('.note-card,[data-note-id],[data-noteid]') && statusLabel(text(e)) === 'published')
+    const leaves = candidates.filter(e => !candidates.some(other => e !== other && e.contains(other)))
+    if (leaves.length !== 1) { return { selected: false, candidates: leaves.length } }
+    leaves[0].click()
+    return { selected: true }
+  }
+
+  const readers: Record<string, () => object> = { notes: notesPage, inspect: inspectPage, manager: managerPage, manager_select_published: selectPublished }
 
   if (!readers[operation]) { throw new Error('不支持的发布核对步骤') }
 

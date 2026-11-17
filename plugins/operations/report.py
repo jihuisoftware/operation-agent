@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from .feedback import review
 from .policy import now_iso
-from .publication_status import complete, display
+from .publication_status import complete, display, platform_published
 
 
 def daily_report(store, day, delayed=False):
@@ -83,6 +83,8 @@ def daily_report(store, day, delayed=False):
         if action['kind'] == 'publish':
             status = display(action)
             lines.append(f"  执行：{status['execution']}；平台审核：{status['platform']}；内容核对：{status['content']}。")
+    delivered = [a for a in actions if a['kind'] == 'publish' and platform_published(a)]
+    lines.append(f"\n平台已发布 {len(delivered)} 篇，其中图文一致性待核对 {sum(not complete(a) for a in delivered)} 篇；不会重复发布。")
     completed = sum(complete(a) for a in actions)
     lines.append(f"\n已核对成功 {completed} 次；待审核或结果不明不计入成功。")
     for item in scope.objects("inbox"):

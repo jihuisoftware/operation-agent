@@ -4,6 +4,7 @@ import time
 
 from .content_release import fingerprint, load
 from .content_edits import action_match, latest_action
+from .publication_status import PLATFORM_PUBLISHED_SQL
 
 STATES = {
     'all': (), 'in_progress': ('queued', 'executing'), 'needs_attention': ('submitted', 'unknown', 'blocked'),
@@ -71,6 +72,8 @@ def publications(db, before, record, status, size, compact, counts):
     states = STATES[status]
     state_filter = '1=1' if not states or record else 'a.state IN (' + ','.join('?' for _ in states) + ')'
     params = list(states) if states and not record else []
+    if status == 'published' and not record:
+        state_filter, params = PLATFORM_PUBLISHED_SQL, []
     fields = ("a.rowid AS cursor,a.id,a.created,a.state AS publication_state,a.id AS publication_action_id,"
               "json_extract(a.data,'$.content.id') AS content_id,json_extract(a.data,'$.content.title') AS title,"
               "substr(json_extract(a.data,'$.content.body'),1,140) AS excerpt,json_extract(a.data,'$.content.asset_ids') AS assets,"

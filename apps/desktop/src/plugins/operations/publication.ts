@@ -24,7 +24,11 @@ export async function publicationBaseline(io: PublicationIO, payload: Record<str
 
 /** Submission is never called here, including when discovery is ambiguous or delayed. */
 export async function resolvePublication(io: PublicationIO, payload: Record<string, any>, receipt: Record<string, any>, baseline?: PublicationBaseline) {
-  const pending = { ...receipt, state: receipt.state === 'unknown' ? 'unknown' : 'submitted', baseline,
+  // Old read failures stay in their command history, not in a fresh successful observation.
+  const prior = { ...receipt }
+  delete prior.error
+  delete prior.error_code
+  const pending = { ...prior, state: receipt.state === 'unknown' ? 'unknown' : 'submitted', baseline,
     publication: { execution: receipt.state === 'unknown' ? 'unknown' : 'submitted', platform: 'unknown', content: 'unknown' } }
 
   let target = receipt.url || payload.result_url
@@ -67,14 +71,29 @@ export async function resolvePublication(io: PublicationIO, payload: Record<stri
     const images = textMatches ? await io.images(detail.images) : { state: 'unknown', evidence: '文本不一致，未继续核对图片' }
     const content = !textMatches ? 'mismatch' : images.state === 'matched' ? 'matched' : 'incomplete'
     let platform = detail.platform
+    let platformCheck: Record<string, any> | undefined
 
     if (platform === 'unknown') {
       await io.navigate('https://creator.xiaohongshu.com/new/note-manager?source=official')
-      const manager = await waitForRead(() => io.read('manager', { ...payload, note_id: detail.id, images: detail.images }), r => r.ready, READINESS_MS, true, io.sleep, io.execution)
+      const manager = await io.trace.step('platform_status', async () => {
+        const request = { ...payload, note_id: detail.id, images: detail.images }
+        let value = await waitForRead(() => io.read('manager', request), r => r.ready, READINESS_MS, true, io.sleep, io.execution)
+        if (value.platform === 'unknown') {
+          const selected = await io.trace.step('published_filter', async () => {
+            const selection = await io.read('manager_select_published', request)
+            return selection.selected ? { ...selection, probe: await io.read('manager', request) } : selection
+          })
+          if (selected.selected) {
+            value = selected.probe.platform !== 'unknown' ? selected.probe : await waitForRead(() => io.read('manager', request), r => r.ready && r.platform !== 'unknown', READINESS_MS, true, io.sleep, io.execution)
+          } else { value = { ...value, filter: selected } }
+        }
+        return value.platform && value.platform !== 'unknown' ? value : { ...value, error_code: 'PLATFORM_STATUS_UNCONFIRMED' }
+      })
+      platformCheck = manager
       platform = manager.platform || 'unknown'
     }
 
-    return { ...pending, url: detail.url, note_id: detail.id, actual: detail.actual, checks: { ...detail.checks, images },
+    return { ...pending, url: detail.url, note_id: detail.id, actual: detail.actual, platform_check: platformCheck, checks: { ...detail.checks, images },
       state: content === 'matched' && platform === 'published' ? 'published' : 'submitted',
       publication: { execution: 'verified', platform, content },
       evidence: content === 'mismatch' ? '实际笔记与批准内容不一致，保留原笔记并转待处理' : `作者与全文已核对；${images.evidence}；平台状态：${platform}` }

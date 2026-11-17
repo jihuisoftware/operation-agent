@@ -25,9 +25,8 @@ def update(store, identity, fields):
 def capture_response(store, budget_id, response):
     if not getattr(store, 'debug_id', None):
         return
-    choices = getattr(response, 'choices', None)
-    message = getattr(choices[0], 'message', None) if isinstance(choices, (list, tuple)) and choices else None
-    update(store, 'model-trace:' + budget_id, {'raw_response': getattr(message, 'content', None), 'response_at': now_iso()})
+    from .model_diagnostics import response_evidence
+    update(store, 'model-trace:' + budget_id, {**response_evidence(response), 'response_at': now_iso()})
 
 
 def traced(store, instruction, data, budget_id, call, *, options):

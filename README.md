@@ -92,7 +92,7 @@
 
 建议先完成一篇稿件的准备与审核，再启用长期计划。不登录内容平台，也可以先使用资料整理、分析和写稿功能。
 
-**使用环境：**当前面向 macOS，界面为简体中文。Windows x64 正在恢复，尚未完成原生验收，开发者可查看 [Windows 开发与测试包说明](docs/windows-development.md)。已有测试安装包的用户直接打开应用；需要从源码运行，请看[本地开发指南](docs/desktop-development.md#本地开发)。
+**使用环境：**当前面向 macOS，界面为简体中文。Windows x64 正在恢复，尚未完成原生验收，开发者可查看 [Windows 开发与测试包说明](docs/windows-development.md)。已有测试安装包的用户直接打开应用；需要从源码运行，请看下方[本地运行命令](#本地运行服务端和桌面端)。
 
 ## 使用前，你可能想知道
 
@@ -147,6 +147,32 @@
 从源码运行、参与开发或制作安装包，请阅读[开发与 macOS 桌面打包](docs/desktop-development.md)。安装包、签名、公证和分发命令均保留在该文档中。
 
 [代码地图](docs/code-map.md) · [开发约束](AGENTS.md) · [贡献指南](CONTRIBUTING.md) · [测试指南](tests/AGENTS.md)
+
+### 本地运行服务端和桌面端
+
+需要 macOS、Git 和 Xcode Command Line Tools。打开两个终端，均在仓库根目录执行，并使用相同的独立开发数据目录。
+
+**终端一：启动服务端（Gateway）。每次启动或重启前，先执行停止命令，等待成功退出后再启动。**
+
+```bash
+export HERMES_HOME="$HOME/hermes-operations-dev"
+export HERMES_RUNTIME_DIR="$HERMES_HOME/tools"
+source ./activate
+./.hermes/bin/hermes gateway stop
+./.hermes/bin/hermes gateway run -v
+```
+
+**终端二：启动桌面端。保持终端一的服务端运行。**
+
+```bash
+export HERMES_HOME="$HOME/hermes-operations-dev"
+export HERMES_RUNTIME_DIR="$HERMES_HOME/tools"
+source ./activate
+npm ci # 首次运行或依赖变化时执行
+HERMES_DESKTOP_HERMES_ROOT="$PWD" npm run dev --workspace apps/desktop
+```
+
+首次使用独立数据目录，需要在桌面端 **设置 → 模型** 中配置模型提供方；其他配置空间的凭证不会自动继承。更多环境、连接与调试说明见[本地开发指南](docs/desktop-development.md#本地开发)。
 
 <a id="打包并分发-macos-应用"></a>
 

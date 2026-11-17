@@ -179,7 +179,7 @@ function OverviewContent({
           更新于 <Time value={data.updated_at} />
           ；页面时间按本机时区显示。
         </p>
-        <p>发布与互动只计核对成功，结果未知的提交不计入成果。内容按版本统计，选题取今日最新一批。</p>
+        <p>发布按平台已发布证据统计，图片与全文一致性单独核对；结果未知的提交不计入成果。互动只计核对成功。所有指标按所示日期统计。</p>
         <p>待处理覆盖历史，各分类可能指向同一事项；失败记录不表示需要重复执行。</p>
         <p>
           排期受调度器、在线状态及规则约束。登录保留最近确认状态，执行前仍核对。费用与平台指标以日报中可获取的数据为准。
@@ -194,7 +194,7 @@ function Metrics({ data }: { data: OverviewData }) {
     { label: '采集来源', value: data.counts.sources, icon: 'search', to: routes.sources },
     { label: '候选选题', value: data.counts.topics, icon: 'lightbulb', to: routes.topics },
     { label: '内容版本', value: data.counts.content, icon: 'file-media', to: routes.content },
-    { label: '确认发布', value: data.counts.published, icon: 'send', to: routes.tasks },
+    { label: '平台已发布', value: data.counts.published, icon: 'send', to: routes.tasks },
     { label: '确认互动', value: data.counts.interactions, icon: 'comment-discussion', to: routes.tasks },
     { label: '模型调用', value: data.counts.model_calls, icon: 'sparkle', to: routes.reports }
   ]
@@ -317,11 +317,12 @@ function Schedule({ data }: { data: OverviewData }) {
 
 function Publications({ data }: { data: OverviewData }) {
   return (
-    <Region icon="send" title="今日已确认发布" to={routes.tasks}>
-      {!data.publications.length && <Empty icon="file-media">暂无确认发布</Empty>}
+    <Region icon="send" title="今日平台已发布" to={routes.tasks}>
+      {!data.publications.length && <Empty icon="file-media">暂无平台确认发布</Empty>}
       {data.publications.map(item => (
         <details className="space-y-2" key={item.id}>
           <summary className="cursor-pointer font-medium">{item.title || '已发布内容'}</summary>
+          {item.content_state && item.content_state !== 'matched' && item.state !== 'published' && <p className="text-amber-600">平台已发布，图文一致性仍待核对；不会重复发布。</p>}
           <p className="text-xs text-muted-foreground">
             账号：{item.account_id || '未记录'} · 动作创建于 <Time value={item.created} />
           </p>
