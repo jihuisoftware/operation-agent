@@ -328,3 +328,11 @@ Desktop对页面加载过程中的负登录证据做同页连续确认（至少3
 首页「平台已发布」按当前计划时区的当日发布动作统计，包括平台已确认发布但图片仍待核对的稿件。发布记录的「已发布」筛选使用相同口径；新日报分别展示平台发布数量和完整核对数量。只取得提交回执、审核中、平台状态未知的稿件不计入发布数量。
 
 只读核对会匹配目标笔记，必要时切换创作者后台的「已发布」筛选，等待列表完成加载。CDN 图片转换参数不影响同一封面地址的关联，但图片相似度仍不能代替完整内容核对。正文、图片不一致或待核对时保留原证据和提示，不自动重发。旧日报保留生成时的快照。
+
+### 可选审核策略
+
+主题私有 GET/PUT `/review-policy` 保存独立 mode（manual/automatic/score）、threshold（默认85）与 revision，更新使用 expected_revision，不修改运营 settings.version。POST `/content/{id}/recheck-review` 接收 content_revision 与幂等 request_id，显式复检历史 AI 稿；POST `/content/{id}/manual-review` 转人工，已排期时同时校验 expected_revision。
+
+评分复用已有文本和视觉检查：正文 evidence40/relevance20/structure20/originality20，视觉 readability40/layout25/relevance20/consistency15，各维度0～100，由服务端加权。两项均达门槛且检查通过才能自动放行，分数不是正确概率。基础封面和上传图片在自动模式中补实际视觉检查，使用现有预算。调整门槛不清空检查缓存；失效、缺分和超时转人工。
+
+新稿捕获审核策略修订，debug 不创建日常自动排期；自动通过决策经 automatic_schedule 恢复排期，复用 content_release。新动作使用 release_revision，旧 human_review 兼容。人工取消/转人工不会被后台重新排期；策略变更撤销未提交自动授权，人工排期保持。旧日报和已提交证据不改写。

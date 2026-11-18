@@ -45,6 +45,8 @@ def check_content(store, policy, day, version, content, sources):
         '"quote":"稿件中有问题的原句","source_ids":[],"message":"原因","suggestion":"具体修改建议"}]}。通过时issues为空。'
         '不确定时pass为false；这是自动检查，不是人工审核。source_truncated表示抓取缺失，excerpted表示本轮节选；'
         '不能把未提供的原文当作已经核对或断言原文没有相关内容，证据不足时指出具体需补证的句子。')
+    from .review_scores import instruction as score_instruction
+    instruction += score_instruction('text')
     if any(asset.get('cover_spec') for asset in assets):
         instruction += 'cover_spec是实际绘制的封面文案，也应核对是否含有无依据的数字、承诺或实测说法；不评价图片视觉质量。'
     if any(asset.get('visual_page') for asset in assets):
@@ -59,7 +61,9 @@ def check_content(store, policy, day, version, content, sources):
          **({"visual_review": visual} if visual else {})})
     signature = hashlib.sha256(encoded({'instruction': instruction, 'data': data, 'version': version}).encode()).hexdigest()
     cached = next((row for row in store.objects('check', day) if row.get('input_signature') == signature and row['result'].get('pass') is True), None)
-    if cached:
+    from .review_policy import get as review_settings
+    from .review_scores import score
+    if cached and (review_settings(store)['mode'] != 'score' or score(cached['result'], 'text') is not None):
         store.event('content_check_reused', {'content_id': content.get('id'), 'check_id': cached['id']})
         return cached['result']
     result = generate(store, policy, day, instruction, data)
@@ -84,6 +88,8 @@ def check_content(store, policy, day, version, content, sources):
 
 
 def produce_content(store, policy, day, version):
+    from .review_policy import get as review_settings
+    review_revision = review_settings(store)['revision']
     from .topics import production_topic
     from .industry import production_context, preferred_sources
     analysis = production_context(store, policy, day)
@@ -99,7 +105,7 @@ def produce_content(store, policy, day, version):
     included = {row['id'] for row in evidence}
     sources = [row for row in sources if row['id'] in included]
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
-    from .content_recovery import fingerprint, pending, review
+    from .content_recovery import fingerprint, pending
     data = inputs.checked(store, 'content', {"analysis": inputs.analysis(analysis, evidence), "policy": inputs.policy(policy), "sources": evidence,
          "assets": inputs.assets([asset for asset in assets if not any(asset.get(key) for key in ('generated_typography', 'generated_magazine', 'generated_visual_art'))]), "tasks": inputs.tasks(store.objects("task", day)),
          "image_mode": policy.get("image_mode", "magazine"), "selected_topic": inputs.selected_topic(topic), "recent_content": inputs.history(public_history(store, policy, day)), "performance_review": []})
@@ -109,7 +115,8 @@ def produce_content(store, policy, day, version):
         validate_content(draft, sources, assets)
         store.event('content_reused', {'content_id': draft['id'], 'source_ids': draft['source_ids'], 'revision_index': draft.get('revision_index', 0)})
         store.progress('复用已保存图文，继续尚未完成的检查或修订', {'content_id': draft['id']})
-        return review(store, policy, day, version, draft, sources)
+        from .automatic_review import finish_production
+        return finish_production(store, policy, day, version, draft, sources)
     content = generate(store, policy, day,
         '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":"",'
         '"cover":{"title":"短封面主标题","subtitle":"副标题","eyebrow":"栏目短标签","keywords":[],"template":"editorial","palette":"blue"}}。'
@@ -146,8 +153,10 @@ def produce_content(store, policy, day, version):
              "production_input": signature, "state": "needs_review", "created": now_iso(),
              "quality": {"pass": False, "reason": "草稿已保存，等待自动质量检查"},
              **({'debug_id': store.debug_id} if getattr(store, 'debug_id', None) else {})}
+    draft['review_policy_revision'] = review_revision
     draft['id'] = store.put('content', draft)
-    return review(store, policy, day, version, draft, sources)
+    from .automatic_review import finish_production
+    return finish_production(store, policy, day, version, draft, sources)
 
 
 def public_history(store, policy, day):

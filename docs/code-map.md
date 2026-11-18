@@ -77,9 +77,9 @@ Windows x64 恢复：`apps/desktop/platform-policy.cjs`、`scripts/build-bundle.
 | 领域 | 定位方式与约束 |
 | --- | --- |
 | 模型执行、上下文、记忆 | `run_agent.py` 为入口，按主题找 `agent/turn_*.py`；规则见 [agent/AGENTS.md](../agent/AGENTS.md) |
-| CLI、配置、私有 HTTP 服务 | `cli.py` / `hermes_cli/cli_*_mixin.py`；`hermes_cli/web_server*.py`；规则见 [hermes_cli/AGENTS.md](../hermes_cli/AGENTS.md) |
-| 桌面运行时与退役接入清理 | `gateway/config.py`（仅 local）、`gateway/run_adapters.py`；[保留边界](../gateway/platforms/ADDING_A_PLATFORM.md) | `session_model_options.py` 模型参数、`session_legacy_identity.py` 历史身份；私有 API 与调度继续保留 |
-| Gateway、JSON-RPC、Profile | `gateway/run*.py` / `session_*.py`；`rpc/`、`transport/`、`contracts/`、`runtime/` | [统一分层说明](gateway-rpc.md)；区域规则见 [Gateway](../gateway/AGENTS.md) 与 [RPC](../gateway/rpc/AGENTS.md) | `tests/gateway/rpc/`、`tests/gateway/contracts/` 和原生会话测试 |
+| 管理入口与共享应用服务 | [hermes_cli 职责导航](../hermes_cli/README.md)；命令与 Gateway 管理、配置/认证/Profile、插件和更新；[私有 HTTP 路由](../hermes_cli/web_routers/README.md)；规则见 [hermes_cli/AGENTS.md](../hermes_cli/AGENTS.md) |
+| 桌面运行时与退役接入清理 | `gateway/config.py`（仅 local）、`gateway/run_adapters.py`；[保留边界](../gateway/platforms/ADDING_A_PLATFORM.md)；模型参数与历史身份在 `session_model_options.py` / `session_legacy_identity.py`，私有 API 与调度继续保留 |
+| Gateway、JSON-RPC、Profile | `gateway/run*.py` / `session_*.py`；`rpc/`、`transport/`、`contracts/`、`runtime/`；[统一分层说明](gateway-rpc.md)、[Gateway 规则](../gateway/AGENTS.md)和 [RPC 规则](../gateway/rpc/AGENTS.md)；测试位于 `tests/gateway/rpc/`、`tests/gateway/contracts/` 及原生会话测试 |
 | 会话存储、Profile 路径 | `state/store.py` / `state/*.py`；`hermes_constants.py` 的 `get_hermes_home()` |
 | 工具、技能、插件 | `model_tools.py` / `toolsets.py` / `tools/registry.py`；按根路由读取对应 AGENTS；不要为找一个工具读取全部注册表 |
 | 环境、依赖、机器事实 | `pm/`、`hermes_platform/`；按根路由读取对应约束，不直接修改托管环境 |
@@ -91,3 +91,7 @@ Windows x64 恢复：`apps/desktop/platform-policy.cjs`、`scripts/build-bundle.
 ## 通用任务看板
 
 Desktop `/kanban`：`apps/desktop/src/plugins/kanban/`；私有 API：`plugins/kanban/dashboard/`；看板执行开关、领取事务与停止证据：`hermes_cli/kanban_execution.py`；Gateway 调度：`gateway/kanban_watchers_dispatcher.py`。存储仍在同一 Hermes 根目录内跨 Profile 共享，自动执行逐看板默认关闭。任务 Worker 通过 `kanban_worker_client` 向所属 Profile 的 Gateway 提交，不启动终端聊天。
+
+## 可选内容审核
+
+`plugins/operations/review_policy.py` 管理主题独立策略；`automatic_review.py` 管理分数、复检、人工干预与幂等；`automatic_schedule.py` 复用既有审核发布台账。私有入口 `dashboard/review_api.py`，Desktop 设置和详情位于 `review-policy.tsx`。回归入口为 `test_operations_automatic_review.py`、`test_operations_review_policy_http.py` 和 `review-policy.test.tsx`。

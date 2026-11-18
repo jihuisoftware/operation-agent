@@ -116,7 +116,7 @@ def revise(store, policy, day, version, draft, sources):
         return None, '自动修订未产生有效修改，原草稿已保留'
     proposed = revised_cover(store, draft, proposed)
     evidence = [row for row in draft.get('organized_evidence', []) if row['id'] in proposed['source_ids']]
-    child = {**proposed, **inputs.fields(draft, ('analysis_context', 'selected_topic', 'production_input', 'cover_origin', 'visual_required')),
+    child = {**proposed, **inputs.fields(draft, ('analysis_context', 'selected_topic', 'production_input', 'cover_origin', 'visual_required', 'review_policy_revision')),
              'day': day, 'version': version, 'created': now_iso(), 'ready': False, 'state': 'needs_review', 'review_pending': True,
              'quality': {'pass': False, 'reason': '修订版本已保存，等待复检'}, 'parent_content_id': draft['id'],
              'revision_root_id': attempt['root_id'], 'revision_index': attempt['revision'], 'revision_reason': draft['quality'],

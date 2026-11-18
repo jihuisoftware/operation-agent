@@ -20,7 +20,8 @@ def choose(store, policy, day, content_id):
            and datetime.fromisoformat(row['publish_at']) <= (getattr(store, 'execution_now', None) or datetime.now(UTC))
            and (content_id is None or row['content_id'] == content_id)]
     if not due:
-        raise StageSkipped('等待人工审核并设置发布时间；不会自动发布未审核稿件')
+        future = [r for r in store.objects('content_release') if r['state'] == 'scheduled' and (content_id is None or r['content_id'] == content_id)]
+        raise StageSkipped('已排期，尚未到发布时间' if future else '等待人工审核或自动审核通过后排期；不会发布未授权稿件')
     release = min(due, key=lambda row: row['publish_at'])
     return manuscript(store, release['content_id']), release
 
@@ -34,6 +35,9 @@ def publish_due(store, now):
     if not due:
         return False
     release = due[0]
+    from .automatic_schedule import defer_for_capacity
+    if defer_for_capacity(store, release, policy, now):
+        return False
     from .workflow import publish
     from .execution_pause import ExecutionPaused
     run = store.start_run(local_day(policy, now), 'publish', f"content-release:{release['content_id']}:{release['revision']}", version)

@@ -56,6 +56,8 @@ def daily_report(store, day, delayed=False):
     if not execution_runs and not preflight_runs:
         lines.append("- 当日无执行记录；未据此推断任务已完成。")
     lines.extend(f"- 临时任务：{t['text']} · {t.get('state', 'pending')}" for t in scope.objects("task"))
+    from .review_reporting import summary as review_summary
+    lines.extend(review_summary(scope))
     lines.extend(source_sections)
     for brief in scope.objects("brief"):
         lines.append("\n结论与待核实信息（模型整理，来源 ID 可查）：\n" + json.dumps(brief["result"], ensure_ascii=False))

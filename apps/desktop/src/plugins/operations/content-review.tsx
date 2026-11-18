@@ -1,3 +1,4 @@
+import { ContentReviewDecision } from './review-policy'
 import { Button, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
@@ -18,7 +19,7 @@ export function ContentReview({ ctx, row, refresh }: Props) {
   const [notice, setNotice] = useState('')
   const [newVersion, setNewVersion] = useState('')
   const [rescheduling, setRescheduling] = useState(false)
-  const release = row.release as { state: string; publish_at: string; revision: number; detail?: string; waiting?: PublicationWait } | null
+  const release = row.release as { reviewer?: string; state: string; publish_at: string; revision: number; detail?: string; waiting?: PublicationWait } | null
 
   const submit = async (operation: 'approve' | 'cancel-schedule') => {
     setPending(true)
@@ -61,8 +62,9 @@ export function ContentReview({ ctx, row, refresh }: Props) {
   if (row.publication_state) { return null }
 
   return <section aria-label="审核与排期" className="space-y-3">
+    <ContentReviewDecision row={row} ctx={ctx} refresh={refresh} />
     {release?.state === 'scheduled' && !rescheduling
-      ? <><p>已审核，计划于 {formatTimestamp(release.publish_at)} 发布</p>
+      ? <><p>{release?.reviewer === 'automatic' ? '自动审核通过' : '人工审核通过'}，计划于 {formatTimestamp(release.publish_at)} 发布</p>
           <Button disabled={pending} onClick={() => { setTime(localInput(release.publish_at)); setRescheduling(true) }} variant="outline">调整发布时间</Button>
           <Button disabled={pending} onClick={() => void submit('cancel-schedule')} variant="outline">取消排期</Button></>
       : <><label className="grid gap-1">发布时间（本机时区）
@@ -93,7 +95,7 @@ export function GenerateContent({ ctx, refresh }: Pick<Props, 'ctx' | 'refresh'>
 
   const generate = async () => {
     setPending(true)
-    setNotice('正在生成完整图文，完成后进入待审核')
+    setNotice('正在生成完整图文，完成后按当前审核策略处理')
 
     try {
       const { version } = await ctx.rest<{ version: number }>('/policy')
@@ -106,7 +108,7 @@ export function GenerateContent({ ctx, refresh }: Pick<Props, 'ctx' | 'refresh'>
     } catch (reason) { setNotice(String(reason)) } finally { setPending(false) }
   }
 
-  return <div className="space-y-2"><Button disabled={pending} onClick={() => void generate()}>生成待审图文</Button>
-    <p className="text-sm text-muted-foreground">根据已有资料选题并生成正文；没有配图时自动制作文字封面，审核时可以替换。</p>
+  return <div className="space-y-2"><Button disabled={pending} onClick={() => void generate()}>生成图文</Button>
+    <p className="text-sm text-muted-foreground">按主题设置生成正文与配图，完成后进入人工审核或自动排期。手写稿仍需人工审核。</p>
     {notice && <p role="status">{notice}</p>}</div>
 }

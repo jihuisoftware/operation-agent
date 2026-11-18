@@ -110,7 +110,7 @@ def publish(store, policy, day, version, *, content_id=None):
     account = release['account_id'] if release else resolve_account(store, policy)
     action = {"kind": "publish", "account_id": account, "target": content_digest(content), "content": content}
     if release:
-        action['human_review'] = release['revision']
+        action['release_revision'] = release['revision']
     identity = store.reserve_action(action, version, day)
     if not identity:
         raise StageSkipped("本次发布尝试已有记录，请查看原任务状态；不会重复派发")

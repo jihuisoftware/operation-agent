@@ -80,7 +80,7 @@ def test_complete_cover_waits_for_review_then_scheduled_tick_publishes_exactly_o
     tick(reopened, due + timedelta(seconds=1), scheduled=True)
     assert len(seen) == 1
     assert seen[0]['payload']['content']['id'] == draft['id']
-    assert seen[0]['payload']['human_review'] == approval['revision']
+    assert seen[0]['payload']['release_revision'] == approval['revision']
     assert not store.policy()[1]['allowed']['publish']
     tick(store, due + timedelta(seconds=2), scheduled=True)
     assert len(seen) == 1
