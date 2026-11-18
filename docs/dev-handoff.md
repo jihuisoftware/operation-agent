@@ -1,6 +1,69 @@
 # 当前开发交接记录
 
+## 分支切换（2026-11-18）
+
+已从 operation 切回 desk，基准 4a3d484f3d；未合并 operation 的 81bdc56cf0。15 个未提交路径已恢复，保留新建 stash 备份。本次仅切分支和恢复文档，没有运行业务测试、提交、推送或重启后台。下方旧文档中此前遗留的冲突标记原样保留，不代表已完成文档整理。
+
+## 待执行步骤层级缩进（2026-11-17）
+
+基准 `81bdc56cf0`；保留已有封面与文档修改及现存冲突标记。
+`upcoming.tsx` 在日期/手动批次标题下为步骤列表添加 `ml-6 mt-3 space-y-3`，保留原生details嵌套和取消逻辑。现有UI3项、ESLint通过；本次源码diff空白检查通过。未重启后台、未执行或取消真实任务。
+
+<<<<<<< Updated upstream
+## Devtools 目录分析（2026-11-16）
+
+基准 `a16bb11469`；仅分析，未改 devtools 实现或测试，保留现有工作树修改。11 个 Python 文件约 1084 行，均为运营调试；调用正式业务流程，使用当前 Profile/主题真实数据。单任务、显式多选、一次性动作授权、租约、恢复取消、证据和归档各有模块；无独立定时器。
+
+- `scripts/run_tests.sh tests/devtools tests/scripts/test_operations_debug_distribution.py -q`：9 文件、51 通过、8 失败，失败位于 pipeline（6）和 pipeline_http（2）。定向复跑文字封面用例确认：默认 image_mode=magazine，测试未提供生图能力，内容保存但 ready=false，发布跳过，旧断言仍期待完成/5项动作。默认变化来自 `16aa70604c`；应明确基础封面测试模式并补齐杂志组图模拟，不能据此认定正式发布损坏。
+- 主要改进方向：统一分散的 TASKS/DEPENDENCIES/handlers/EXTERNAL 元数据；区分 HTTP 接入与批次生命周期；历史清除仅归档，完整导出仍整批读入，需评估长期证据容量和导出边界。源码检查、Profile 开关、认证/主题作用域和发布快照排除已有覆盖；通过的模拟测试不等于真实网站验收。
+
+## Cron 目录分析（2026-11-16）
+
+基准 `a16bb11469`；仅分析，保留既有改动，未修改 cron 实现或测试、未启动业务任务。目录直属 45 个 Python 文件约 19250 行；scheduler.py 4441 行、jobs.py 3482 行，占约 41%。现有 168 个直属测试文件不代表已全部验收。
+
+- 抽查仓库运行器：`test_manual_tick_overlap.py`、`test_scheduled_occurrence.py`、`test_cron_profile_isolation.py`，共 9 通过、1 失败。迁移用例在 scheduled_occurrence:125 直接改终态但不填 finished_at，触发 task_history_terminal 将 NULL 写入 task_runs.updated。正常 finish_execution 同时填 finished_at；尚未据此证明生产结束路径有相同问题。应先明确测试构造与旧数据兼容契约，再修复。
+- 核心边界：jobs.json 管定义/排期/认领，executions.db 管尝试与步骤，admissions 管 Gateway 提交回执。运营插件注册每分钟 no_agent 脚本，由自身 runtime 决定业务步骤；业务 JSON 失败属于插件处理，不能当作 Cron 唤醒失败。
+- 优先整理 scheduler/jobs 的职责；保留 pending_slot、fire claim、跨 Profile scope 和未知执行不重放机制。投递/旧 Bot 命名相关代码仍有调用及历史回执责任，不宜仅凭退役名称删除。并发注释 unbounded 实际传 None 给 ThreadPoolExecutor，含义是使用 Python 默认线程数，应核对文档。
+
+## 内容 JSON 失败复测与诊断补充（2026-11-16）
+
+基准 `a16bb11469`；保留已有 README、运营发布统计及交接修改。先按用户请求运行一次内容生产调试，随后补充失败诊断；未修改模型配置、未重启后台，修改未提交。
+
+- 10:12 的定时 content 任务在 JSON 解析处失败；普通任务未保存原始响应，无法还原具体非法字符。
+- 10:22:16–10:22:38 调试批次 `debug:diagnose-content-json-20261116-01` 使用同一提供方 `moyu-cn-v1` / `deepseek-v4.1-flash`、规则版本 5；输入规模仍为 2625 字符、1654 prompt tokens。仅调用一次模型，本次原始 JSON（1287 字符）解析成功，未复现原错误；不能据此宣称原问题已修复。
+- 草稿 `4339494318b64dbd875d53f013dd0cc0` 已保存；杂志组图因未配置可用生图模型而未完成，ready=false。未发布或互动，本批外部动作数为 0。输入、原始响应和用量已保存在任务调试证据中。
+- 后续可在任务调试 → 内容生产查看该批次；早先 JSON 失败与当前生图配置缺失是两个问题。未重跑第二次或修改配置。
+- `model_output.py` 保留 JSON 错误行列、字符偏移及去空白/代码块前的原文坐标；`model_diagnostics.py` 将结束原因、响应长度、SHA-256 和受控正文证据写入本地 `model_output_error`，普通定时任务同样覆盖。进度日志只带元数据；调试 trace 关联诊断并采用同一响应限制。正文强制脱敏，最多保留 16384 字符首尾加截断标记，超过 131072 字符则省略正文；不保存诊断请求/推理、不上传、不增加重试或采纳无效结果。
+- 新增 8 项诊断回归在当前基准证红；修改后 5 文件 29 项通过（诊断、模型失败与预算、任务详情、取消），使用仓库运行器和临时 Profile/模拟模型。项目 Node 26 环境下 `scripts/check --base HEAD` 的 12 项检查及 diff 空白检查通过。默认检查另发现既有大文件相对 origin/main 超限和宿主 Node 12 不兼容，均非本轮改动。
+- 新诊断尚未加载到运行中的 Gateway；后续需待后台空闲，在同一环境/Profile 先 stop 并等待退出，再启动。历史响应无法补回；本次仅补诊断，未实现 JSON 模式或格式修正重试。
+
+## 平台发布核对与数量统计修复（2026-11-15）
+
+基准 `a16bb11469`；开始时工作树干净，未提交。用户反馈已发布稿件的「确认发布」一直为 0。
+
+- 只读生产证据：11 月 15 日和 11 月 11 日的稿件作者、标题、全文已匹配，但图片被 CDN 转码（相似度仅作参考），平台始终 unknown。创作者后台默认「全部」列表正常卡片不带「已发布」标签；实际选中筛选类为 `.tab-item--active`。
+- `publication-page.ts` 在唯一笔记身份/标题＋同一 CDN 原图键关联后识别卡片状态或选中筛选，拒绝冲突 ID、歧义卡片、隐藏卡片、非当前筛选和用户文案。增加固定的「已发布」筛选操作，仅改变只读列表视图，不调用发布控件。
+- `publication.ts` 等待筛选后的列表和状态，记录独立 platform_status/published_filter 证据；新核对不继承旧窗口中断错误。图片逐字节检查与相似度参考规则未放宽；自动动作完整成功仍要求图文核对通过。
+- 首页改为「平台已发布」，与发布记录「已发布」筛选采用独立平台证据口径。平台未知/仅提交不计数；平台已发布但图文待核对单独提示。新日报分别列平台发布和完整核对数量；原日报、人工结论与命令证据不重写。
+- 新增回归在修改前 4 项证红；最终 Python 7 文件 29 项、Desktop 4 文件 23 项通过，完整类型检查、仓库 12 项检查、diff 空白检查通过。覆盖过滤选中、CDN 地址转换、加载中状态、重复/冲突身份、图片不完整和统计/列表一致性。
+- 实际验收使用现有私有 API＋在线 Desktop worker，只对原笔记发起 verify。两篇最终均为 execution=verified/platform=published/content=incomplete，无当前 error；没有重发、评论、私信或调用模型。开发页面热更新曾中断一条只读命令，保留原始回执；随后稳定版本的两次核对均完成。
+- 后台空闲（活跃会话、步骤、网页命令均为 0）后，同环境执行 gateway stop 并等退出，再 gateway ensure --json。重启后实际 `/overview` 返回 2026-11-15 published=1，已发布列表返回今日稿件并标记图文待核对。
+- 图片完整性仍需人工核对，不能把平台发布确认当成图片精确一致。首页按动作所属日统计，旧稿核对更新不会冒充今天新增发布。说明见 `plugins/operations/README.md`。
+=======
+## 小红书封面系列与同类候选（2026-11-17）
+
+基准 `4a3d484f3d`，开始时工作树干净；未提交。
+- `cover_design` 提供小红书基础/柔和/印刷/涂鸦/手写，renderer版本5；`cover_variants.py` 明确每个风格的款式，候选优先同版式/风格/配色，不足3款才补其他风格，普通模板候选也保留所选配色。
+- 柔和有上下引言/侧边引言/细框留白三款；手写有横线手记/新增荧光涂写；印刷有撕边纸笺/新增不规则纸片。新增荧光黄配色；印刷使用已安装宋体。新绘制在 `cover_social_variants.py`；变体及字体进入缓存签名。前端显示款式名称，切换风格清除不兼容variant，旧封面规格保留默认映射。
+- 新增 `cover_xiaohongshu.py` 本地绘图：纸纹、引号、撕纸、印章、箭头、小动物线稿、荧光笔与横线纸；所有文字沿用实测排版，无AI生图、截图裁切或外部素材依赖。
+- `hermes_platform/fonts.py` 增加中文手写/楷体查找，覆盖macOS字体资产目录与Windows候选，缺少时回退常规中文；本机使用Hannotate SC。前端封面面板增加条件风格选择，沿用预览与应用契约。
+- 本轮后端41项、UI4项、renderer类型检查、ESLint、仓库12项检查通过；覆盖同类优先/不足补齐/配色保留、全部款式的长标题与不同图像、缓存、旧封面保存及切换风格。此前Windows字体实机用例在Mac跳过。
+- 样张5张与对照图位于 `/Users/home/.codex/visualizations/2026/11/09/01a1befc-3e40-7b03-a1a6-c4df6a7ab4f2/xiaohongshu-covers/`，已逐图检查对照图。未覆盖用户稿件或发布内容。
+- 11月17日用户在知晓活跃cron后明确要求重启：同HERMES_HOME激活环境，gateway stop --yes中断每日运营调度本轮并成功退出；ensure最初返回draining，随后Desktop接入新实例PID65413（active_agents=0）。实际Desktop私有接口确认renderer_version=5及荧光黄配色已加载。未手动重跑中断任务，未替换原稿、未发布。
+- 本轮本地成图已检查：上述目录 `new-variants.png` 为新增两款，`soft-variants.png` 为同柔和/深海蓝三款；各款独立PNG也已输出。
+
 ## 来源素材库页码跳转（2026-11-16）
+>>>>>>> Stashed changes
 
 基准 `9fb1e32b32`，开始时工作树干净；已有交接冲突标记未改动。未提交。
 - SourceLibrary 改用直接页码查询，SourcePagination 提供总页数、首页/末页、前后页、输入页码与回车跳转；搜索回第一页，非法页码禁用提交。

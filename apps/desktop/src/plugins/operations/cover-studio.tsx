@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react'
 import { coverAssetIds, versionRequest } from './content-version-actions'
 import type { RecordRow } from './types'
 
-interface CoverSpec { title: string; subtitle: string; eyebrow: string; keywords: string[]; template: string; palette: string; size: string }
-interface Candidate { asset_id: string; cover: CoverSpec; template_label: string; palette_label: string }
-interface Options { templates: { id: string; label: string }[]; palettes: { id: string; label: string; color: string }[] }
+interface CoverSpec { title: string; subtitle: string; eyebrow: string; keywords: string[]; template: string; palette: string; size: string; style?: string; variant?: string }
+interface Candidate { asset_id: string; cover: CoverSpec; template_label: string; palette_label: string; variant_label?: string }
+interface Options { social_styles?: { id: string; label: string }[]; templates: { id: string; label: string }[]; palettes: { id: string; label: string; color: string }[] }
 interface Preview extends Options { set_id: string; candidates: Candidate[] }
 interface Props { ctx: PluginContext; row: RecordRow; refresh: () => Promise<unknown>; working?: { preview: (spec: CoverSpec) => Promise<Preview>; apply: (id: string) => Promise<void> } }
 
@@ -36,8 +36,17 @@ function Choices({ ctx, items, selected, onSelect, disabled }: { ctx: PluginCont
   return <div className="grid gap-3 sm:grid-cols-3">{items.map(item => <article className={`space-y-2 rounded-xl border p-3 ${selected === item.asset_id ? 'ring-2 ring-primary' : ''}`} key={item.asset_id}>
     <CoverArt ctx={ctx} item={item} />
     <p className="text-sm">{item.template_label} · {item.palette_label}</p>
-    <Button aria-pressed={selected === item.asset_id} disabled={disabled} onClick={() => onSelect(item)} size="sm" variant="outline">选用{item.template_label}</Button>
+    {item.variant_label && <p className="text-xs text-muted-foreground">{item.variant_label}</p>}
+    <Button aria-pressed={selected === item.asset_id} disabled={disabled} onClick={() => onSelect(item)} size="sm" variant="outline">选用{item.variant_label || item.template_label}</Button>
   </article>)}</div>
+}
+
+interface SocialStyleProps { spec: CoverSpec; options: Options; disabled: boolean; onChange: (style: string) => void }
+
+function SocialStyleSelect({ spec, options, disabled, onChange }: SocialStyleProps) {
+  if (spec.template !== 'xiaohongshu') { return null }
+
+  return <label className="grid gap-1 text-sm">小红书风格<select aria-label="小红书封面风格" className="rounded border bg-background p-2" disabled={disabled} onChange={event => onChange(event.target.value)} value={spec.style || 'basic'}>{options.social_styles?.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
 }
 
 export function CoverStudio({ ctx, row, refresh, working }: Props) {
@@ -101,6 +110,7 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
 
   return <section aria-label="封面设计" className="space-y-4 rounded-xl bg-muted/30 p-4">
     <p className="text-sm text-muted-foreground">封面标题独立于文章标题。修改文字、配色和布局只在本地绘制，不消耗模型额度。</p>
+    <p className="text-xs text-muted-foreground">优先生成同版式、同风格、同配色的不同款式；不足三个时，用其他风格补齐，配色不变。</p>
     <p className="text-xs text-muted-foreground">主标题建议 8–18 字；副标题说明内容，关键词突出阅读重点。旧稿也可先补全文案，再生成候选。</p>
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-sm">封面主标题<textarea aria-label="封面主标题" className="rounded border bg-background p-2" disabled={busy} maxLength={36} onChange={event => setSpec({ ...spec, title: event.target.value })} rows={2} value={spec.title} /></label>
@@ -108,7 +118,8 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
       <label className="grid gap-1 text-sm">栏目标签<input aria-label="封面栏目" className="rounded border bg-background p-2" disabled={busy} maxLength={12} onChange={event => setSpec({ ...spec, eyebrow: event.target.value })} value={spec.eyebrow} /></label>
       <label className="grid gap-1 text-sm">关键词（最多三项，以顿号分隔）<input aria-label="封面关键词" className="rounded border bg-background p-2" disabled={busy} onChange={event => setWords(event.target.value)} value={words} /></label>
       {options && <>
-        <label className="grid gap-1 text-sm">版式<select aria-label="封面版式" className="rounded border bg-background p-2" disabled={busy} onChange={event => setSpec({ ...spec, template: event.target.value })} value={spec.template}>{options.templates.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <label className="grid gap-1 text-sm">版式<select aria-label="封面版式" className="rounded border bg-background p-2" disabled={busy} onChange={event => setSpec({ ...spec, template: event.target.value, variant: undefined })} value={spec.template}>{options.templates.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <SocialStyleSelect disabled={busy} onChange={style => setSpec({ ...spec, style, variant: undefined })} options={options} spec={spec} />
         <label className="grid gap-1 text-sm">配色<select aria-label="封面配色" className="rounded border bg-background p-2" disabled={busy} onChange={event => setSpec({ ...spec, palette: event.target.value })} value={spec.palette}>{options.palettes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
       </>}
       <label className="grid gap-1 text-sm">标题字号<select aria-label="标题字号" className="rounded border bg-background p-2" disabled={busy} onChange={event => setSpec({ ...spec, size: event.target.value })} value={spec.size}><option value="normal">标准（自动适配）</option><option value="large">醒目（自动适配）</option></select></label>

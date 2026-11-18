@@ -2,9 +2,11 @@
 import re
 import unicodedata
 
-RENDER_VERSION = 3
-TEMPLATES = {'editorial': '编辑精选', 'comparison': '对比卡片', 'checklist': '清单要点', 'spotlight': '醒目标题'}
+RENDER_VERSION = 5
+TEMPLATES = {'editorial': '编辑精选', 'comparison': '对比卡片', 'checklist': '清单要点', 'spotlight': '醒目标题', 'xiaohongshu': '小红书版'}
+SOCIAL_STYLES = {'basic': '基础', 'soft': '柔和', 'print': '印刷', 'doodle': '涂鸦', 'handwriting': '手写'}
 PALETTES = {
+    'lime': {'name': '荧光黄', 'paper': '#fcfcfa', 'ink': '#181915', 'accent': '#c9f527', 'soft': '#edf7b9', 'dark': '#272b17', 'bright': '#e6ff84'},
     'blue': {'name': '深海蓝', 'paper': '#edf2f7', 'ink': '#12283f', 'accent': '#196cbe', 'soft': '#d8e6f5', 'dark': '#12283f', 'bright': '#a5d6ff'},
     'mint': {'name': '薄荷绿', 'paper': '#edf4ee', 'ink': '#173b35', 'accent': '#267a63', 'soft': '#d5e7d7', 'dark': '#173b35', 'bright': '#b7e3be'},
     'sand': {'name': '暖砂橙', 'paper': '#f6f1e7', 'ink': '#342d28', 'accent': '#b8492d', 'soft': '#eadbc7', 'dark': '#342d28', 'bright': '#f5bd8b'},
@@ -15,6 +17,7 @@ LIMITS = {'title': 36, 'subtitle': 60, 'eyebrow': 12, 'keyword': 12}
 
 def options():
     return {'templates': [{'id': key, 'label': value} for key, value in TEMPLATES.items()],
+            'social_styles': [{'id': key, 'label': value} for key, value in SOCIAL_STYLES.items()],
             'palettes': [{'id': key, 'label': value['name'], 'color': value['accent']} for key, value in PALETTES.items()],
             'limits': LIMITS, 'renderer_version': RENDER_VERSION}
 
@@ -53,11 +56,22 @@ def normalized(value, article_title, *, strict=False):
                 raise ValueError('封面样式无效：' + key)
             chosen = default
         result[key] = chosen
+    if result['template'] == 'xiaohongshu':
+        style = value.get('style', 'basic')
+        if not isinstance(style, str) or style not in SOCIAL_STYLES:
+            if strict:
+                raise ValueError('小红书封面风格无效')
+            style = 'basic'
+        result['style'] = style
+        from .cover_variants import normalize_variant
+        result['variant'] = normalize_variant(value, style, strict)
     return result
 
 
 def variations(spec):
+    if spec['template'] == 'xiaohongshu':
+        from .cover_variants import social_variations
+        return social_variations(spec)
     alternatives = ['spotlight', 'checklist', 'editorial', 'comparison']
     templates = [spec['template'], *[key for key in alternatives if key != spec['template']]][:3]
-    palettes = [spec['palette'], 'mint' if spec['palette'] != 'mint' else 'blue', 'sand' if spec['palette'] != 'sand' else 'plum']
-    return [{**spec, 'template': template, 'palette': palette} for template, palette in zip(templates, palettes)]
+    return [{**spec, 'template': template} for template in templates]

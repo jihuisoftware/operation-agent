@@ -2,13 +2,14 @@
 import hashlib
 import json
 
-from .cover_design import RENDER_VERSION, TEMPLATES, PALETTES, variations
+from .cover_design import RENDER_VERSION, TEMPLATES, PALETTES, SOCIAL_STYLES, variations
 from .store import encoded
 
 
 def candidate(store, spec):
-    from hermes_platform.fonts import chinese_font, chinese_font_index
-    path = chinese_font()
+    from hermes_platform.fonts import chinese_font_index
+    from .cover_variants import cover_font
+    path = cover_font(spec)
     if path is None:
         raise ValueError('无法生成中文封面，请上传图片或安装中文字体')
     stat = path.stat()
@@ -18,7 +19,7 @@ def candidate(store, spec):
     with store.connection() as db:
         saved = db.execute("SELECT data FROM objects WHERE id=? AND kind='cover_render'", (key,)).fetchone()
         record = json.loads(saved[0]) if saved else None
-        cached = ({key: record[key] for key in ('asset_id', 'cover', 'template_label', 'palette_label', 'layout')} if record else None)
+        cached = ({key: record[key] for key in ('asset_id', 'cover', 'template_label', 'palette_label', 'layout', 'variant_label')} if record else None)
         asset = db.execute("SELECT data FROM objects WHERE id=? AND kind='asset'", (cached['asset_id'],)).fetchone() if cached else None
     if asset:
         value = json.loads(asset[0])
@@ -45,7 +46,11 @@ def candidate(store, spec):
         db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(metadata), identity))
     from .workspace_resources import save_asset
     save_asset(store, identity)
-    result = {'asset_id': identity, 'cover': spec, 'template_label': TEMPLATES[spec['template']],
+    label = TEMPLATES[spec['template']]
+    if spec['template'] == 'xiaohongshu':
+        label += ' · ' + SOCIAL_STYLES[spec.get('style', 'basic')]
+    from .cover_variants import variant_label
+    result = {'asset_id': identity, 'cover': spec, 'template_label': label, 'variant_label': variant_label(spec),
               'palette_label': PALETTES[spec['palette']]['name'], 'layout': layout}
     store.put('cover_render', result, key)
     return result

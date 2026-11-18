@@ -107,30 +107,32 @@ export function UpcomingOperations({ ctx, owner }: { ctx: PluginContext; owner: 
         ]
           .filter(group => group.steps.length > 0)
           .map(group => (
-            <details className="space-y-3" key={group.title} open>
+            <details key={group.title} open>
               <summary className="cursor-pointer font-medium">{group.title}</summary>
-              {group.steps.map(step => (
-                <div className="flex items-start justify-between gap-4" key={`${step.day}:${step.stage}:${step.slot}`}>
-                  <details className="min-w-0 flex-1">
-                    <summary className="cursor-pointer">
-                      {step.execution_id ? '手动执行' : step.slot} · {step.title} ·{' '}
-                      {step.state === 'cancelled' ? '已取消' : '待执行'}
-                    </summary>
-                    <p className="mt-2 select-text">{step.intent}</p>
-                    {step.readiness && !step.readiness.ready && (
-                      <p className="text-xs text-muted-foreground">待完善：{step.readiness.reasons.join('、')}</p>
-                    )}
-                  </details>
-                  <Button
-                    disabled={pending !== null || step.state !== 'pending'}
-                    onClick={() => void cancel(step)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {pending === `${step.day}:${step.stage}:${step.slot}` ? '正在取消…' : '取消步骤'}
-                  </Button>
-                </div>
-              ))}
+              <div className="ml-6 mt-3 space-y-3">
+                {group.steps.map(step => (
+                  <div className="flex items-start justify-between gap-4" key={`${step.day}:${step.stage}:${step.slot}`}>
+                    <details className="min-w-0 flex-1">
+                      <summary className="cursor-pointer">
+                        {step.execution_id ? '手动执行' : step.slot} · {step.title} ·{' '}
+                        {step.state === 'cancelled' ? '已取消' : '待执行'}
+                      </summary>
+                      <p className="mt-2 select-text">{step.intent}</p>
+                      {step.readiness && !step.readiness.ready && (
+                        <p className="text-xs text-muted-foreground">待完善：{step.readiness.reasons.join('、')}</p>
+                      )}
+                    </details>
+                    <Button
+                      disabled={pending !== null || step.state !== 'pending'}
+                      onClick={() => void cancel(step)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {pending === `${step.day}:${step.stage}:${step.slot}` ? '正在取消…' : '取消步骤'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </details>
           ))}
     </section>

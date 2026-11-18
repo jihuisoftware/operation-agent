@@ -98,6 +98,9 @@ def spotlight(draw, spec, path, colors):
 
 
 def render(spec, path):
+    if spec['template'] == 'xiaohongshu':
+        from .cover_xiaohongshu import render as render_social
+        return render_social(spec, path)
     colors = PALETTES[spec['palette']]
     image = Image.new('RGB', (WIDTH, HEIGHT), colors['paper'])
     draw = ImageDraw.Draw(image)
