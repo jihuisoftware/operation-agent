@@ -21,10 +21,8 @@ def candidate(store, spec):
         record = json.loads(saved[0]) if saved else None
         cached = ({key: record[key] for key in ('asset_id', 'cover', 'template_label', 'palette_label', 'layout', 'variant_label')} if record else None)
         asset = db.execute("SELECT data FROM objects WHERE id=? AND kind='asset'", (cached['asset_id'],)).fetchone() if cached else None
-    if asset:
-        value = json.loads(asset[0])
-        if not value.get('authorized') or value.get('revoked'):
-            raise ValueError('此封面素材已撤回，请更换样式或配色')
+    value = json.loads(asset[0]) if asset else {}
+    if value.get('authorized') and not value.get('revoked'):
         from .publication_snapshot import asset_bytes
         try:
             asset_bytes({**value, 'id': cached['asset_id']})
@@ -33,19 +31,16 @@ def candidate(store, spec):
             pass  # Rebuild a missing/corrupt locally generated file from its specification.
     from .cover_renderer import render
     raw, layout = render(spec, path)
-    identity = hashlib.sha256(raw).hexdigest()
-    with store.connection() as db:
-        prior = db.execute("SELECT data FROM objects WHERE id=? AND kind='asset'", (identity,)).fetchone()
-        if prior and (json.loads(prior[0]).get('revoked') or not json.loads(prior[0]).get('authorized')):
-            raise ValueError('此封面素材已撤回，请更换样式或配色')
-    identity = store.add_asset(TEMPLATES[spec['template']] + '封面.png', raw, True)
-    with store.connection() as db:
-        row = db.execute("SELECT data FROM objects WHERE id=? AND kind='asset'", (identity,)).fetchone()
-        metadata = {**json.loads(row[0]), 'generated_typography': True, 'cover_title': spec['title'],
-                    'cover_spec': spec, 'cover_renderer': RENDER_VERSION, 'cover_layout': layout}
-        db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(metadata), identity))
-    from .workspace_resources import save_asset
-    save_asset(store, identity)
+    metadata = {'generated_typography': True, 'cover_title': spec['title'], 'cover_spec': spec,
+                'cover_renderer': RENDER_VERSION, 'cover_layout': layout}
+    filename = TEMPLATES[spec['template']] + '封面.png'
+    if asset and (value.get('revoked') or not value.get('authorized')):
+        raw = replacement_png(raw, cached['asset_id'])
+    identity = store.add_asset(filename, raw, True, cover_metadata=metadata)
+    while identity is None:
+        # Identical pixels can be regenerated while revoked content hashes stay revoked.
+        raw = replacement_png(raw, hashlib.sha256(raw).hexdigest())
+        identity = store.add_asset(filename, raw, True, cover_metadata=metadata)
     label = TEMPLATES[spec['template']]
     if spec['template'] == 'xiaohongshu':
         label += ' · ' + SOCIAL_STYLES[spec.get('style', 'basic')]
@@ -53,7 +48,22 @@ def candidate(store, spec):
     result = {'asset_id': identity, 'cover': spec, 'template_label': label, 'variant_label': variant_label(spec),
               'palette_label': PALETTES[spec['palette']]['name'], 'layout': layout}
     store.put('cover_render', result, key)
+    if cached and cached['asset_id'] != identity:
+        with store.connection() as db:
+            db.execute("UPDATE objects SET data=json_set(data,'$.asset_id',?) WHERE id=? AND kind='cover_render'",
+                       (identity, key))
     return result
+
+
+def replacement_png(raw, previous_id):
+    from io import BytesIO
+    from PIL import Image, PngImagePlugin
+    info = PngImagePlugin.PngInfo()
+    info.add_text('previous_asset', previous_id)
+    output = BytesIO()
+    with Image.open(BytesIO(raw)) as image:
+        image.save(output, format='PNG', pnginfo=info)
+    return output.getvalue()
 
 
 def candidates(store, spec):

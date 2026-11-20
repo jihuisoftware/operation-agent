@@ -463,7 +463,7 @@ class Store:
         from .store_reads import snapshot
         return snapshot(self)
 
-    def add_asset(self, filename, content, authorized):
+    def add_asset(self, filename, content, authorized, *, cover_metadata=None):
         from plugins.plugin_storage import plugin_data_dir
         if not authorized or not content or len(content) > 20 * 1024 * 1024:
             raise ValueError("素材必须确认使用授权，且文件不超过 20 MB")
@@ -487,7 +487,10 @@ class Store:
         directory.mkdir(exist_ok=True)
         (directory / (digest + suffix)).write_bytes(content)
         identity = self.put("asset", {"name": Path(filename).name, "file": digest + suffix,
-                                     "authorized": True, "sha256": digest}, digest)
+                                     "authorized": True, "sha256": digest, **(cover_metadata or {})}, digest)
+        if cover_metadata is not None:
+            from .workspace_resources import save_generated_cover
+            return identity if save_generated_cover(self, identity, cover_metadata) else None
         from .workspace_resources import save_uploaded_asset
         save_uploaded_asset(self, identity)
         return identity

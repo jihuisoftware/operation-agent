@@ -1,5 +1,5 @@
 import { Button, host, type PluginContext } from '@hermes/plugin-sdk'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { coverAssetIds, versionRequest } from './content-version-actions'
 import type { RecordRow } from './types'
@@ -16,7 +16,14 @@ function initialSpec(row: RecordRow): CoverSpec {
 
 function firstAsset(row: RecordRow) { return String((row.asset_ids as string[] || [])[0] || '') }
 
-function CoverArt({ ctx, item, large = false }: { ctx: PluginContext; item: Candidate; large?: boolean }) {
+interface CoverArtProps {
+  ctx: PluginContext
+  item: Candidate
+  onUnavailable: (id: string) => void
+  large?: boolean
+}
+
+function CoverArt({ ctx, item, onUnavailable, large = false }: CoverArtProps) {
   const [image, setImage] = useState('')
   const [error, setError] = useState('')
   useEffect(() => {
@@ -24,17 +31,35 @@ function CoverArt({ ctx, item, large = false }: { ctx: PluginContext; item: Cand
     setImage(''); setError('')
     void ctx.rest<{ data: string; mime?: string }>(`/assets/${encodeURIComponent(item.asset_id)}${large ? '' : '?thumbnail=true'}`).then(value => {
       if (!disposed) { setImage(`data:${value.mime || 'image/png'};base64,${value.data}`) }
-    }).catch(reason => { if (!disposed) { setError(String(reason)) } })
+    }).catch(reason => {
+      if (disposed) { return }
+      const message = String(reason)
+
+      if (message.includes('素材不存在或已撤回')) {
+        onUnavailable(item.asset_id)
+      } else {
+        setError(message)
+      }
+    })
 
     return () => { disposed = true }
-  }, [ctx, item.asset_id, large])
+  }, [ctx, item.asset_id, large, onUnavailable])
 
   return error ? <p role="alert">{error}</p> : image ? <img alt={`${item.template_label}封面预览`} className={large ? 'mx-auto max-h-[70vh] max-w-full object-contain' : 'aspect-[3/4] w-full rounded object-contain'} src={image} /> : <p>正在读取封面…</p>
 }
 
-function Choices({ ctx, items, selected, onSelect, disabled }: { ctx: PluginContext; items: Candidate[]; selected: string; onSelect: (item: Candidate) => void; disabled: boolean }) {
+interface ChoicesProps {
+  ctx: PluginContext
+  items: Candidate[]
+  selected: string
+  onSelect: (item: Candidate) => void
+  onUnavailable: (id: string) => void
+  disabled: boolean
+}
+
+function Choices({ ctx, items, selected, onSelect, onUnavailable, disabled }: ChoicesProps) {
   return <div className="grid gap-3 sm:grid-cols-3">{items.map(item => <article className={`space-y-2 rounded-xl border p-3 ${selected === item.asset_id ? 'ring-2 ring-primary' : ''}`} key={item.asset_id}>
-    <CoverArt ctx={ctx} item={item} />
+    <CoverArt ctx={ctx} item={item} onUnavailable={onUnavailable} />
     <p className="text-sm">{item.template_label} · {item.palette_label}</p>
     {item.variant_label && <p className="text-xs text-muted-foreground">{item.variant_label}</p>}
     <Button aria-pressed={selected === item.asset_id} disabled={disabled} onClick={() => onSelect(item)} size="sm" variant="outline">选用{item.variant_label || item.template_label}</Button>
@@ -62,6 +87,12 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
   const [notice, setNotice] = useState('')
   const [savedId, setSavedId] = useState('')
   const [large, setLarge] = useState(false)
+
+  const discardUnavailable = useCallback((id: string) => {
+    setItems(current => current.filter(item => item.asset_id !== id))
+    setNotice('部分候选封面已失效，可选用剩余封面，或按当前设置重新生成。')
+  }, [])
+
   const release = row.release as { state?: string } | undefined
   useEffect(() => {
     let disposed = false
@@ -129,9 +160,9 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
     {notice && <p role="status">{notice}</p>}
     <Choices ctx={ctx} disabled={busy || dirty} items={items} onSelect={item => {
       setSelected(item.asset_id); setSpec(item.cover); setWords(item.cover.keywords.join('、')); setRendered(JSON.stringify(item.cover))
-    }} selected={selected} />
+    }} onUnavailable={discardUnavailable} selected={selected} />
     {dirty && <p className="text-sm">文字或样式已修改，请重新生成候选后再应用。</p>}
-    {choice && <><Button onClick={() => setLarge(value => !value)} variant="outline">{large ? '收起大图' : '查看大图'}</Button>{large && <CoverArt ctx={ctx} item={choice} large />}</>}
+    {choice && <><Button onClick={() => setLarge(value => !value)} variant="outline">{large ? '收起大图' : '查看大图'}</Button>{large && <CoverArt ctx={ctx} item={choice} large onUnavailable={discardUnavailable} />}</>}
     {release?.state === 'scheduled' && <p className="text-sm">应用封面会更新原内容并取消当前排期，请重新审核后设置发布时间。</p>}
     <Button disabled={busy || dirty || !choice || selected === firstAsset(row)} onClick={() => void save()}>{working ? '应用到写作草稿' : '应用封面并保存'}</Button>
     {savedId && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(savedId)}`)} variant="link">查看内容</Button>}

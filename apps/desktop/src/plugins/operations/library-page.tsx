@@ -24,17 +24,35 @@ export interface Library {
   next?: string
 }
 
-export function LibraryPage({
-  ctx,
-  section,
-  filter = '',
-  record = ''
-}: {
+interface LibraryPageProps {
   ctx: PluginContext
   section: string
   filter?: string
   record?: string
-}) {
+}
+
+export function LibraryPage(props: LibraryPageProps) {
+  const [assetFilter, setAssetFilter] = useState('')
+  if (props.section !== 'assets') {
+    return <LibraryResults {...props} />
+  }
+
+  return (
+    <>
+      <div aria-label="图片素材筛选" className="flex gap-2 px-4 pt-4" role="group">
+        {[['', '普通图片'], ['covers', '生成的封面图']].map(([value, label]) => (
+          <Button aria-pressed={assetFilter === value} key={value} onClick={() => setAssetFilter(value)}
+            size="sm" variant={assetFilter === value ? 'secondary' : 'ghost'}>
+            {label}
+          </Button>
+        ))}
+      </div>
+      <LibraryResults {...props} filter={assetFilter} key={assetFilter} />
+    </>
+  )
+}
+
+function LibraryResults({ ctx, section, filter = '', record = '' }: LibraryPageProps) {
   const [data, setData] = useState<Library | null>(null)
   const [error, setError] = useState('')
   const [cursor, setCursor] = useState('')
@@ -128,7 +146,7 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
     <>
       {section === 'assets' && (
         <>
-          <Assets {...props} content={[]} rows={data.asset || []} />
+          <Assets {...props} content={[]} coversOnly={filter === 'covers'} rows={data.asset || []} />
           <EvidenceStorage ctx={ctx} />
         </>
       )}

@@ -102,3 +102,21 @@ it('uses cached candidates and refuses applying an image after its text has chan
   expect(screen.getByText('文字或样式已修改，请重新生成候选后再应用。')).toBeTruthy()
   expect(rest.mock.calls.some(([path]) => path.includes('/covers/preview'))).toBe(false)
 })
+
+it('drops a withdrawn saved candidate and keeps other covers selectable', async () => {
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/content/cover-options') { return options }
+
+    if (path.startsWith('/assets/candidate-0')) { throw new Error('404: {"detail":"素材不存在或已撤回"}') }
+
+    return { data: 'aW1hZ2U=' }
+  })
+
+  render(<CoverStudio ctx={{ rest } as unknown as PluginContext} refresh={async () => {}}
+    row={{ ...row, asset_ids: ['candidate-0'], cover_candidates: candidates }} />)
+  await screen.findByText(/部分候选封面已失效/)
+  expect(screen.queryByRole('button', { name: '选用编辑精选' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '查看大图' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '选用醒目标题' }))
+  expect((screen.getByRole('button', { name: '应用封面并保存' }) as HTMLButtonElement).disabled).toBe(false)
+})
