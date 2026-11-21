@@ -5,6 +5,59 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { CoverStudio } from './cover-studio'
 
 afterEach(cleanup)
+
+it('labels same-style candidates separately and clears their variant when switching style', async () => {
+  const socialOptions = { ...options, templates: [{ id: 'xiaohongshu', label: '小红书版' }],
+    social_styles: [{ id: 'soft', label: '柔和' }, { id: 'handwriting', label: '手写' }] }
+
+  const socialCandidates = ['上下引言', '侧边引言', '细框留白'].map((label, index) => ({
+    asset_id: `soft-${index}`, template_label: '小红书版 · 柔和', palette_label: '深海蓝', variant_label: label,
+    cover: { ...spec, template: 'xiaohongshu', style: 'soft', variant: ['quotation', 'margin', 'frame'][index] }
+  }))
+
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/content/cover-options') {return socialOptions}
+
+    if (path.includes('/covers/preview')) {return { ...socialOptions, candidates: socialCandidates, set_id: 'set' }}
+
+    return { data: 'aW1hZ2U=' }
+  })
+
+  render(<CoverStudio ctx={{ rest } as unknown as PluginContext} refresh={async () => {}}
+    row={{ ...row, cover: socialCandidates[0].cover, cover_candidates: socialCandidates }} />)
+  await screen.findByLabelText('小红书封面风格')
+  fireEvent.click(screen.getByRole('button', { name: '选用细框留白' }))
+  fireEvent.change(screen.getByLabelText('小红书封面风格'), { target: { value: 'handwriting' } })
+  fireEvent.click(screen.getByRole('button', { name: '生成三个候选封面' }))
+  await screen.findByText('三个候选已就绪。本地排版，不调用模型；请同时检查大图和小图。')
+  const call = rest.mock.calls.find(([path]) => path.includes('/covers/preview'))
+  expect(call).toBeTruthy()
+  expect(rest).toHaveBeenCalledWith('/content/draft/covers/preview', expect.objectContaining({
+    body: expect.objectContaining({ cover: expect.objectContaining({ style: 'handwriting', variant: undefined, palette: 'blue' }) })
+  }))
+})
+
+it('passes the chosen social-note style to the existing preview endpoint', async () => {
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/content/cover-options') {return { ...options,
+      templates: [...options.templates, { id: 'xiaohongshu', label: '小红书版' }],
+      social_styles: [{ id: 'basic', label: '基础' }, { id: 'handwriting', label: '手写' }] }}
+
+    if (path.includes('/covers/preview')) {return { ...options, candidates, set_id: 'social-set' }}
+
+    return { data: 'aW1hZ2U=' }
+  })
+
+  render(<CoverStudio ctx={{ rest } as unknown as PluginContext} refresh={async () => {}} row={row} />)
+  await screen.findByLabelText('封面版式')
+  fireEvent.change(screen.getByLabelText('封面版式'), { target: { value: 'xiaohongshu' } })
+  fireEvent.change(screen.getByLabelText('小红书封面风格'), { target: { value: 'handwriting' } })
+  fireEvent.click(screen.getByRole('button', { name: '生成三个候选封面' }))
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/draft/covers/preview', expect.objectContaining({
+    method: 'POST', body: expect.objectContaining({ cover: expect.objectContaining({ template: 'xiaohongshu', style: 'handwriting' }) })
+  })))
+  await screen.findByText('三个候选已就绪。本地排版，不调用模型；请同时检查大图和小图。')
+})
 const spec = { title: '独立封面标题', subtitle: '来源与方法', eyebrow: '工具观察', keywords: ['核对'], template: 'editorial', palette: 'blue', size: 'normal' }
 const candidates = ['编辑精选', '醒目标题', '清单要点'].map((label, index) => ({ asset_id: 'candidate-' + index, cover: { ...spec, template: ['editorial', 'spotlight', 'checklist'][index] }, template_label: label, palette_label: '深海蓝' }))
 const options = { templates: [{ id: 'editorial', label: '编辑精选' }, { id: 'spotlight', label: '醒目标题' }, { id: 'checklist', label: '清单要点' }], palettes: [{ id: 'blue', label: '深海蓝', color: '#123456' }] }
@@ -48,4 +101,22 @@ it('uses cached candidates and refuses applying an image after its text has chan
   expect((screen.getByRole('button', { name: '应用封面并保存' }) as HTMLButtonElement).disabled).toBe(true)
   expect(screen.getByText('文字或样式已修改，请重新生成候选后再应用。')).toBeTruthy()
   expect(rest.mock.calls.some(([path]) => path.includes('/covers/preview'))).toBe(false)
+})
+
+it('drops a withdrawn saved candidate and keeps other covers selectable', async () => {
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/content/cover-options') { return options }
+
+    if (path.startsWith('/assets/candidate-0')) { throw new Error('404: {"detail":"素材不存在或已撤回"}') }
+
+    return { data: 'aW1hZ2U=' }
+  })
+
+  render(<CoverStudio ctx={{ rest } as unknown as PluginContext} refresh={async () => {}}
+    row={{ ...row, asset_ids: ['candidate-0'], cover_candidates: candidates }} />)
+  await screen.findByText(/部分候选封面已失效/)
+  expect(screen.queryByRole('button', { name: '选用编辑精选' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '查看大图' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '选用醒目标题' }))
+  expect((screen.getByRole('button', { name: '应用封面并保存' }) as HTMLButtonElement).disabled).toBe(false)
 })

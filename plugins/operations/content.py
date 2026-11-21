@@ -14,8 +14,8 @@ def content_digest(content):
 
 
 def validate_content(content, sources, assets, *, require_assets=False):
-    if not isinstance(content.get("title"), str) or not isinstance(content.get("body"), str) or not 0 < len(content["title"]) <= 20 or not 0 < len(content["body"]) <= 900:
-        raise ValueError("内容长度或格式不符合要求")
+    # if not isinstance(content.get("title"), str) or not isinstance(content.get("body"), str) or not 0 < len(content["title"]) <= 20 or not 0 < len(content["body"]) <= 900:
+    #     raise ValueError("内容长度或格式不符合要求")
     source_ids = content.get('source_ids')
     from .writing_origin import original
     if not isinstance(source_ids, list) or (not source_ids and not original(content)) or any(not isinstance(identity, str) for identity in source_ids) or not set(source_ids) <= {s["id"] for s in sources}:

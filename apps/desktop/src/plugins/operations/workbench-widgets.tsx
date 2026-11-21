@@ -74,11 +74,13 @@ export function Assets({
   ctx,
   rows,
   content,
+  coversOnly = false,
   refresh,
   onError
 }: {
   ctx: PluginContext
   rows: RecordRow[]
+  coversOnly?: boolean
   content: RecordRow[]
   refresh: () => Promise<unknown>
   onError: (error: string) => void
@@ -107,48 +109,50 @@ export function Assets({
 
   return (
     <div className="grid gap-3">
-      <label>
-        <input checked={authorized} onChange={e => setAuthorized(e.target.checked)} type="checkbox" />{' '}
-        我确认所选素材可用于当前账号公开发布
-      </label>
-      <input
-        accept="image/png,image/jpeg,image/webp"
-        aria-label="上传图片素材"
-        disabled={!authorized}
-        multiple
-        onChange={async e => {
-          const input = e.currentTarget
-          const files = Array.from(input.files || [])
-          input.value = ''
+      {!coversOnly && <>
+        <label>
+          <input checked={authorized} onChange={e => setAuthorized(e.target.checked)} type="checkbox" />{' '}
+          我确认所选素材可用于当前账号公开发布
+        </label>
+        <input
+          accept="image/png,image/jpeg,image/webp"
+          aria-label="上传图片素材"
+          disabled={!authorized}
+          multiple
+          onChange={async e => {
+            const input = e.currentTarget
+            const files = Array.from(input.files || [])
+            input.value = ''
 
-          try {
-            for (const file of files) {
-              if (file.size > 20 * 1024 * 1024) {
-                throw new Error('图片不能超过 20 MB')
+            try {
+              for (const file of files) {
+                if (file.size > 20 * 1024 * 1024) {
+                  throw new Error('图片不能超过 20 MB')
+                }
+
+                const data = await new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader()
+                  reader.onload = () => resolve(String(reader.result).split(',')[1])
+                  reader.onerror = reject
+                  reader.readAsDataURL(file)
+                })
+
+                const uploaded = await ctx.rest<{ id: string }>('/assets', {
+                  method: 'POST',
+                  body: { name: file.name, data, authorized }
+                })
+
+                setRemoved(current => current.filter(id => id !== uploaded.id))
               }
 
-              const data = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader()
-                reader.onload = () => resolve(String(reader.result).split(',')[1])
-                reader.onerror = reject
-                reader.readAsDataURL(file)
-              })
-
-              const uploaded = await ctx.rest<{ id: string }>('/assets', {
-                method: 'POST',
-                body: { name: file.name, data, authorized }
-              })
-
-              setRemoved(current => current.filter(id => id !== uploaded.id))
+              await refresh()
+            } catch (error) {
+              onError(String(error))
             }
-
-            await refresh()
-          } catch (error) {
-            onError(String(error))
-          }
-        }}
-        type="file"
-      />
+          }}
+          type="file"
+        />
+      </>}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,13rem))] gap-4">
         {rows
           .filter(row => !row.revoked && !removed.includes(row.id))
@@ -172,8 +176,8 @@ export function Assets({
             </div>
           ))}
       </div>
-      <h2>内容版本</h2>
-      <Records rows={content} />
+      {coversOnly && !rows.length && <p className="text-muted-foreground">暂无生成的封面图。</p>}
+      {!coversOnly && <><h2>内容版本</h2><Records rows={content} /></>}
     </div>
   )
 }

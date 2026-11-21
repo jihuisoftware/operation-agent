@@ -1,12 +1,12 @@
 import { Button, host, type PluginContext } from '@hermes/plugin-sdk'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { coverAssetIds, versionRequest } from './content-version-actions'
 import type { RecordRow } from './types'
 
-interface CoverSpec { title: string; subtitle: string; eyebrow: string; keywords: string[]; template: string; palette: string; size: string }
-interface Candidate { asset_id: string; cover: CoverSpec; template_label: string; palette_label: string }
-interface Options { templates: { id: string; label: string }[]; palettes: { id: string; label: string; color: string }[] }
+interface CoverSpec { title: string; subtitle: string; eyebrow: string; keywords: string[]; template: string; palette: string; size: string; style?: string; variant?: string }
+interface Candidate { asset_id: string; cover: CoverSpec; template_label: string; palette_label: string; variant_label?: string }
+interface Options { social_styles?: { id: string; label: string }[]; templates: { id: string; label: string }[]; palettes: { id: string; label: string; color: string }[] }
 interface Preview extends Options { set_id: string; candidates: Candidate[] }
 interface Props { ctx: PluginContext; row: RecordRow; refresh: () => Promise<unknown>; working?: { preview: (spec: CoverSpec) => Promise<Preview>; apply: (id: string) => Promise<void> } }
 
@@ -16,7 +16,14 @@ function initialSpec(row: RecordRow): CoverSpec {
 
 function firstAsset(row: RecordRow) { return String((row.asset_ids as string[] || [])[0] || '') }
 
-function CoverArt({ ctx, item, large = false }: { ctx: PluginContext; item: Candidate; large?: boolean }) {
+interface CoverArtProps {
+  ctx: PluginContext
+  item: Candidate
+  onUnavailable: (id: string) => void
+  large?: boolean
+}
+
+function CoverArt({ ctx, item, onUnavailable, large = false }: CoverArtProps) {
   const [image, setImage] = useState('')
   const [error, setError] = useState('')
   useEffect(() => {
@@ -24,20 +31,47 @@ function CoverArt({ ctx, item, large = false }: { ctx: PluginContext; item: Cand
     setImage(''); setError('')
     void ctx.rest<{ data: string; mime?: string }>(`/assets/${encodeURIComponent(item.asset_id)}${large ? '' : '?thumbnail=true'}`).then(value => {
       if (!disposed) { setImage(`data:${value.mime || 'image/png'};base64,${value.data}`) }
-    }).catch(reason => { if (!disposed) { setError(String(reason)) } })
+    }).catch(reason => {
+      if (disposed) { return }
+      const message = String(reason)
+
+      if (message.includes('素材不存在或已撤回')) {
+        onUnavailable(item.asset_id)
+      } else {
+        setError(message)
+      }
+    })
 
     return () => { disposed = true }
-  }, [ctx, item.asset_id, large])
+  }, [ctx, item.asset_id, large, onUnavailable])
 
   return error ? <p role="alert">{error}</p> : image ? <img alt={`${item.template_label}封面预览`} className={large ? 'mx-auto max-h-[70vh] max-w-full object-contain' : 'aspect-[3/4] w-full rounded object-contain'} src={image} /> : <p>正在读取封面…</p>
 }
 
-function Choices({ ctx, items, selected, onSelect, disabled }: { ctx: PluginContext; items: Candidate[]; selected: string; onSelect: (item: Candidate) => void; disabled: boolean }) {
+interface ChoicesProps {
+  ctx: PluginContext
+  items: Candidate[]
+  selected: string
+  onSelect: (item: Candidate) => void
+  onUnavailable: (id: string) => void
+  disabled: boolean
+}
+
+function Choices({ ctx, items, selected, onSelect, onUnavailable, disabled }: ChoicesProps) {
   return <div className="grid gap-3 sm:grid-cols-3">{items.map(item => <article className={`space-y-2 rounded-xl border p-3 ${selected === item.asset_id ? 'ring-2 ring-primary' : ''}`} key={item.asset_id}>
-    <CoverArt ctx={ctx} item={item} />
+    <CoverArt ctx={ctx} item={item} onUnavailable={onUnavailable} />
     <p className="text-sm">{item.template_label} · {item.palette_label}</p>
-    <Button aria-pressed={selected === item.asset_id} disabled={disabled} onClick={() => onSelect(item)} size="sm" variant="outline">选用{item.template_label}</Button>
+    {item.variant_label && <p className="text-xs text-muted-foreground">{item.variant_label}</p>}
+    <Button aria-pressed={selected === item.asset_id} disabled={disabled} onClick={() => onSelect(item)} size="sm" variant="outline">选用{item.variant_label || item.template_label}</Button>
   </article>)}</div>
+}
+
+interface SocialStyleProps { spec: CoverSpec; options: Options; disabled: boolean; onChange: (style: string) => void }
+
+function SocialStyleSelect({ spec, options, disabled, onChange }: SocialStyleProps) {
+  if (spec.template !== 'xiaohongshu') { return null }
+
+  return <label className="grid gap-1 text-sm">小红书风格<select aria-label="小红书封面风格" className="rounded border bg-background p-2" disabled={disabled} onChange={event => onChange(event.target.value)} value={spec.style || 'basic'}>{options.social_styles?.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
 }
 
 export function CoverStudio({ ctx, row, refresh, working }: Props) {
@@ -53,6 +87,12 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
   const [notice, setNotice] = useState('')
   const [savedId, setSavedId] = useState('')
   const [large, setLarge] = useState(false)
+
+  const discardUnavailable = useCallback((id: string) => {
+    setItems(current => current.filter(item => item.asset_id !== id))
+    setNotice('部分候选封面已失效，可选用剩余封面，或按当前设置重新生成。')
+  }, [])
+
   const release = row.release as { state?: string } | undefined
   useEffect(() => {
     let disposed = false
@@ -101,6 +141,7 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
 
   return <section aria-label="封面设计" className="space-y-4 rounded-xl bg-muted/30 p-4">
     <p className="text-sm text-muted-foreground">封面标题独立于文章标题。修改文字、配色和布局只在本地绘制，不消耗模型额度。</p>
+    <p className="text-xs text-muted-foreground">优先生成同版式、同风格、同配色的不同款式；不足三个时，用其他风格补齐，配色不变。</p>
     <p className="text-xs text-muted-foreground">主标题建议 8–18 字；副标题说明内容，关键词突出阅读重点。旧稿也可先补全文案，再生成候选。</p>
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-sm">封面主标题<textarea aria-label="封面主标题" className="rounded border bg-background p-2" disabled={busy} maxLength={36} onChange={event => setSpec({ ...spec, title: event.target.value })} rows={2} value={spec.title} /></label>
@@ -108,7 +149,8 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
       <label className="grid gap-1 text-sm">栏目标签<input aria-label="封面栏目" className="rounded border bg-background p-2" disabled={busy} maxLength={12} onChange={event => setSpec({ ...spec, eyebrow: event.target.value })} value={spec.eyebrow} /></label>
       <label className="grid gap-1 text-sm">关键词（最多三项，以顿号分隔）<input aria-label="封面关键词" className="rounded border bg-background p-2" disabled={busy} onChange={event => setWords(event.target.value)} value={words} /></label>
       {options && <>
-        <label className="grid gap-1 text-sm">版式<select aria-label="封面版式" className="rounded border bg-background p-2" disabled={busy} onChange={event => setSpec({ ...spec, template: event.target.value })} value={spec.template}>{options.templates.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <label className="grid gap-1 text-sm">版式<select aria-label="封面版式" className="rounded border bg-background p-2" disabled={busy} onChange={event => setSpec({ ...spec, template: event.target.value, variant: undefined })} value={spec.template}>{options.templates.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <SocialStyleSelect disabled={busy} onChange={style => setSpec({ ...spec, style, variant: undefined })} options={options} spec={spec} />
         <label className="grid gap-1 text-sm">配色<select aria-label="封面配色" className="rounded border bg-background p-2" disabled={busy} onChange={event => setSpec({ ...spec, palette: event.target.value })} value={spec.palette}>{options.palettes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
       </>}
       <label className="grid gap-1 text-sm">标题字号<select aria-label="标题字号" className="rounded border bg-background p-2" disabled={busy} onChange={event => setSpec({ ...spec, size: event.target.value })} value={spec.size}><option value="normal">标准（自动适配）</option><option value="large">醒目（自动适配）</option></select></label>
@@ -118,9 +160,9 @@ export function CoverStudio({ ctx, row, refresh, working }: Props) {
     {notice && <p role="status">{notice}</p>}
     <Choices ctx={ctx} disabled={busy || dirty} items={items} onSelect={item => {
       setSelected(item.asset_id); setSpec(item.cover); setWords(item.cover.keywords.join('、')); setRendered(JSON.stringify(item.cover))
-    }} selected={selected} />
+    }} onUnavailable={discardUnavailable} selected={selected} />
     {dirty && <p className="text-sm">文字或样式已修改，请重新生成候选后再应用。</p>}
-    {choice && <><Button onClick={() => setLarge(value => !value)} variant="outline">{large ? '收起大图' : '查看大图'}</Button>{large && <CoverArt ctx={ctx} item={choice} large />}</>}
+    {choice && <><Button onClick={() => setLarge(value => !value)} variant="outline">{large ? '收起大图' : '查看大图'}</Button>{large && <CoverArt ctx={ctx} item={choice} large onUnavailable={discardUnavailable} />}</>}
     {release?.state === 'scheduled' && <p className="text-sm">应用封面会更新原内容并取消当前排期，请重新审核后设置发布时间。</p>}
     <Button disabled={busy || dirty || !choice || selected === firstAsset(row)} onClick={() => void save()}>{working ? '应用到写作草稿' : '应用封面并保存'}</Button>
     {savedId && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(savedId)}`)} variant="link">查看内容</Button>}

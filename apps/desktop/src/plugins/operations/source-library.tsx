@@ -15,6 +15,7 @@ import {
 import { useEffect, useState } from 'react'
 
 import { CollectionSummary, type CollectionSummaryData } from './collection-summary'
+import { SourcePagination } from './source-pagination'
 import { WorkspaceReferences } from './workspace-references'
 
 interface ReferenceImage {
@@ -50,7 +51,8 @@ interface Catalog {
   total: number
   selected_count: number
   items: Source[]
-  next_cursor: number | null
+  page: number
+  total_pages: number
 }
 
 export function ReferencePreview({ ctx, image }: { ctx: PluginContext; image?: ReferenceImage }) {
@@ -117,12 +119,11 @@ export function SourceLibrary({
   const [data, setData] = useState<Catalog | null>(null)
   const [search, setSearch] = useState(initialQuery)
   const [query, setQuery] = useState(initialQuery)
-  const [pages, setPages] = useState([0])
+  const [page, setPage] = useState(1)
   const [revision, setRevision] = useState(0)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [selected, setSelected] = useState<string | null>(initialSelected)
-  const cursor = pages[pages.length - 1]
   useEffect(() => {
     let disposed = false
     let busy = false
@@ -135,9 +136,10 @@ export function SourceLibrary({
       busy = true
 
       try {
-        const result = await ctx.rest<Catalog>(`/sources?q=${encodeURIComponent(query)}&cursor=${cursor}`)
+        const result = await ctx.rest<Catalog>(`/sources?q=${encodeURIComponent(query)}&page=${page}`)
 
         if (!disposed) {
+          setPage(result.page)
           setData(result)
           setError('')
         }
@@ -163,7 +165,7 @@ export function SourceLibrary({
       disposed = true
       clearInterval(timer)
     }
-  }, [ctx, query, cursor, revision])
+  }, [ctx, query, page, revision])
 
   const reuse = async (source: Source) => {
     if (!data) {
@@ -205,7 +207,7 @@ export function SourceLibrary({
         onSubmit={event => {
           event.preventDefault()
           setQuery(search.trim())
-          setPages([0])
+          setPage(1)
         }}
       >
         <Input
@@ -264,23 +266,12 @@ export function SourceLibrary({
               </article>
             ))}
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              disabled={pages.length < 2}
-              onClick={() => setPages(values => values.slice(0, -1))}
-              variant="outline"
-            >
-              上一页
-            </Button>
-            <span>第 {pages.length} 页</span>
-            <Button
-              disabled={data.next_cursor === null}
-              onClick={() => setPages(values => [...values, data.next_cursor!])}
-              variant="outline"
-            >
-              下一页
-            </Button>
-          </div>
+          <SourcePagination
+            key={`${query}:${data.page}:${data.total_pages}`}
+            onPageChange={setPage}
+            page={data.page}
+            totalPages={data.total_pages}
+          />
         </>
       ) : (
         !error && <p>正在读取来源素材…</p>

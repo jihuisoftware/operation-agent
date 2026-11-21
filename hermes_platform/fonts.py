@@ -19,7 +19,7 @@ def chinese_font():
     return next((Path(path) for path in candidates if Path(path).is_file()), None)
 
 
-def windows_font_candidates(system_directory=None, user_directory=None):
+def windows_font_candidates(system_directory=None, user_directory=None, *, names=None):
     """Resolve native Windows fonts; explicit directories support isolated lookup tests."""
     if system_directory is None:
         import ctypes
@@ -32,9 +32,23 @@ def windows_font_candidates(system_directory=None, user_directory=None):
         from os import environ
         local = environ.get('LOCALAPPDATA')
         user_directory = Path(local) / 'Microsoft/Windows/Fonts' if local else None
-    names = ('msyh.ttc', 'msyhbd.ttc', 'simhei.ttf', 'simsun.ttc', 'NotoSansCJKsc-Regular.otf')
+    names = names or ('msyh.ttc', 'msyhbd.ttc', 'simhei.ttf', 'simsun.ttc', 'NotoSansCJKsc-Regular.otf')
     return tuple(Path(directory) / name for directory in (system_directory, user_directory) if directory
                  for name in names)
+
+
+@lru_cache(maxsize=1)
+def chinese_handwriting_font():
+    """Use installed handwriting/Kai faces, falling back to the standard CJK font."""
+    from hermes_platform.host.facts import os_family
+    candidates = windows_font_candidates(names=('simkai.ttf', 'STKAITI.TTF')) if os_family() == 'windows' else (
+        Path('/System/Library/Fonts/Supplemental/Kaiti.ttc'),
+        Path('/System/Library/Fonts/STKaiti.ttc'),
+        *sorted(Path('/System/Library/AssetsV2').glob('com_apple_MobileAsset_Font*/**/Hannotate.ttc')),
+        *sorted(Path('/System/Library/AssetsV2').glob('com_apple_MobileAsset_Font*/**/Kaiti.ttc')),
+        Path('/usr/share/fonts/truetype/arphic/ukai.ttc'),
+    )
+    return next((path for path in candidates if path.is_file()), None) or chinese_font()
 
 
 @lru_cache(maxsize=8)
@@ -50,3 +64,15 @@ def chinese_font_index(path):
         priority = (10 if ' SC' in family or family.endswith('SC') else 0) + (2 if style in {'Medium', 'Semibold', 'Bold'} else 0)
         choices.append((priority, -index, index))
     return max(choices)[2] if choices else 0
+
+
+@lru_cache(maxsize=1)
+def chinese_serif_font():
+    """Installed Song/Ming face for print-style Chinese typography."""
+    from hermes_platform.host.facts import os_family
+    candidates = windows_font_candidates(names=('simsun.ttc', 'STSONG.TTF')) if os_family() == 'windows' else (
+        Path('/System/Library/Fonts/Supplemental/Songti.ttc'),
+        *sorted(Path('/System/Library/AssetsV2').glob('com_apple_MobileAsset_Font*/**/SimSong.ttc')),
+        Path('/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'),
+    )
+    return next((path for path in candidates if path.is_file()), None) or chinese_font()

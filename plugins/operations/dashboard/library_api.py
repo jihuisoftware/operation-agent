@@ -4,7 +4,9 @@ from fastapi import APIRouter, HTTPException
 from plugins.operations.store import Store
 
 router = APIRouter()
-PRIMARY = {'assets': ('objects', "kind='asset'"), 'content': ('objects', "kind='content'"),
+# Cover Studio and the publisher resolve generated artwork by ID, independently of this list.
+LIBRARY_ASSETS = "kind='asset' AND COALESCE(json_extract(data, '$.revoked'), 0)=0"
+PRIMARY = {'assets': ('objects', LIBRARY_ASSETS), 'content': ('objects', "kind='content'"),
            'interactions': ('actions', "kind!='publish'"), 'reports': ('objects', "kind='report'"),
            'history': ('runs', '1=1')}
 
@@ -36,7 +38,8 @@ def content_data(db, rows):
 
 @router.get('/library/{section}')
 def library(section: str, before: int = 0, filter: str = '', record: str = '', compact: bool = False, status: str = 'all'):
-    if section not in PRIMARY or before < 0 or filter not in {'', 'published', 'pending', 'drafts', 'comment', 'reply', 'dm', 'follow'}:
+    filters = {'', 'covers'} if section == 'assets' else {'', 'published', 'pending', 'drafts', 'comment', 'reply', 'dm', 'follow'}
+    if section not in PRIMARY or before < 0 or filter not in filters:
         raise HTTPException(400, '资料筛选条件无效')
     store = Store()
     if section == 'content':
@@ -46,9 +49,12 @@ def library(section: str, before: int = 0, filter: str = '', record: str = '', c
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
     table, condition = PRIMARY[section]
+    if section == 'assets':
+        condition += " AND COALESCE(json_extract(data, '$.generated_typography'), 0)=" + ('1' if filter == 'covers' else '0')
     with store.connection() as db:
-        rows = list(db.execute(f"SELECT rowid AS cursor,* FROM {table} WHERE {condition} AND (?='' OR id=?) AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100", (record, record, before, before)))
-        data = {'actions': [], 'next': str(rows[-1]['cursor']) if len(rows) == 100 else None}
+        result = db.execute(f"SELECT rowid AS cursor,* FROM {table} WHERE {condition} AND (?='' OR id=?) AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 101", (record, record, before, before))
+        rows = result.fetchmany(100)
+        data = {'actions': [], 'next': str(rows[-1]['cursor']) if result.fetchone() is not None else None}
         if table == 'actions':
             data['actions'] = [dict(r) for r in rows if not filter or filter == 'published' or r['kind'] == filter]
         elif section == 'content':

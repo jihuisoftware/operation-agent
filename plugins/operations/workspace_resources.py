@@ -66,6 +66,27 @@ def save_asset(store, identity):
         _save_asset_row(store, db, identity)
 
 
+def save_generated_cover(store, identity, metadata):
+    # Generation can reuse an active image, but only a new upload can renew consent.
+    with store.connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        if store.workspace:
+            shared = db.execute("SELECT data FROM directory.resources WHERE business_id=? AND kind='asset' AND id=?",
+                                (store.scope['business_id'], identity)).fetchone()
+            if shared:
+                asset = json.loads(shared[0])
+                if asset.get('revoked') or not asset.get('authorized'):
+                    return False
+        updated = db.execute("UPDATE objects SET data=json_patch(data, ?) WHERE id=? AND kind='asset' "
+                             "AND json_extract(data,'$.authorized')=1 AND COALESCE(json_extract(data,'$.revoked'),0)=0",
+                             (json.dumps(metadata), identity))
+        if not updated.rowcount:
+            return False
+        if store.workspace:
+            _save_asset_row(store, db, identity)
+        return True
+
+
 def save_uploaded_asset(store, identity):
     # A validated upload carries fresh consent even when its content hash already exists.
     with store.connection() as db:

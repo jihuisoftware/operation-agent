@@ -117,3 +117,21 @@ def test_preview_and_apply_update_original_content_and_invalidate_schedule(cover
     with pytest.raises(ValueError, match='原稿或规则'):
         create(store, draft['id'], {'request_id': 'wrong-choice', 'version': 1, 'content_revision': fingerprint(draft),
             'asset_ids': draft['asset_ids'], 'cover_set_id': result['set_id']})
+
+
+def test_regenerating_a_deleted_candidate_keeps_old_references_revoked(tmp_path, monkeypatch):
+    from plugins.operations.cover_assets import candidates
+    from plugins.operations.service import revoke_asset
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    store = Store()
+    spec = normalized({}, '荷兰猪的日常')
+    choices = candidates(store, spec)
+    for _ in range(2):
+        deleted = choices[0]['asset_id']
+        revoke_asset(store, deleted)
+        regenerated = candidates(Store(), spec)
+        assert regenerated[0]['asset_id'] != deleted
+        assert regenerated[1:] == choices[1:]
+        assert candidates(Store(), spec) == regenerated
+        assert next(row for row in Store().objects('asset') if row['id'] == deleted)['revoked']
+        choices = regenerated

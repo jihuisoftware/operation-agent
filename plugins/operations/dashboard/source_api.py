@@ -11,8 +11,9 @@ router = APIRouter(prefix="/sources")
 
 
 @router.get("")
-def catalog(q: str = Query(default="", max_length=200), cursor: int = Query(default=0, ge=0)):
-    return source_library.catalog(Store(), q, cursor)
+def catalog(q: str = Query(default="", max_length=200), cursor: int = Query(default=0, ge=0),
+            page: int | None = Query(default=None, ge=1)):
+    return source_library.catalog(Store(), q, cursor, page=page)
 
 
 @router.get("/images/{identity}")

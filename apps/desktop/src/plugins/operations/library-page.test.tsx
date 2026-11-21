@@ -42,3 +42,24 @@ it('loads immutable full details only on request and copies the summary separate
   fireEvent.click(screen.getByRole('button', { name: '复制日报' }))
   await waitFor(() => expect(write).toHaveBeenCalledWith(markdown))
 })
+
+it('shows generated covers only after selecting the cover filter', async () => {
+  const rest = vi.fn(async (path: string) => {
+    if (path.startsWith('/library/assets')) {
+      const covers = new URL(path, 'http://local').searchParams.get('filter') === 'covers'
+      return { asset: [{ id: 'item', name: covers ? '候选封面.png' : '照片.png' }], actions: [] }
+    }
+    if (path === '/evidence-storage') {
+      return { settings: { days: 30, automatic: false }, categories: [], database_bytes: 0, reusable_bytes: 0 }
+    }
+    return { data: 'image' }
+  })
+  render(<LibraryPage ctx={{ rest } as unknown as PluginContext} section="assets" />)
+  await screen.findByText('照片.png')
+  expect(screen.queryByText('候选封面.png')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '生成的封面图' }))
+  await screen.findByText('候选封面.png')
+  expect(screen.queryByText('照片.png')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '普通图片' }))
+  await screen.findByText('照片.png')
+})

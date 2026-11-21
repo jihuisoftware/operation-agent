@@ -49,14 +49,21 @@ def reuse(store, identity, body):
     return data
 
 
-def catalog(store, query="", cursor=0):
+def catalog(store, query="", cursor=0, *, page=None):
     version, policy = store.policy()
     selected = pins(store, policy["topic"])
     with store.connection() as db:
+        db.execute("BEGIN")
         condition = "kind='source' AND (?='' OR instr(lower(data),lower(?))>0)"
         total = db.execute("SELECT count(*) FROM objects WHERE " + condition, (query, query)).fetchone()[0]
-        rows = db.execute("SELECT rowid,id,data FROM objects WHERE " + condition +
-                          " AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 25", (query, query, cursor, cursor)).fetchall()
+        total_pages = max(1, (total + 23) // 24)
+        if page is None:
+            rows = db.execute("SELECT rowid,id,data FROM objects WHERE " + condition +
+                              " AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 25", (query, query, cursor, cursor)).fetchall()
+        else:
+            page = min(max(1, page), total_pages)
+            rows = db.execute("SELECT rowid,id,data FROM objects WHERE " + condition +
+                              " ORDER BY rowid DESC LIMIT 25 OFFSET ?", (query, query, (page - 1) * 24)).fetchall()
     with store.connection() as db:
         latest = db.execute("SELECT data FROM objects WHERE kind='collection_run' AND json_extract(data,'$.scope_topic')=? ORDER BY created DESC LIMIT 1", (policy['topic'],)).fetchone()
     items = []
@@ -65,6 +72,7 @@ def catalog(store, query="", cursor=0):
         items.append({**{k: item.get(k) for k in ("title", "url", "summary", "author", "published_at", "collected_at", "day", "state", "error", "scope_topic")},
                       "id": row["id"], "excerpt": item.get("text", "")[:500], "images": item.get("images", []), "selected": row["id"] in selected})
     return {"version": version, "topic": policy["topic"], "total": total, "selected_count": len(selected),
+            "page": page, "total_pages": total_pages,
             "latest_collection": json.loads(latest[0]) if latest else None, "items": items, "next_cursor": rows[23]["rowid"] if len(rows) > 24 else None}
 
 
