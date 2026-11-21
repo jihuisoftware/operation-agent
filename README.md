@@ -2,6 +2,7 @@
   <img src="apps/desktop/assets/icon.png" width="88" alt="营运智能体应用图标" />
 </p>
 
+
 <h1 align="center">营运智能体</h1>
 
 <p align="center"><strong>从找到资料，到写好一篇内容，再到审核与发布。</strong></p>
