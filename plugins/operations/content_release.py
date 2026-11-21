@@ -53,7 +53,7 @@ def account(store, policy):
     return identity, scope
 
 
-def review(store, identity, body):
+def review(store, identity, body, *, automatic=None):
     if type(body.get('expected_revision')) is not int or body['expected_revision'] < 0:
         raise ValueError('审核版本无效，请刷新')
     content = manuscript(store, identity)
@@ -89,6 +89,15 @@ def review(store, identity, body):
         value = {'content_id': identity, 'content_revision': fingerprint(content), 'revision': body['expected_revision'] + 1,
                  'version': version, 'account_id': who, 'account_scope': scope, 'state': 'scheduled',
                  'publish_at': stamp.astimezone(UTC).isoformat(), 'reviewed_at': now_iso(), 'reviewer': 'human'}
+        if automatic is not None:
+            from .automatic_review import authorize_decision
+            authorize_decision(db, current, automatic)
+            if (automatic.get('account_id'), automatic.get('account_scope')) != (who, scope):
+                raise ValueError('账号已变化，自动审核已失效')
+            occupied = db.execute("SELECT 1 FROM objects WHERE kind='content_release' AND json_extract(data,'$.state')='scheduled' AND json_extract(data,'$.publish_at')=? AND id!=?", (stamp.astimezone(UTC).isoformat(), 'content-release:' + identity)).fetchone()
+            if occupied:
+                raise ValueError('该发布时段已被占用，等待下一次排期')
+            value.update(reviewer='automatic', automatic_review=automatic)
         value['source_signatures'] = source_signatures
         if not sources_unchanged(db, value, policy):
             raise ValueError('审核期间来源已变化，请刷新后重新核对')
@@ -107,6 +116,8 @@ def cancel(store, identity, revision):
         if latest_action(db, identity, manuscript(store, identity)):
             raise ValueError('发布动作已建立，请在执行记录中核对或取消，不能假定撤回成功')
         value.update(state='cancelled', revision=revision + 1)
+        from .review_policy import hold_manuscript
+        hold_manuscript(db, identity, '人工取消排期，等待人工审核')
         db.execute("UPDATE objects SET data=? WHERE id=?", (encoded(value), 'content-release:' + identity))
     return value
 
@@ -115,11 +126,15 @@ def authorization(store, db, action, version, policy):
     if action['kind'] != 'publish':
         return False
     value = load(db, action['content']['id'])
-    if not value or value['state'] not in {'scheduled', 'paused', 'needs_attention'} or value['version'] != version or action.get('human_review') != value['revision']:
+    if not value or value['state'] not in {'scheduled', 'paused', 'needs_attention'} or value['version'] != version or action.get('release_revision', action.get('human_review')) != value['revision']:
         return False
     row = db.execute("SELECT data FROM objects WHERE kind='content' AND id=?", (action['content']['id'],)).fetchone()
     if not row or fingerprint(json.loads(row[0])) != value['content_revision']:
         return False
+    if value.get('reviewer') == 'automatic':
+        from .automatic_review import decision_current
+        if not decision_current(db, json.loads(row[0]), value.get('automatic_review') or {}):
+            return False
     if not sources_unchanged(db, value, policy):
         return False
     scope = db.execute('SELECT account FROM directory.businesses WHERE id=?', (store.scope['business_id'],)).fetchone()[0] if store.workspace else ''

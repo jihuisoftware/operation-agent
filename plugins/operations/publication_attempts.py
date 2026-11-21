@@ -12,8 +12,8 @@ def execution_target(store, action):
     if store.manual_run_id:
         return f'manual:{store.manual_run_id}:{target}'
     content = action.get('content') or {}
-    if action.get('human_review') and content.get('id'):
-        return f"release:{content['id']}:{action['human_review']}:{target}"
+    if action.get('release_revision', action.get('human_review')) and content.get('id'):
+        return f"release:{content['id']}:{action.get('release_revision', action.get('human_review'))}:{target}"
     if store.current_run_id:
         return f'run:{store.current_run_id}:{target}'
     return target

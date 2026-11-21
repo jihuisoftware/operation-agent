@@ -10,6 +10,10 @@ class ModelServiceUnavailable(RuntimeError):
 class ModelOutputError(ValueError):
     """A received model response cannot be decoded into the requested JSON object."""
 
+    def __init__(self, message, *, diagnostics=None):
+        super().__init__(message)
+        self.diagnostics = diagnostics or {}
+
 
 def service_failure(error):
     status = getattr(error, 'status_code', None)

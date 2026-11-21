@@ -32,7 +32,7 @@ it('cancels the exact saved schedule revision', async () => {
 it('produces a manuscript without submitting a publication request', async () => {
   const rest = vi.fn(async (path: string) => path === '/policy' ? { version: 7 } : { detail: '已保存待审稿件' })
   render(<GenerateContent ctx={{ rest } as unknown as PluginContext} refresh={async () => undefined} />)
-  fireEvent.click(screen.getByRole('button', { name: '生成待审图文' }))
+  fireEvent.click(screen.getByRole('button', { name: '生成图文' }))
   expect(await screen.findByText('已保存待审稿件')).toBeTruthy()
   expect(rest.mock.calls.map(([path]) => path)).toEqual(['/policy', '/content/generate'])
 })

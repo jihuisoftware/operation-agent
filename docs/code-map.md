@@ -54,6 +54,7 @@
 | 定时任务主页面、手动执行 | [Cron 页面](../apps/desktop/src/app/cron/index.tsx)、同目录 `cron-actions.ts`；[工作区路由](../apps/desktop/src/app/contrib/surfaces.tsx) | [HTTP 路由](../hermes_cli/web_routers/cron.py)、`cron/jobs.py` / `scheduler_*.py` | `apps/desktop/src/app/cron/` 同目录测试；`surfaces.app-routes.test.tsx`；`tests/cron/` |
 | 聊天中的实时网页 | [右侧预览](../apps/desktop/src/app/chat/right-rail/preview.tsx)、[预览归属](../apps/desktop/src/store/preview-ownership.ts) | [页面操作工具](../tools/drive_preview_tool.py)、[浏览 RPC](../gateway/rpc/methods_browser.py) | `apps/desktop/src/store/preview-*.test.ts`、Electron `preview-*.test.ts` |
 | 模型列表、提供方、设置 | [模型设置](../apps/desktop/src/app/settings/model-settings.tsx)、同目录 `model-select.tsx` | [模型 API](../hermes_cli/web_routers/models.py)、[模型目录](../hermes_cli/model_catalog.py)、[提供方范围与名称](../hermes_cli/model_provider_scope.py)、`gateway/rpc/model_switch.py` | `model-settings.test.tsx`；`tests/hermes_cli/test_model_provider_scope.py` |
+| 模型输出失败诊断 | [解析与坐标](../plugins/operations/model_output.py)、[有界响应证据](../plugins/operations/model_diagnostics.py) | 普通/调试失败事件、结束原因、脱敏与截断；`model_trace.py` 调试证据沿用同一边界 | `tests/plugins/test_operations_model_diagnostics.py`、`tests/devtools/test_operations_task_details.py` |
 | 模型输入膨胀与历史快照重复 | [模型输入投影](../plugins/operations/model_inputs.py) | `topics.py` / `content.py` 保留完整存储与权限检查；model_input 事件显示本轮输入规模 | `tests/plugins/test_operations_prompt_inputs.py`、选题/分析/素材回归 |
 | 每日模型预算、次数与 Token 模式 | [预算配置](../plugins/operations/model_budget_settings.py)、[用量与并发预留](../plugins/operations/model_budget_ledger.py) | `model_budget.py` / `model.py`；私有 `dashboard/model_budget_api.py`；Desktop `model-budget-fields.tsx` / `shared-model-budget.tsx` | `test_operations_model_budget.py`、`test_operations_model_budget_http.py`、`model-budget-fields.test.tsx` |
 | 节省 Token、图像与文件解析开关 | [设置面板](../apps/desktop/src/app/settings/token-saving-settings.tsx)、[解析偏好](../agent/input_policy.py) | `image_routing.py` / `context_references.py`、`tools/vision_tools.py` / `file_tools.py`；Gateway/TUI 入站与 PDF 附件入口 | `tests/agent/test_input_policy.py`、`tests/gateway/rpc/test_token_saving_pdf.py`、`token-saving-settings.test.tsx` |
@@ -76,9 +77,9 @@ Windows x64 恢复：`apps/desktop/platform-policy.cjs`、`scripts/build-bundle.
 | 领域 | 定位方式与约束 |
 | --- | --- |
 | 模型执行、上下文、记忆 | `run_agent.py` 为入口，按主题找 `agent/turn_*.py`；规则见 [agent/AGENTS.md](../agent/AGENTS.md) |
-| CLI、配置、私有 HTTP 服务 | `cli.py` / `hermes_cli/cli_*_mixin.py`；`hermes_cli/web_server*.py`；规则见 [hermes_cli/AGENTS.md](../hermes_cli/AGENTS.md) |
-| 桌面运行时与退役接入清理 | `gateway/config.py`（仅 local）、`gateway/run_adapters.py`；[保留边界](../gateway/platforms/ADDING_A_PLATFORM.md) | `session_model_options.py` 模型参数、`session_legacy_identity.py` 历史身份；私有 API 与调度继续保留 |
-| Gateway、JSON-RPC、Profile | `gateway/run*.py` / `session_*.py`；`rpc/`、`transport/`、`contracts/`、`runtime/` | [统一分层说明](gateway-rpc.md)；区域规则见 [Gateway](../gateway/AGENTS.md) 与 [RPC](../gateway/rpc/AGENTS.md) | `tests/gateway/rpc/`、`tests/gateway/contracts/` 和原生会话测试 |
+| 管理入口与共享应用服务 | [hermes_cli 职责导航](../hermes_cli/README.md)；命令与 Gateway 管理、配置/认证/Profile、插件和更新；[私有 HTTP 路由](../hermes_cli/web_routers/README.md)；规则见 [hermes_cli/AGENTS.md](../hermes_cli/AGENTS.md) |
+| 桌面运行时与退役接入清理 | `gateway/config.py`（仅 local）、`gateway/run_adapters.py`；[保留边界](../gateway/platforms/ADDING_A_PLATFORM.md)；模型参数与历史身份在 `session_model_options.py` / `session_legacy_identity.py`，私有 API 与调度继续保留 |
+| Gateway、JSON-RPC、Profile | `gateway/run*.py` / `session_*.py`；`rpc/`、`transport/`、`contracts/`、`runtime/`；[统一分层说明](gateway-rpc.md)、[Gateway 规则](../gateway/AGENTS.md)和 [RPC 规则](../gateway/rpc/AGENTS.md)；测试位于 `tests/gateway/rpc/`、`tests/gateway/contracts/` 及原生会话测试 |
 | 会话存储、Profile 路径 | `state/store.py` / `state/*.py`；`hermes_constants.py` 的 `get_hermes_home()` |
 | 工具、技能、插件 | `model_tools.py` / `toolsets.py` / `tools/registry.py`；按根路由读取对应 AGENTS；不要为找一个工具读取全部注册表 |
 | 环境、依赖、机器事实 | `pm/`、`hermes_platform/`；按根路由读取对应约束，不直接修改托管环境 |
@@ -90,3 +91,7 @@ Windows x64 恢复：`apps/desktop/platform-policy.cjs`、`scripts/build-bundle.
 ## 通用任务看板
 
 Desktop `/kanban`：`apps/desktop/src/plugins/kanban/`；私有 API：`plugins/kanban/dashboard/`；看板执行开关、领取事务与停止证据：`hermes_cli/kanban_execution.py`；Gateway 调度：`gateway/kanban_watchers_dispatcher.py`。存储仍在同一 Hermes 根目录内跨 Profile 共享，自动执行逐看板默认关闭。任务 Worker 通过 `kanban_worker_client` 向所属 Profile 的 Gateway 提交，不启动终端聊天。
+
+## 可选内容审核
+
+`plugins/operations/review_policy.py` 管理主题独立策略；`automatic_review.py` 管理分数、复检、人工干预与幂等；`automatic_schedule.py` 复用既有审核发布台账。私有入口 `dashboard/review_api.py`，Desktop 设置和详情位于 `review-policy.tsx`。回归入口为 `test_operations_automatic_review.py`、`test_operations_review_policy_http.py` 和 `review-policy.test.tsx`。

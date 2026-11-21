@@ -88,6 +88,12 @@ def _generate_response(store, day, instruction, data, budget_id, *, image_parts=
     capture_response(store, budget_id, response)
     from .batch_cancellation import check
     check(store)
-    result = decode(response)
+    from .model_errors import ModelOutputError
+    from .model_diagnostics import record_failure
+    try:
+        result = decode(response)
+    except ModelOutputError as exc:
+        record_failure(store, budget_id, exc)
+        raise
     store.progress("模型已返回结构化结果")
     return result

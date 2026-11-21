@@ -88,7 +88,7 @@ def record_step(store, command_id, worker, body):
             from .publication_dispatch import check as check_publication
             check_publication(store, db, command)
         payload = json.loads(command['payload'])
-        if phase == 'started' and payload.get('human_review'):
+        if phase == 'started' and command['kind'] == 'publish' and payload.get('release_revision', payload.get('human_review')):
             from .content_release import authorization
             version, policy = store.policy()
             if not authorization(store, db, payload, version, policy):

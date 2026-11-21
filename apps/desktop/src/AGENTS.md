@@ -3,7 +3,8 @@
 Applies on top of `apps/desktop/AGENTS.md` (the judgment guide) and the root `AGENTS.md`.
 
 This operations build shares its scope with `hermes_cli/data/operations-profile.json` through
-`lib/operations-profile.ts`. Bot Mode, Kanban, Radio and the retired agents/starmap/webhooks/session-import pages are removed.
+`lib/operations-profile.ts`. Bot Mode, Radio and the retired agents/starmap/webhooks/session-import pages are removed.
+Kanban is available; execution defaults off per board, and its tools require explicit new-session selection or task ownership.
 Keep the product filters to prevent saved configuration or external plugins from reviving retired entry points.
 
 ## Desktop local execution belongs to the canonical gateway

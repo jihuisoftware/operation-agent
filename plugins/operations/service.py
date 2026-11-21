@@ -27,7 +27,7 @@ def retry_action(store, identity):
         cfg = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
         policy, action = json.loads(cfg["data"]), json.loads(row["data"])
         effective = policy
-        if action.get('human_review'):
+        if action.get('release_revision', action.get('human_review')):
             from .content_release import authorization
             if not authorization(store, db, action, cfg['version'], policy):
                 raise ValueError('本篇稿件的人工审核授权已失效，请重新审核新版本')

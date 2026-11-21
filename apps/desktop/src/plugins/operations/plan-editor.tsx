@@ -2,6 +2,7 @@ import { Button, Codicon, type CronBlueprintOwner, host, type PluginContext } fr
 import { lazy, Suspense, useMemo, useState } from 'react'
 
 import { FirstRunProgress } from './first-run'
+import { ReviewPolicySettings } from './review-policy'
 import { PlanForm } from './plan-form'
 import { PlanReadiness } from './plan-readiness'
 import { PlanSave } from './plan-save'
@@ -83,6 +84,7 @@ function OwnedEditor({ ctx, compact }: { ctx: PluginContext; compact?: boolean }
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      <ReviewPolicySettings ctx={ctx} />
       <FirstRunProgress ctx={ctx} />
       {!first && (
         <details onToggle={event => setHistory(event.currentTarget.open)}>

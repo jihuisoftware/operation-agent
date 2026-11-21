@@ -4,6 +4,7 @@ import time
 from .blueprints import timeline
 from .login_status import catalog as login_catalog
 from .policy import local_day, now_iso
+from .publication_status import PLATFORM_PUBLISHED_SQL
 
 
 def overview(store):
@@ -19,8 +20,9 @@ def overview(store):
             "WHERE day=? ORDER BY started DESC,rowid DESC LIMIT 6", (day,))]
         publications = [dict(row) for row in db.execute(
             "SELECT id,created,state,json_extract(data,'$.content.title') AS title,"
-            "json_extract(data,'$.account_id') AS account_id,json_extract(result,'$.url') AS url "
-            "FROM actions WHERE day=? AND kind='publish' AND state IN ('published','confirmed') "
+            "json_extract(data,'$.account_id') AS account_id,json_extract(result,'$.url') AS url,"
+            "json_extract(result,'$.publication.content') AS content_state "
+            f"FROM actions WHERE day=? AND kind='publish' AND {PLATFORM_PUBLISHED_SQL} "
             "ORDER BY created DESC,rowid DESC LIMIT 4", (day,))]
         report = db.execute(
             "SELECT id,created,json_extract(data,'$.day') AS day FROM objects "
@@ -58,7 +60,8 @@ def _counts(db, day):
         "AND json_extract(data,'$.day')=? ORDER BY created DESC,rowid DESC LIMIT 1", (day,)).fetchone()
     counts["topics"] = (brief[0] or 0) if brief else 0
     for row in db.execute(
-        "SELECT kind,count(*) AS n FROM actions WHERE day=? AND state IN ('published','confirmed') GROUP BY kind", (day,)):
+        "SELECT kind,count(*) AS n FROM actions WHERE day=? AND "
+        f"((kind='publish' AND {PLATFORM_PUBLISHED_SQL}) OR (kind!='publish' AND state IN ('published','confirmed'))) GROUP BY kind", (day,)):
         if row["kind"] == "publish":
             counts["published"] += row["n"]
         elif row["kind"] in {"comment", "reply", "dm", "follow"}:

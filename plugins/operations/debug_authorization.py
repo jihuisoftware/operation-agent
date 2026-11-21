@@ -89,7 +89,7 @@ def model_policy(store, policy, kind):
 def reservation_policy(store, db, policy, action, version):
     action.pop('debug_authorization', None)
     grant = current_grant(store, db, version, action['kind'], policy)
-    if action['kind'] == 'publish' and action.get('human_review'):
+    if action['kind'] == 'publish' and action.get('release_revision', action.get('human_review')):
         from .content_release import authorization
         if not authorization(store, db, action, version, policy):
             raise ValueError('稿件尚未审核、未到发布时间或审核已失效')
@@ -113,7 +113,7 @@ def may_dispatch(store, db, command, action, version, policy):
     if command['kind'] not in {'publish', 'interact'}:
         return True
     data = json.loads(action['data'])
-    if data.get('human_review'):
+    if data.get('release_revision', data.get('human_review')):
         from .content_release import authorization
         if not authorization(store, db, data, version, policy):
             db.execute("UPDATE commands SET state='cancelled' WHERE id=?", (command['id'],))

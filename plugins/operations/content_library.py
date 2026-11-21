@@ -4,6 +4,7 @@ import time
 
 from .content_release import fingerprint, load
 from .content_edits import action_match, latest_action
+from .publication_status import PLATFORM_PUBLISHED_SQL
 
 STATES = {
     'all': (), 'in_progress': ('queued', 'executing'), 'needs_attention': ('submitted', 'unknown', 'blocked'),
@@ -23,6 +24,7 @@ def summaries(rows):
         value.pop('cursor', None)
         value['asset_ids'] = json.loads(value.pop('assets') or '[]')
         value['release'] = json.loads(value.pop('release_json') or 'null')
+        value['automatic_review'] = json.loads(value.pop('automatic_review_json', None) or 'null')
         value['publication'] = json.loads(value.pop('publication_json', None) or 'null')
         result.append(value)
     return result
@@ -43,8 +45,9 @@ def listing(store, before=0, filter='', record='', status='all', compact=False):
                   "json_extract(c.data,'$.day') AS basis_day,json_extract(c.data,'$.parent_content_id') AS parent_content_id,"
                   "json_extract(c.data,'$.manual_revision') AS manual_revision,a.id AS publication_action_id,a.state AS publication_state,"
                   "json_extract(c.data,'$.quality.pass') AS quality_pass,substr(json_extract(c.data,'$.quality.reason'),1,240) AS quality_reason,"
+                  "json_extract(c.data,'$.automatic_review') AS automatic_review_json,"
                   "CASE WHEN r.id IS NOT NULL THEN json_object('state',json_extract(r.data,'$.state'),'publish_at',json_extract(r.data,'$.publish_at'),"
-                  "'account_id',json_extract(r.data,'$.account_id'),'detail',substr(json_extract(r.data,'$.detail'),1,300)) END AS release_json")
+                  "'reviewer',json_extract(r.data,'$.reviewer'),'account_id',json_extract(r.data,'$.account_id'),'detail',substr(json_extract(r.data,'$.detail'),1,300)) END AS release_json")
         rows = db.execute('SELECT ' + (fields if compact else 'c.rowid AS cursor,c.*') + ' ' + JOIN + ' AND ' + condition +
                           " AND (?='' OR c.id=?) AND (?=0 OR c.rowid<?) ORDER BY c.rowid DESC LIMIT ?",
                           (record, record, before, before, size + 1)).fetchall()
@@ -71,6 +74,8 @@ def publications(db, before, record, status, size, compact, counts):
     states = STATES[status]
     state_filter = '1=1' if not states or record else 'a.state IN (' + ','.join('?' for _ in states) + ')'
     params = list(states) if states and not record else []
+    if status == 'published' and not record:
+        state_filter, params = PLATFORM_PUBLISHED_SQL, []
     fields = ("a.rowid AS cursor,a.id,a.created,a.state AS publication_state,a.id AS publication_action_id,"
               "json_extract(a.data,'$.content.id') AS content_id,json_extract(a.data,'$.content.title') AS title,"
               "substr(json_extract(a.data,'$.content.body'),1,140) AS excerpt,json_extract(a.data,'$.content.asset_ids') AS assets,"

@@ -18,7 +18,7 @@ export interface OverviewData {
   counts: { sources: number; sources_read: number; content: number; topics: number; published: number; interactions: number; model_calls: number }
   pending: { unverified: number; failed_today: number; inbox: number; content: number }
   runs: { pause?: PauseOrigin; id: string; stage: string; state: string; detail: string; started: string; ended: string | null }[]
-  publications: { id: string; created: string; state: string; title: string | null; account_id: string | null; url: string | null }[]
+  publications: { content_state?: string | null; id: string; created: string; state: string; title: string | null; account_id: string | null; url: string | null }[]
   report: { id: string; created: string; day: string } | null
   schedule: PlanTime[]
   analysis?: { id: string; kind: string; created: string; detail: string }[]
