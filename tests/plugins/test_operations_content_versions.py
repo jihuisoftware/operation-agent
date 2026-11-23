@@ -117,3 +117,21 @@ def test_edit_keeps_published_snapshot_and_returns_original_to_review(version_ca
     with pytest.raises(ValueError, match='原稿或规则'):
         create(store, draft['id'], {**request(draft, title='过期编辑'), 'request_id': 'stale-window'})
     assert current['title'] == '更新后的路线'
+
+
+def test_backfill_image_free_draft_saves_cover_in_place(version_case):
+    store, _, _, draft = version_case
+    draft.update(asset_ids=[], visual_required=True, visual_error='缺少生图模型')
+    for key in ('cover_candidates', 'cover_origin', 'cover_article_title'):
+        draft.pop(key, None)
+    with store.connection() as db:
+        db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(draft), draft['id']))
+    body = request(draft, expected_release_revision=0, asset_ids=[])
+    result = create(store, draft['id'], body)
+    updated = content_release.manuscript(store, result['id'])
+    assert updated['id'] == draft['id'] and updated['body'] == draft['body']
+    assert updated['asset_ids'] == [updated['cover_candidates'][0]['asset_id']]
+    assert updated['cover_origin'] == 'generated_typography' and updated['state'] == 'pending_review'
+    support.approve(store, updated)
+    with pytest.raises(ValueError, match='排期已变化'):
+        create(store, updated['id'], request(updated, request_id='stale', expected_release_revision=0))

@@ -204,3 +204,22 @@ def test_private_visual_endpoints_require_auth_and_scope(studio):
         assert response.status_code == 200 and len(response.json()['pages']) == 3
         assert 'plan' not in response.json()
         assert client.get(path, params={**scope, 'topic_id': 'other'}).status_code == 404
+
+
+def test_unfinished_magazine_keeps_a_local_cover_for_human_review(studio, monkeypatch):
+    from plugins.operations import visual_pipeline
+    from plugins.operations.content_release import manuscript
+    from plugins.operations.policy import local_day
+
+    store, content, calls = studio
+    version, policy = store.policy()
+    content.update(day=local_day(policy), version=version, visual_required=True, ready=False)
+    del content['id']
+    content['id'] = store.put('content', content)
+    monkeypatch.setattr(visual_provider, 'available', lambda: False)
+    visual_pipeline.prepare(store, content)
+    saved = manuscript(store, content['id'])
+    assert saved['asset_ids'] == [saved['cover_candidates'][0]['asset_id']]
+    assert saved['cover_origin'] == 'generated_typography'
+    assert saved['visual_error'] and not saved['ready'] and not calls
+    assert visual_pipeline.prepare(store, saved)['asset_ids'] == saved['asset_ids']

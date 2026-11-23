@@ -1,10 +1,10 @@
-import { ContentReviewDecision } from './review-policy'
 import { Button, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
 import { coverAssetIds, localInput, versionRequest } from './content-version-actions'
+import { type PublicationWait, PublicationWaiting } from './publication-waiting'
+import { ContentReviewDecision } from './review-policy'
 import type { RecordRow } from './types'
-import { PublicationWaiting, type PublicationWait } from './publication-waiting'
 
 interface Props {
   ctx: PluginContext
@@ -62,7 +62,7 @@ export function ContentReview({ ctx, row, refresh }: Props) {
   if (row.publication_state) { return null }
 
   return <section aria-label="审核与排期" className="space-y-3">
-    <ContentReviewDecision row={row} ctx={ctx} refresh={refresh} />
+    <ContentReviewDecision ctx={ctx} refresh={refresh} row={row} />
     {release?.state === 'scheduled' && !rescheduling
       ? <><p>{release?.reviewer === 'automatic' ? '自动审核通过' : '人工审核通过'}，计划于 {formatTimestamp(release.publish_at)} 发布</p>
           <Button disabled={pending} onClick={() => { setTime(localInput(release.publish_at)); setRescheduling(true) }} variant="outline">调整发布时间</Button>
@@ -73,6 +73,9 @@ export function ContentReview({ ctx, row, refresh }: Props) {
           <Button disabled={pending || !time || !(row.asset_ids as string[] | undefined)?.length} onClick={() => void submit('approve')}>{rescheduling ? '确认改期' : '审核通过并定时发布'}</Button>
           {rescheduling && <Button disabled={pending} onClick={() => setRescheduling(false)} variant="ghost">放弃改期</Button>}
           <p className="text-xs text-muted-foreground">请核对全部图片与正文。此操作仅授权本篇稿件；到时需保持应用和账号在线。</p></>}
+    {row.visual_error && row.cover_origin === 'generated_typography' ? (
+      <p className="text-sm">当前使用本地文字封面。杂志组图尚未完成：{String(row.visual_error)}</p>
+    ) : null}
     <PublicationWaiting waiting={release?.waiting} />
     {release?.detail && <p>{release.detail}</p>}
     {release?.state === 'scheduled' && <p className="text-sm">保存封面修改会更新原内容并取消当前排期，请重新审核后设置发布时间。</p>}

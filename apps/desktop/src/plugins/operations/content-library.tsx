@@ -1,11 +1,12 @@
 import { Button, formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
-import { useCallback, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
 
 import { AssetImage } from './asset-image'
 import { ContentPreview } from './content-preview'
 import { GenerateContent } from './content-review'
+import { GenerateCoversButton } from './generate-covers-button'
+import { type PublicationWait, PublicationWaiting } from './publication-waiting'
 import type { RecordRow } from './types'
-import { PublicationWaiting, type PublicationWait } from './publication-waiting'
 import { openWriter } from './writing/navigation'
 
 interface Summary extends RecordRow {
@@ -56,10 +57,11 @@ function actionLabel(row: Summary, tab: string) {
   return tab === 'pending' ? '查看或调整排期' : '预览与审核'
 }
 
-function ContentToolbar({ counts, restricted, refresh, showAll }: { counts?: Catalog['counts']; restricted: boolean; refresh: () => Promise<unknown>; showAll: () => void }) {
+function ContentToolbar({ counts, restricted, refresh, showAll, children }: { children?: ReactNode; counts?: Catalog['counts']; restricted: boolean; refresh: () => Promise<unknown>; showAll: () => void }) {
   return <div className="flex flex-wrap items-center gap-3 text-sm">
     {counts && <p className="mr-auto text-muted-foreground">待审核 {counts.drafts} · 已排期 {counts.pending} · 发布记录 {counts.published}</p>}
     {restricted && <Button onClick={showAll} variant="outline">查看全部记录</Button>}
+    {children}
     <Button onClick={() => void refresh()} variant="outline">刷新内容</Button>
   </div>
 }
@@ -109,7 +111,9 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
   const showAll = () => { setRecordFilter(''); setCursor(''); setSelected(null); setData(null); setRevision(value => value + 1) }
 
   return <div className="space-y-4 p-4">
-    <ContentToolbar counts={data?.counts} refresh={refresh} restricted={Boolean(recordFilter)} showAll={showAll} />
+    <ContentToolbar counts={data?.counts} refresh={refresh} restricted={Boolean(recordFilter)} showAll={showAll}>
+      {tab === 'drafts' && <GenerateCoversButton ctx={ctx} record={recordFilter} refresh={refresh} />}
+    </ContentToolbar>
     {tab === 'drafts' && <GenerateContent ctx={ctx} refresh={refresh} />}
     {tab === 'drafts' && <Button onClick={() => openWriter()} variant="outline">手动写稿</Button>}
     {tab === 'published' && <div aria-label="发布状态筛选" className="flex flex-wrap gap-2">{filters.map(([value, title]) => <Button aria-pressed={status === value} key={value} onClick={() => {
@@ -137,7 +141,7 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
         </div>
       </div>
       {selected === row.id && <div className="border-t p-4"><ContentPreview ctx={ctx} identity={row.id} publication={tab === 'published'} refresh={refresh}
-        snapshotKey={JSON.stringify([row.publication_state, row.publication, row.checked_at, row.release])} /></div>}
+        snapshotKey={JSON.stringify([row.publication_state, row.publication, row.checked_at, row.release, row.asset_ids])} /></div>}
     </article>)}
     <div className="flex gap-2">
       {data?.next && <Button onClick={() => { setCursor(data.next!); setSelected(null); setData(null) }} variant="outline">更早记录</Button>}
