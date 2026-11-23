@@ -89,9 +89,12 @@ it('shows an overdue executor wait and removes it after a refreshed heartbeat', 
   const release = { state: 'scheduled', publish_at: '2026-11-10T09:30:00Z', waiting: {
     code: 'WORKER_OFFLINE', detail: '发布时间已到，正在等待桌面网页执行器连接；尚未提交。', last_seen: '2026-11-10T02:39:01Z'
   } }
+
   let online = false
+
   const rest = vi.fn(async () => ({ compact: true, content: [{ ...content, release: online ? { ...release, waiting: undefined } : release }],
     actions: [], counts: { ...counts, pending: 1 }, has_active: false }))
+
   render(<ContentLibrary ctx={{ rest } as unknown as PluginContext} tab="pending" />)
   expect(await screen.findByText('等待网页执行器')).toBeTruthy()
   expect(screen.getByText(release.waiting.detail)).toBeTruthy()
@@ -100,4 +103,32 @@ it('shows an overdue executor wait and removes it after a refreshed heartbeat', 
   fireEvent.click(screen.getByRole('button', { name: '刷新内容' }))
   expect(await screen.findByText('已排期')).toBeTruthy()
   expect(screen.queryByText(release.waiting.detail)).toBeNull()
+})
+
+it('fills missing draft covers across pages from the refresh toolbar', async () => {
+  const drafts = [content, { ...content, id: 'two' }]
+
+  const rest = vi.fn(async (path: string) => {
+    if (path.startsWith('/library/')) {
+      const older = new URL(path, 'https://example.org').searchParams.get('before') === '10'
+
+      return { compact: true, content: older ? [drafts[1]] : [drafts[0], { ...content, id: 'covered', asset_ids: ['img'] }],
+        next: older ? '' : '10', actions: [], counts, has_active: false }
+    }
+
+    if (path.endsWith('/details')) {
+      return { content: { ...content, id: path.split('/')[2], content_revision: 'fp', policy_version: 2 } }
+    }
+
+    return {}
+  })
+
+  render(<ContentLibrary ctx={{ rest } as unknown as PluginContext} tab="drafts" />)
+  const button = await screen.findByRole('button', { name: '一键生成封面' })
+  expect(button.nextElementSibling?.textContent).toBe('刷新内容')
+  fireEvent.click(button)
+  expect(await screen.findByText('已为 2 篇待审核稿件生成封面。')).toBeTruthy()
+  expect(rest.mock.calls.map(([path]) => path).filter(path => path.endsWith('/versions'))).toEqual([
+    '/content/one/versions', '/content/two/versions'
+  ])
 })

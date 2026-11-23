@@ -50,6 +50,8 @@ def evaluate(store, draft, settings, *, recheck=False, failure=None):
     try:
         if failure:
             raise ValueError(failure)
+        if draft.get('visual_required') and draft.get('visual_error'):
+            raise ValueError('杂志组图尚未完成，请人工核对当前封面')
         if draft.get('manual'):
             raise ValueError('手写稿件仍需人工审核')
         if draft.get('version') != version and not recheck:

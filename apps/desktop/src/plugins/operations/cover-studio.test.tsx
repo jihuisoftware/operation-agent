@@ -120,3 +120,53 @@ it('drops a withdrawn saved candidate and keeps other covers selectable', async 
   fireEvent.click(screen.getByRole('button', { name: '选用醒目标题' }))
   expect((screen.getByRole('button', { name: '应用封面并保存' }) as HTMLButtonElement).disabled).toBe(false)
 })
+
+it('selects a specific pose within its group and drops the old placeholder on preview', async () => {
+  const choices = { ...options, templates: [{ id: 'cartoon', label: '卡通波点' }], cartoon_characters: [
+    { id: 'kico', label: '软萌小白', group: 'Kico' },
+    { id: 'rabbit', label: '托盘女仆', group: '粉红兔子' },
+    { id: 'rabbit-foot', label: '抱臂伸脚', group: '粉红兔子' }
+  ] }
+  const rest = vi.fn(async (path: string) => path.endsWith('cover-options') ? choices :
+    { ...choices, candidates, set_id: 'set' })
+  render(<CoverStudio ctx={{ rest } as unknown as PluginContext} refresh={async () => {}}
+    row={{ ...row, cover: { ...spec, template: 'cartoon', variant: 'kico', eyebrow: '主题分享' } }} />)
+  fireEvent.change(await screen.findByLabelText('角色类型'), { target: { value: '粉红兔子' } })
+  fireEvent.change(screen.getByLabelText('角色造型'), { target: { value: 'rabbit-foot' } })
+  fireEvent.click(screen.getByRole('button', { name: '生成三个候选封面' }))
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/draft/covers/preview', expect.objectContaining({
+    body: expect.objectContaining({ cover: expect.objectContaining({ variant: 'rabbit-foot', eyebrow: '' }) })
+  })))
+})
+
+it('rotates five poses three at a time independently of the selected cover', async () => {
+  const poses = ['1', '2', '3', '4', '5'].map(id => ({ id, label: id, group: '兔子' }))
+  const options = { templates: [{ id: 'cartoon', label: '卡通波点' }], palettes: [],
+    cartoon_characters: [...poses, { id: 'other', label: '小猫', group: '猫' }] }
+  const working = {
+    apply: vi.fn(),
+    preview: vi.fn(async (cover: typeof spec & { variant?: string }) => {
+      const start = poses.findIndex(pose => pose.id === cover.variant)
+      const candidates = [0, 1, 2].map(offset => {
+        const { id } = poses[(start + offset) % poses.length]
+        return { asset_id: id, variant_label: id, template_label: '卡通波点', palette_label: '粉色', cover: { ...cover, variant: id } }
+      })
+      return { ...options, candidates, set_id: '' }
+    })
+  }
+  const rest = vi.fn(async (path: string) => path.endsWith('cover-options') ? options : { data: 'aW1hZ2U=' })
+  render(<CoverStudio ctx={{ rest } as unknown as PluginContext} working={working} refresh={async () => {}}
+    row={{ ...row, cover: { ...spec, template: 'cartoon', variant: '1' } }} />)
+  await screen.findByLabelText('角色造型')
+  const shown = () => screen.getAllByRole('button', { name: /^选用/ }).map(button => button.textContent)
+  fireEvent.click(screen.getByRole('button', { name: '生成三个候选封面' }))
+  await screen.findByRole('button', { name: '选用1' })
+  expect(shown()).toEqual(['选用1', '选用2', '选用3'])
+  fireEvent.click(screen.getByRole('button', { name: '选用2' }))
+  fireEvent.click(screen.getByRole('button', { name: '换一换' }))
+  await screen.findByRole('button', { name: '选用4' })
+  expect(shown()).toEqual(['选用4', '选用5', '选用1'])
+  fireEvent.click(screen.getByRole('button', { name: '换一换' }))
+  await screen.findByRole('button', { name: '选用2' })
+  expect(shown()).toEqual(['选用2', '选用3', '选用4'])
+})

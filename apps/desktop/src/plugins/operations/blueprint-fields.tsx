@@ -37,7 +37,7 @@ export function GoalFields({ policy, onChange }: PolicyFieldsProps) {
           <option value="magazine">杂志组图：3–6 页，最多 2 张 AI 主视觉</option>
           <option value="basic">基础文字封面：仅本地排版，不调用生图</option>
         </select>
-        <span className="text-xs text-muted-foreground">杂志组图需配置生图模型；失败会保留草稿，不会静默切换成基础封面。</span>
+        <span className="text-xs text-muted-foreground">杂志组图需配置生图模型；组图失败时，无图稿会生成文字封面供人工审核。</span>
       </label>
       <h3 className="font-medium">需要执行哪些模块</h3>
       <p className="text-xs text-muted-foreground">

@@ -102,7 +102,7 @@ def create(store, identity, body):
         if not sources_unchanged(db, {'source_signatures': signatures}, policy):
             raise ValueError('编辑期间来源已变化，请刷新后核对')
         release = load(db, identity)
-        if body.get('expected_release_revision') is not None and (not release or release['revision'] != body['expected_release_revision']):
+        if body.get('expected_release_revision') is not None and (release or {}).get('revision', 0) != body['expected_release_revision']:
             raise ValueError('原排期已变化，请刷新后编辑')
         from .content_edits import write
         write(db, identity, current, value)

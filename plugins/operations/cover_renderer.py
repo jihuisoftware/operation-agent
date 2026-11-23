@@ -98,6 +98,9 @@ def spotlight(draw, spec, path, colors):
 
 
 def render(spec, path):
+    if spec['template'] == 'cartoon':
+        from .cover_cartoon import render as render_cartoon
+        return render_cartoon(spec, path)
     if spec['template'] == 'xiaohongshu':
         from .cover_xiaohongshu import render as render_social
         return render_social(spec, path)

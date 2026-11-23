@@ -28,6 +28,9 @@ def social_variations(spec):
 
 
 def variant_label(spec):
+    if spec['template'] == 'cartoon':
+        from .cover_cartoon_catalog import CHARACTERS
+        return CHARACTERS[spec.get('variant', 'kico')]
     if spec['template'] != 'xiaohongshu':
         return ''
     choices = SOCIAL_VARIANTS[spec.get('style', 'basic')]
