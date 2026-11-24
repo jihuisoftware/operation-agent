@@ -97,13 +97,19 @@ def model_setup():
     from hermes_cli.config import load_config_readonly
     from hermes_cli.auth import get_active_provider, get_api_key_provider_status
     from providers import get_provider_profile
-    config = load_config_readonly().get('model', {})
+    settings = load_config_readonly()
+    config = settings.get('model', {})
     name = config.get('default', '') if isinstance(config, dict) else config
     provider = config.get('provider', '') if isinstance(config, dict) else ''
     provider = provider or get_active_provider()
     if not name or not provider:
         return False
     profile = get_provider_profile(provider)
+    if profile and profile.name == 'custom':
+        # Named endpoints may use scoped secrets or require no key at all.
+        from hermes_cli.runtime_provider_custom import named_custom_provider_config_path
+        if (isinstance(config, dict) and config.get('base_url')) or named_custom_provider_config_path(provider, settings):
+            return None
     if profile and profile.auth_type == 'api_key':
         return bool(get_api_key_provider_status(provider).get('configured'))
     # OAuth/local providers perform their authoritative check in their existing setup UI.

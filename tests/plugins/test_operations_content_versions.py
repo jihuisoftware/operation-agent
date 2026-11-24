@@ -135,3 +135,18 @@ def test_backfill_image_free_draft_saves_cover_in_place(version_case):
     support.approve(store, updated)
     with pytest.raises(ValueError, match='排期已变化'):
         create(store, updated['id'], request(updated, request_id='stale', expected_release_revision=0))
+
+
+def test_rich_edit_keeps_formatting_and_projects_the_saved_body(version_case):
+    from plugins.operations.writing_document import from_plain
+    store, _, _, draft = version_case
+    draft.update(editor_document=from_plain(draft['body']), editor_document_version=1, visual_required=True)
+    with store.connection() as db:
+        db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(draft), draft['id']))
+    document = from_plain('路线开放时间为九点，请提前出发。')
+    document['content'][0]['content'][0]['marks'] = [{'type': 'bold'}]
+    create(store, draft['id'], request(draft, editor_document=document))
+    saved = content_release.manuscript(store, draft['id'])
+    assert saved['body'] == '路线开放时间为九点，请提前出发。'
+    assert saved['editor_document'] == document
+    assert saved['asset_ids'] == draft['asset_ids'] and saved['state'] == 'pending_review'

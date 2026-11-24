@@ -56,8 +56,8 @@ def finish(store, attempt, **result):
     store.event('content_revision_' + result['state'], {'revision_id': attempt['id'], **result})
 
 
-def revised_cover(store, parent, proposed):
-    if parent.get('visual_required') and any(proposed.get(key) != parent.get(key) for key in ('title', 'body')):
+def revised_cover(store, parent, proposed, *, regenerate_magazine=True):
+    if regenerate_magazine and parent.get('visual_required') and any(proposed.get(key) != parent.get(key) for key in ('title', 'body')):
         return {**proposed, 'asset_ids': [], 'visual_required': True}
     from .content_cover import ensure_cover
     original = parent.get('asset_ids', [])

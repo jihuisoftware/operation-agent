@@ -33,11 +33,11 @@ export const sections = {
     title: '内容',
     icon: 'file-media',
     tabs: [
-      ['drafts', '待审核'],
-      ['writing', '写作草稿'],
+      ['drafts', '待审核'],      
       ['pending', '已排期'],
       ['published', '发布记录'],
-      ['topics', '选题']
+      ['topics', '选题'],
+      ['writing', '写作草稿'],
     ]
   },
   interactions: {
@@ -70,9 +70,9 @@ export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Sec
       <header className="flex flex-wrap items-center gap-2 p-4">
         <Codicon name={config.icon} />
         <h1 className="mr-auto text-xl font-semibold">{config.title}</h1>
-        <Button onClick={() => host.navigate('/cron?tab=plan')} variant="ghost">
+        {/* <Button onClick={() => host.navigate('/cron?tab=plan')} variant="ghost">
           调整运营设置
-        </Button>
+        </Button> */}
         {section === 'content' && (
           <Button onClick={() => host.navigate('/artifacts')} variant="ghost">
             成果文件

@@ -235,3 +235,13 @@ def test_interrupted_first_round_does_not_replay_claimed_stage(tmp_path, monkeyp
     save(store, 'activation', 'plan-activation', {'after': '2026-11-02T10:00:00+00:00'})
     save(store, 'readiness', 'readiness:publish', {'after': '2026-11-02T17:00:00+08:00'})
     assert readiness.boundaries(store)['publish'] == '2026-11-02T10:00:00+00:00'
+
+
+def test_named_custom_endpoint_does_not_report_missing_builtin_credentials(tmp_path, monkeypatch):
+    from plugins.operations.readiness import model_setup
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    (tmp_path / 'config.yaml').write_text(
+        'model:\n  provider: local-relay\n  default: sample\n'
+        'providers:\n  local-relay:\n    base_url: https://relay.example/v1\n    key_env: RELAY_KEY\n'
+    )
+    assert model_setup() is None

@@ -1,6 +1,7 @@
 import './writing.css'
 
 import type { PluginContext } from '@hermes/plugin-sdk'
+import type { JSONContent } from '@tiptap/core'
 import Highlight from '@tiptap/extension-highlight'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TableKit } from '@tiptap/extension-table'
@@ -21,6 +22,22 @@ interface Props {
 }
 
 export function WritingEditor({ controller, ctx, disabled }: Props) {
+  return <DocumentEditor bindImages={controller.bindImages} compose={controller.composition}
+    ctx={ctx} disabled={disabled} document={controller.state.get().draft.document}
+    onChange={document => controller.edit({ document })} session={controller} />
+}
+
+interface DocumentProps {
+  document: JSONContent
+  session: Writer | string
+  onChange: (document: JSONContent) => void
+  compose?: Writer['composition']
+  bindImages?: Writer['bindImages']
+  ctx: PluginContext
+  disabled: boolean
+}
+
+export function DocumentEditor({ document, session, onChange, compose, bindImages, ctx, disabled }: DocumentProps) {
   const editor = useEditor(
     {
       extensions: [
@@ -35,19 +52,19 @@ export function WritingEditor({ controller, ctx, disabled }: Props) {
         ImageDrag,
         ...mediaNodes(ctx)
       ],
-      content: controller.state.get().draft.document,
-      onUpdate: ({ editor: current }) => controller.edit({ document: current.getJSON() }),
+      content: document,
+      onUpdate: ({ editor: current }) => onChange(current.getJSON()),
       editorProps: {
         attributes: { 'aria-label': '正文编辑器', class: 'writing-document' },
         transformPastedHTML: cleanPaste,
         handleDOMEvents: {
           compositionstart: () => {
-            controller.composition(true)
+            compose?.(true)
 
             return false
           },
           compositionend: () => {
-            controller.composition(false)
+            compose?.(false)
 
             return false
           }
@@ -82,19 +99,19 @@ export function WritingEditor({ controller, ctx, disabled }: Props) {
         }
       }
     },
-    [controller, ctx]
+    [session, ctx]
   )
 
   useEffect(() => {
-    editor?.setEditable(!disabled)
+    editor?.setEditable(!disabled, false)
   }, [editor, disabled])
 
   useEffect(() => {
-    if (!editor) {
+    if (!editor || !bindImages) {
       return
     }
 
-    return controller.bindImages(ids => {
+    return bindImages(ids => {
       const transaction = editor.state.tr
       const ranges: [number, number][] = []
       editor.state.doc.descendants((node, pos) => {
@@ -113,7 +130,7 @@ export function WritingEditor({ controller, ctx, disabled }: Props) {
       )
       editor.view.dispatch(transaction)
     })
-  }, [editor, controller])
+  }, [editor, bindImages])
 
   return (
     <div className="min-w-0 flex-1">

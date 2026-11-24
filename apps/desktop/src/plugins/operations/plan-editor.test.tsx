@@ -64,6 +64,7 @@ it('leaves custom topics empty with guidance and preserves manually entered topi
 it('starts from one page without account prerequisites and double click shares the request', async () => {
   const initial = catalog('机械零件加工')
   initial.version = 0
+  initial.model_ready = false
   initial.policy.allowed = { publish: true, comment: true, reply: true, dm: true, follow: false }
 
   const rest = vi.fn(async (path: string, options?: any) => {
@@ -87,6 +88,10 @@ it('starts from one page without account prerequisites and double click shares t
 
   render(<PlanEditor ctx={{ rest } as unknown as PluginContext} owner={owner} />)
   expect(await screen.findByRole('button', { name: '连接模型' })).toBeTruthy()
+  const method = screen.getByRole('combobox', { name: '发布方式' })
+  expect(method.textContent).toBe('普通发布')
+  fireEvent.keyDown(method, { key: 'ArrowDown' })
+  fireEvent.click(await screen.findByRole('option', { name: 'computer_use 发布' }))
   const start = screen.getByRole('button', { name: '开始运营' })
   await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false))
   expect(screen.getByText(/上传获授权图片/)).toBeTruthy()
@@ -101,7 +106,7 @@ it('starts from one page without account prerequisites and double click shares t
   expect(request.body).toMatchObject({
     start: true,
     version: 0,
-    policy: { modules: { analytics: true, industry: true, publish: true, follow: false }, limits: { source: 3 } }
+    policy: { publish_method: 'computer_use', modules: { analytics: true, industry: true, publish: true, follow: false }, limits: { source: 3 } }
   })
 })
 
@@ -163,4 +168,11 @@ it('never reapplies defaults or increases permissions when opening an old plan',
   expect(changed.allowed).toEqual(old.policy.allowed)
   expect(changed.limits).toEqual(old.policy.limits)
   expect(changed.knowledge).toEqual(['业务事实'])
+})
+
+it.each([true, null])('does not prompt to connect based on an empty chat selection (backend %s)', ready => {
+  const initial = catalog()
+  initial.model_ready = ready
+  render(<PlanForm catalog={initial} change={vi.fn()} policy={initial.policy} />)
+  expect(screen.queryByRole('button', { name: '连接模型' })).toBeNull()
 })

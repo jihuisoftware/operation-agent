@@ -1,7 +1,8 @@
 import { Button, formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
-import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import { AssetImage } from './asset-image'
+import { ContentEditDialog } from './content-edit-dialog'
 import { ContentPreview } from './content-preview'
 import { GenerateContent } from './content-review'
 import { GenerateCoversButton } from './generate-covers-button'
@@ -54,7 +55,7 @@ function label(row: Summary) {
 function actionLabel(row: Summary, tab: string) {
   if (row.publication_state) { return '查看发布结果' }
 
-  return tab === 'pending' ? '查看或调整排期' : '预览与审核'
+  return tab === 'pending' ? '查看或调整排期' : '编辑'
 }
 
 function ContentToolbar({ counts, restricted, refresh, showAll, children }: { children?: ReactNode; counts?: Catalog['counts']; restricted: boolean; refresh: () => Promise<unknown>; showAll: () => void }) {
@@ -77,6 +78,8 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
   const [status, setStatus] = useState('all')
   const [recordFilter, setRecordFilter] = useState(record)
   const [selected, setSelected] = useState<string | null>(record || null)
+  const opener = useRef<HTMLButtonElement | null>(null)
+  const [initialReview, setInitialReview] = useState(Boolean(record))
   const [revision, setRevision] = useState(0)
   const refresh = useCallback(async () => { setRevision(value => value + 1) }, [])
   const polling = data?.has_active ? 5000 : tab === 'pending' ? 30000 : 0
@@ -123,10 +126,48 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
     {!data && !error && <p role="status">正在加载内容…</p>}
     {data && !rows.length && <p className="rounded border border-dashed p-8 text-center text-muted-foreground">{emptyMessage(tab, recordFilter)}</p>}
     {rows.map(row => <article className="overflow-hidden rounded-xl border" key={row.id}>
-      <div className="flex gap-4 p-4">
+      <CardSummary ctx={ctx} onEdit={canEdit(tab, row) ? button => {
+        opener.current = button
+        setInitialReview(false)
+        setSelected(row.id)
+      } : undefined} row={row} />
+      {!canEdit(tab, row) && <div className="flex justify-end px-4 pb-3">
+        <Button aria-expanded={selected === row.id} onClick={() => setSelected(selected === row.id ? null : row.id)} size="sm" variant="outline">
+          {selected === row.id ? '收起详情' : actionLabel(row, tab)}
+        </Button>
+      </div>}
+      {!canEdit(tab, row) && selected === row.id && <div className="border-t p-4"><ContentPreview ctx={ctx} identity={row.id} publication={tab === 'published'} refresh={refresh}
+        snapshotKey={JSON.stringify([row.publication_state, row.publication, row.checked_at, row.release, row.asset_ids])} /></div>}
+    </article>)}
+    {editableSelection(rows, tab, selected) && selected &&
+      <ContentEditDialog close={() => setSelected(null)} ctx={ctx} id={selected} initialReview={initialReview} key={selected}
+        refresh={refresh} returnFocus={() => opener.current?.focus()} />}
+    <div className="flex gap-2">
+      {data?.next && <Button onClick={() => { setCursor(data.next!); setSelected(null); setData(null) }} variant="outline">更早记录</Button>}
+      {cursor && <Button onClick={() => { setCursor(''); setSelected(null); setData(null) }} variant="ghost">返回最新</Button>}
+    </div>
+  </div>
+}
+
+
+function canEdit(tab: string, row: Summary) {
+  return tab === 'drafts' && !row.publication_state
+}
+
+function editableSelection(rows: Summary[], tab: string, selected: string | null) {
+  return rows.some(row => row.id === selected && canEdit(tab, row))
+}
+
+function CardSummary({ ctx, row, onEdit }: { ctx: PluginContext; row: Summary; onEdit?: (button: HTMLButtonElement) => void }) {
+  const status = label(row)
+  return <div className="flex gap-4 p-4">
         {row.asset_ids?.[0] && <div className="w-24 shrink-0"><AssetImage ctx={ctx} id={row.asset_ids[0]} /></div>}
         <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{row.title || '未命名图文'}</h2><span className="rounded bg-muted px-2 py-1 text-xs">{label(row)}</span></div>
+          <div className="flex items-start gap-3">
+            <h2 className="min-w-0 flex-1 break-words font-semibold">{row.title || '未命名图文'}</h2>
+            {(!onEdit || status !== '待审核') && <span className="shrink-0 rounded bg-muted px-2 py-1 text-xs">{status}</span>}
+            {onEdit && <Button aria-haspopup="dialog" onClick={event => onEdit(event.currentTarget)} size="sm" variant="outline">编辑</Button>}
+          </div>
           <p className="line-clamp-3 whitespace-pre-wrap text-sm text-muted-foreground">{row.excerpt}</p>
           <p className="text-xs text-muted-foreground">{formatTimestamp(row.created)}{row.release?.publish_at && ` · 发布时间：${formatTimestamp(row.release.publish_at)}`}</p>
           {Boolean(row.parent_content_id) && <p className="text-xs text-muted-foreground">{row.manual_revision ? '人工编辑版本' : '自动修订版本'} · 原稿已保留</p>}
@@ -135,17 +176,6 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
           {row.automatic_review && <p className="text-sm">{row.release?.state === 'scheduled' ? (row.release.reviewer === 'automatic' ? '自动审核排期' : '人工审核排期') : row.automatic_review.reason} · 正文 {row.automatic_review.scores.text ?? '未评分'} · 图片 {row.automatic_review.scores.visual ?? '未评分'}</p>}
           <PublicationWaiting waiting={row.release?.waiting} />
           {row.release?.detail && <p className="text-sm">{row.release.detail}</p>}
-          <Button aria-expanded={selected === row.id} onClick={() => setSelected(selected === row.id ? null : row.id)} size="sm" variant="outline">
-            {selected === row.id ? '收起详情' : actionLabel(row, tab)}
-          </Button>
         </div>
       </div>
-      {selected === row.id && <div className="border-t p-4"><ContentPreview ctx={ctx} identity={row.id} publication={tab === 'published'} refresh={refresh}
-        snapshotKey={JSON.stringify([row.publication_state, row.publication, row.checked_at, row.release, row.asset_ids])} /></div>}
-    </article>)}
-    <div className="flex gap-2">
-      {data?.next && <Button onClick={() => { setCursor(data.next!); setSelected(null); setData(null) }} variant="outline">更早记录</Button>}
-      {cursor && <Button onClick={() => { setCursor(''); setSelected(null); setData(null) }} variant="ghost">返回最新</Button>}
-    </div>
-  </div>
 }

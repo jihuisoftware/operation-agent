@@ -21,8 +21,16 @@ it('loads summaries first, fetches full evidence only when opened, and leaves id
   await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
   expect(rest).toHaveBeenCalledTimes(1)
   vi.useRealTimers()
-  fireEvent.click(screen.getByRole('button', { name: '预览与审核' }))
-  expect(await screen.findByText('完整正文只在展开后读取')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+  expect(await screen.findByRole('dialog', { name: '编辑稿件' })).toBeTruthy()
+  const body = await screen.findByRole('textbox', { name: '正文' })
+  expect((body as HTMLTextAreaElement).value).toBe('完整正文只在展开后读取')
+  fireEvent.change(body, { target: { value: '更新后的正文' } })
+  fireEvent.click(screen.getByRole('button', { name: '保存修改' }))
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/one/versions', {
+    method: 'POST', body: expect.objectContaining({ content_revision: 'fp', body: '更新后的正文' })
+  }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(rest).toHaveBeenCalledWith('/content/one/details')
 })
 

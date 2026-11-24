@@ -85,7 +85,7 @@ function OwnedEditor({ ctx, compact }: { ctx: PluginContext; compact?: boolean }
       )}
       {notice && <p role="status">{notice}</p>}
       <ReviewPolicySettings ctx={ctx} />
-      <FirstRunProgress ctx={ctx} />
+      {/* <FirstRunProgress ctx={ctx} /> */}
       {!first && (
         <details onToggle={event => setHistory(event.currentTarget.open)}>
           <summary className="cursor-pointer">运营台账与临时任务</summary>

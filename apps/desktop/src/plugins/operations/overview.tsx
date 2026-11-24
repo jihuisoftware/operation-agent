@@ -64,10 +64,10 @@ export function OwnedOverview({
             </Badge>
           </div>
           <div className="flex items-center gap-1">
-            <Open to="/cron">
+            {/* <Open to="/cron">
               <Codicon name="calendar" />
               定时任务
-            </Open>
+            </Open> */}
             <Button aria-label="刷新" onClick={retry} size="icon-sm" variant="ghost">
               <Codicon name="refresh" />
             </Button>
@@ -91,11 +91,11 @@ export function OwnedOverview({
             <>
               {!data.topic && <PlanEditor ctx={ctx} owner={owner} />}
               {data.topic && <OverviewContent accountId={selectedAccount} data={data} owner={owner} />}
-              {data.topic && <FirstRunProgress ctx={bound} />}
+              {/* {data.topic && <FirstRunProgress ctx={bound} />} */}
             </>
           )
         )}
-        <TokenUsageCard ctx={bound} topic={workspaces[ownerKey(owner)]?.selected?.topic_id} />
+        {/* <TokenUsageCard ctx={bound} topic={workspaces[ownerKey(owner)]?.selected?.topic_id} /> */}
       </div>
     </main>
   )

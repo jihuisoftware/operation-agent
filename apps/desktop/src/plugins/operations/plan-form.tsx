@@ -1,4 +1,4 @@
-import { Button, Checkbox, Codicon, host, useValue } from '@hermes/plugin-sdk'
+import { Button, Checkbox, Codicon, host } from '@hermes/plugin-sdk'
 
 import { GoalFields, ScheduleFields } from './blueprint-fields'
 import { actionLabels, type BlueprintCatalog } from './blueprint-types'
@@ -15,13 +15,12 @@ interface Props {
 }
 
 export function PlanForm({ catalog, policy, change }: Props) {
-  const model = useValue(host.state.model)
   const businesses = catalog.templates.filter(t => t.kind === 'business')
   const selected = businesses.find(t => t.id === policy.business_theme)
 
   return (
     <>
-      {(catalog.model_ready === false || !model) && (
+      {catalog.model_ready === false && (
         <div className="flex flex-wrap items-center gap-3 bg-muted/40 p-3">
           <Codicon name="plug" />
           <span>连接模型后才能生成分析与内容；现在可以先保存计划。</span>
@@ -60,6 +59,17 @@ export function PlanForm({ catalog, policy, change }: Props) {
         ]}
         value={workMode(policy)}
       />
+      <ChoiceField
+        allowCustom={false}
+        allowEmpty={false}
+        label="发布方式"
+        onChange={value => change({ ...policy, publish_method: value as Policy['publish_method'] })}
+        options={[{ value: 'normal', label: '普通发布' }, { value: 'computer_use', label: 'computer_use 发布' }]}
+        value={policy.publish_method ?? 'normal'}
+      />
+      {policy.publish_method === 'computer_use' && (
+        <p className="text-xs text-muted-foreground">模型根据运营网页中的控件逐步发布，每次选择都会调用模型。</p>
+      )}
       <div className="flex flex-wrap gap-4">
         {Object.entries(actionLabels)
           .filter(
