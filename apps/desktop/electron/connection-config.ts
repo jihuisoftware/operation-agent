@@ -706,7 +706,8 @@ const LOCAL_PRIMARY_SCOPED_ROUTES = new Set([
   'PUT /api/dashboard/theme',
   'GET /api/dashboard/font',
   'PUT /api/dashboard/font',
-  'GET /api/dashboard/plugins'
+  'GET /api/dashboard/plugins',
+  'GET /api/dashboard/plugins/catalog'
 ])
 
 function localPrimaryRequestScope(opts: ProfileRouteOptions): boolean | null {

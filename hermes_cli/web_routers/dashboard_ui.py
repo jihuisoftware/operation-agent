@@ -158,7 +158,7 @@ def _plugin_action(result: dict, fallback_error: str, *, rescan: bool,
 
 
 @router.get("/api/dashboard/plugins/catalog")
-async def get_plugins_catalog(request: Request):
+async def get_plugins_catalog(request: Request, profile: Optional[str] = None):
     """Curated plugin catalog merged with installed state (session protected)."""
     _require_token(request)
 
@@ -175,7 +175,9 @@ async def get_plugins_catalog(request: Request):
         return installed_catalog_state(installed)
 
     try:
-        return await asyncio.to_thread(_run)
+        return await config_scoped_to_thread(profile, _run)
+    except HTTPException:
+        raise
     except Exception as exc:
         _log.warning("plugins/catalog failed: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to build plugins catalog.") from exc

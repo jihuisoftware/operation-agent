@@ -13,7 +13,7 @@ import { $pluginInstallRequest, closePluginInstallRequest } from '@/store/plugin
 import { $connection, $gatewayState } from '@/store/session'
 
 import { PageSearchShell } from '../../page-search-shell'
-import { parseCatalog } from '../catalog/catalog-data'
+import { parseCatalog, pluginCatalogKey } from '../catalog/catalog-data'
 import { $catalogCardView } from '../catalog/store'
 
 import { PluginsTab } from './plugins-tab'
@@ -52,7 +52,9 @@ const weatherEntry = {
 }
 
 function seedCatalog(entries = [weatherEntry]) {
-  queryClient.setQueryData(['public-catalog', 'plugins'], parseCatalog('plugins', entries))
+  for (const profile of [null, 'workbot']) {
+    queryClient.setQueryData(pluginCatalogKey(profile), parseCatalog('plugins', entries))
+  }
 }
 
 async function selectCatalogEntry(name: string) {
@@ -351,7 +353,7 @@ describe('PluginsTab', () => {
 
     await selectCatalogEntry(weatherEntry.name)
     expect($pluginInstallRequest.get()).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: `Install ${weatherEntry.name}` }))
+    fireEvent.click(screen.getByRole('button', { name: `安装 ${weatherEntry.name}` }))
 
     expect($pluginInstallRequest.get()).toMatchObject({
       catalogName: weatherEntry.name,
@@ -715,36 +717,34 @@ describe('PluginsTab catalog UX', () => {
     queryClient.clear()
 
     const fetchCatalog = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => [
+      entries: [
         weatherEntry,
         { ...weatherEntry, name: 'garden-plugin', category: 'garden', description: 'Garden planning' }
       ]
     })
 
-    vi.stubGlobal('fetch', fetchCatalog)
+    vi.stubGlobal('hermesDesktop', { ...window.hermesDesktop, api: fetchCatalog })
     await act(async () => {
       renderPlugins({ profile: null })
     })
 
     await selectCatalogEntry('garden-plugin')
 
-    const search = screen.getByRole<HTMLInputElement>('textbox', { name: 'Search plugins' })
+    const search = screen.getByRole<HTMLInputElement>('textbox', { name: '搜索插件' })
 
     fireEvent.change(search, { target: { value: 'weather' } })
     expect(await screen.findByRole('heading', { name: weatherEntry.name })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'garden-plugin' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Installed', pressed: false }))
+    fireEvent.click(screen.getByRole('button', { name: /^筛选条件/ }))
+    fireEvent.click(await screen.findByRole('button', { name: '已安装', pressed: false }))
     expect(screen.queryByRole('heading', { name: weatherEntry.name })).toBeNull()
     expect(search.value).toBe('weather')
-    fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: '清除筛选条件' })[0])
     expect(search.value).toBe('')
     await selectCatalogEntry('garden-plugin')
 
     expect(fetchCatalog).toHaveBeenCalledTimes(1)
-    expect(fetchCatalog.mock.calls[0][0]).toMatch(/\/docs\/api\/plugins\.json$/)
-    expect(fetchCatalog.mock.calls[0][1]).toMatchObject({ credentials: 'omit' })
+    expect(fetchCatalog).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/dashboard/plugins/catalog' }))
     expect($pluginInstallRequest.get()).toBeNull()
   })
 
@@ -753,10 +753,10 @@ describe('PluginsTab catalog UX', () => {
 
     const fetchCatalog = vi
       .fn()
-      .mockResolvedValueOnce({ ok: false, status: 503 })
-      .mockResolvedValue({ ok: true, json: async () => [weatherEntry] })
+      .mockRejectedValueOnce(new Error('Catalog HTTP 503'))
+      .mockResolvedValue({ entries: [weatherEntry] })
 
-    vi.stubGlobal('fetch', fetchCatalog)
+    vi.stubGlobal('hermesDesktop', { ...window.hermesDesktop, api: fetchCatalog })
     const view = renderPlugins({ profile: null })
 
     expect(await screen.findByText('Catalog HTTP 503')).toBeTruthy()
@@ -767,7 +767,7 @@ describe('PluginsTab catalog UX', () => {
     })
     expect(fetchCatalog).toHaveBeenCalledTimes(1)
     expect(screen.getByText('Catalog HTTP 503')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
 
     expect(await screen.findByRole('heading', { name: weatherEntry.name })).toBeTruthy()
     expect(fetchCatalog).toHaveBeenCalledTimes(2)

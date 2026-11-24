@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { memo, type ReactNode, useDeferredValue, useEffect, useRef, useState } from 'react'
 
+import type { ProfileScope } from '@/api/client'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -38,6 +39,7 @@ import { $catalogCardView } from './store'
 import { useCatalogFilters } from './use-catalog-filters'
 
 interface CatalogBrowserProps {
+  profile?: ProfileScope
   kind: CatalogKind
   query?: string
   onQueryChange?: (value: string) => void
@@ -308,6 +310,7 @@ function CatalogNoResults({ onClear }: { onClear: () => void }) {
 // Props take no destructuring defaults: React Compiler 1.0 skips components that have them.
 export const CatalogBrowser = memo(function CatalogBrowser({
   kind,
+  profile,
   isInstalled,
   onInstall,
   isInstalling,
@@ -328,7 +331,7 @@ export const CatalogBrowser = memo(function CatalogBrowser({
   const { t } = useI18n()
   const c = t.catalog
   const cardView = useStore($catalogCardView)
-  const { data, isPending, error, refetch } = useCatalog(kind)
+  const { data, isPending, error, refetch } = useCatalog(kind, profile)
   const deferredQuery = useDeferredValue((query ?? '').trim().toLowerCase())
   const [selectedId, setSelectedId] = useState<string | null>(selectedEntryId ?? null)
   const [detailOpen, setDetailOpen] = useState(false)

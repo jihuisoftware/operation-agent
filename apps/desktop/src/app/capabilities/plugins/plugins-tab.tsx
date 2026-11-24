@@ -42,7 +42,7 @@ import { Pill } from '../../settings/primitives'
 import { useDeepLinkHighlight } from '../../settings/use-deep-link-highlight'
 import { CatalogAlert } from '../catalog/catalog-alert'
 import { CatalogBrowser } from '../catalog/catalog-browser'
-import { type CatalogEntry, parseCatalog } from '../catalog/catalog-data'
+import { type CatalogEntry, parseCatalog, pluginCatalogKey } from '../catalog/catalog-data'
 import { CatalogSwitch } from '../catalog/catalog-switch'
 import { TOOLSETS_QUERY_KEY } from '../toolsets/toolsets-data'
 
@@ -114,7 +114,7 @@ function installAgentHalfHere(record: PluginRecord, profile: null | string) {
   // generic Verified badge.
   const tier = origin.catalogName
     ? queryClient
-        .getQueryData<CatalogEntry[]>(['public-catalog', 'plugins'])
+        .getQueryData<CatalogEntry[]>(pluginCatalogKey(profile))
         ?.find(entry => entry.name === origin.catalogName)?.source
     : undefined
 
@@ -789,6 +789,7 @@ export const PluginsTab = memo(function PluginsTab({
       // CatalogEntry has no `tier` field, so don't "fix" this to entry.tier.
       onInstall={entry => openCatalogPluginInstall(entry, scope, { tier: entry.source })}
       onQueryChange={onQueryChange}
+      profile={profile}
       query={query}
       renderInstalledAction={entry => {
         const pkg = packageById.get(entry.id)

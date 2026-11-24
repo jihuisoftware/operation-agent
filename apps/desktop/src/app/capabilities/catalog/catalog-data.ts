@@ -1,6 +1,7 @@
 import { skillCatalogInstallIdentifier } from '@hermes/shared'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 
+import { capabilityScoped, type ProfileScope } from '@/api/client'
 import { CATALOG_ORIGIN } from '@/lib/plugin-catalog'
 import { queryClient } from '@/lib/query-client'
 
@@ -96,7 +97,7 @@ function catalogLinks(kind: CatalogKind, row: any, rawName: string, source: stri
         : null,
     sourceUrl: webUrl(row.repo || row.sourceUrl),
     docsUrl:
-      webUrl(row.docsUrl) || (text(row.docsPath) ? `${CATALOG_ORIGIN}/docs/user-guide/skills/${text(row.docsPath)}` : null),
+      webUrl(row.docsUrl ?? row.docs_url) || (text(row.docsPath) ? `${CATALOG_ORIGIN}/docs/user-guide/skills/${text(row.docsPath)}` : null),
     imageUrl: curationOwnsArtwork(kind, row) ? officialCatalogArtwork(kind, row) : catalogImageUrl(row.image),
     screenshots:
       kind === 'plugins'
@@ -128,12 +129,12 @@ function catalogEntry(kind: CatalogKind, row: any): CatalogEntry {
   const category = text(row.category) || 'uncategorized'
   const categoryLabel = text(row.categoryLabel) || category
   const tags = strings(row.tags)
-  const tools = strings(caps.providesTools)
-  const hooks = strings(caps.providesHooks)
-  const middleware = strings(caps.providesMiddleware)
+  const tools = strings(caps.providesTools ?? caps.provides_tools)
+  const hooks = strings(caps.providesHooks ?? caps.provides_hooks)
+  const middleware = strings(caps.providesMiddleware ?? caps.provides_middleware)
   const commands = strings(row.commands)
   const platforms = strings(row.platforms)
-  const requirements = strings(kind === 'plugins' ? caps.requiresEnv : row.envVars)
+  const requirements = strings(kind === 'plugins' ? (caps.requiresEnv ?? caps.requires_env) : row.envVars)
   const author = text(row.maintainer ?? row.author)
   const description = text(row.description)
 
@@ -151,7 +152,7 @@ function catalogEntry(kind: CatalogKind, row: any): CatalogEntry {
     sha: text(row.sha),
     subdir: text(row.subdir),
     version: text(row.version),
-    requiresHermes: text(row.requiresHermes),
+    requiresHermes: text(row.requiresHermes ?? row.requires_hermes),
     tags,
     tools,
     hooks,
@@ -271,10 +272,27 @@ export async function fetchCatalog(kind: CatalogKind): Promise<CatalogEntry[]> {
   }
 }
 
-const catalogQuery = (kind: CatalogKind) =>
+export function pluginCatalogKey(scope?: ProfileScope) {
+  const { connectionId, profile } = capabilityScoped(scope)
+
+  return ['plugin-catalog', connectionId ?? 'local', profile ?? 'default']
+}
+
+const catalogQuery = (kind: CatalogKind, scope?: ProfileScope) =>
   queryOptions({
-    queryKey: ['public-catalog', kind],
-    queryFn: () => fetchCatalog(kind),
+    queryKey: kind === 'plugins' ? pluginCatalogKey(scope) : ['public-catalog', kind],
+    queryFn: async () => {
+      if (kind === 'skills') {
+        return fetchCatalog(kind)
+      }
+
+      const response = await window.hermesDesktop.api<{ entries: unknown[] }>({
+        ...capabilityScoped(scope),
+        path: '/api/dashboard/plugins/catalog'
+      })
+
+      return parseCatalog(kind, response.entries)
+    },
     staleTime: 30 * 60_000,
     // The skills snapshot parses to ~100k rows; release it once the page has
     // been left long enough that a revisit is a fresh browse anyway.
@@ -286,9 +304,9 @@ const catalogQuery = (kind: CatalogKind) =>
     retry: false
   })
 
-export function useCatalog(kind: CatalogKind) {
+export function useCatalog(kind: CatalogKind, scope?: ProfileScope) {
   return useQuery({
-    ...catalogQuery(kind),
+    ...catalogQuery(kind, scope),
     // A failed catalog stays parked across remounts (tab switches) until the
     // user explicitly chooses Try again.
     enabled: query => query.state.status !== 'error'

@@ -18,6 +18,7 @@ import { PageSearchShell } from '../page-search-shell'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
 import { syncCatalogArcs } from './catalog/catalog-arc'
+import { PluginsTab } from './plugins/plugins-tab'
 import { CapabilityScopeSelector, useCapabilityScope } from './scope-selector'
 import { SKILLS_QUERY_KEY, useSkillsQuery } from './skills/skills-data'
 import { SkillsTab } from './skills/skills-tab'
@@ -28,7 +29,7 @@ import { ToolsetsTab } from './toolsets/toolsets-tab'
 
 // Skills Hub browsing lives inside the Skills tab. Legacy `?tab=hub`
 // links fall back to 'skills' via useRouteEnumParam.
-const CAPABILITY_MODES = ['skills', 'toolsets'] as const
+const CAPABILITY_MODES = ['skills', 'toolsets', 'plugins'] as const
 
 type CapabilityMode = (typeof CAPABILITY_MODES)[number]
 
@@ -121,6 +122,11 @@ export function CapabilitiesView({
   )
 
   const tabContent = {
+    plugins: () => scope.crossBackend ? (
+      <PanelEmpty icon="extensions" title="请先切换到所选后台连接，再管理该连接的插件。" />
+    ) : (
+      <PluginsTab key={scope.key} onQueryChange={setQuery} profile={scope.profile} query={query} scopeLabel={scope.label} />
+    ),
     skills: () => (
       <SkillsTab
         installedError={skillsError}
@@ -154,13 +160,14 @@ export function CapabilitiesView({
       searchHidden
       tabs={[
         { id: 'skills', label: t.skills.tabSkills, meta: skills?.length ?? null },
-        { id: 'toolsets', label: t.skills.tabToolsets, meta: toolsets ? visibleToolsetCount(toolsets) : null }
+        { id: 'toolsets', label: t.skills.tabToolsets, meta: toolsets ? visibleToolsetCount(toolsets) : null },
+        { id: 'plugins', label: t.skills.tabPlugins }
       ]}
       tabsAlign="start"
     >
       <div className="flex h-full flex-col">
         <p className="px-4 py-2 text-xs text-muted-foreground">{OPERATIONS_PROFILE.desktop.labels.zh}</p>
-        <ToolShortcuts />
+        <ToolShortcuts onManagePlugins={mode === 'plugins' ? undefined : () => setMode('plugins')} />
         <CapabilityScopeSelector scope={scope} />
         <div className="flex min-h-0 flex-1 flex-col">{loadGate ?? tabContent[mode]()}</div>
       </div>
