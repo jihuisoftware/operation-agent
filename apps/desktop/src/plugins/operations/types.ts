@@ -8,6 +8,7 @@ export interface Policy {
   topic: string
   audience: string
   goal: string
+  publish_method?: 'normal' | 'computer_use'
   image_mode?: 'magazine' | 'basic'
   style: string
   brand: string

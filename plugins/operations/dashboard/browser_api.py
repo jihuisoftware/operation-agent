@@ -30,6 +30,12 @@ def record_step(body: dict):
                    {k: v for k, v in body.items() if k not in {'command_id', 'worker'}}))
 
 
+@router.post('/worker/publish-decision')
+def publish_decision(body: dict):
+    from ..publish_decision import choose
+    return checked(lambda: choose(Store(), body))
+
+
 @router.post('/worker/verify-images')
 def images(body: dict):
     return checked(lambda: verify_images(Store(), body['command_id'], body['worker'], body['urls']))

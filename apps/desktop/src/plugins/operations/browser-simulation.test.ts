@@ -15,7 +15,7 @@ beforeEach(() => {
 })
 afterEach(() => { document.body.innerHTML = ''; vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers() })
 
-function fixture(mode: 'success' | 'custom' | 'disabled' | 'pause' | 'disconnect') {
+function fixture(mode: 'success' | 'custom' | 'disabled' | 'pause' | 'disconnect', guided = false) {
   let url = 'about:blank'
   let paused = false
   let submissions = 0
@@ -36,7 +36,7 @@ function fixture(mode: 'success' | 'custom' | 'disabled' | 'pause' | 'disconnect
       } else if (next.includes('/note-manager')) {
         document.body.innerHTML = '<article class="note-card" data-note-id="note">已发布</article>'
       } else if (next.includes('/explore')) {
-        document.body.innerHTML = '<nav><a href="https://www.xiaohongshu.com/user/profile/me">我</a></nav>'
+        document.body.innerHTML = '<nav><a href="https://www.xiaohongshu.com/user/profile/me">我</a><button class="publish-btn">＋</button></nav>'
       } else {
         document.body.innerHTML = '<button>上传图文</button><input type="file" accept="image/png"><input placeholder="标题"><textarea placeholder="正文"></textarea><button id="submit">发布</button><div class="image-list"></div>'
         const upload = document.querySelector<HTMLInputElement>('input[type=file]')!
@@ -89,15 +89,23 @@ function fixture(mode: 'success' | 'custom' | 'disabled' | 'pause' | 'disconnect
     })
   } as unknown as Guest
 
-  const api = (async (path: string) => path === '/policy'
-    ? { version: 1, policy: { account_id: '', topic: '测试', enabled: true, paused } }
-    : path === '/worker/verify-images' ? { state: 'matched' } : { name: 'cover.png', data: '' }) as Api
+  const decide = vi.fn(async (controls: string[]) => ({ action: controls.includes('upload') ? 'upload' : controls[0] }))
+
+  const api = (async (path: string, body?: { controls: string[] }) => {
+    if (path === '/worker/publish-decision') { return decide(body!.controls) }
+
+    if (path === '/policy') {
+      return { version: 1, policy: { account_id: '', topic: '测试', enabled: true, paused, publish_method: guided ? 'computer_use' : 'normal' } }
+    }
+
+    return path === '/worker/verify-images' ? { state: 'matched' } : { name: 'cover.png', data: '' }
+  }) as Api
 
   const command: BrowserCommand = { id: 'simulated', kind: 'publish', expires: Date.now() / 1000 + 120, payload: {
     account_id: 'me', policy_version: 1, content: { title: '测试图文', body: '来自可追溯资料的摘要', asset_ids: ['cover'] }
   } }
 
-  return { guest, api, command, submissions: () => submissions }
+  return { guest, api, command, decide, submissions: () => submissions }
 }
 
 it.each(['success', 'custom', 'disabled', 'pause', 'disconnect'] as const)('executes the actual DOM adapter with delayed image and receipt: %s', async mode => {
@@ -109,6 +117,20 @@ it.each(['success', 'custom', 'disabled', 'pause', 'disconnect'] as const)('exec
   expect(test.submissions()).toBe(mode === 'pause' || mode === 'disabled' ? 0 : 1)
 
   if (mode === 'success') { expect(result.url).toBe('https://www.xiaohongshu.com/explore/note') }
+})
+
+it.each([false, true])('uses observed publish controls and stops on an invalid model choice: %s', async stop => {
+  const test = fixture('success', true)
+
+  if (stop) { test.decide.mockResolvedValueOnce({ action: 'submit' }) }
+  const pending = executeBrowser(test.command, test.guest, test.api, undefined, undefined, 'worker')
+  await vi.runAllTimersAsync()
+  const result = await pending
+  expect(test.decide.mock.calls[0]).toEqual([['entry']])
+  expect(result.state).toBe(stop ? 'blocked' : 'submitted')
+  expect(test.submissions()).toBe(stop ? 0 : 1)
+
+  if (!stop) { expect(test.decide.mock.calls.at(-1)).toEqual([['submit']]) }
 })
 
 it('opens the actual search card before submitting one comment to the verified note', async () => {

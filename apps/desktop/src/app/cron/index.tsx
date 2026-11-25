@@ -690,7 +690,6 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
       />
 
       <TaskSectionTabs onChange={setSection} value={section} />
-      {section === 'jobs' && <ContributedBlueprints profile={blueprintProfile} view="summary" />}
       {['running', 'upcoming'].includes(section) ? (
         <TaskSectionBody section={section} />
       ) : section === 'blueprints' ? (

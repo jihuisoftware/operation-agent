@@ -92,6 +92,33 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
   }
 
   const handlers: Record<string, () => unknown> = {
+    'publish-controls': () => {
+      if (location.origin === 'https://www.xiaohongshu.com') {
+        const entries = all('.publish-btn,a[href]').filter(element => {
+          if (element.matches('.publish-btn')) { return true }
+          const url = new URL((element as HTMLAnchorElement).href, location.href)
+
+          return url.origin === 'https://creator.xiaohongshu.com' && url.pathname === '/publish/publish'
+        })
+
+        return entries.length ? ['entry'] : []
+      }
+
+      if (location.origin !== 'https://creator.xiaohongshu.com' || location.pathname !== '/publish/publish') { return [] }
+      const controls: string[] = []
+
+      if (all('button,[role="button"],a,span').some(element => text(element) === '上传图文')) { controls.push('tab') }
+
+      if (Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]')).some(input =>
+        !input.disabled && /image|\.(png|jpe?g|webp)/i.test(input.accept))) { controls.push('upload') }
+
+      if (all('input[placeholder*="标题"],textarea[placeholder*="标题"]').length === 1 &&
+          all('[contenteditable="true"],textarea[placeholder*="正文"]').length === 1) { controls.push('fill') }
+
+      if (publishControl(false, payload.title).ready) { controls.push('submit') }
+
+      return controls
+    },
     'open-note': () => {
       const matches = items().filter(element => identifier(element) === payload.target)
 

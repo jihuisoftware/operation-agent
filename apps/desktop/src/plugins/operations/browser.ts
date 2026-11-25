@@ -2,7 +2,7 @@ import { pageScript } from './browser-document'
 import { BrowserExecution, BrowserExecutionError } from './browser-execution'
 import { openInteraction, openInventory } from './browser-inventory'
 import { navigateGuest } from './browser-navigation'
-import { BACKEND_MS, READINESS_MS } from './browser-timeouts'
+import { READINESS_MS, workerRequestTimeout } from './browser-timeouts'
 import { type BrowserTrace, unrecordedTrace } from './browser-trace'
 import { BrowserReadinessError, waitForRead } from './browser-wait'
 import { xhsInteractionDom } from './interaction-dom'
@@ -13,6 +13,7 @@ import { xhsReady } from './page-ready'
 import { publicationBaseline, resolvePublication, submissionReceipt } from './publication'
 import { publicationPage } from './publication-page'
 import { xhsPublishControl } from './publish-control'
+import { publishPost } from './publish-post'
 import type { Api, BrowserCommand, Guest, OperationsState } from './types'
 
 const HOME = 'https://www.xiaohongshu.com'
@@ -53,7 +54,7 @@ export async function executeBrowser(
 
 async function executeCommand(command: BrowserCommand, guest: Guest, request: Api, trace: BrowserTrace,
   execution: BrowserExecution, sleep?: (ms: number) => Promise<unknown>, worker?: string) {
-  const api: Api = (path, body, method) => execution.wait(() => request(path, body, method), path === '/worker/verify-images' ? 60000 : BACKEND_MS, false, `后台接口 ${path}`)
+  const api: Api = (path, body, method) => execution.wait(() => request(path, body, method), workerRequestTimeout(path), false, `后台接口 ${path}`)
   const payload = command.payload
   let baseline = payload.baseline
   let receipt: Record<string, any> = {}
@@ -256,33 +257,7 @@ async function executeCommand(command: BrowserCommand, guest: Guest, request: Ap
 
     if (command.kind === 'publish') {
       baseline = await publicationBaseline(publication, payload)
-      await trace.step('open_editor', async () => {
-        await navigate('https://creator.xiaohongshu.com/publish/publish?source=official')
-        await clickLabel('上传图文')
-        await ready('upload')
-      })
-
-      const assets = await Promise.all(
-        payload.content.asset_ids.map((id: string) => api(`/assets/${encodeURIComponent(id)}`))
-      )
-
-      await trace.step('upload', async () => {
-        await page('upload', { assets })
-        await ready('post')
-
-        return { image_count: assets.length }
-      })
-      await trace.step('fill', async () => {
-        await page('fill-post', payload.content)
-        await ready('publish', payload.content)
-
-        return page('validate-post', payload.content)
-      })
-      await trace.step('submit', async () => {
-        await check()
-
-        return page('commit-post', payload.content)
-      })
+      await publishPost(command, initial.policy.publish_method, { execution, api, navigate, clickLabel, page, ready, trace, worker, sleep })
       receipt = await trace.step('receipt', () =>
         waitForRead(
           () => page('post-result'),

@@ -10,6 +10,7 @@ const fields: Record<string, string> = {
   style: '内容风格',
   brand: '品牌',
   modules: '功能选择',
+  publish_method: '发布方式',
   allowed: '动作开关',
   limits: '每日额度',
   times: '执行时间',

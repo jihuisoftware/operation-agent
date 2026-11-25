@@ -5,9 +5,8 @@ import { type ActiveBrowserExecution, runBrowserCommand } from './browser-comman
 import { browserDockStyle, useBrowserDock } from './browser-dock'
 import type { ExecutionBlock } from './browser-execution'
 import { type BrowserPower, createBrowserPower } from './browser-power'
-import { BACKEND_MS } from './browser-timeouts'
+import { BACKEND_MS, workerRequestTimeout } from './browser-timeouts'
 import { BrowserToolbar } from './browser-toolbar'
-import { WorkerBoundary } from './worker-boundary'
 import { createExecutionClock } from './execution-clock'
 import { $loginNavigation, $loginNavigationOwner, type LoginObservation, sameLoginOwner } from './login-state'
 import { PlatformLoginPage, PlatformPageFrame, PlatformPageTabs, usePlatformPages } from './platform-pages'
@@ -17,6 +16,7 @@ import { useLoginObservation } from './use-login-observation'
 import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
 import { useWebTakeover, type WebControlState } from './use-web-takeover'
+import { WorkerBoundary } from './worker-boundary'
 import { AccountViewHeader } from './workspace-browser-header'
 import { recordAction } from './workspace-notices'
 import { $workspaceBrowser, $workspaces, loadWorkspaces, type OperationScope, ownerKey, scopePath } from './workspace-state'
@@ -81,7 +81,7 @@ function Worker({
         owner: scope,
         method: method || (body ? 'POST' : 'GET'),
         body: polling ? { ...(body as object), account_id: scope.account_id } : body,
-        timeoutMs: path === '/worker/verify-images' ? 60000 : BACKEND_MS
+        timeoutMs: workerRequestTimeout(path)
       })
     },
     [ctx, scope]
@@ -164,7 +164,7 @@ function Worker({
             const selected = command.scope || (scope.business_id && scope.topic_id ? { business_id: scope.business_id, topic_id: scope.topic_id } : null)
 
             return ctx.rest(selected ? scopePath(path, selected) : path, { owner: scope, method: method || (body ? 'POST' : 'GET'), body,
-              timeoutMs: path === '/worker/verify-images' ? 60000 : BACKEND_MS })
+              timeoutMs: workerRequestTimeout(path) })
           }
 
           const answer = await runBrowserCommand(command, guest, commandApi, worker, execution, clock.sleep, replace, () => !disposed, power)
