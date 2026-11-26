@@ -25,6 +25,10 @@ export function replacesSavedValue(change: BlueprintPreview['changes'][number]):
   return Boolean(change.before) && change.before !== change.after
 }
 
+function planChanged(draft: Policy, saved: Policy) {
+  return JSON.stringify(withTopicDefaults(draft)) !== JSON.stringify(withTopicDefaults(saved))
+}
+
 export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
   const [catalog, setCatalog] = useState<BlueprintCatalog | null>(null)
   const [policy, setPolicy] = useState<Policy | null>(null)
@@ -33,7 +37,9 @@ export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [confirm, setConfirm] = useState(false)
-  const request = useRef({ id: crypto.randomUUID(), start: false })
+  const retry = useRef<{ signature: string; id: string } | null>(null)
+  const inFlight = useRef(false)
+  const canSaveSettings = Boolean(catalog && policy && (catalog.version === 0 || planChanged(policy, catalog.policy)))
 
   const scope = useRef($workspaces.get()[ownerKey(owner)]?.selected).current
   const key = scope && scopeKey(owner, scope)
@@ -106,16 +112,16 @@ export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
   }, [ctx, policy, catalog])
 
   const change = (next: Policy) => {
-    markDirty('plan', true)
+    if (!catalog || inFlight.current) return
+    markDirty('plan', planChanged(next, catalog.policy))
     setPolicy(next)
     setNotice('')
     setPreview(null)
     setConfirm(false)
-    request.current = { id: crypto.randomUUID(), start: false }
   }
 
   const save = async (start: boolean) => {
-    if (!policy || !catalog || !preview || busy) {
+    if (!policy || !catalog || !preview || inFlight.current || (!start && !canSaveSettings)) {
       return
     }
 
@@ -125,19 +131,24 @@ export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
       return
     }
 
-    if (request.current.start !== start) {
-      request.current = { id: crypto.randomUUID(), start }
+    const payload = { version: catalog.version, policy: withTopicDefaults(policy), start }
+    const signature = JSON.stringify(payload)
+    if (retry.current?.signature !== signature) {
+      retry.current = { signature, id: crypto.randomUUID() }
     }
 
+    inFlight.current = true
     setBusy(true)
     setError('')
 
     try {
       await ctx.rest('/quick-start', {
         method: 'POST',
-        body: { request_id: request.current.id, version: catalog.version, policy: withTopicDefaults(policy), start }
+        body: { ...payload, request_id: retry.current.id }
       })
       const current = await ctx.rest<BlueprintCatalog>('/blueprints')
+      retry.current = null
+      setPreview(null)
       setCatalog(current)
       setPolicy(current.policy)
       markDirty('plan', false)
@@ -147,15 +158,17 @@ export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
     } catch (reason) {
       setError(String(reason))
     } finally {
+      inFlight.current = false
       setBusy(false)
     }
   }
 
   const control = async (action: string) => {
-    if (!catalog || busy) {
+    if (!catalog || inFlight.current) {
       return
     }
 
+    inFlight.current = true
     setBusy(true)
 
     try {
@@ -163,7 +176,7 @@ export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
       const current = await ctx.rest<BlueprintCatalog>('/blueprints')
       setCatalog(current)
       setPolicy(draft =>
-        draft && JSON.stringify(draft) !== JSON.stringify(catalog.policy)
+        draft && planChanged(draft, catalog.policy)
           ? { ...draft, enabled: current.policy.enabled, paused: current.policy.paused }
           : current.policy
       )
@@ -171,10 +184,11 @@ export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
     } catch (reason) {
       setError(String(reason))
     } finally {
+      inFlight.current = false
       setBusy(false)
     }
   }
 
   const reviewChanged = (dirty: boolean) => markDirty('review', dirty)
-  return { reviewChanged, catalog, policy, preview, busy, error, notice, confirm, change, save, control }
+  return { canSaveSettings, reviewChanged, catalog, policy, preview, busy, error, notice, confirm, change, save, control }
 }

@@ -17,7 +17,7 @@ def test_overview_aggregates_all_records_without_exposing_source_bodies(tmp_path
     store.put("brief", {"day": day, "result": {"topics": ["old", "duplicate"]}})
     store.put("brief", {"day": day, "result": {"topics": ["new"]}})
     store.put("content", {"day": day, "state": "needs_material"})
-    store.put("inbox", {"day": "2000-01-01", "state": "needs_review"})
+    store.put("inbox", {"day": "2000-01-01", "kind":"reply", "account_id":"me", "id":"comment-1","state": "needs_review"})
     store.put("report", {"day": day, "markdown": "long report body"})
     store.event("model_call", {"day": day})
     with store.connection() as db:

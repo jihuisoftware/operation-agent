@@ -53,8 +53,12 @@ def library(section: str, before: int = 0, filter: str = '', record: str = '', c
     table, condition = PRIMARY[section]
     if section == 'assets':
         condition += " AND (COALESCE(json_extract(data, '$.generated_typography'), 0) OR COALESCE(json_extract(data,'$.designer_cover'),0))=" + ('1' if filter == 'covers' else '0')
+    params = []
+    if section == 'interactions' and filter in ('comment', 'follow', 'reply', 'dm'):
+        condition += ' AND kind=?'
+        params.append(filter)
     with store.connection() as db:
-        result = db.execute(f"SELECT rowid AS cursor,* FROM {table} WHERE {condition} AND (?='' OR id=?) AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 101", (record, record, before, before))
+        result = db.execute(f"SELECT rowid AS cursor,* FROM {table} WHERE {condition} AND (?='' OR id=?) AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 101", (*params, record, record, before, before))
         rows = result.fetchmany(100)
         data = {'actions': [], 'next': str(rows[-1]['cursor']) if result.fetchone() is not None else None}
         if table == 'actions':
@@ -68,7 +72,8 @@ def library(section: str, before: int = 0, filter: str = '', record: str = '', c
             data['runs'] = [dict(r) for r in rows]
             data['task'] = objects(db, 'task')
         if section == 'interactions':
-            data.update(inbox=objects(db, 'inbox'), block=objects(db, 'block'))
+            inbox = db.execute("SELECT * FROM objects WHERE kind='inbox' AND json_extract(data,'$.kind')=? ORDER BY rowid DESC LIMIT 100", (filter,))
+            data.update(inbox=[{**json.loads(r['data']), 'id': r['id']} for r in inbox], block=objects(db, 'block'))
     return data
 
 

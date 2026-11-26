@@ -65,7 +65,7 @@ def reserve_action(store, db, action, identity, day):
     if row and row[0] != store.scope['id']:
         return False
     shared_pending(db, account, action, store.scope, identity)
-    db.execute('INSERT OR IGNORE INTO directory.account_claims VALUES (?,?,?,?,?)', (account, action['kind'], action['target'], store.scope['id'], identity))
+    db.execute("INSERT INTO directory.account_claims VALUES (?,?,?,?,?) ON CONFLICT(account_id,kind,target) DO UPDATE SET action_id=excluded.action_id WHERE action_id='' AND topic_id=excluded.topic_id", (account, action['kind'], action['target'], store.scope['id'], identity))
     charge(store, db, day, action['kind'], identity=store.scope['id'] + ':' + identity, account=account)
     db.execute("INSERT OR IGNORE INTO directory.account_actions VALUES (?,?,?,?,'queued')", (account, store.scope['id'], identity, action['kind']))
     return True

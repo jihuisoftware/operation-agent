@@ -103,9 +103,9 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
     assert len(store.objects("source")) == 3
     assert len(distinct_sources(store, "2026-10-31")) == 1
     # Daily production prepares a manuscript; publication now requires per-version human review.
-    assert sorted(submissions) == sorted(["comment", "dm", "follow", "reply"] * (2 if manual else 1))
+    assert sorted(submissions) == sorted(["dm", "reply"] + ["comment", "follow"] * (2 if manual else 1))
     report = store.objects("report")[0]["markdown"]
-    assert "已核对成功 4 次" in report
+    assert f"已核对成功 {2 if manual else 4} 次" in report
     assert "confirmed" in report and "https://example.org/result" in report
     # The 21:05 recovery checks only the latest (19:00) interaction slot;
     # duplicate targets are inspected again but never submitted twice.

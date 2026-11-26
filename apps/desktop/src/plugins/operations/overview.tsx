@@ -223,7 +223,7 @@ function Metrics({ data }: { data: OverviewData }) {
 function Attention({ data }: { data: OverviewData }) {
   const rows = [
     { label: '结果待核对', count: data.pending.unverified, icon: 'inspect', to: '/interactions?tab=unverified' },
-    { label: '人工咨询', count: data.pending.inbox, icon: 'comment', to: '/interactions?tab=inbox' },
+    { label: '消息待人工', count: data.pending.inbox, icon: 'comment', to: '/interactions?tab=messages&state=attention' },
     { label: '内容待完善', count: data.pending.content, icon: 'edit', to: '/content?tab=needs_work' },
     { label: '今日失败任务', count: data.pending.failed_today, icon: 'error', to: `/cron?tab=history&historyView=operations.failed&day=${encodeURIComponent(data.day)}` }
   ]

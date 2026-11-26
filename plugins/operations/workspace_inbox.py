@@ -14,11 +14,17 @@ def candidates(store, kind, items):
 
 def transfer(store, body):
     target = store.workspace.store(body['business_id'], body['topic_id'])
-    if target.scope['archived'] or target.scope['id'] == store.scope['id']:
+    if target.scope['business_archived'] or target.scope['archived'] or target.scope['id'] == store.scope['id']:
         raise ValueError('请选择其他有效主题')
     source_scope = store.workspace.resolve(store.scope['business_id'], store.scope['id'])
     if target.scope['account'] != source_scope['account']:
         raise ValueError('只能转交给明确共用同一账号的主题')
+    from .messages import detail, legacy_id
+    from .message_actions import change
+    canonical = legacy_id(store, body['id'])
+    if canonical:
+        row = detail(store, canonical)
+        return change(store, canonical, {'operation': 'transfer', 'revision': row['revision'], 'target_topic': target.scope['id']})
     with store.connection() as db:
         db.execute('ATTACH DATABASE ? AS destination', (str(target.path),))
         db.execute('BEGIN IMMEDIATE')
@@ -26,6 +32,8 @@ def transfer(store, body):
         if not row:
             raise ValueError('待处理事项不存在')
         data = json.loads(row['data'])
+        if data.get('kind') in ('dm', 'reply'):
+            raise ValueError('请在消息处理页面刷新后操作')
         if data.get('state') != 'needs_review':
             raise ValueError('只能转交待人工处理的事项')
         claim = db.execute('SELECT * FROM directory.account_claims WHERE account_id=? AND kind=? AND target=?', (source_scope['account'], data['kind'], data['id'])).fetchone()

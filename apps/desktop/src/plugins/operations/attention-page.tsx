@@ -5,11 +5,10 @@ import { useSearchParams } from 'react-router'
 import { moduleLabels } from './blueprint-types'
 import { ActionManager } from './management'
 import type { RecordRow } from './types'
-import { InboxTransfer } from './workspace-inbox'
 
-type AttentionKind = 'unverified' | 'inbox' | 'failed_today'
+type AttentionKind = 'unverified' | 'failed_today'
 interface Page { items: RecordRow[]; total: number; next: number | null; day: string }
-const titles = { unverified: '结果待核对', inbox: '人工咨询', failed_today: '失败任务' }
+const titles = { unverified: '结果待核对', failed_today: '失败任务' }
 const labels: Record<string, string> = { publish: '图文发布', comment: '主动评论', reply: '评论回复', dm: '收到私信', follow: '回关' }
 
 export function AttentionPage({ ctx, kind }: { ctx: PluginContext; kind: AttentionKind }) {
@@ -47,10 +46,6 @@ function Items({ ctx, kind, day }: { ctx: PluginContext; kind: AttentionKind; da
     {!page && !error && <p role="status">正在加载…</p>}
     {page?.items.length === 0 && <p>当前没有符合条件的记录。</p>}
     {page?.items.map(row => {
-      if (kind === 'inbox') {
-        return <Consultation ctx={ctx} key={row.id} onError={setError} refresh={refresh} row={row} />
-      }
-
       if (kind === 'failed_today') {
         return <article className="space-y-1 rounded border p-3" key={row.id}>
           <strong>{moduleLabels[String(row.stage)] || String(row.stage)}</strong> · {formatTimestamp(String(row.started))}
@@ -68,25 +63,4 @@ function Items({ ctx, kind, day }: { ctx: PluginContext; kind: AttentionKind; da
     {page?.next && <Button onClick={() => move(page.next!)} variant="outline">更早记录</Button>}
     {cursor > 0 && <Button onClick={() => move(0)} variant="ghost">返回最新</Button>}
   </section>
-}
-
-function Consultation({ ctx, row, refresh, onError }: { ctx: PluginContext; row: RecordRow; refresh: () => Promise<void>; onError: (e: string) => void }) {
-  const [busy, setBusy] = useState(false)
-
-  const handle = async () => {
-    setBusy(true)
-
-    try {
-      await ctx.rest('/attention/inbox/handled', { method: 'POST', body: { id: row.id } })
-      await refresh()
-    } catch (reason) { onError(String(reason)) } finally { setBusy(false) }
-  }
-
-  return <article className="space-y-2 rounded border p-3">
-    <strong>{labels[String(row.kind)] || '人工咨询'}</strong> · {formatTimestamp(String(row.created))}
-    <p className="whitespace-pre-wrap">{String(row.text || row.id)}</p>
-    {Boolean(row.reason) && <p>{String(row.reason)}</p>}
-    <Button disabled={busy} onClick={handle} size="sm" variant="outline">标记已处理</Button>
-    <InboxTransfer ctx={ctx} failed={onError} row={row} saved={refresh} />
-  </article>
 }

@@ -90,7 +90,7 @@ def daily_report(store, day, delayed=False):
     completed = sum(complete(a) for a in actions)
     lines.append(f"\n已核对成功 {completed} 次；待审核或结果不明不计入成功。")
     for item in scope.objects("inbox"):
-        if item.get("state") == "needs_review":
+        if item.get("state") == "needs_review" or (item.get("state") == "archived" and item.get("legacy_state") == "needs_review"):
             lines.append(f"- 待处理 {item['kind']} · {item['id']} · {item.get('reason', '资料或授权依据不足')}")
     lines.extend(_consumption(scope, source_count, len(actions)))
     lines.extend(["", "## 异常与明日建议", ""])

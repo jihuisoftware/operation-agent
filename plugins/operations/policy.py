@@ -11,7 +11,7 @@ LIMITS = {"source": 10_000, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "
 DEFAULT = {"schema_version": 5, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
            "style": "真实、清楚、具体", "brand": "", "image_mode": "magazine", "designer_style": "清爽编辑风", "designer_daily_limit": 1, "publish_method": "normal", "account_id": "", "timezone": "Asia/Shanghai",
            "sources": [], "rss_sources": [], "keywords": [], "knowledge": [], "follow_terms": [],
-           "allowed": {k: k != "follow" for k in LIMITS if k != "source"}, "limits": LIMITS,
+           "receive": None, "allowed": {k: k != "follow" for k in LIMITS if k != "source"}, "limits": LIMITS,
            "times": TIMES, "deadline": "", "priority": 1, "model_calls": DEFAULT_CALLS, **POLICY_DEFAULTS,
            "business_theme": "", "business_subtype": ""}
 
@@ -31,6 +31,11 @@ def public_url(value):
     return value
 
 
+def receiving(policy, kind):
+    selected = policy.get('receive')
+    return (selected[kind] if selected is not None else policy['allowed'][kind]) and policy['modules'][ACTION_MODULE[kind]]
+
+
 def validate_policy(value):
     if not isinstance(value, dict) or set(value) - set(DEFAULT):
         raise ValueError("未知运营配置字段")
@@ -38,6 +43,10 @@ def validate_policy(value):
     if value.get('schema_version', 5) != 5:
         raise ValueError('不支持旧运营规则，请重新配置')
     result.update(value)
+    receive = result['receive']
+    if receive is not None and (not isinstance(receive, dict) or set(receive) != {'reply', 'dm'} or
+                                any(type(v) is not bool for v in receive.values())):
+        raise ValueError('接收评论和私信必须分别设置开关')
     for key in ("enabled", "paused"):
         if not isinstance(result[key], bool):
             raise ValueError(f"{key} 必须是布尔值")
@@ -104,6 +113,8 @@ def permitted(policy, action):
         return "尚未识别实际登录账号"
     if policy["account_id"] and action.get("account_id") != policy["account_id"]:
         return "目标账号不匹配"
+    if action['kind'] in ('reply','dm') and policy.get('receive') is not None and not receiving(policy, action['kind']):
+        return '该来源已关闭接收'
     handlers = {"dm": _permit_dm, "follow": _permit_follow}
     check = handlers.get(action["kind"])
     return check(policy, action) if check else ""

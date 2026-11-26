@@ -234,6 +234,9 @@ class Store:
 
     def reserve_action(self, action, version, day=None):
         from .browser_evidence import command_context
+        from . import messages
+        if action['kind'] in messages.KINDS:
+            messages.initialize(self)
         action = {**action, **command_context(self)}
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -256,6 +259,8 @@ class Store:
             day = day or local_day(policy)
             from .analysis_publication import check
             check(db, action, policy, day)
+            if not messages.can_reserve(self, db, action):
+                return None
             target = action["target"]
             if self.manual_run_id:
                 target = f"manual:{self.manual_run_id}:{target}"
@@ -295,6 +300,7 @@ class Store:
             changed = db.execute("INSERT OR IGNORE INTO actions VALUES (?,?,?,?,?,'queued',?,'{}',?)",
                 (identity, day, version, action["kind"], scoped_target, encoded(action), now_iso())).rowcount
             if changed:
+                messages.reserve(self, db, action, identity)
                 kind = "publish" if action["kind"] == "publish" else "interact"
                 db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
                            (uuid.uuid4().hex, identity, kind, encoded({**action, "policy_version": version}), time.time() + 120))

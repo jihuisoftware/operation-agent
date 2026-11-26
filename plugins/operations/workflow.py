@@ -118,8 +118,9 @@ def publish(store, policy, day, version, *, content_id=None):
 
 
 def interact(store, policy, day, version, *, kinds=("comment", "reply", "dm", "follow")):
-    from .debug_authorization import action_limit, allowed, model_policy
-    kinds = [kind for kind in kinds if allowed(store, policy, kind)]
+    from .debug_authorization import action_limit, model_policy
+    from .message_intake import process, scan_enabled
+    kinds = [kind for kind in kinds if scan_enabled(store, policy, kind)]
     account = resolve_account(store, policy) if kinds else ""
     results = []
     errors = []
@@ -130,9 +131,20 @@ def interact(store, policy, day, version, *, kinds=("comment", "reply", "dm", "f
             store.event("interaction_error", {"day": day, "kind": kind, "error": str(exc)})
             errors.append(str(exc))
             continue
+        if items.get('unidentified') or items.get('unknownDirection'):
+            store.event('inventory_warning', {'day': day, 'kind': kind, 'count': items.get('unidentified', 0) + items.get('unknownDirection', 0),
+                                              'reason': '部分网页条目缺少稳定标识或收发方向，已跳过'})
         if items.get("evidence"):
             store.event("inventory", {"day": day, "kind": kind, "evidence": items["evidence"]})
-        candidates = items.get("items", [])[:30]
+        candidates = items.get("items", [])
+        if kind in ('reply', 'dm'):
+            outcomes = process(store, policy, day, version, kind, account, candidates)
+            results.extend(outcomes)
+            if not outcomes:
+                results.append('已检查收到的消息，本次没有发送回复')
+                store.event('message_scan', {'kind': kind, 'day': day, 'count': len(candidates)})
+            continue
+        candidates = candidates[:30]
         if kind == 'comment':
             candidates = [{**item, 'inventory_url': items.get('url')} for item in candidates]
         from .workspace_inbox import candidates as owned_candidates
@@ -177,10 +189,6 @@ def _interaction(store, policy, day, version, kind, proposal, candidates, accoun
     if kind == "follow" and (item.get("already_following") or not item.get("follows_me") or not any(
             term.casefold() in item.get("text", "").casefold() for term in policy["follow_terms"])):
         raise ValueError("不满足回关条件")
-    if kind == "dm" and any(term in item.get("text", "") for term in
-                            ("价格", "优惠", "保证", "承诺", "投诉", "退款", "争议", "赔偿", "身份证", "手机号", "住址", "银行卡", "密码")):
-        store.put("inbox", {**item, "account_id": account, "day": day, "kind": kind, "state": "needs_review", "reason": "交易承诺、争议或敏感资料需人工处理"})
-        raise ValueError("该私信需要人工处理")
     text = proposal.get("text", "")
     if kind == "dm" and text not in [policy["knowledge"][i] for i in knowledge]:
         raise ValueError("私信回复超出已确认知识，转人工处理")

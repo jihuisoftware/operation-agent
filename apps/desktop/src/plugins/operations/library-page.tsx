@@ -210,7 +210,15 @@ function matchesContent(row: RecordRow, filter: string) {
 }
 
 function InboxTransfers({ data, filter, ctx, refresh, onError }: Omit<ContentProps, 'section'>) {
-  return (data.inbox || []).filter(row => !filter || row.kind === filter).map(row => <InboxTransfer ctx={ctx} failed={onError} key={row.id} row={row} saved={refresh} />)
+  return (data.inbox || []).filter(row => (!filter || row.kind === filter) && row.state === 'needs_review').map(row =>
+    <div key={row.id} className="space-y-1 py-2">
+      <p>{String(row.text || row.id)}</p>
+      <Button size="sm" variant="outline" onClick={() => void ctx.rest('/attention/inbox/handled', {
+        method: 'POST', body: { id: row.id }
+      }).then(refresh).catch(e => onError(String(e)))}>标记已处理</Button>
+      <InboxTransfer ctx={ctx} failed={onError} row={row} saved={refresh} />
+    </div>)
+
 }
 
 function ContentCard({ ctx, row, refresh }: { ctx: PluginContext; row: RecordRow; refresh: () => Promise<unknown> }) {

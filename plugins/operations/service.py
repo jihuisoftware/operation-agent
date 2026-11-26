@@ -19,6 +19,8 @@ def resolve_action(store, identity, state, evidence):
 
 
 def retry_action(store, identity):
+    from . import messages
+    messages.initialize(store)
     with store.connection() as db:
         db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT * FROM actions WHERE id=?", (identity,)).fetchone()
@@ -26,6 +28,8 @@ def retry_action(store, identity):
             raise ValueError("只有人工确认未执行成功的动作才能重新执行；未知结果先核对")
         cfg = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
         policy, action = json.loads(cfg["data"]), json.loads(row["data"])
+        if not messages.can_reserve(store, db, action, retry_id=identity):
+            raise ValueError('消息已由人工办理或转交')
         effective = policy
         if action.get('release_revision', action.get('human_review')):
             from .content_release import authorization

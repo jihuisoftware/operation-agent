@@ -70,11 +70,12 @@ export function PlanForm({ catalog, policy, change }: Props) {
       {policy.publish_method === 'computer_use' && (
         <p className="text-xs text-muted-foreground">模型根据运营网页中的控件逐步发布，每次选择都会调用模型。</p>
       )}
+      <ReceivePermissions policy={policy} change={change} />
       <div className="flex flex-wrap gap-4">
         {Object.entries(actionLabels)
           .filter(
             ([action]) =>
-              action !== 'source' && action !== 'publish' && policy.modules[{ comment: 'comments', reply: 'comments' }[action] || action]
+              !['source','publish','reply','dm'].includes(action) && policy.modules[action === 'comment' ? 'comments' : action]
           )
           .map(([action, label]) => (
             <label className="flex items-center gap-2" key={action}>
@@ -115,4 +116,22 @@ export function PlanForm({ catalog, policy, change }: Props) {
       </details>
     </>
   )
+}
+
+function ReceivePermissions({ policy, change }: Pick<Props, 'policy' | 'change'>) {
+  const sources = policy.receive || { reply: policy.allowed.reply, dm: policy.allowed.dm }
+  return <div className="space-y-2">
+    {(['reply', 'dm'] as const).filter(kind => policy.modules[kind === 'reply' ? 'comments' : 'dm']).map(kind => {
+      const label = kind === 'reply' ? '评论' : '私信'
+      return <div key={kind} className="flex flex-wrap gap-4">
+        <label className="flex items-center gap-2"><Checkbox checked={sources[kind]} onCheckedChange={checked =>
+          change({ ...policy, receive: { ...sources, [kind]: checked === true },
+            allowed: { ...policy.allowed, [kind]: checked === true && policy.allowed[kind] } })
+        }/>接收{label}</label>
+        <label className="flex items-center gap-2"><Checkbox disabled={!sources[kind]} checked={sources[kind] && policy.allowed[kind]} onCheckedChange={checked =>
+          change({ ...policy, receive: sources, allowed: { ...policy.allowed, [kind]: checked === true } })
+        }/>自动回复{label}</label>
+      </div>
+    })}
+  </div>
 }

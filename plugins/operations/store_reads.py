@@ -7,6 +7,9 @@ from datetime import UTC, datetime
 def objects(store, kind, day=None, *, limit=None):
     if limit is not None and (type(limit) is not int or limit < 0):
         raise ValueError('读取数量必须为非负整数')
+    if kind == 'inbox':
+        from .messages import inbox_records
+        return inbox_records(store, day, limit)
     with store.connection() as db:
         return [{**json.loads(row['data']), 'id': row['id']} for row in db.execute(
             "SELECT id,data FROM objects WHERE kind=? AND (? IS NULL OR json_extract(data,'$.day')=?) ORDER BY created DESC LIMIT ?",

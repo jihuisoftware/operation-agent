@@ -55,7 +55,9 @@ function OwnedEditor({ ctx, owner }: Props) {
       {!first && <PlanControls editor={editor} />}
       {(first || expanded) && (
         <>
-          <PlanForm catalog={catalog} change={change} policy={policy} />
+          <fieldset className="min-w-0 space-y-5" disabled={editor.busy}>
+            <PlanForm catalog={catalog} change={change} policy={policy} />
+          </fieldset>
           <Button onClick={() => guardWorkspaceChange(owner, () => host.navigate(WORKSPACES_PATH + '?view=settings'))} variant="link">管理全部业务的共享模型预算</Button>
           {catalog.draft?.version === catalog.version && (
             <Button onClick={() => change(catalog.draft!.policy)} variant="outline">

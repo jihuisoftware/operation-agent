@@ -12,10 +12,12 @@ def overview(store):
     version, policy = store.policy()
     paused = policy['paused'] or bool(store.workspace and store.workspace.blocked(store.scope))
     day = local_day(policy)
+    from . import messages
+    messages.initialize(store)
     with store.connection() as db:
         db.execute("BEGIN")
         counts = _counts(db, day)
-        pending = pending_counts(db, day)
+        pending = pending_counts(store, db, day)
         runs = [dict(row) for row in db.execute(
             "SELECT id,stage,state,substr(detail,1,600) AS detail,started,ended FROM runs "
             "WHERE day=? ORDER BY started DESC,rowid DESC LIMIT 6", (day,))]

@@ -76,6 +76,6 @@ export function xhsInteractionDom(kind: string) {
   const followsMe = (root: Element) => /关注了你|已关注你/.test(text(root)) || all('button,[role="button"],a,span', root).some(element => /^互相关注$/.test(text(element)))
   const alreadyFollowing = (root: Element) => all('button,[role="button"],a,span', root).some(element => /^(互相关注|已关注)$/.test(text(element)))
 
-  return { rows: [...unique.values()], identifier, noteLink, followsMe, alreadyFollowing, matchesNote, unavailable,
+  return { rows: [...unique.values()], unidentified: rows.filter(row => !identifier(row)).length, identifier, noteLink, followsMe, alreadyFollowing, matchesNote, unavailable,
     empty: emptyPatterns[kind]?.test(body) === true, blank: !body.trim() }
 }

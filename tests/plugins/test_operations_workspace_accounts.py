@@ -62,12 +62,12 @@ def test_shared_takeover_cannot_be_released_from_another_live_window(tmp_path):
 def test_transferring_received_message_does_not_enqueue_or_cross_accounts(tmp_path):
     from plugins.operations.workspace_inbox import transfer, candidates
     directory, (a, b) = account_topics(tmp_path)
-    identity = a.put('inbox', {'id': 'received-1', 'kind': 'dm', 'state': 'needs_review', 'text': '请问价格？'}, 'inbox-1')
+    identity = a.put('inbox', {'id': 'received-1', 'account_id':'me', 'kind': 'dm', 'inbound':True, 'state': 'needs_review', 'text': '请问价格？'}, 'inbox-1')
     other = directory.create('独立业务')
     with pytest.raises(ValueError, match='共用'):
         transfer(a, {**other, 'id': identity})
     transfer(a, {'business_id': b.scope['business_id'], 'topic_id': b.scope['id'], 'id': identity})
-    assert a.objects('inbox')[0]['state'] == 'transferred'
+    assert not a.objects('inbox')
     assert b.objects('inbox')[0]['state'] == 'needs_review'
     assert not candidates(a, 'dm', [{'id': 'received-1'}])
     assert candidates(b, 'dm', [{'id': 'received-1'}])

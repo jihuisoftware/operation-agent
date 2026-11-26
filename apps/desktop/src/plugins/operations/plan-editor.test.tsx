@@ -7,6 +7,7 @@ import { initialPlan, selectMode } from './plan-config'
 import { PlanEditor } from './plan-editor'
 import { business, catalog } from './plan-fixtures'
 import { PlanForm } from './plan-form'
+import type { Policy } from './types'
 
 vi.mock('@hermes/plugin-sdk', async importOriginal => {
   const sdk = await importOriginal<Record<string, unknown>>()
@@ -175,4 +176,67 @@ it.each([true, null])('does not prompt to connect based on an empty chat selecti
   initial.model_ready = ready
   render(<PlanForm catalog={initial} change={vi.fn()} policy={initial.policy} />)
   expect(screen.queryByRole('button', { name: '连接模型' })).toBeNull()
+})
+
+it.each(['提交超时', '读回失败'])('replays the same save after %s, disables a saved plan and gives the next edit a fresh ID', async failure => {
+  const server = catalog('原主题')
+  const initialVersion = server.version
+  interface SaveBody { version: number; policy: Policy; start: boolean; request_id: string }
+  const posts: SaveBody[] = []
+  let failOnce = true
+  const rest = vi.fn(async (path: string, options?: { body?: SaveBody }) => {
+    if (path === '/blueprints/preview') {
+      return { version: options!.body!.version, changes: [], blocking: [], readiness: {} }
+    }
+    if (path === '/quick-start') {
+      const body = structuredClone(options!.body!)
+      posts.push(body)
+      const receipt = posts.slice(0, -1).find(prior => prior.request_id === body.request_id)
+      if (receipt) {
+        expect(body).toEqual(receipt)
+      } else {
+        expect(body.version).toBe(server.version)
+        server.policy = body.policy
+        server.version++
+      }
+      if (failOnce && failure === '提交超时') {
+        failOnce = false
+        throw new Error(failure)
+      }
+      return { version: server.version }
+    }
+    if (path === '/blueprints' && posts.length && failOnce) {
+      failOnce = false
+      throw new Error(failure)
+    }
+    return structuredClone(server)
+  })
+  render(<PlanEditor ctx={{ rest } as unknown as PluginContext} owner={owner} />)
+  const input = await screen.findByLabelText('自定义主题名称')
+  const save = screen.getByRole('button', { name: '保存设置' }) as HTMLButtonElement
+  const clickSave = async () => {
+    await waitFor(() => expect(save.disabled).toBe(false))
+    fireEvent.click(save)
+  }
+
+  await screen.findByRole('region', { name: '运行条件' })
+  expect(save.disabled).toBe(true)
+  fireEvent.change(input, { target: { value: '第一次修改' } })
+  await clickSave()
+  await screen.findByText('Error: ' + failure)
+  await clickSave()
+  await screen.findByText(/已保存，可继续/)
+  await screen.findByRole('region', { name: '运行条件' })
+  expect(save.disabled).toBe(true)
+  fireEvent.click(save)
+  expect(posts).toHaveLength(2)
+  expect(posts[1]).toEqual(posts[0])
+
+  fireEvent.change(input, { target: { value: '第二次修改' } })
+  await clickSave()
+  await screen.findByText(/已保存，可继续/)
+  expect(posts).toHaveLength(3)
+  expect(posts[2].request_id).not.toBe(posts[0].request_id)
+  expect(posts[2].version).toBe(initialVersion + 1)
+  expect(server.policy.topic).toBe('第二次修改')
 })

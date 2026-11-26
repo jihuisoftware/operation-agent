@@ -1,9 +1,10 @@
 import { Button, Codicon, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { lazy, Suspense } from 'react'
-import { useSearchParams } from 'react-router'
+import { Navigate, useLocation, useSearchParams } from 'react-router'
 
 import { useOwnerContext } from './use-owner-context'
 
+const MessagePage = lazy(() => import('./message-page').then(m => ({ default: m.MessagePage })))
 const AttentionPage = lazy(() => import('./attention-page').then(m => ({ default: m.AttentionPage })))
 const WritingList = lazy(() => import('./writing/list').then(m => ({ default: m.WritingList })))
 const SourceLibrary = lazy(() => import('./source-library').then(m => ({ default: m.SourceLibrary })))
@@ -48,18 +49,31 @@ export const sections = {
     title: '互动',
     icon: 'comment-discussion',
     tabs: [
-      ['reply', '评论回复'],
+      ['messages', '消息处理'],
       ['unverified', '结果待核对'],
-      ['inbox', '人工咨询'],
       ['comment', '主动评论'],
-      ['dm', '收到私信'],
       ['follow', '回关']
     ]
   }
 }
 export type Section = keyof typeof sections
 
-export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Section }) {
+interface SectionProps { ctx: PluginContext; section: Section }
+
+export function SectionPage(props: SectionProps) {
+  const [params] = useSearchParams()
+  const location = useLocation()
+  const old = params.get('tab') || ''
+  if (props.section === 'interactions' && ['reply', 'dm', 'inbox'].includes(old)) {
+    const next = new URLSearchParams(params)
+    next.set('tab', 'messages')
+    next.set(old === 'inbox' ? 'state' : 'source', old === 'inbox' ? 'attention' : old)
+    return <Navigate replace to={location.pathname + '?' + next} />
+  }
+  return <SectionContent {...props} />
+}
+
+function SectionContent({ ctx, section }: SectionProps) {
   const owner = useValue(host.state.requestOwner)
 
   const bound = useOwnerContext(ctx, owner)
@@ -89,7 +103,7 @@ export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Sec
                 const next = new URLSearchParams(previous)
                 next.set('tab', key)
 
-                for (const field of ['record', 'selected', 'action', 'before']) { next.delete(field) }
+                for (const field of ['record', 'selected', 'action', 'before', 'source', 'state']) { next.delete(field) }
 
                 return next
               })
@@ -116,7 +130,7 @@ export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Sec
               key={params.toString()}
               stage={tab as 'analytics' | 'industry'}
             />
-          ) : tab === 'unverified' || tab === 'inbox' ? (
+          ) : tab === 'messages' ? <MessagePage ctx={bound} /> : tab === 'unverified' ? (
             <AttentionPage ctx={bound} kind={tab} />
           ) : tab === 'sources' ? (
             <SourceLibrary

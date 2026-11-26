@@ -155,6 +155,7 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
             payload.kind === 'comment'
               ? noteLink(element)?.href
               : element.querySelector<HTMLAnchorElement>('a[href*="/user/profile/"]')?.href,
+          direction: payload.kind === 'dm' ? element.getAttribute('data-direction') : undefined,
           inbound: payload.kind === 'dm' && element.getAttribute('data-direction') === 'incoming',
           follows_me: payload.kind === 'follow' && inventory().followsMe(element),
           already_following: payload.kind === 'follow' && inventory().alreadyFollowing(element)
@@ -165,7 +166,8 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
         throw new Error('未识别到稳定条目或明确空列表，页面结构需要人工核对')
       }
 
-      return { items: list, url: location.href, evidence: list.length ? '页面可见条目' : '页面明确显示暂无条目' }
+      return { items: list, unidentified: inventory().unidentified,
+        unknownDirection: list.filter(item => payload.kind === 'dm' && !item.direction).length, url: location.href, evidence: list.length ? '页面可见条目' : '页面明确显示暂无条目' }
     },
     'click-label': () => {
       button(payload.label).click()

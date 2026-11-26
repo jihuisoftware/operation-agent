@@ -29,6 +29,7 @@ const fields: Record<string, string> = {
 }
 
 interface Props {
+  canSaveSettings: boolean
   confirm: boolean
   preview: BlueprintPreview | null
   busy: boolean
@@ -37,7 +38,7 @@ interface Props {
   save: (start: boolean) => Promise<void>
 }
 
-export function PlanSave({ confirm, preview, busy, notice, first, save }: Props) {
+export function PlanSave({ canSaveSettings, confirm, preview, busy, notice, first, save }: Props) {
   const disabled = busy || !preview || Boolean(preview.blocking?.length)
 
   return (
@@ -59,7 +60,7 @@ export function PlanSave({ confirm, preview, busy, notice, first, save }: Props)
         <Button disabled={disabled || Boolean(notice)} onClick={() => void save(true)}>
           {busy ? '正在保存…' : first ? '开始运营' : '保存并运行快速首轮'}
         </Button>
-        <Button disabled={disabled} onClick={() => void save(false)} variant="outline">
+        <Button disabled={disabled || !canSaveSettings} onClick={() => void save(false)} variant="outline">
           {first ? '保存，稍后开始' : '保存设置'}
         </Button>
       </div>

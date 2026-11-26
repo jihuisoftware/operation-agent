@@ -147,7 +147,7 @@ it('opens each attention filter with the scope and operating day of its count', 
   render(<OwnedOverview ctx={{ rest } as unknown as PluginContext} owner={owner} />)
   for (const [label, target] of [
     ['结果待核对', '/interactions?tab=unverified'],
-    ['人工咨询', '/interactions?tab=inbox'],
+    ['消息待人工', '/interactions?tab=messages&state=attention'],
     ['内容待完善', '/content?tab=needs_work'],
     ['今日失败任务', '/cron?tab=history&historyView=operations.failed&day=2026-11-01']
   ]) {
