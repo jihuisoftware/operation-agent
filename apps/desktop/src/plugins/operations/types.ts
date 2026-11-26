@@ -9,7 +9,9 @@ export interface Policy {
   audience: string
   goal: string
   publish_method?: 'normal' | 'computer_use'
-  image_mode?: 'magazine' | 'basic'
+  image_mode?: 'magazine' | 'basic' | 'designer'
+  designer_style?: string
+  designer_daily_limit?: number
   style: string
   brand: string
   account_id: string

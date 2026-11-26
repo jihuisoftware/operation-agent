@@ -2,6 +2,7 @@ import { Button, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 
 import { AssetImage } from '../asset-image'
+import { DesignerSlot } from '../designer-slot'
 import { CoverStudio } from '../cover-studio'
 import { ImageStudio } from '../image-studio'
 import type { RecordRow } from '../types'
@@ -140,8 +141,9 @@ export function WritingPanels({ controller, ctx }: Props) {
         )}
       </details>
       <details onToggle={event => setCoverOpen(event.currentTarget.open)}>
-        <summary>基础文字封面 · 本地排版</summary>
+        <summary>设计封面</summary>
         {draft.cover_asset_id && <AssetImage ctx={ctx} id={draft.cover_asset_id} />}
+        {coverOpen && <DesignerSlot ctx={ctx} row={{ id: draft.id, title: draft.title }} writer={controller} refresh={async () => undefined} />}
         {coverOpen && (
           <CoverStudio
             ctx={ctx}

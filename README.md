@@ -200,3 +200,10 @@ HERMES_DESKTOP_HERMES_ROOT="$PWD" npm run dev --workspace apps/desktop
 任务设置提供「始终人工审核」「自动检查通过后放行」「按评分分流」三种模式，独立保存，不改变运营规则版本。评分默认门槛 85 分，正文与图片分别达标；事实、素材授权、账号、额度与防重复检查始终生效。
 
 新旧主题默认人工审核。自动策略只处理启用后生成的 AI 新稿，手写稿保持人工审核；历史 AI 稿件可在详情中点击「重新检查并应用当前策略」。自动通过后进入主题的下一个发布时段，详情支持改期、取消或转人工。修改策略使未提交的自动排期失效；已提交动作只核对、不重发。检查不可用时保留草稿并转人工。
+
+
+git pull --ff-only origin operation
+
+git merge --ff-only origin/desk
+
+git push origin operation

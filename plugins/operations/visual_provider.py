@@ -26,8 +26,8 @@ def available():
     return check_image_generation_requirements()
 
 
-def generate(prompt):
-    future = _POOL.submit(copy_context().run, _generate, prompt)
+def generate(prompt, *, aspect_ratio='landscape'):
+    future = _POOL.submit(copy_context().run, _generate, prompt, aspect_ratio)
     try:
         return future.result(timeout=360)
     except TimeoutError as exc:
@@ -35,13 +35,13 @@ def generate(prompt):
         raise ValueError('生图等待超过360秒，结果待核对；不会自动重发付费请求') from exc
 
 
-def _generate(prompt):
+def _generate(prompt, aspect_ratio='landscape'):
     from tools.image_generation_tool import _dispatch_to_plugin_provider, _maybe_route_managed_model, image_generate_tool
-    raw = _dispatch_to_plugin_provider(prompt, 'landscape')
+    raw = _dispatch_to_plugin_provider(prompt, aspect_ratio)
     if raw is None:
-        raw = _maybe_route_managed_model(prompt, 'landscape')
+        raw = _maybe_route_managed_model(prompt, aspect_ratio)
     if raw is None:
-        raw = image_generate_tool(prompt, 'landscape', upscale=False, num_images=1)
+        raw = image_generate_tool(prompt, aspect_ratio, upscale=False, num_images=1)
     result = json.loads(raw)
     if not result.get('success') or not result.get('image'):
         raise ValueError('生图失败：' + str(result.get('error') or '未取得图片'))

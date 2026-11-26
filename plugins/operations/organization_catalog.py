@@ -17,7 +17,14 @@ def catalog(store, query='', category='', cursor=0):
             continue
         items.append({**row, **{k: source.get(k) for k in ('title', 'url', 'images', 'published_at')},
                       'source_day': source.get('day')})
-    return {'version': version, 'topic': policy['topic'], 'day': local_day(policy),
+    import json
+    with store.connection() as db:
+        record = db.execute("SELECT data FROM objects WHERE kind='organization' AND json_extract(data,'$.scope_topic')=? "
+                            "ORDER BY created DESC LIMIT 1", (policy['topic'],)).fetchone()
+    latest = json.loads(record[0]) if record else None
+    counts_keys = ('added', 'reused', 'awaiting_document', 'pending')
+    latest_counts = {k: latest[k] for k in counts_keys if k in latest} if latest else {}
+    return {'latest_counts': latest_counts, 'version': version, 'topic': policy['topic'], 'day': local_day(policy),
             'total': len(pairs), 'organized': sum(counts.values()),
             'usable': sum(bool(row and row['relevant']) for _, row in pairs),
             'pending': sum(row is None for _, row in pairs), 'categories': counts,

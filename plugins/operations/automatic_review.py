@@ -50,6 +50,8 @@ def evaluate(store, draft, settings, *, recheck=False, failure=None):
     try:
         if failure:
             raise ValueError(failure)
+        if draft.get('designer_required') and draft.get('designer_applied_title') != draft['title']:
+            raise ValueError('插件封面尚未完成，请重新检查稿件与封面')
         if draft.get('visual_required') and draft.get('visual_error'):
             raise ValueError('杂志组图尚未完成，请人工核对当前封面')
         if draft.get('manual'):

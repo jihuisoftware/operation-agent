@@ -25,6 +25,8 @@ interface ReferenceImage {
   error?: string
 }
 interface Source {
+  document_language?: string
+  origins?: { type: string; query?: string; language?: string; feed?: string; keyword?: string; seen: string }[]
   id: string
   title: string
   url: string
@@ -229,7 +231,7 @@ export function SourceLibrary({
       )}
       {data ? (
         <>
-          {data.latest_collection && <CollectionSummary data={data.latest_collection} />}
+          {data.latest_collection && <CollectionSummary ctx={ctx} data={data.latest_collection} />}
           <p className="text-xs text-muted-foreground">
             {data.topic || '尚未设置主题'} · 共 {data.total} 条资料 · 长期复用 {data.selected_count} 条
           </p>
@@ -339,6 +341,12 @@ export function SourceDetail({
               作者：{source.author || '未提供'} · 发布时间：{source.published_at || '未提供'} · 采集时间：
               {source.collected_at ? formatTimestamp(source.collected_at) : '未记录'}
             </p>
+            <div className="text-xs text-muted-foreground">
+              <p>正文语言：{source.document_language === 'en' ? '英文' : source.document_language === 'zh' ? '中文' : source.document_language ? '未知' : '未记录'}</p>
+              {source.origins?.length ? source.origins.map(o => <p key={JSON.stringify(o)}>
+                {o.type === 'search' ? `${o.language === 'en' ? '英文检索' : '中文检索'} · ${o.keyword} → ${o.query}` : o.type === 'rss' ? `订阅：${o.feed}` : '指定网址'} · {o.seen}
+              </p>) : <p>发现依据：未记录</p>}
+            </div>
             {source.truncated && (
               <p className="text-sm text-muted-foreground">
                 正文已截取，原提取结果约 {source.original_chars} 字符；分析仅依据当前保存的片段。

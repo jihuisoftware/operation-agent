@@ -125,6 +125,7 @@ import { desktopSettings } from './settings'
 import { spellcheckHost } from './spellcheck'
 import { $viewport, type ViewportRect } from './viewport'
 
+export { COVER_DESIGNER_AREA, CoverDesignerPanels, type CoverDesignerContribution, type CoverDesignerProps } from './cover-designer'
 export { CRON_BLUEPRINTS_AREA, type CronBlueprintContribution, type CronBlueprintOwner } from './cron'
 /** The plugin authoring contract (`HermesPlugin`, `PluginContext`, `ctx.*` door types). */
 export type * from './plugin-contract'

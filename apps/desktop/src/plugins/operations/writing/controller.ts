@@ -2,6 +2,7 @@ import type { PluginContext } from '@hermes/plugin-sdk'
 import { atom } from 'nanostores'
 
 import { journal, type Pending, type Recovery } from './journal'
+import { rejectedCover } from './designer-save'
 import { base, type Draft, type Fields, fields } from './types'
 interface State extends Recovery {
   status: string
@@ -66,7 +67,7 @@ export function writer(ctx: PluginContext, key: string, initial: Recovery) {
       try {
         const ack = await ctx.rest<Partial<Draft>>(`${base}/${current.draft.id}`, {
           method: 'PUT',
-          body: { ...pending.fields, expected_revision: pending.expected_revision, request_id: pending.request_id }
+          body: { ...pending.fields, expected_revision: pending.expected_revision, request_id: pending.request_id, designer_job_id: pending.designer_job_id }
         })
 
         const latest = state.get().draft
@@ -87,7 +88,7 @@ export function writer(ctx: PluginContext, key: string, initial: Recovery) {
           status: conflict ? '版本冲突，已保留本机内容' : '仅本机暂存 · 点击保存重试',
           conflict,
           error,
-          ...(/40[023]|413|422/.test(error) ? { pending: undefined } : {})
+          ...(/40[023]|413|422/.test(error) ? { pending: undefined, ...rejectedCover(pending, state.get().draft) } : {})
         })
         await persist().catch(() => undefined)
         throw reason
@@ -130,6 +131,15 @@ export function writer(ctx: PluginContext, key: string, initial: Recovery) {
   return {
     state,
     save,
+    async applyDesignerCover(assetId: string, jobId: string) {
+      const current = state.get()
+      const draft = { ...current.draft, cover_asset_id: assetId }
+      patch({ draft, dirty: true, pending: {
+        fields: fields(draft), expected_revision: draft.revision, request_id: crypto.randomUUID(), designer_job_id: jobId,
+        previous_cover: current.draft.cover_asset_id
+      } })
+      await save()
+    },
     bindImages(handler: (ids: string[]) => void) {
       replaceImages = handler
 

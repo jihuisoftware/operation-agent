@@ -9,7 +9,7 @@ from .model_budget_settings import DEFAULT_CALLS, POLICY_DEFAULTS, topic_config,
 
 LIMITS = {"source": 10_000, "publish": 1, "comment": 5, "reply": 20, "dm": 10, "follow": 5}
 DEFAULT = {"schema_version": 5, "modules": {k: False for k in TIMES}, "enabled": False, "paused": False, "topic": "", "audience": "", "goal": "",
-           "style": "真实、清楚、具体", "brand": "", "image_mode": "magazine", "publish_method": "normal", "account_id": "", "timezone": "Asia/Shanghai",
+           "style": "真实、清楚、具体", "brand": "", "image_mode": "magazine", "designer_style": "清爽编辑风", "designer_daily_limit": 1, "publish_method": "normal", "account_id": "", "timezone": "Asia/Shanghai",
            "sources": [], "rss_sources": [], "keywords": [], "knowledge": [], "follow_terms": [],
            "allowed": {k: k != "follow" for k in LIMITS if k != "source"}, "limits": LIMITS,
            "times": TIMES, "deadline": "", "priority": 1, "model_calls": DEFAULT_CALLS, **POLICY_DEFAULTS,
@@ -44,8 +44,12 @@ def validate_policy(value):
     for key in ("topic", "audience", "goal", "style", "account_id", "deadline", "brand", "business_theme", "business_subtype"):
         if not isinstance(result[key], str) or len(result[key]) > 8000:
             raise ValueError(f"{key} 格式错误")
-    if not isinstance(result["image_mode"], str) or result["image_mode"] not in {"magazine", "basic"}:
-        raise ValueError("配图方式必须为杂志组图或基础文字封面")
+    if not isinstance(result["image_mode"], str) or result["image_mode"] not in {"magazine", "basic", "designer"}:
+        raise ValueError("请选择有效的自动配图方式")
+    if type(result["designer_daily_limit"]) is not int or not 0 <= result["designer_daily_limit"] <= 100:
+        raise ValueError("每日自动封面限额必须为 0 至 100 张")
+    if not isinstance(result["designer_style"], str) or len(result["designer_style"]) > 400:
+        raise ValueError("封面风格最多400字")
     if result["publish_method"] not in ("normal", "computer_use"):
         raise ValueError("发布方式必须为普通发布或 computer_use 发布")
     validate_business_selection(result["business_theme"], result["business_subtype"])

@@ -8,7 +8,7 @@ from .store import encoded
 
 MAX_INPUT = 24_000
 SEGMENT_SIZE = 6_000
-PROTOCOL = 2
+PROTOCOL = 3
 
 
 def source_input(source):

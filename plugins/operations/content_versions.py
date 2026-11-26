@@ -66,7 +66,7 @@ def create(store, identity, body):
     request = body.get('request_id')
     if not isinstance(request, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}', request):
         raise ValueError('保存请求标识无效')
-    allowed = {*EDITABLE, 'editor_document', 'request_id', 'version', 'content_revision', 'cancel_original_schedule', 'expected_release_revision', 'cover_set_id'}
+    allowed = {*EDITABLE, 'editor_document', 'designer_job_id', 'request_id', 'version', 'content_revision', 'cancel_original_schedule', 'expected_release_revision', 'cover_set_id'}
     if set(body) - allowed:
         raise ValueError('依据与版本关联由服务端继承，不能由请求修改')
     if type(body.get('cancel_original_schedule', False)) is not bool:
@@ -98,10 +98,22 @@ def create(store, identity, body):
         release = load(db, identity)
         if body.get('expected_release_revision') is not None and (release or {}).get('revision', 0) != body['expected_release_revision']:
             raise ValueError('原排期已变化，请刷新后编辑')
+        if body.get('designer_job_id'):
+            from .designer_apply import verified
+            from .designer_jobs import read
+            job = read(db, body['designer_job_id'])
+            verified(store, db, job)
+            if job['kind'] != 'content' or job['origin_id'] != identity or value['asset_ids'][:1] != [job['asset_id']]:
+                raise ValueError('封面不属于当前稿件')
+            value['cover_origin'] = 'designer'
         from .content_edits import write
         write(db, identity, current, value)
         result = {'id': identity, 'updated_in_place': True, 'original_schedule_retained': False,
                   'detail': '已更新原内容，原审核与排期已失效；请重新审核后安排发布'}
+        if body.get('designer_job_id'):
+            from .designer_jobs import save
+            job['applied'] = result
+            save(db, job)
         db.execute("INSERT INTO objects VALUES (?,'content_version_request',?,?)", (key, encoded({'digest': digest, 'result': result}), now_iso()))
     return result
 

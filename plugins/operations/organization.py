@@ -7,7 +7,8 @@ from .model_budget import remaining_calls
 from .model_errors import ModelServiceUnavailable
 from .outcomes import StageSkipped
 from .policy import now_iso
-from .source_library import available_sources
+from .source_library import available_sources, pins
+from . import organization_reuse
 from .source_documents import requires_repair
 from .store import encoded
 
@@ -19,6 +20,7 @@ INSTRUCTION = (
     '将 sources 中每条的 id 原样复制到 source_id，必须覆盖 expected_source_ids；不要合并多条来源。'
     '返回 {"items":[{"source_id":"","category":"分类","relevant":true,"summary":"摘要",'
     '"facts":["原文事实陈述"],"opinions":["作者观点"],"uncertainties":["待核实或适用限制"],"keywords":["关键词"]}]}。'
+    '整理结果使用简体中文；外文保留产品名、技术缩写、版本、数字、单位和原文适用条件。'
     '只使用提供的正文；事实陈述不等于已独立核实。事实、观点不得混用，资料不足必须写明。'
     '每类提取最多3条、每条不超过60字，摘要不超过120字；无关资料标记 relevant=false。图片没有进行视觉分析。'
     'text_truncated=true 表示采集不完整；缺失是读取范围限制，不能据此声称原文没有该内容。'
@@ -27,6 +29,8 @@ INSTRUCTION = (
 
 def material_id(policy, source):
     evidence = [source.get('original_topic_label', policy['topic']), source['id'], source['text'], source.get('url'), source.get('title'), source.get('published_at')]
+    if source.get('organization_protocol'):
+        evidence.extend((source['organization_protocol'], source.get('author'), source.get('text_revision')))
     if source.get('document_version') or source.get('truncated') or len(source['text']) > 6000:
         evidence.append('complete-document-v2')
     return 'organized:' + hashlib.sha256(encoded(evidence).encode()).hexdigest()
@@ -59,7 +63,7 @@ def save_rows(store, policy, day, version, sources, rows, *, segments_total=1):
         source = by_id[row['source_id']]
         identity = material_id(policy, source)
         store.put('organized_source', {**row, 'day': day, 'scope_topic': policy['topic'], 'version': version,
-                  'created': now_iso(), 'source_signature': identity, 'text_truncated': bool(source.get('truncated')),
+                  'created': now_iso(), 'source_signature': identity, 'reuse_signature': organization_reuse.signature(policy, source), 'text_truncated': bool(source.get('truncated')),
                   'source_revision': source.get('text_revision'),
                   'coverage': {'complete': not source.get('truncated', False), 'segments_total': segments_total,
                                'segments_completed': segments_total}}, identity)
@@ -94,17 +98,24 @@ def _run_batches(store, policy, day, version, pairs, pending, budget):
 
 def organize(store, policy, day, version):
     from .source_documents import repair_sources
-    repair_sources(store, policy, day, available_sources(store, policy, day, include_history=True))
+    selected = pins(store, policy['topic'])
+    def priority(source):
+        return (source['id'] not in selected, source.get('day') != day,
+                source.get('collected_at') or source.get('day', ''), source['id'])
+    repair_sources(store, policy, day, sorted(available_sources(store, policy, day, include_history=True), key=priority))
     pairs = materials(store, policy, day, include_history=True)
     if not pairs:
         raise StageSkipped('没有可整理的来源，请先执行信息采集或选择历史素材')
     pending = [s for s, row in pairs if row is None and not requires_repair(s)]
+    pending.sort(key=priority)
+    pending, reused = organization_reuse.bind(store, policy, day, version, pending)
     # Leave the configured downstream modules a chance to consume the partial collection.
     reserved = sum(cost for stage, cost in (('industry', 2), ('topics', 1), ('content', 2), ('publish', 1)) if policy['modules'][stage])
     batches = max(0, remaining_calls(store, policy, day) - reserved)
     added, budget_exhausted, failure = _run_batches(store, policy, day, version, pairs, pending, batches)
     current = materials(store, policy, day, include_history=True)
-    result = {'total': len(current), 'added': added, 'organized': sum(row is not None for _, row in current),
+    result = {'total': len(current), 'added': added, 'reused': reused,
+              'awaiting_document': sum(requires_repair(source) for source, row in current if row is None), 'organized': sum(row is not None for _, row in current),
               'usable': sum(bool(row and row['relevant']) for _, row in current), 'pending': sum(row is None for _, row in current)}
     result['format_adjusted'] = sum(bool(row and row.get('format_warnings')) for _, row in current)
     result['format_incomplete'] = sum(bool(row and row.get('format_incomplete')) for _, row in current)
@@ -114,7 +125,7 @@ def organize(store, policy, day, version):
     if incomplete:
         remaining += f'{incomplete} 条原文仍不完整，将按采集额度补读；未用截断内容生成完整结论。'
     remaining = failure or remaining
-    result['detail'] = (f"新增整理 {added} 条；已整理 {result['organized']}/{result['total']} 条，相关资料 {result['usable']} 条，"
+    result['detail'] = (f"模型新整理 {added} 条，复用整理 {reused} 条；已整理 {result['organized']}/{result['total']} 条，相关资料 {result['usable']} 条，"
                         f"待整理 {result['pending']} 条。" + (remaining if result['pending'] else ''))
     if result['format_adjusted']:
         result['detail'] += f"有效资料中 {result['format_adjusted']} 条已做格式兼容，其中 {result['format_incomplete']} 条跳过了部分字段，限制已写入资料依据。"

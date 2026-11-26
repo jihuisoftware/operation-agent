@@ -118,6 +118,13 @@ def save(store, identity, body):
             return previous
         data = read(db, identity)
         check_revision(data, body)
+        if body.get('designer_job_id'):
+            from .designer_apply import verified
+            from .designer_jobs import read as read_job
+            job = read_job(db, body['designer_job_id'])
+            verified(store, db, job)
+            if job['kind'] != 'writing' or job['origin_id'] != identity or job['asset_id'] != value['cover_asset_id']:
+                raise ValueError('候选封面不属于当前写作草稿')
         if data['origin']['kind'] == 'derived' and value['original']:
             raise ValueError('派生稿件必须保留原稿依据，不能改为无来源原创')
         if input_digest(value) != data['input_digest']:

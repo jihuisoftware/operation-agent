@@ -14,6 +14,14 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS objects (id TEXT PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL, created TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS objects_kind_created ON objects(kind,created DESC);
+CREATE TABLE IF NOT EXISTS collection_fingerprints (topic TEXT NOT NULL, digest TEXT NOT NULL, source_id TEXT NOT NULL,
+ PRIMARY KEY(topic,digest));
+CREATE TABLE IF NOT EXISTS collection_read_claims (topic TEXT NOT NULL, url TEXT NOT NULL, token TEXT NOT NULL,
+ expires REAL NOT NULL, PRIMARY KEY(topic,url));
+CREATE TABLE IF NOT EXISTS collection_urls (
+ topic TEXT NOT NULL, url TEXT NOT NULL, last_day TEXT NOT NULL, next_day TEXT NOT NULL, digest TEXT NOT NULL,
+ unchanged INTEGER NOT NULL, source_id TEXT NOT NULL, feed_updated TEXT, origins TEXT NOT NULL,
+ title TEXT, author TEXT, published_at TEXT, PRIMARY KEY(topic,url));
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, day TEXT NOT NULL, stage TEXT NOT NULL, slot TEXT NOT NULL,
  version INTEGER NOT NULL, state TEXT NOT NULL, detail TEXT NOT NULL, started TEXT NOT NULL, ended TEXT,
  UNIQUE(day, stage, slot));

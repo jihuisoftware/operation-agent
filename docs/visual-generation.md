@@ -53,3 +53,13 @@ Lighting: large soft studio daylight, delicate contact shadows, crisp details.
 Palette: ivory #F7F5EF, cobalt #1748CA, orange #EF6B3F, charcoal accents.
 Text: none. No text, letters, numbers, logos, watermarks, interfaces, charts, arrows with text, screenshots, fake real-world evidence or busy decorative background. Opaque background.
 ```
+
+## 独立封面设计插件
+
+从「扩展工具 → 插件 → 从 Git 安装」安装并启用 `cover-designer` 的桌面和后端组件。在待审核稿的「封面与审核 → 设计封面」或写作草稿的「设计封面」中，选择上传成品、上传底图排版或 AI 底图。成品图保留原始尺寸，底图合成为 1080 × 1440 的竖版封面。重新排版复用上一张底图；点击重新生成会发起新的生图请求。选择「应用这张候选封面」后写入当前稿件。正式稿换封面将按内容编辑规则取消原排期并重新审核。
+
+「运营计划 → 自动配图方式 → 插件单封面」为本主题后续新稿启用 AI 封面。保存前确认风格与当日自动生图上限（默认 1 张）。暂停、超限、插件不可用或已配置的生图服务失败时保留文字稿；未确认的付费请求保留额度和原始任务记录。日界线采用主题时区。手动生图按次单独记录。现有「基础文字封面」和「杂志组图」的配置继续有效。
+
+桌面扩展位置为 `operations.coverDesigner`，宿主提供绑定当前稿件的生成、进度查询、预览和应用回调。独立包的 `cover_generate` 工具通过 Profile 内的短期交换目录生成底图描述或合成候选图片。运营插件持有稿件版本、授权素材和费用准入记录。后台与 Desktop 都须包含此扩展接口。
+
+自动配图（杂志组图、插件单封面）在未配置生图模型且没有已派发的图片任务时，会生成或复用本地模板封面，随后继续稿件检查。历史稿件再次执行内容生产时使用同一规则。原组图记录保留，发布仍遵循当前审核与排期规则。手动点击 AI 生图仍要求生图服务可用。

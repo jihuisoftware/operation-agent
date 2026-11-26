@@ -3,51 +3,26 @@ import asyncio
 import hashlib
 import json
 import uuid
-from xml.etree.ElementTree import ParseError
 
 import httpx
 
-from .collection_ledger import budget, check, load, reserve, save
-from .collection_search import search
-from .collection_validation import canonical_url, document, failure_hint, fingerprint
+from .collection_ledger import budget, check, check_persisted, load, release_read, reserve, save, write
+from .collection_candidates import candidates
+from .collection_language import language
+from .collection_revisit import snapshot, observation, ordered, save_observation
+from .collection_validation import document, failure_hint
 from .policy import now_iso
+from .store import encoded
 
 
-def candidates(store, policy, day, stats, previous, *, discover=True):
-    from .feeds import feed_entries
-    rows = [{'url': url, 'title': url} for url in policy['sources']]
-    key = 'collection-queue:' + hashlib.sha256(f"{day}:{policy['topic']}".encode()).hexdigest()
-    rows.extend((load(store, key) or {}).get('items', []))
-    rows.extend(row for row in previous.values() if not row.get('text'))
-    for feed in policy.get('rss_sources', []) if discover else []:
-        check(store, policy)
-        try:
-            rows.extend(feed_entries(feed))
-        except (OSError, ValueError, httpx.HTTPError, ParseError) as exc:
-            stats['search_errors'] += 1
-            store.event('source_error', {'day': day, 'url': feed, 'error': str(exc)})
-    if discover:
-        rows.extend(search(store, policy, day, stats))
-    urls = {}
-    for row in rows:
-        try:
-            url = canonical_url(row.get('url', ''))
-        except ValueError:
-            stats['invalid_urls'] += 1
-            continue
-        if url in urls:
-            stats['duplicate_links'] += 1
-        else:
-            urls[url] = row
-    save(store, 'collection_queue', key, {'day': day, 'items': list(urls.values())})
-    return urls
-
-
-def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
+def read(store, policy, day, url, candidate, attempt, previous, fingerprints, last=None, claim=None):
+    from tools.web_result_cache import extract_cache_invalidate
     from tools.web_tools import web_extract_tool
     from .source_documents import EXTRACT_LIMIT, prepared
     from .source_media import capture, image_urls
     store.progress('正在读取来源正文', {'url': url, 'attempt': attempt})
+    if last:
+        extract_cache_invalidate(url)
     try:
         extracted = json.loads(asyncio.run(web_extract_tool([url], char_limit=EXTRACT_LIMIT, include_metadata=True)))
         pages = extracted.get('results', [])
@@ -57,7 +32,6 @@ def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
         page, text, error = {}, '', str(exc)
     check(store, policy)
     if error:
-        from tools.web_result_cache import extract_cache_invalidate
         extract_cache_invalidate(url)
     projection = prepared(text, truncated=page.get('truncated', False), original_chars=page.get('original_chars'))
     text, digest = projection['text'], projection['fingerprint']
@@ -73,10 +47,24 @@ def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
               'truncated': page.get('truncated', False), 'original_chars': page.get('original_chars', len(text)),
               'is_new': bool(text and not prior_id), 'previous_source_id': prior_id, 'scope_topic': policy['topic'],
               'images': capture(store, image_urls(page, candidate, url, text), url) if text else [], **projection}
+    outcome, unchanged = observation(last, digest)
+    from .organization_reuse import RULE
+    record.update(organization_protocol=RULE, origins=candidate.get('origins', []), document_language=language(text),
+                  feed_updated=candidate.get('feed_updated'), read_outcome=outcome if text else 'failed',
+                  previous_url_source_id=last['source_id'] if last else None)
     if getattr(store, 'debug_id', None):
         record['debug_id'] = store.debug_id
     identity = previous['id'] if previous else hashlib.sha256(f'{day}:{url}'.encode()).hexdigest()
-    save(store, 'source', identity, record)
+    if previous and previous.get('text'):
+        identity = hashlib.sha256(encoded([day, url, attempt, record['feed_updated']]).encode()).hexdigest()
+    with store.connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        check_persisted(db, policy)
+        if claim and not release_read(db, policy['topic'], url, claim):
+            raise ValueError('采集读取租约已变化，未覆盖更新的正文')
+        write(store, db, 'source', identity, record)
+        if text:
+            save_observation(db, record, identity, unchanged)
     if store.current_run_id:
         from .progress import saved
         saved(store, 'source', identity, record)
@@ -90,8 +78,8 @@ def read(store, policy, day, url, candidate, attempt, previous, fingerprints):
 def collect(store, policy, day):
     identity = 'collection:' + uuid.uuid4().hex
     stats = {key: 0 for key in ('candidates', 'attempted', 'succeeded', 'new', 'duplicate_content', 'already_read',
-                                'failed', 'not_attempted', 'retried', 'duplicate_links', 'invalid_urls', 'searches', 'search_errors')}
-    stats.update(day=day, scope_topic=policy['topic'], started=now_iso(), state='running', limit=policy['limits']['source'], failure_reasons=[])
+                                'failed', 'not_attempted', 'new_reads', 'rechecks', 'changed', 'unchanged', 'deferred_rechecks', 'retried', 'duplicate_links', 'invalid_urls', 'searches', 'search_errors')}
+    stats.update(queries=[], english_reason='本批未执行检索', day=day, scope_topic=policy['topic'], started=now_iso(), state='running', limit=policy['limits']['source'], failure_reasons=[])
     if getattr(store, 'debug_id', None):
         stats['debug_id'] = store.debug_id
     options = store.run_options or {}
@@ -100,21 +88,20 @@ def collect(store, policy, day):
     save(store, 'collection_run', identity, stats)
     try:
         check(store, policy)
-        rows = store.objects('source')
-        previous = {canonical_url(row['url']): row for row in rows if row.get('day') == day}
-        fingerprints = {fingerprint(row['text']): row['id'] for row in rows if row.get('text')}
+        history, previous, fingerprints = snapshot(store, policy['topic'], day)
         used = budget(store, day)
         if used >= stats['limit']:
             stats['reason'] = '当日读取额度已用完，未发起检索或读取'
-        urls = candidates(store, policy, day, stats, previous, discover=used < stats['limit'])
+        urls = candidates(store, policy, day, stats, history, discover=used < stats['limit'])
         stats['candidates'] = len(urls)
-        # An unavailable source must not consume every small sampling run before fresh candidates.
-        for url, candidate in sorted(urls.items(), key=lambda item: previous.get(item[0], {}).get('attempts', 0)):
+        day_budget = load(store, 'collection-budget:' + day) or {}
+        order = ordered(urls, history, previous, day, stats, used, day_budget.get('rechecks', 0))
+        for url, candidate in order:
             prior = previous.get(url)
-            if prior and prior.get('text'):
-                stats['already_read'] += 1
-                continue
-            attempt = reserve(store, policy, day, url) if used < stats['limit'] and stats['attempted'] < stats['read_limit'] else None
+            attempt = None
+            if used < stats['limit'] and stats['attempted'] < stats['read_limit']:
+                attempt = reserve(store, policy, day, url, recheck=url in history, claim=identity,
+                                  expected_source=(history.get(url) or {}).get('source_id'))
             if attempt is None:
                 stats['not_attempted'] += 1
                 continue
@@ -122,7 +109,10 @@ def collect(store, policy, day):
             stats['used'] = used
             stats['attempted'] += 1
             stats['retried'] += int(attempt > 1)
-            record = read(store, policy, day, url, candidate, attempt, prior, fingerprints)
+            stats['rechecks' if url in history else 'new_reads'] += 1
+            record = read(store, policy, day, url, candidate, attempt, prior, fingerprints, history.get(url), identity)
+            if record['read_outcome'] in ('changed', 'unchanged'):
+                stats[record['read_outcome']] += 1
             success = bool(record['text'])
             stats['succeeded'] += int(success)
             stats['failed'] += int(not success)

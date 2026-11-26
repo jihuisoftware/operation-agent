@@ -107,7 +107,7 @@ def produce_content(store, policy, day, version):
     assets = [a for a in store.objects("asset") if a.get("authorized") and not a.get("revoked")]
     from .content_recovery import fingerprint, pending
     data = inputs.checked(store, 'content', {"analysis": inputs.analysis(analysis, evidence), "policy": inputs.policy(policy), "sources": evidence,
-         "assets": inputs.assets([asset for asset in assets if not any(asset.get(key) for key in ('generated_typography', 'generated_magazine', 'generated_visual_art'))]), "tasks": inputs.tasks(store.objects("task", day)),
+         "assets": inputs.assets([asset for asset in assets if not any(asset.get(key) for key in ('generated_typography', 'generated_magazine', 'generated_visual_art', 'designer_background', 'designer_cover'))]), "tasks": inputs.tasks(store.objects("task", day)),
          "image_mode": policy.get("image_mode", "magazine"), "selected_topic": inputs.selected_topic(topic), "recent_content": inputs.history(public_history(store, policy, day)), "performance_review": []})
     signature = fingerprint(data, version, analysis)
     draft = pending(store, day, signature)
@@ -141,7 +141,10 @@ def produce_content(store, policy, day, version):
     content["selected_topic"] = topic
     validate_content(content, sources, assets)
     content['visual_required'] = policy.get('image_mode', 'magazine') == 'magazine'
-    if content['visual_required']:
+    if policy.get('image_mode') == 'designer':
+        content['designer_required'] = True
+        content['asset_ids'] = []
+    elif content['visual_required']:
         content['asset_ids'] = []
     else:
         from .content_cover import ensure_cover

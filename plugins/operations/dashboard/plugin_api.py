@@ -37,6 +37,8 @@ from plugins.operations.dashboard.collection_settings_api import router as colle
 router.include_router(collection_settings_router)
 from plugins.operations.dashboard.visual_api import router as visual_router
 router.include_router(visual_router)
+from plugins.operations.dashboard.designer_api import router as designer_router
+router.include_router(designer_router)
 
 # Development tooling is absent from release payloads and wheels.
 _source_root = Path(__file__).resolve().parents[3]

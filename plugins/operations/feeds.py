@@ -42,9 +42,10 @@ def parse_feed(data, base):
         def value(key):
             element = fields.get(key)
             return "".join(element.itertext()).strip() if element is not None else None
+        updated = value("updated") or value("modified")
         entries.append({"url": urljoin(base, url), "title": value("title") or url,
                         "author": value("author") or value("creator"),
-                        "published_at": value("pubDate") or value("published") or value("updated")})
+                        "published_at": value("pubDate") or value("published"), **({"feed_updated": updated} if updated else {})})
         if len(entries) == 100:
             break
     return entries

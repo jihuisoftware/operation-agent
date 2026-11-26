@@ -20,13 +20,21 @@ def pending(store, day, signature):
 
 
 def review(store, policy, day, version, draft, sources):
+    from .template_fallback import apply_if_needed
     from .content import check_content
     from .content_cover import ensure_cover
     from .content_revision import guard, root, revise, REVIEW_VERSION, MAX_REVISIONS
     from .model_budget import remaining_calls
-    if not draft.get('visual_required'):
+    if not draft.get('visual_required') and not draft.get('designer_required'):
         draft = ensure_cover(store, draft)
     while True:
+        draft = apply_if_needed(store, draft, policy, version)
+        if draft.get('designer_required'):
+            from .designer_apply import automatic
+            try:
+                draft = automatic(store, draft, policy, version)
+            except ValueError as exc:
+                return {'content_id': draft['id'], 'ready': False, 'missing': ['插件封面尚未完成'], 'reason': str(exc)}
         if draft.get('visual_required'):
             from .visual_pipeline import prepare
             draft = prepare(store, draft)
@@ -73,5 +81,5 @@ def outcome(draft, count, extra=''):
     if draft.get('visual_required') and (draft.get('visual_review') or {}).get('pass') is not True:
         missing.append('组图视觉检查待人工核对')
         extra = '；'.join(filter(None, [extra, (draft.get('visual_review') or {}).get('reason')]))
-    reason = '；'.join(part for part in (draft['quality'].get('reason'), extra) if part)
+    reason = '；'.join(part for part in (draft.get('template_fallback'), draft['quality'].get('reason'), extra) if part)
     return {'content_id': draft['id'], 'ready': draft['ready'], 'missing': missing, 'reason': reason, 'revision_count': count}

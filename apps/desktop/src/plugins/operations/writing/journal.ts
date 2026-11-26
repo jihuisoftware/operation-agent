@@ -1,5 +1,7 @@
 import type { Draft, Fields } from './types'
 export interface Pending {
+  designer_job_id?: string
+  previous_cover?: string
   fields: Fields
   expected_revision: number
   request_id: string

@@ -114,9 +114,10 @@ def revise(store, policy, day, version, draft, sources):
     if all(proposed.get(key) == draft.get(key) for key in ('title', 'body', 'source_ids', 'asset_ids')) and proposed.get('cover', draft.get('cover')) == draft.get('cover'):
         finish(store, attempt, state='failed', error='模型没有产生有效修改')
         return None, '自动修订未产生有效修改，原草稿已保留'
-    proposed = revised_cover(store, draft, proposed)
+    if not draft.get('designer_required'):
+        proposed = revised_cover(store, draft, proposed)
     evidence = [row for row in draft.get('organized_evidence', []) if row['id'] in proposed['source_ids']]
-    child = {**proposed, **inputs.fields(draft, ('analysis_context', 'selected_topic', 'production_input', 'cover_origin', 'visual_required', 'review_policy_revision')),
+    child = {**proposed, **inputs.fields(draft, ('analysis_context', 'selected_topic', 'production_input', 'cover_origin', 'visual_required', 'designer_required', 'designer_background_job', 'designer_applied_title', 'template_fallback', 'review_policy_revision')),
              'day': day, 'version': version, 'created': now_iso(), 'ready': False, 'state': 'needs_review', 'review_pending': True,
              'quality': {'pass': False, 'reason': '修订版本已保存，等待复检'}, 'parent_content_id': draft['id'],
              'revision_root_id': attempt['root_id'], 'revision_index': attempt['revision'], 'revision_reason': draft['quality'],

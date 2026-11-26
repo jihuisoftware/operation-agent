@@ -15,7 +15,7 @@ import { capabilityScoped, hermesApi, type ProfileScope, profileScoped, STARTUP_
 // provider's /models endpoint. An unreachable provider must not hold the Model
 // Settings page hostage (the backend bounds the same probe; this is the client
 // side of that budget).
-const MODEL_INFO_REQUEST_TIMEOUT_MS = 5_000
+const MODEL_INFO_REQUEST_TIMEOUT_MS = 8_000
 
 export function getGlobalModelInfo(profile?: null | string): Promise<ModelInfoResponse> {
   return hermesApi<ModelInfoResponse>({

@@ -21,6 +21,7 @@ interface Material {
   images?: { id?: string; url: string; state: string }[]
 }
 interface Catalog {
+  latest_counts?: { added?: number; reused?: number; awaiting_document?: number; pending?: number }
   topic: string
   total: number
   organized: number
@@ -130,6 +131,9 @@ export function OrganizedLibrary({
               </div>
             ))}
           </div>
+          <p className="text-sm text-muted-foreground">最近整理：模型新整理 {data.latest_counts?.added ?? '未记录'}，
+            跨日复用 {data.latest_counts?.reused ?? '未记录'}，待补正文 {data.latest_counts?.awaiting_document ?? '未记录'}，
+            待整理 {data.latest_counts?.pending ?? '未记录'}。</p>
           <form
             className="flex flex-wrap gap-2"
             onSubmit={event => {

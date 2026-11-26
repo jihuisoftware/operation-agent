@@ -31,6 +31,12 @@ def image(identity: str):
     return {"mime": data["mime"], "data": base64.b64encode(path.read_bytes()).decode(), "authorized": False}
 
 
+@router.get("/collection-report")
+def collection_report():
+    from plugins.operations.collection_report import report
+    return report(Store())
+
+
 @router.get("/{identity}")
 def detail(identity: str):
     try:

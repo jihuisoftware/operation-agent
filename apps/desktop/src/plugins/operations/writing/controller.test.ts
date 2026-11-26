@@ -108,3 +108,13 @@ it('allows fixing a rejected document instead of endlessly retrying the invalid 
   expect(rest.mock.calls[1][1].body.request_id).not.toBe(rest.mock.calls[0][1].body.request_id)
   controller.dispose()
 })
+
+it('restores the previous cover after refusal so ordinary autosave cannot apply the rejected candidate', async () => {
+  const rest = vi.fn().mockRejectedValueOnce(new Error('400 素材已撤回')).mockResolvedValue({ revision: 2 })
+  const controller = writer({ rest } as unknown as PluginContext, 'cover', { draft, dirty: false })
+  await expect(controller.applyDesignerCover('candidate', 'job')).rejects.toThrow('素材已撤回')
+  controller.edit({ title: '继续编辑' })
+  await controller.save()
+  expect(rest.mock.calls[1][1].body).toMatchObject({ cover_asset_id: '', title: '继续编辑' })
+  controller.dispose()
+})
