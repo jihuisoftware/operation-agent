@@ -60,7 +60,10 @@ def test_auto_quota_is_atomic_and_uncertain_call_never_replayed(tmp_path, monkey
     store.configure(policy, version)
     monkeypatch.setattr(designer_render, 'check_plugin', lambda: None)
     monkeypatch.setattr(visual_provider, 'available', lambda: True)
-    monkeypatch.setattr(designer_render, 'background_prompt', lambda spec: spec['title'])
+    from plugins.operations import designer_workflow
+    monkeypatch.setattr(designer_workflow, 'model_step', lambda owner, job, phase, brief, image=None: (
+        {'design': {'title': brief['title'], 'template': 'editorial'}, 'reason': '设计', 'panel': 'bottom', 'background_prompt': '新底图'}
+        if phase == 'design' else {'review': {'pass': True, 'reason': '通过', 'issues': []}}))
     calls = []
 
     def uncertain(*args):
@@ -111,7 +114,10 @@ def test_automatic_title_revision_reuses_background_and_cannot_approve_stale_cov
     draft.update(version=version, asset_ids=[], designer_required=True)
     with store.connection() as db:
         db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(draft), draft['id']))
-    monkeypatch.setattr(designer_render, 'background_prompt', lambda spec: spec['title'])
+    from plugins.operations import designer_workflow
+    monkeypatch.setattr(designer_workflow, 'model_step', lambda owner, job, phase, brief, image=None: (
+        {'design': {'title': brief['title'], 'template': 'editorial'}, 'reason': '设计', 'panel': 'bottom', 'background_prompt': '新底图'}
+        if phase == 'design' else {'review': {'pass': True, 'reason': '通过', 'issues': []}}))
     calls = []
     monkeypatch.setattr(designer_render, 'check_plugin', lambda: None)
     monkeypatch.setattr(visual_provider, 'available', lambda: True)

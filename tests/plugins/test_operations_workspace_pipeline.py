@@ -8,6 +8,8 @@ from plugins.operations.workspaces import Workspaces, bind_scope
 
 
 def test_four_topic_pipelines_are_traceable_and_do_not_cross_records(tmp_path, monkeypatch, record_property):
+    from tests.plugins.operations_support import install_test_designer
+    install_test_designer(monkeypatch)
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     (tmp_path / 'config.yaml').write_text('development:\n  operations_debug: true\n')
     from agent import auxiliary_client

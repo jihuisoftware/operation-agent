@@ -93,10 +93,6 @@ const ctx = {
       return { sources: [] }
     }
 
-    if (path === '/content/cover-options') {
-      return { templates: [], palettes: [] }
-    }
-
     if (path.endsWith('/preview')) {
       return { ...projection(state.draft.document), issues: [], warnings: [], automatic_cover: true }
     }

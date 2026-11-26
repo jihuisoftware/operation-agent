@@ -96,11 +96,20 @@ def add_record(store, kind, body):
         from .content import validate_content
         body = {key: body[key] for key in ('title', 'body', 'asset_ids', 'source_ids')}
         validate_content(body, store.objects("source"), [a for a in store.objects("asset") if a.get('authorized') and not a.get("revoked")])
-        from .content_cover import ensure_cover
-        body = ensure_cover(store, body)
         digest = hashlib.sha256(encoded(body).encode()).hexdigest()
-        return store.put(kind, {**body, "manual": True, 'ready': True, 'state': 'pending_review',
+        identity = store.put(kind, {**body, "manual": True, 'ready': bool(body['asset_ids']), 'state': 'pending_review' if body['asset_ids'] else 'needs_material',
                                'version': store.policy()[0], "day": local_day(store.policy()[1]), "created": now_iso()}, digest)
+        if not body['asset_ids']:
+            from .content_release import fingerprint, manuscript
+            from .designer_apply import fill_missing
+            from .content_recovery import mark_missing
+            saved = manuscript(store, identity)
+            if not saved['asset_ids']:
+                try:
+                    fill_missing(store, identity, {'version': store.policy()[0], 'content_revision': fingerprint(saved)})
+                except ValueError as exc:
+                    mark_missing(store, saved, str(exc))
+        return identity
     if kind == "task":
         if not isinstance(body.get("text"), str) or not body["text"].strip():
             raise ValueError("任务不能为空")

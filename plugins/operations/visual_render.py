@@ -1,13 +1,12 @@
 """Editorial composition: AI artwork, measured Chinese typography and real information hierarchy."""
 from io import BytesIO
-import re
 from PIL import Image, ImageDraw, ImageOps
 
-from .cover_typography import fit, font_at
+from .visual_typography import fit, font_at
 
 WIDTH, HEIGHT = 1080, 1440
 PAPER, INK, BLUE, ORANGE, SOFT = '#F7F5EF', '#16202E', '#1748CA', '#EF6B3F', '#E4E9F4'
-VERSION = 1
+VERSION = 2
 
 
 def text(draw, value, font, box, size, color=INK, lines=4):
@@ -31,22 +30,6 @@ def folio(draw, font, index, count):
     draw.line((72, 1342, 1008, 1342), fill='#C6C9CB', width=2)
     draw.text((72, 1370), '知识与实践  /  KNOWLEDGE NOTES', font=font_at(font, 22), fill=INK)
     draw.text((902, 1362), f'{index + 1:02d} / {count:02d}', font=font_at(font, 30), fill=BLUE)
-
-
-def cover(image, draw, page, font, raw):
-    text(draw, 'IDEAS INTO PRACTICE', font, (76, 64, 900, 40), 26, BLUE, 1)
-    draw.rectangle((76, 126, 152, 137), fill=ORANGE)
-    headline = page['title']
-    if '\n' not in headline:
-        headline = re.sub(r'([A-Za-z][A-Za-z0-9 ._+/-]*)(?=[\u4e00-\u9fff])', r'\1\n', headline, count=1)
-    text(draw, headline, font, (72, 177, 936, 330), 100, INK, 3)
-    if page['intro']:
-        text(draw, page['intro'], font, (78, 520, 906, 164), 40, lines=3)
-    art(image, raw, (0, 716, 1080, 490))
-    draw.rectangle((72, 1180, 1008, 1298), fill=BLUE)
-    labels = [item['label'] for item in page['items'] if item['label']][:3]
-    value = '  /  '.join(labels) or '拆解思路 · 方法 · 实践'
-    text(draw, value, font, (106, 1205, 868, 86), 32, '#FFFFFF', 2)
 
 
 def item_rows(draw, page, font, top, *, compact=False):
@@ -83,26 +66,21 @@ def render(page, index, count, raw=None):
         raise ValueError('组图需要可用的中文字体')
     image = Image.new('RGB', (WIDTH, HEIGHT), PAPER)
     draw = ImageDraw.Draw(image)
-    if page['kind'] == 'cover':
-        if not raw:
-            raise ValueError('封面主视觉尚未生成，保留文字草稿')
-        cover(image, draw, page, font, raw)
+    draw.rectangle((74, 68, 150, 80), fill=ORANGE)
+    text(draw, page['title'], font, (72, 133, 936, 192), 70, lines=2)
+    if page['intro']:
+        text(draw, page['intro'], font, (76, 354, 928, 162), 40, lines=3)
+    if raw:
+        art(image, raw, (72, 535, 936, 408))
+        compact = {**page, 'items': page['items'][:1]}
+        # Art pages have one key takeaway; no silently omitted copy.
+        if len(page['items']) > 1:
+            raise ValueError('带插画内页最多一个要点，请拆分为信息图页')
+        item_rows(draw, compact, font, 1035, compact=True)
+    elif page['kind'] == 'comparison' and len(page['items']) >= 2:
+        comparison(draw, page, font)
     else:
-        draw.rectangle((74, 68, 150, 80), fill=ORANGE)
-        text(draw, page['title'], font, (72, 133, 936, 192), 70, lines=2)
-        if page['intro']:
-            text(draw, page['intro'], font, (76, 354, 928, 162), 40, lines=3)
-        if raw:
-            art(image, raw, (72, 535, 936, 408))
-            compact = {**page, 'items': page['items'][:1]}
-            # Art pages have one key takeaway; no silently omitted copy.
-            if len(page['items']) > 1:
-                raise ValueError('带插画内页最多一个要点，请拆分为信息图页')
-            item_rows(draw, compact, font, 1035, compact=True)
-        elif page['kind'] == 'comparison' and len(page['items']) >= 2:
-            comparison(draw, page, font)
-        else:
-            item_rows(draw, page, font, 530)
+        item_rows(draw, page, font, 530)
     folio(draw, font, index, count)
     output = BytesIO()
     image.save(output, format='PNG')

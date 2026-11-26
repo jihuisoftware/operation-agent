@@ -20,7 +20,7 @@ def replay(db, key, digest):
     return value['result']
 
 
-def proposed(store, parent, body, policy, version):
+def proposed(store, parent, body, policy, version, *, design_cover=True):
     value = {key: body.get(key, parent.get(key, [] if key.endswith('_ids') else '')) for key in EDITABLE}
     if 'authorship' in parent:
         value['authorship'] = parent['authorship']
@@ -30,18 +30,20 @@ def proposed(store, parent, body, policy, version):
     assets = [row for row in store.objects('asset') if row.get('authorized') and not row.get('revoked')]
     validate_content(value, sources, assets)
     from .content_revision import revised_cover
-    from .content_cover import ensure_cover
-    value = revised_cover(store, parent, value, regenerate_magazine=False) if value['asset_ids'] == parent.get('asset_ids') else ensure_cover(store, value)
+    from .content_cover import with_candidate
+    if design_cover:
+        value = (revised_cover(store, parent, value, regenerate_magazine=False)
+                 if value['asset_ids'] == parent.get('asset_ids') else with_candidate(store, value, parent))
+    elif body.get('cover_error'):
+        value['cover_error'] = body['cover_error']
     if 'cover_origin' not in value and value['asset_ids']:
         cover = next((row for row in assets if row['id'] == value['asset_ids'][0]), {})
-        value['cover_origin'] = 'generated_typography' if cover.get('generated_typography') else 'user_selected'
+        value['cover_origin'] = 'generated_typography' if cover.get('generated_typography') else 'designer' if cover.get('designer_cover') else 'user_selected'
     if parent.get('editor_document') and value['body'] == parent['body']:
         value.update(editor_document=parent['editor_document'], editor_document_version=parent['editor_document_version'])
     for key in ('analysis_context', 'selected_topic'):
         if key in parent and key not in value:
             value[key] = parent[key]
-    from .cover_assets import attach
-    attach(store, parent, value, body.get('cover_set_id'))
     evidence = [row for row in parent.get('organized_evidence', []) if row['id'] in value['source_ids']]
     signatures = list(parent.get('organization_ids', []))
     for source in sources:
@@ -53,7 +55,7 @@ def proposed(store, parent, body, policy, version):
                  parent_content_id=parent['id'], revision_root_id=parent.get('revision_root_id') or parent['id'],
                  manual_revision=True, manual=True, version=version, scope_topic=policy['topic'],
                  day=parent.get('day', local_day(policy)) if value.get('analysis_context') else local_day(policy),
-                 created=now_iso(), ready=True, state='pending_review', quality={'pass': None, 'reason': '内容已编辑，等待重新审核'})
+                 created=now_iso(), ready=bool(value['asset_ids']), state='pending_review' if value['asset_ids'] else 'needs_material', quality={'pass': None, 'reason': '内容已编辑，等待重新审核'})
     # Legacy manual drafts may have no organization signatures to inherit.
     if not signatures:
         value.pop('organization_ids')
@@ -66,7 +68,7 @@ def create(store, identity, body):
     request = body.get('request_id')
     if not isinstance(request, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}', request):
         raise ValueError('保存请求标识无效')
-    allowed = {*EDITABLE, 'editor_document', 'designer_job_id', 'request_id', 'version', 'content_revision', 'cancel_original_schedule', 'expected_release_revision', 'cover_set_id'}
+    allowed = {*EDITABLE, 'editor_document', 'designer_job_id', 'request_id', 'version', 'content_revision', 'cancel_original_schedule', 'expected_release_revision'}
     if set(body) - allowed:
         raise ValueError('依据与版本关联由服务端继承，不能由请求修改')
     if type(body.get('cancel_original_schedule', False)) is not bool:
@@ -82,7 +84,7 @@ def create(store, identity, body):
     if body.get('version') != version or body.get('content_revision') != fingerprint(parent):
         raise ValueError('原稿或规则已变化，请刷新后编辑')
     value = edited_manuscript(store, parent, body, policy, version)
-    signatures = validate(store, value)
+    signatures = validate(store, value, require_assets=False)
     with store.connection() as db:
         db.execute('BEGIN IMMEDIATE')
         previous = replay(db, key, digest)
@@ -105,7 +107,7 @@ def create(store, identity, body):
             verified(store, db, job)
             if job['kind'] != 'content' or job['origin_id'] != identity or value['asset_ids'][:1] != [job['asset_id']]:
                 raise ValueError('封面不属于当前稿件')
-            value['cover_origin'] = 'designer'
+            value['cover_origin'] = 'user_selected' if job['mode'] == 'upload' else 'designer'
         from .content_edits import write
         write(db, identity, current, value)
         result = {'id': identity, 'updated_in_place': True, 'original_schedule_retained': False,

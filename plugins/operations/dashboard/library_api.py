@@ -52,7 +52,7 @@ def library(section: str, before: int = 0, filter: str = '', record: str = '', c
             raise HTTPException(400, str(exc)) from exc
     table, condition = PRIMARY[section]
     if section == 'assets':
-        condition += " AND COALESCE(json_extract(data, '$.generated_typography'), 0)=" + ('1' if filter == 'covers' else '0')
+        condition += " AND (COALESCE(json_extract(data, '$.generated_typography'), 0) OR COALESCE(json_extract(data,'$.designer_cover'),0))=" + ('1' if filter == 'covers' else '0')
     with store.connection() as db:
         result = db.execute(f"SELECT rowid AS cursor,* FROM {table} WHERE {condition} AND (?='' OR id=?) AND (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 101", (record, record, before, before))
         rows = result.fetchmany(100)

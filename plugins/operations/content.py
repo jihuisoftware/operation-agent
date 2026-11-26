@@ -118,11 +118,7 @@ def produce_content(store, policy, day, version):
         from .automatic_review import finish_production
         return finish_production(store, policy, day, version, draft, sources)
     content = generate(store, policy, day,
-        '生成小红书图文草稿，返回 {"title":"", "body":"", "asset_ids":[], "source_ids":[], "reason":"",'
-        '"cover":{"title":"短封面主标题","subtitle":"副标题","eyebrow":"栏目短标签","keywords":[],"template":"editorial","palette":"blue"}}。'
-        '封面title建议8至18字、最多36字，可用换行分开完整词组，英文工具名不要拆开；subtitle最多60字，eyebrow最多12字，keywords最多3项、每项12字。'
-        '封面只能概括本稿，不把未核实数据写成确定结论，不编造实测、百分比或承诺，不使用emoji。'
-        'template可选editorial/comparison/checklist/spotlight，palette可选blue/mint/sand/plum；封面信息与正文一起返回，不另行生成图片。'
+        '生成小红书图文草稿，返回 {"title":"","body":"","asset_ids":[],"source_ids":[],"reason":""}。'
         '标题不超过20字，正文不超过900字。只能使用提供的来源和素材，缺少图片时保留文本草稿。'
         'selected_topic 不为空时必须围绕指定选题写作，不得另换题目；标题可精炼但保持原主题。'
         'analysis 非空时优先参考其可公开结论与指标，保留适用范围；不使用内部经营数据。'
@@ -133,22 +129,13 @@ def produce_content(store, policy, day, version):
         data)
     if not content.get("title"):
         raise StageSkipped(content.get("reason", "无合适选题"))
-    content = inputs.fields(content, ('title', 'body', 'source_ids', 'asset_ids', 'reason', 'cover', 'visual_plan'))
-    from .cover_design import normalized
-    if 'cover' in content:
-        content['cover'] = normalized(content['cover'], content['title'])
+    content = inputs.fields(content, ('title', 'body', 'source_ids', 'asset_ids', 'reason', 'visual_plan'))
     content["analysis_context"] = analysis
     content["selected_topic"] = topic
     validate_content(content, sources, assets)
     content['visual_required'] = policy.get('image_mode', 'magazine') == 'magazine'
-    if policy.get('image_mode') == 'designer':
-        content['designer_required'] = True
-        content['asset_ids'] = []
-    elif content['visual_required']:
-        content['asset_ids'] = []
-    else:
-        from .content_cover import ensure_cover
-        content = ensure_cover(store, content)
+    content['designer_required'] = not content['visual_required']
+    content['asset_ids'] = []
     cited = [row for row in source_evidence if row['id'] in content['source_ids']]
     content['organization_ids'] = [row['organization_id'] for row in cited]
     content['organized_evidence'] = cited

@@ -9,7 +9,7 @@ REQUEST_TIMEOUT = 360
 MAX_OUTPUT_TOKENS = 4000
 
 
-def generate(store, policy, day, instruction, data, *, image_parts=(), manual=False):
+def reserve_call(store, policy, day, *, manual=False):
     from .plan_controls import check_cancelled
     check_cancelled(store)
     store.renew()
@@ -34,6 +34,11 @@ def generate(store, policy, day, instruction, data, *, image_parts=(), manual=Fa
             charge(store, db, day, 'model')
         db.execute("INSERT INTO events(at,kind,data) VALUES (?,'model_call',?)",
                    (now_iso(), json.dumps(annotate(store, {"day": day, "quota_exempt": exempt, "budget_id": budget_id}))))
+    return budget_id
+
+
+def generate(store, policy, day, instruction, data, *, image_parts=(), manual=False):
+    budget_id = reserve_call(store, policy, day, manual=manual)
     from .model_trace import traced
     return traced(store, instruction, data, budget_id, lambda: _generate_response(store, day, instruction, data, budget_id, image_parts=image_parts),
                   options={'timeout_seconds': REQUEST_TIMEOUT, 'max_output_tokens': MAX_OUTPUT_TOKENS})

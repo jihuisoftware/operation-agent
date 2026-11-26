@@ -54,9 +54,9 @@ export function GenerateCoversButton({ ctx, record, refresh }: {
             if (run.signal.aborted) { return }
 
             if (!needsCover(content)) { continue }
-            await ctx.rest(`${path}/versions`, { method: 'POST', body: versionRequest(content, {
-              asset_ids: [], expected_release_revision: content.release?.revision ?? 0
-            }) })
+            await ctx.rest(`${path}/generate-cover`, { method: 'POST', body: versionRequest(content, {
+              expected_release_revision: content.release?.revision ?? 0
+            }), timeoutMs: 900_000 })
             generated++
           } catch (reason) { errors.push(`${row.title || '未命名图文'}：${String(reason)}`) }
         }

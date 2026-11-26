@@ -48,7 +48,7 @@ def listing(store, before=0, filter='', record='', status='all', compact=False):
                   "json_extract(c.data,'$.day') AS basis_day,json_extract(c.data,'$.parent_content_id') AS parent_content_id,"
                   "json_extract(c.data,'$.manual_revision') AS manual_revision,a.id AS publication_action_id,a.state AS publication_state,"
                   "json_extract(c.data,'$.quality.pass') AS quality_pass,substr(json_extract(c.data,'$.quality.reason'),1,240) AS quality_reason,"
-                  "json_extract(c.data,'$.automatic_review') AS automatic_review_json,"
+                  "json_extract(c.data,'$.cover_error') AS cover_error,json_extract(c.data,'$.automatic_review') AS automatic_review_json,"
                   "CASE WHEN r.id IS NOT NULL THEN json_object('state',json_extract(r.data,'$.state'),'publish_at',json_extract(r.data,'$.publish_at'),"
                   "'reviewer',json_extract(r.data,'$.reviewer'),'account_id',json_extract(r.data,'$.account_id'),'detail',substr(json_extract(r.data,'$.detail'),1,300)) END AS release_json")
         rows = db.execute('SELECT ' + (fields if compact else 'c.rowid AS cursor,c.*') + ' ' + JOIN + ' AND ' + condition +
@@ -115,6 +115,10 @@ def detail(store, identity, *, publication=False):
         content = {**content, 'id': identity, 'content_revision': fingerprint(content), 'policy_version': version,
                    'release': load(db, identity), 'publication_state': action['state'] if action else None,
                    'publication_action_id': action['id'] if action else None}
+        decision = content.get('automatic_review') or {}
+        if not publication and decision.get('content_revision') == content['content_revision']:
+            from .visual_review import evidence
+            content['visual_check'] = evidence(db, decision)
         content['target_account'] = json.loads(action['data']).get('account_id') if action else target_account
         from .publication_waiting import annotate
         annotate(db, [content])

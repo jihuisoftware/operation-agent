@@ -5,7 +5,6 @@ import { AssetImage } from './asset-image'
 import { ContentReview } from './content-review'
 import { versionRequest } from './content-version-actions'
 import { DesignerSlot } from './designer-slot'
-import { CoverStudio } from './cover-studio'
 import { ImageStudio } from './image-studio'
 import { ActionManager } from './management'
 import type { RecordRow } from './types'
@@ -40,12 +39,10 @@ export function ContentPreview({ ctx, identity, publication, refresh, snapshotKe
       <p className="text-sm">目标账号：{String(data.content.target_account || '请先确认发布账号')} · 依据日期：{String(data.content.day || '未记录')}</p>
       <div className="grid gap-3 sm:grid-cols-2">{((data.content.asset_ids || []) as string[]).map(id => <AssetImage ctx={ctx} id={id} key={id} />)}</div>
       <p className="whitespace-pre-wrap break-words">{String(data.content.body || '')}</p>
-      {data.content.id && <details onToggle={event => setCoverOpen(event.currentTarget.open)}><summary className="cursor-pointer">设计封面 · 三个候选与样式编辑</summary>
-        {coverOpen && <>
-          {!publication && <DesignerSlot ctx={ctx} refresh={changed} row={data.content} />}
-          <CoverStudio ctx={ctx} refresh={changed} row={data.content} />
-        </>}
+      {!publication && <details onToggle={event => setCoverOpen(event.currentTarget.open)}><summary className="cursor-pointer">设计封面</summary>
+        {coverOpen && <DesignerSlot ctx={ctx} refresh={changed} row={data.content} />}
       </details>}
+      {data.content.cover_error ? <p role="status">待补封面 · {String(data.content.cover_error)}</p> : null}
       <details onToggle={event => setVisualOpen(event.currentTarget.open)}><summary className="cursor-pointer">杂志组图 · AI 主视觉与信息图</summary>
         {visualOpen && <ImageStudio apply={async job => {
           const result = await ctx.rest<{ id: string }>(`/visual-sets/${encodeURIComponent(job)}/apply`, { method: 'POST', body: versionRequest(data.content, {}) })

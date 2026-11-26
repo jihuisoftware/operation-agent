@@ -33,20 +33,18 @@ export function GoalFields({ policy, onChange }: PolicyFieldsProps) {
         value={policy.style}
       />
       <label className="grid gap-2">自动配图方式
-        <select className="rounded border bg-background p-2" onChange={event => onChange({ ...policy, image_mode: event.target.value as Policy['image_mode'] })} value={policy.image_mode || 'magazine'}>
+        <select className="rounded border bg-background p-2" onChange={event => onChange({ ...policy, image_mode: event.target.value as Policy['image_mode'] })} value={policy.image_mode === 'basic' ? 'basic' : policy.image_mode || 'magazine'}>
           <option value="magazine">杂志组图：3–6 页，最多 2 张 AI 主视觉</option>
-          <option value="designer">插件单封面：AI 底图与本地标题</option>
-          <option value="basic">基础文字封面：仅本地排版，不调用生图</option>
+          <option value="designer">插件单封面：自动设计</option>
+          <option value="basic">插件单封面：仅用本地模板</option>
         </select>
-        <span className="text-xs text-muted-foreground">自动配图未配置生图模型时，将使用本地模板封面并继续审核。</span>
+        <span className="text-xs text-muted-foreground">封面设计插件根据稿件选择风格。未配置生图模型时使用插件本地模板。</span>
       </label>
-      {policy.image_mode === 'designer' && <div className="grid gap-2">
-        <label>封面风格<input className="ml-2 rounded border p-2" maxLength={400} onChange={event => onChange({ ...policy, designer_style: event.target.value })}
-          value={policy.designer_style ?? '清爽编辑风'} /></label>
+      <div className="grid gap-2">
         <label>本主题每日自动生图上限（张）<input max={100} min={0} onChange={event => onChange({ ...policy, designer_daily_limit: Number(event.target.value) })} type="number"
           value={policy.designer_daily_limit ?? 1} /></label>
-        <p className="text-xs text-muted-foreground">保存后，新稿将调用已配置的生图服务。每稿一张，受主题每日限额约束；手动生图单独记录。</p>
-      </div>}
+        <p className="text-xs text-muted-foreground">重用底图和本地排版不占生图张数。</p>
+      </div>
       <h3 className="font-medium">需要执行哪些模块</h3>
       <p className="text-xs text-muted-foreground">
         采集保存原文，整理模块分类并提炼依据，选题与内容使用整理资料；各环节可独立启停。

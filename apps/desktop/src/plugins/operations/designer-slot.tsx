@@ -1,4 +1,4 @@
-import { CoverDesignerPanels, type CoverDesignerProps, type PluginContext } from '@hermes/plugin-sdk'
+import { Button, host, CoverDesignerPanels, type CoverDesignerProps, type PluginContext } from '@hermes/plugin-sdk'
 
 import { AssetImage } from './asset-image'
 import type { RecordRow } from './types'
@@ -46,11 +46,11 @@ export function DesignerSlot({ ctx, row, writer, refresh }: SlotProps) {
         version: state?.draft.policy_version ?? row.policy_version, ...(file ? { upload: await upload(file, authorized) } : {})
       } })
     },
-    apply: async id => {
+    apply: async (id, candidateAsset) => {
       await writer?.save()
 
-      const result = await ctx.rest<{ asset_id: string; revision: number }>(
-        '/cover-designer/' + encodeURIComponent(id) + '/apply', { method: 'POST', body: origin })
+      const result = await ctx.rest<{ asset_id: string; revision: number; job_id?: string }>(
+        '/cover-designer/' + encodeURIComponent(id) + '/apply', { method: 'POST', body: { ...origin, candidate_asset: candidateAsset } })
 
       if (writer) {
         const state = writer.state.get()
@@ -59,12 +59,12 @@ export function DesignerSlot({ ctx, row, writer, refresh }: SlotProps) {
           throw new Error('草稿已变化，请重新预览')
         }
 
-        await writer.applyDesignerCover(result.asset_id, id)
+        await writer.applyDesignerCover(result.asset_id, result.job_id ?? id)
       } else {
         await refresh()
       }
     }
   }
 
-  return <CoverDesignerPanels key={kind + ':' + row.id} panel={props} />
+  return <CoverDesignerPanels key={kind + ':' + row.id} panel={props} fallback={<Button onClick={() => host.navigate('/settings?tab=plugins')} variant="outline">安装或启用封面设计插件</Button>} />
 }

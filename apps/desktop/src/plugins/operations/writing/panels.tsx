@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 
 import { AssetImage } from '../asset-image'
 import { DesignerSlot } from '../designer-slot'
-import { CoverStudio } from '../cover-studio'
 import { ImageStudio } from '../image-studio'
 import type { RecordRow } from '../types'
 
@@ -144,27 +143,6 @@ export function WritingPanels({ controller, ctx }: Props) {
         <summary>设计封面</summary>
         {draft.cover_asset_id && <AssetImage ctx={ctx} id={draft.cover_asset_id} />}
         {coverOpen && <DesignerSlot ctx={ctx} row={{ id: draft.id, title: draft.title }} writer={controller} refresh={async () => undefined} />}
-        {coverOpen && (
-          <CoverStudio
-            ctx={ctx}
-            refresh={async () => undefined}
-            row={{ id: draft.id, title: draft.title, asset_ids: draft.cover_asset_id ? [draft.cover_asset_id] : [] }}
-            working={{
-              preview: async spec => {
-                await controller.save()
-
-                return ctx.rest(`${base}/${draft.id}/covers/preview`, {
-                  method: 'POST',
-                  body: { cover: spec, expected_revision: controller.state.get().draft.revision }
-                })
-              },
-              apply: async id => {
-                controller.edit({ cover_asset_id: id })
-                await controller.save()
-              }
-            }}
-          />
-        )}
       </details>
       <details open>
         <summary>发布预览与图片顺序</summary>
@@ -190,7 +168,7 @@ export function WritingPanels({ controller, ctx }: Props) {
                 <AssetImage ctx={ctx} id={id} />
               </div>
             ))}
-            {preview.automatic_cover && <p>提交审核时自动制作本地文字封面。</p>}
+            {preview.automatic_cover && <p>提交时由封面插件生成封面，插件未就绪时保留待补封面的稿件。</p>}
             {[...preview.issues, ...preview.warnings].map(text => (
               <p className="text-sm" key={text}>
                 {text}

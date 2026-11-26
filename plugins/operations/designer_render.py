@@ -16,9 +16,12 @@ def check_plugin():
     from tools.registry import registry
     discover_plugins()
     manager = get_plugin_manager()
-    selected = any(row['key'] == 'cover-designer' and row['enabled'] and not row['error'] for row in manager.list_plugins())
+    selected = next((row for row in manager.list_plugins() if row['key'] == 'cover-designer' and row['enabled'] and not row['error']), None)
     if not selected or not registry.snapshot_registration('cover_generate', scope=manager.scope_key):
         raise ValueError('请在当前 Profile 安装并启用封面设计插件')
+    from packaging.version import Version
+    if Version(selected['version']) < Version('2.0.0'):
+        raise ValueError('请更新封面设计插件至 2.0 或更高版本以使用 Agent 设计与复检')
 
 
 @contextmanager
@@ -39,17 +42,12 @@ def exchange(spec, source=None):
         yield folder, result
 
 
-def background_prompt(spec):
-    with exchange({**spec, 'phase': 'background'}) as (_, result):
-        prompt = result.get('prompt')
-        if not isinstance(prompt, str) or not 0 < len(prompt.strip()) <= 4000:
-            raise ValueError('封面插件未提供有效的底图描述')
-        return prompt
-
-
 def generate_background(store, prompt):
-    from . import visual_provider
-    raw = visual_provider.image_bytes(visual_provider.generate(prompt, aspect_ratio='portrait'))
+    with exchange({'phase': 'generate_background', 'prompt': prompt}) as (folder, _):
+        path = folder / 'background.png'
+        if path.is_symlink() or path.stat().st_size > 20 * 1024 * 1024:
+            raise ValueError('插件底图文件无效')
+        raw = path.read_bytes()
     identity = store.add_asset('AI封面底图.png', raw, True, cover_metadata={'designer_background': True})
     if not identity:
         raise ValueError('生成底图已撤销使用授权')
@@ -57,22 +55,26 @@ def generate_background(store, prompt):
 
 
 def render(store, job):
-    raw = asset_bytes(store, job['background'])
+    background = job.get('background')
+    raw = asset_bytes(store, background) if background else None
     if job['mode'] == 'upload':
-        return job['background']
+        return background
     font = chinese_font()
     if font is None:
         raise ValueError('请安装中文字体后重新生成封面')
-    spec = {**job['spec'], 'phase': 'compose', 'font_path': str(font), 'font_face': chinese_font_index(font)}
+    phase = 'compose' if raw else 'template'
+    design = job['design']
+    spec = {**job['spec'], **design, 'design': design, 'phase': phase, 'panel': job['panel'],
+            'font_path': str(font), 'font_face': chinese_font_index(font)}
     with exchange(spec, raw) as (folder, _):
-        output = folder / 'cover.jpg'
+        output = folder / ('cover.jpg' if raw else 'cover.png')
         if output.is_symlink() or output.stat().st_size > 20 * 1024 * 1024:
-            raise ValueError('封面文件无效')
+            raise ValueError('候选封面文件无效')
         with Image.open(output) as rendered:
-            if rendered.size != (1080, 1440) or rendered.format != 'JPEG':
+            if rendered.size != (1080, 1440) or rendered.format not in ('PNG', 'JPEG'):
                 raise ValueError('候选封面尺寸或格式错误')
-        metadata = {'designer_cover': True, 'cover_spec': {k: spec[k] for k in ('title', 'subtitle')}}
-        identity = store.add_asset('设计封面.jpg', output.read_bytes(), True, cover_metadata=metadata)
+        metadata = {'designer_cover': True, 'cover_spec': design}
+        identity = store.add_asset('设计封面' + output.suffix, output.read_bytes(), True, cover_metadata=metadata)
         if not identity:
             raise ValueError('此候选封面已撤销使用授权')
         return identity

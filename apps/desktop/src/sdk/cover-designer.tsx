@@ -18,7 +18,7 @@ export interface CoverRequest {
   request_id: string
   title: string
   subtitle: string
-  style: string
+  style?: string
   mode: 'upload' | 'background' | 'reuse' | 'ai'
   x: number
   y: number
@@ -32,7 +32,7 @@ export interface CoverDesignerProps {
   detail: (id: string) => Promise<CoverJob>
   latest: () => Promise<CoverJob | null>
   start: (request: CoverRequest) => Promise<CoverJob>
-  apply: (job: string) => Promise<void>
+  apply: (job: string, candidateAsset?: string) => Promise<void>
   image: (id: string) => ReactNode
 }
 
@@ -44,9 +44,10 @@ function Panel({ contribution, props }: { contribution: CoverDesignerContributio
   return createElement(contribution.render, props)
 }
 
-export function CoverDesignerPanels({ panel }: { panel: CoverDesignerProps }) {
+export function CoverDesignerPanels({ panel, fallback }: { panel: CoverDesignerProps; fallback?: ReactNode }) {
   const entries = useContributions(COVER_DESIGNER_AREA)
 
+  if (!entries.length) return fallback ?? null
   return <>{entries.map(entry => (
     <ContribBoundary id={entry.id} key={entry.id} variant="pane">
       <Panel contribution={entry.data as CoverDesignerContribution} props={panel} />

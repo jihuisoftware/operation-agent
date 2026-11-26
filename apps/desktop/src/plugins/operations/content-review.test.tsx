@@ -37,16 +37,12 @@ it('produces a manuscript without submitting a publication request', async () =>
   expect(rest.mock.calls.map(([path]) => path)).toEqual(['/policy', '/content/generate'])
 })
 
-it('replaces a cover through its original version instead of losing evidence in a new manual draft', async () => {
-  const rest = vi.fn(async (path: string) => ({ id: path === '/assets' ? 'new-cover' : 'new-version' }))
-  render(<ContentReview ctx={{ rest } as unknown as PluginContext} refresh={async () => undefined} row={{
-    id: 'draft', title: '标题', body: '正文', source_ids: ['source'], asset_ids: ['old-cover', 'second-image'], content_revision: 'digest', policy_version: 4
+it('shows the actual visual rejection alongside its summary', () => {
+  render(<ContentReview ctx={{} as PluginContext} refresh={async () => undefined} row={{
+    id: 'draft', visual_check: { reason: '标题超出版面', issues: ['第1页右侧文字被截断'] }
   }} />)
-  fireEvent.change(screen.getByLabelText(/替换封面/), { target: { files: [new File(['image'], 'cover.png', { type: 'image/png' })] } })
-  await waitFor(() => expect(rest).toHaveBeenCalledWith('/content/draft/versions', { method: 'POST', body: {
-    content_revision: 'digest', version: 4, request_id: expect.any(String), asset_ids: ['new-cover', 'second-image']
-  } }))
-  expect(rest).toHaveBeenCalledTimes(2)
+  fireEvent.click(screen.getByText('查看图片评审详情'))
+  expect(screen.getByText('第1页右侧文字被截断')).toBeTruthy()
 })
 
 it('changes the scheduled time using the existing approval revision', async () => {

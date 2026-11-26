@@ -17,6 +17,7 @@ interface Summary extends RecordRow {
   asset_ids: string[]
   publication_state?: string
   quality_pass?: boolean | number
+  cover_error?: string
   quality_reason?: string
   automatic_review?: { approved: boolean; reason: string; scores: { text: number | null; visual: number | null } }
   release?: { reviewer?: string; state: string; publish_at?: string; account_id?: string; detail?: string; waiting?: PublicationWait }
@@ -173,6 +174,7 @@ function CardSummary({ ctx, row, onEdit }: { ctx: PluginContext; row: Summary; o
           {Boolean(row.parent_content_id) && <p className="text-xs text-muted-foreground">{row.manual_revision ? '人工编辑版本' : '自动修订版本'} · 原稿已保留</p>}
           {row.release?.account_id && <p className="text-xs">发布账号：{row.release.account_id}</p>}
           {(row.quality_pass === false || row.quality_pass === 0) && <p className="text-sm">自动检查待完善：{row.quality_reason}</p>}
+          {row.cover_error && <p className="text-sm">待补封面 · {row.cover_error}</p>}
           {row.automatic_review && <p className="text-sm">{row.release?.state === 'scheduled' ? (row.release.reviewer === 'automatic' ? '自动审核排期' : '人工审核排期') : row.automatic_review.reason} · 正文 {row.automatic_review.scores.text ?? '未评分'} · 图片 {row.automatic_review.scores.visual ?? '未评分'}</p>}
           <PublicationWaiting waiting={row.release?.waiting} />
           {row.release?.detail && <p className="text-sm">{row.release.detail}</p>}

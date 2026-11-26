@@ -42,9 +42,3 @@ def submit(identity: str, body: dict):
 @router.get('/{identity}/preview')
 def preview(identity: str):
     return checked_resource(lambda: drafts.detail(Store(), identity)['preview'])
-
-
-@router.post('/{identity}/covers/preview')
-def cover(identity: str, body: dict):
-    from ..writing_covers import preview as render
-    return checked_resource(lambda: render(Store(), identity, body))

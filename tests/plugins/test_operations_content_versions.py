@@ -130,8 +130,8 @@ def test_backfill_image_free_draft_saves_cover_in_place(version_case):
     result = create(store, draft['id'], body)
     updated = content_release.manuscript(store, result['id'])
     assert updated['id'] == draft['id'] and updated['body'] == draft['body']
-    assert updated['asset_ids'] == [updated['cover_candidates'][0]['asset_id']]
-    assert updated['cover_origin'] == 'generated_typography' and updated['state'] == 'pending_review'
+    assert len(updated['asset_ids']) == 1
+    assert updated['cover_origin'] == 'designer' and updated['state'] == 'pending_review'
     support.approve(store, updated)
     with pytest.raises(ValueError, match='排期已变化'):
         create(store, updated['id'], request(updated, request_id='stale', expected_release_revision=0))

@@ -119,6 +119,8 @@ def test_removing_module_cancels_queued_action_and_preserves_history(store):
 
 
 def test_production_adds_cover_and_publishing_waits_for_human_review(store, monkeypatch):
+    from tests.plugins.operations_support import install_test_designer
+    install_test_designer(monkeypatch)
     from plugins.operations import content
     body = request(store)
     blueprints.apply(store, body)

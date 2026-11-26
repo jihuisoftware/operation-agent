@@ -1,7 +1,7 @@
 """Versioned scoring rubric; missing or non-finite values never authorize publication."""
 import math
 
-VERSION = 'review-scores-v1'
+VERSION = 'review-scores-v2'
 TEXT = {'evidence': 40, 'relevance': 20, 'structure': 20, 'originality': 20}
 VISUAL = {'readability': 40, 'layout': 25, 'relevance': 20, 'consistency': 15}
 
@@ -20,9 +20,10 @@ def score(result, kind):
     if not isinstance(values, dict):
         return None
     numbers = [values.get(key) for key in weights]
+    numbers = [n.get('score') if isinstance(n, dict) else n for n in numbers]
     if any(type(n) not in (int, float) or not math.isfinite(n) or not 0 <= n <= 100 for n in numbers):
         return None
-    return round(sum(values[key] * weight for key, weight in weights.items()) / 100, 2)
+    return round(sum(number * weight for number, weight in zip(numbers, weights.values())) / 100, 2)
 
 
 def decide(policy, text, visual):

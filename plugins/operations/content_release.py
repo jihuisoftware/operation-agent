@@ -27,12 +27,12 @@ def manuscript(store, identity):
     return {**json.loads(row[0]), 'id': identity}
 
 
-def validate(store, content):
+def validate(store, content, *, require_assets=True):
     from .content import validate_content
     from .publication_snapshot import asset_bytes
     sources = store.objects('source')
     assets = [a for a in store.objects('asset') if a.get('authorized') and not a.get('revoked')]
-    validate_content(content, sources, assets, require_assets=True)
+    validate_content(content, sources, assets, require_assets=require_assets)
     for asset in assets:
         if asset['id'] in content['asset_ids']:
             asset_bytes(asset)

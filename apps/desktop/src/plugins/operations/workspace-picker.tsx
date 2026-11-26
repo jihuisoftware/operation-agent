@@ -21,7 +21,7 @@ export function WorkspacePicker({ ctx }: { ctx: PluginContext }) {
         size="sm"
         variant="link"
       >
-        业务与主题
+        当前业务与主题
       </Button>
       <select
         aria-label="当前业务与主题"

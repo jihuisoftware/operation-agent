@@ -9,6 +9,8 @@ from tests.plugins.operations_support import prepare_materials
 
 
 def test_generation_and_review_bound_inputs_but_keep_full_saved_lineage(tmp_path, monkeypatch):
+    from tests.plugins.operations_support import install_test_designer
+    install_test_designer(monkeypatch)
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     store = Store(tmp_path / 'inputs.db')
     policy = deepcopy(DEFAULT)

@@ -18,6 +18,8 @@ from tests.plugins.operations_support import prepare_materials
 def manuscript(tmp_path, monkeypatch):
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     (tmp_path / 'config.yaml').write_text('development:\n  operations_debug: true\n')
+    from tests.plugins.operations_support import install_test_designer
+    install_test_designer(monkeypatch)
     store = Store()
     policy = deepcopy(DEFAULT)
     policy.update(image_mode='basic', enabled=True, topic='步行路线', goal='可核对的路线指南', account_id='me')

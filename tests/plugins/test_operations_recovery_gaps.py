@@ -11,6 +11,8 @@ from tests.plugins.operations_support import prepare_materials
 
 @pytest.mark.parametrize('change_policy', [False, True])
 def test_provider_failure_preserves_draft_and_retry_only_checks(tmp_path, monkeypatch, change_policy):
+    from tests.plugins.operations_support import install_test_designer
+    install_test_designer(monkeypatch)
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     store = Store(tmp_path / 'review.db')
     policy = deepcopy(DEFAULT)

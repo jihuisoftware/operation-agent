@@ -58,7 +58,7 @@ def options(body):
         raise ValueError('封面方式无效')
     if mode == 'upload':
         return {}
-    limits = {'title': 80, 'subtitle': 120, 'style': 400}
+    limits = {'title': 80, 'subtitle': 120}
     spec = {key: body.get(key, '') for key in limits}
     if any(not isinstance(text, str) or len(text) > limits[key] for key, text in spec.items()):
         raise ValueError('标题、副标题或风格描述过长')
@@ -94,6 +94,8 @@ def admit(store, body, automatic):
         job = dict(id=key, kind=body['kind'], origin_id=body['origin_id'], revision=revision, version=version,
                    mode=body['mode'], spec=spec, digest=digest, state='queued', automatic=automatic, charged=False,
                    pid=proc.pid, process_started=proc.create_time(), day=local_day(json.loads(raw_policy)))
+        if body.get('excerpt'):
+            job['excerpt'] = str(body['excerpt'])[:6000]
         if job['kind'] == 'content':
             from .content_release import load
             job['release_revision'] = (load(db, job['origin_id']) or {}).get('revision', 0)
@@ -119,11 +121,11 @@ def reserve_dispatch(store, job):
             day = local_day(policy)
             if day != job['day'] or policy.get('paused') or not policy.get('enabled'):
                 raise ValueError('运营日期已变化或计划已停用')
-            used = db.execute("SELECT count(*) FROM objects WHERE kind=? AND json_extract(data,'$.automatic')=1 "
+            used = db.execute("SELECT coalesce(sum(coalesce(json_extract(data,'$.image_calls'),1)),0) FROM objects WHERE kind=? AND json_extract(data,'$.automatic')=1 "
                               "AND json_extract(data,'$.charged')=1 AND json_extract(data,'$.day')=?", (KIND, day)).fetchone()[0]
             if used >= policy.get('designer_daily_limit', 1):
                 raise ValueError('已达到本主题当日自动生图限额')
-        job.update(charged=True, state='running')
+        job.update(charged=True, image_calls=job.get('image_calls', 0) + 1, dispatch_pending=True, state='running')
         save(db, job)
 
 
@@ -149,7 +151,7 @@ def status(store, key):
 def latest(store, kind, identity):
     with store.connection() as db:
         row = db.execute("SELECT id FROM objects WHERE kind=? AND json_extract(data,'$.kind')=? "
-                         "AND json_extract(data,'$.origin_id')=? ORDER BY rowid DESC LIMIT 1", (KIND, kind, identity)).fetchone()
+                         "AND json_extract(data,'$.origin_id')=? AND json_extract(data,'$.parent_job') IS NULL ORDER BY rowid DESC LIMIT 1", (KIND, kind, identity)).fetchone()
     return status(store, row[0]) if row else None
 
 
@@ -157,29 +159,24 @@ def execute(store, job, upload):
     from . import designer_render as engine
     try:
         engine.check_plugin()
-        if job['mode'] == 'ai':
-            from . import visual_provider
-            if not visual_provider.available():
-                raise ValueError('请先配置可用的生图模型')
-            prompt = engine.background_prompt(job['spec'])
-            reserve_dispatch(store, job)
-            background = engine.generate_background(store, prompt)
-        elif upload:
-            background = store.add_asset(upload['name'], base64.b64decode(upload['data'], validate=True), True)
+        if upload:
+            job['background'] = store.add_asset(upload['name'], base64.b64decode(upload['data'], validate=True), True)
+            if not job['background']:
+                raise ValueError('上传的素材已撤销使用授权')
+        if job['mode'] == 'upload':
+            job.update(asset_id=job['background'], state='completed')
         else:
-            background = job['background']
-        job['background'] = background
-        job['asset_id'] = engine.render(store, job)
-        job['state'] = 'completed'
+            from .designer_workflow import design_cover
+            design_cover(store, job)
     except Exception as error:
         logging.getLogger(__name__).exception("Cover generation failed: %s", job["id"])
-        job.update(state='unknown' if job['charged'] and not job.get('background') else 'failed', error=str(error)[:800])
+        job.update(state='unknown' if job.get('dispatch_pending') else 'failed', error=str(error)[:800])
     with store.connection() as db:
         save(db, job)
     return job
 
 
-def start(store, body, *, automatic=False):
+def start(store, body, *, automatic=False, synchronous=False):
     upload = body.get('upload')
     if body.get('mode') in ('upload', 'background'):
         if not isinstance(upload, dict) or upload.get('authorized') is not True:
@@ -191,7 +188,7 @@ def start(store, body, *, automatic=False):
     job, fresh = admit(store, body, automatic)
     if not fresh:
         return status(store, job['id'])
-    if automatic:
+    if automatic or synchronous:
         return execute(store, job, upload)
     try:
         _POOL.submit(copy_context().run, execute, store, job.copy(), upload)

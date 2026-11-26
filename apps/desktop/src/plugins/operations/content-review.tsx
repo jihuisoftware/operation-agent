@@ -1,7 +1,7 @@
-import { Button, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
+import { Button, formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
-import { coverAssetIds, localInput, versionRequest } from './content-version-actions'
+import { localInput } from './content-version-actions'
 import { type PublicationWait, PublicationWaiting } from './publication-waiting'
 import { ContentReviewDecision } from './review-policy'
 import type { RecordRow } from './types'
@@ -13,11 +13,10 @@ interface Props {
 }
 
 export function ContentReview({ ctx, row, refresh }: Props) {
+  const visual = row.visual_check as { reason?: string; issues?: string[] } | undefined
   const [time, setTime] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [newVersion, setNewVersion] = useState('')
   const [rescheduling, setRescheduling] = useState(false)
   const release = row.release as { reviewer?: string; state: string; publish_at: string; revision: number; detail?: string; waiting?: PublicationWait } | null
 
@@ -35,33 +34,11 @@ export function ContentReview({ ctx, row, refresh }: Props) {
     } catch (reason) { setError(String(reason)) } finally { setPending(false) }
   }
 
-  const replace = async (file: File) => {
-    setPending(true)
-    setError('')
-
-    try {
-      const data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(String(reader.result).split(',')[1])
-        reader.onerror = () => reject(new Error('图片读取失败'))
-        reader.readAsDataURL(file)
-      })
-
-      const asset = await ctx.rest<{ id: string }>('/assets', { method: 'POST', body: { name: file.name, data, authorized: true } })
-
-      const result = await ctx.rest<{ id: string; original_schedule_retained: boolean }>(`/content/${row.id}/versions`, { method: 'POST', body: versionRequest(row, {
-        asset_ids: coverAssetIds(row, asset.id)
-      }) })
-
-      await refresh()
-      setNewVersion(result.id)
-      setNotice('封面已更新到原内容，原审核与排期已失效；请重新审核后排期。')
-    } catch (reason) { setError(String(reason)) } finally { setPending(false) }
-  }
-
   if (row.publication_state) { return null }
 
   return <section aria-label="审核与排期" className="space-y-3">
+    {visual && <details><summary>查看图片评审详情</summary><p>{visual.reason}</p>
+      {visual.issues?.map((issue, index) => <p key={index}>{String(issue)}</p>)}</details>}
     <ContentReviewDecision ctx={ctx} refresh={refresh} row={row} />
     {release?.state === 'scheduled' && !rescheduling
       ? <><p>{release?.reviewer === 'automatic' ? '自动审核通过' : '人工审核通过'}，计划于 {formatTimestamp(release.publish_at)} 发布</p>
@@ -79,16 +56,7 @@ export function ContentReview({ ctx, row, refresh }: Props) {
     <PublicationWaiting waiting={release?.waiting} />
     {release?.detail && <p>{release.detail}</p>}
     {release?.state === 'scheduled' && <p className="text-sm">保存封面修改会更新原内容并取消当前排期，请重新审核后设置发布时间。</p>}
-    <label className="grid gap-1 text-sm">替换封面（上传即确认具有使用权，更新原内容并重新审核）
-      <input accept="image/png,image/jpeg,image/webp" disabled={pending} onChange={event => {
-        const file = event.target.files?.[0]
-
-        if (file) { void replace(file) }
-      }} type="file" />
-    </label>
     {error && <p role="alert">{error}</p>}
-    {notice && <p role="status">{notice}</p>}
-    {newVersion && <Button onClick={() => host.navigate(`/content?tab=drafts&record=${encodeURIComponent(newVersion)}`)} variant="link">查看内容</Button>}
   </section>
 }
 

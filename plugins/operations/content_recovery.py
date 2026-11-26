@@ -20,21 +20,21 @@ def pending(store, day, signature):
 
 
 def review(store, policy, day, version, draft, sources):
-    from .template_fallback import apply_if_needed
+    from .template_fallback import no_image_model, unstarted
     from .content import check_content
-    from .content_cover import ensure_cover
     from .content_revision import guard, root, revise, REVIEW_VERSION, MAX_REVISIONS
     from .model_budget import remaining_calls
-    if not draft.get('visual_required') and not draft.get('designer_required'):
-        draft = ensure_cover(store, draft)
     while True:
-        draft = apply_if_needed(store, draft, policy, version)
-        if draft.get('designer_required'):
+        with store.connection() as db:
+            template_only = draft.get('visual_required') and no_image_model() and unstarted(db, draft)
+        if (draft.get('designer_required') or template_only or
+                (not draft.get('visual_required') and not draft.get('asset_ids'))):
             from .designer_apply import automatic
             try:
-                draft = automatic(store, draft, policy, version)
+                draft = automatic(store, draft, policy, version, template_only=template_only)
             except ValueError as exc:
-                return {'content_id': draft['id'], 'ready': False, 'missing': ['插件封面尚未完成'], 'reason': str(exc)}
+                mark_missing(store, draft, str(exc))
+                return {'content_id': draft['id'], 'ready': False, 'missing': ['待补封面'], 'reason': str(exc)}
         if draft.get('visual_required'):
             from .visual_pipeline import prepare
             draft = prepare(store, draft)
@@ -83,3 +83,13 @@ def outcome(draft, count, extra=''):
         extra = '；'.join(filter(None, [extra, (draft.get('visual_review') or {}).get('reason')]))
     reason = '；'.join(part for part in (draft.get('template_fallback'), draft['quality'].get('reason'), extra) if part)
     return {'content_id': draft['id'], 'ready': draft['ready'], 'missing': missing, 'reason': reason, 'revision_count': count}
+
+def mark_missing(store, draft, reason):
+    from .content_release import fingerprint, load
+    with store.connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute("SELECT data FROM objects WHERE id=? AND kind='content'", (draft['id'],)).fetchone()
+        if row and fingerprint(json.loads(row[0])) == fingerprint(draft) and (load(db, draft['id']) or {}).get('state') in (None, 'cancelled') and not db.execute(
+                "SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=?", (draft['id'],)).fetchone():
+            db.execute("UPDATE objects SET data=json_set(data,'$.cover_error',?,'$.state','needs_material') WHERE id=?",
+                       (reason, draft['id']))

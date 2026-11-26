@@ -28,6 +28,8 @@ def png():
 
 
 def test_collection_persists_images_text_and_provenance_and_can_reuse_across_days(tmp_path, monkeypatch):
+    from tests.plugins.operations_support import install_test_designer
+    install_test_designer(monkeypatch)
     store, policy = configured(tmp_path)
     from tools import web_tools
     monkeypatch.setattr(web_tools, "web_search_tool", lambda *a, **k: '{"data":{"web":[]}}')
@@ -72,8 +74,8 @@ def test_collection_persists_images_text_and_provenance_and_can_reuse_across_day
     monkeypatch.setattr(content, "check_content", lambda *args: {"pass": True})
     result = content.produce_content(store, policy, "2026-11-01", 1)
     assert result["ready"]
-    assert store.objects('content')[0]['cover_origin'] == 'generated_typography'
-    assert store.objects('asset')[0]['generated_typography']
+    assert store.objects('content')[0]['cover_origin'] == 'designer'
+    assert store.objects('asset')[0]['designer_cover']
     assert source['images'][1]['authorized'] is False
     assert source_library.detail(store, source["id"])["content_versions"][0]["id"] == result["content_id"]
 

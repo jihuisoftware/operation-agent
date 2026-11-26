@@ -136,7 +136,7 @@ it('fills missing draft covers across pages from the refresh toolbar', async () 
   expect(button.nextElementSibling?.textContent).toBe('刷新内容')
   fireEvent.click(button)
   expect(await screen.findByText('已为 2 篇待审核稿件生成封面。')).toBeTruthy()
-  expect(rest.mock.calls.map(([path]) => path).filter(path => path.endsWith('/versions'))).toEqual([
-    '/content/one/versions', '/content/two/versions'
+  expect(rest.mock.calls.map(([path]) => path).filter(path => path.endsWith('/generate-cover'))).toEqual([
+    '/content/one/generate-cover', '/content/two/generate-cover'
   ])
 })

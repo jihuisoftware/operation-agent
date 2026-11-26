@@ -8,14 +8,11 @@ def prepare(store, draft):
     from .visual_jobs import automatic
     from .content_revision import guard
     from .content_release import fingerprint, load
-    from .content_cover import ensure_cover
     version, policy = store.policy()
     if draft.get('version') != version:
         raise ValueError('运营规则已变化，保留旧稿，不继续自动生图')
     guard(store, policy, version, draft)
     updated = automatic(store, draft)
-    if updated.get('visual_error') and not updated.get('asset_ids'):
-        updated = ensure_cover(store, updated)
     guard(store, policy, version, draft)
     with store.connection() as db:
         db.execute('BEGIN IMMEDIATE')

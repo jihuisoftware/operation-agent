@@ -45,8 +45,9 @@ def preview(store, data):
 
 def build(store, data, version, policy):
     from .content_versions import proposed
-    from .content_cover import ensure_cover
+    from .content_cover import with_candidate
     content, _ = candidate(data)
+    content = with_candidate(store, content, data, kind='writing')
     origin = data['origin']
     if origin.get('content_id'):
         from .content_release import manuscript
@@ -55,11 +56,10 @@ def build(store, data, version, policy):
             raise ValueError('原稿依据已变化，请重新打开原稿创建工作副本')
         if origin['kind'] == 'derived':
             content['source_ids'] = list(dict.fromkeys(parent.get('source_ids', []) + content['source_ids']))
-        content = proposed(store, parent, content, policy, version)
+        content = proposed(store, parent, content, policy, version, design_cover=False)
     else:
-        content = ensure_cover(store, content)
         content.update(manual=True, day=local_day(policy), version=version, scope_topic=policy['topic'], created=now_iso(),
-                       ready=True, state='pending_review', quality={'pass': None, 'reason': '手写稿件，等待人工审核'})
+                       ready=bool(content['asset_ids']), state='pending_review' if content['asset_ids'] else 'needs_material', quality={'pass': None, 'reason': '手写稿件，等待人工审核'})
     if data['origin']['kind'] == 'original' and not data['original']:
         content.pop('authorship', None)
     content.update(editor_document=data['document'], editor_document_version=data['document_version'], writing_draft_id=data['id'])
@@ -100,7 +100,7 @@ def submit(store, identity, body):
     from .writing_integrity import asset_revisions, confirm_assets
     with store.connection() as db:
         asset_signatures = asset_revisions(db, content['asset_ids'])
-    source_signatures = validate(store, content)
+    source_signatures = validate(store, content, require_assets=False)
     with store.connection() as db:
         db.execute('BEGIN IMMEDIATE')
         previous = drafts.replay(db, request_key, digest)

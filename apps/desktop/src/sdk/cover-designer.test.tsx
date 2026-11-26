@@ -14,7 +14,7 @@ it('mounts an installed panel, binds its request to the displayed revision and r
   const mounted = render(<DesignerSlot ctx={{ rest } as unknown as PluginContext} refresh={vi.fn()}
     row={{ id: 'note', title: '旅行', content_revision: 'v1', policy_version: 7 }} />)
 
-  expect(mounted.container.textContent).toBe('')
+  expect(mounted.container.textContent).toContain('安装或启用封面设计插件')
 
   const data = { render: (props: CoverDesignerProps) => <button onClick={() => void props.start({
     request_id: 'preview', mode: 'ai', title: props.title, subtitle: '', style: '插画', x: .5, y: .5
@@ -27,5 +27,5 @@ it('mounts an installed panel, binds its request to the displayed revision and r
     body: expect.objectContaining({ kind: 'content', origin_id: 'note', revision: 'v1', version: 7, title: '旅行' })
   })))
   act(dispose)
-  expect(mounted.container.textContent).toBe('')
+  expect(mounted.container.textContent).toContain('安装或启用封面设计插件')
 })

@@ -127,14 +127,33 @@ def asset_bytes(store, identity):
     return load({**data, 'id': identity})
 
 
+def plugin_cover(store, record, content):
+    from .content_release import fingerprint
+    from .designer_workflow import candidate
+    kind, origin = record['origin']['kind'], record['origin']['id']
+    if kind == 'writing':
+        from .writing_drafts import read as read_draft
+        with store.connection() as db:
+            draft = read_draft(db, origin)
+        if draft.get('cover_asset_id'):
+            asset_bytes(store, draft['cover_asset_id'])
+            return draft['cover_asset_id']
+        revision = draft['revision']
+    else:
+        if content.get('asset_ids'):
+            asset_bytes(store, content['asset_ids'][0])
+            return content['asset_ids'][0]
+        revision = fingerprint(content)
+    job = candidate(store, kind, origin, revision, content['title'], automatic=not getattr(store, 'visual_manual', False))
+    return job['asset_id']
+
+
 def run(store, identity, content):
     record = read(store, identity)
     try:
         check(store, record)
         if record['input_signature'] != visual_plan.signature(content):
             raise ValueError('稿件已变化，本次组图不能应用到新版本')
-        if not visual_provider.available():
-            raise ValueError('尚未配置可用的生图模型，请在模型能力设置中配置；文字草稿已保留')
         record.update(state='running', detail='正在设计分页与视觉重点')
         save(store, record)
         if not record['plan']:
@@ -145,14 +164,20 @@ def run(store, identity, content):
             from PIL import Image
             placeholder = BytesIO()
             Image.new('RGB', (1200, 800), '#F7F5EF').save(placeholder, format='PNG')
-            for index, page in enumerate(record['plan']['pages']):
+            for index, page in enumerate(record['plan']['pages'][1:], 1):
                 visual_render.render(page, index, len(record['plan']['pages']), placeholder.getvalue() if page['art'] else None)
         for index, page in enumerate(record['plan']['pages']):
             check(store, record)
             if index < len(record['pages']):
                 asset_bytes(store, record['pages'][index]['asset_id'])
                 continue
-            raw = art(store, record, page, index) if page['art'] else None
+            if index == 0:
+                asset_id = plugin_cover(store, record, content)
+                record['pages'].append({'asset_id': asset_id, 'title': content['title'], 'kind': 'cover', 'has_art': False})
+                save(store, record)
+                continue
+            from .template_fallback import no_image_model
+            raw = art(store, record, page, index) if page['art'] and not no_image_model() else None
             check(store, record)
             rendered = visual_render.render(page, index, len(record['plan']['pages']), raw)
             asset_id = store.add_asset(f'杂志组图-{index + 1}.png', rendered, True)
@@ -172,6 +197,7 @@ def run(store, identity, content):
             save(store, record)
             cached = for_assets(store, [page['asset_id'] for page in record['pages']])
             record['review'] = cached if cached.get('pass') is True else inspect(store, record)
+            record['review_version'] = 'v2'
             record_result(store, record)
         check(store, record)
         record.update(state='completed', detail='组图已生成，请检查整组文字、插画与顺序；尚未发布', visual_review='checked' if record['review']['pass'] is True else 'human_required')

@@ -6,13 +6,18 @@ from io import BytesIO
 from PIL import Image
 
 
-def inspect(store, record):
+def inspect(store, record, *, manual=False):
     from .visual_sets import asset_bytes
     from .model import generate
     from .policy import local_day
+    pages = record['pages']
     sheet = Image.new('RGB', (1080, 720 * ((len(record['pages']) + 1) // 2)), 'white')
     for index, page in enumerate(record['pages']):
         with Image.open(BytesIO(asset_bytes(store, page['asset_id']))) as image:
+            if len(pages) == 1:
+                sheet = image.convert('RGB')
+                sheet.thumbnail((1080, 1440))
+                break
             image.thumbnail((540, 720))
             sheet.paste(image, ((index % 2) * 540, (index // 2) * 720))
     output = BytesIO()
@@ -27,7 +32,7 @@ def inspect(store, record):
             '必须根据图片判断，不仅根据文案。返回 {"pass":true或false,"reason":"说明","issues":["页码与问题"]}。'
             '有明显问题则不通过；这不是人工审核，也不验证事实来源。' + instruction('visual'),
             {'pages': record['plan']['pages'], 'reading_order': '从左到右，从上到下'},
-            image_parts=[{'type': 'image_url', 'image_url': {'url': uri}}], manual=getattr(store, 'visual_manual', False))
+            image_parts=[{'type': 'image_url', 'image_url': {'url': uri}}], manual=manual or getattr(store, 'visual_manual', False))
         if type(result.get('pass')) is not bool or not isinstance(result.get('issues', []), list):
             raise ValueError('视觉检查未返回明确结论')
         if result.get('issues'):
@@ -41,7 +46,7 @@ def inspect(store, record):
 def signature(ids):
     import hashlib
     from .store import encoded
-    return hashlib.sha256(encoded(['magazine-review-scores-v1', ids]).encode()).hexdigest()
+    return hashlib.sha256(encoded(['magazine-review-scores-v2', ids]).encode()).hexdigest()
 
 
 def record_result(store, record):
@@ -72,7 +77,7 @@ def for_content(store, content):
     if usable(cached):
         return cached
     record = matching_visual_set(store, content, version)
-    if record and usable(record.get('review') or {}):
+    if record and record.get('review_version') == 'v2' and usable(record.get('review') or {}):
         result = record['review']
     else:
         record = {'pages': [{'asset_id': identity} for identity in content['asset_ids']],
@@ -93,3 +98,23 @@ def matching_visual_set(store, content, version):
             and [page.get('asset_id') for page in record.get('pages', [])] == content['asset_ids']):
         return record
     return None
+
+def evidence(db, decision):
+    import hashlib
+    import json
+    from .store import encoded
+    key = hashlib.sha256(encoded([decision['content_revision'], decision.get('operating_version'),
+                                  decision.get('rubric')]).encode()).hexdigest()
+    row = db.execute("SELECT data FROM objects WHERE kind='automatic_visual_review' AND json_extract(data,'$.signature')=? ORDER BY rowid DESC LIMIT 1", (key,)).fetchone()
+    return json.loads(row[0]).get('result') if row else None
+
+def remember_cover(db, draft, version, candidate):
+    from .content_release import fingerprint
+    from .policy import now_iso
+    from .review_scores import VERSION
+    from .store import encoded
+    import hashlib
+    key = hashlib.sha256(encoded([fingerprint(draft), version, VERSION]).encode()).hexdigest()
+    value = {'signature': key, 'result': candidate['review']}
+    db.execute('INSERT OR IGNORE INTO objects VALUES (?,?,?,?)',
+               ('cover-review:' + key, 'automatic_visual_review', encoded(value), now_iso()))

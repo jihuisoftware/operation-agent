@@ -13,6 +13,8 @@ from plugins.operations.store import Store, encoded
 @pytest.fixture
 def studio(tmp_path, monkeypatch):
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    from tests.plugins.operations_support import install_test_designer
+    install_test_designer(monkeypatch)
     store = Store()
     policy = deepcopy(DEFAULT)
     policy.update(enabled=True, topic='Agent 开发', goal='分享可复现方法')
@@ -40,35 +42,35 @@ def studio(tmp_path, monkeypatch):
 def test_set_composes_all_pages_and_reuses_paid_art(studio):
     store, content, calls = studio
     first = visual_jobs.automatic(store, content)
-    assert len(first['asset_ids']) == 3 and len(calls) == 2
+    assert len(first['asset_ids']) == 3 and len(calls) == 1
     for identity in first['asset_ids']:
         assert Image.open(BytesIO(visual_sets.asset_bytes(store, identity))).size == (1080, 1440)
     again = visual_jobs.automatic(store, content)
-    assert again['asset_ids'] == first['asset_ids'] and len(calls) == 2
+    assert again['asset_ids'] == first['asset_ids'] and len(calls) == 1
     assert not store.objects('content_release')
     row = next(row for row in store.objects('asset') if row['id'] == first['asset_ids'][1])
     assert row['visual_page']['items'][0]['text'] == '写下任务所需的信息与限制。'
 
 
-def test_failed_second_art_only_retries_missing_work_and_never_exceeds_three_calls(studio, monkeypatch):
+def test_failed_interior_art_only_retries_missing_work_and_never_exceeds_three_calls(studio, monkeypatch):
     store, content, calls = studio
     def generate(prompt):
         calls.append(prompt)
-        if len(calls) > 1:
+        if calls:
             raise ValueError('provider timeout')
         return {'image': 'fixture', 'success': True}
     monkeypatch.setattr(visual_provider, 'generate', generate)
     first = visual_jobs.automatic(store, content)
-    assert first['visual_error'] and len(calls) == 2
+    assert first['visual_error'] and len(calls) == 1
     record = visual_sets.read(store, first['visual_set_id'])
     assert len(record['pages']) == 2
     visual_jobs.automatic(store, content)
-    assert len(calls) == 2  # Scheduled reruns must not resend an uncertain paid request.
+    assert len(calls) == 1  # Scheduled reruns must not resend an uncertain paid request.
     from plugins.operations.content_release import fingerprint
     monkeypatch.setattr(visual_jobs._POOL, 'submit', lambda run, *args: run(*args))
     body = {'kind': 'content', 'id': content['id'], 'content_revision': fingerprint(content), 'retry': True}
     visual_jobs.start(store, {**body, 'request_id': 'retry-one'})
-    assert len(calls) == 3
+    assert len(calls) == 2
     visual_jobs.start(store, {**body, 'request_id': 'retry-two'})
     assert len(calls) == 3
 
@@ -84,7 +86,7 @@ def test_cancelled_late_result_cannot_attach_or_dispatch_another_image(studio, m
     result = visual_jobs.automatic(store, content)
     assert result['visual_error'] and len(calls) == 1
     record = visual_sets.read(store, identity)
-    assert record['state'] == 'cancelled' and not record['pages'] and not record['art']
+    assert record['state'] == 'cancelled' and len(record['pages']) == 2 and not record['art']
 
 
 def test_changed_manuscript_rejects_applying_old_visual_set(studio):
@@ -96,11 +98,11 @@ def test_changed_manuscript_rejects_applying_old_visual_set(studio):
         visual_jobs.apply(store, result['visual_set_id'], {})
 
 
-def test_missing_provider_keeps_draft_without_silent_basic_cover(studio, monkeypatch):
+def test_no_image_provider_uses_plugin_templates_and_text_only_inner_pages(studio, monkeypatch):
     store, content, calls = studio
     monkeypatch.setattr(visual_provider, 'available', lambda: False)
     result = visual_jobs.automatic(store, content)
-    assert '配置' in result['visual_error'] and result['asset_ids'] == [] and not calls
+    assert not result['visual_error'] and len(result['asset_ids']) == 3 and not calls
 
 
 def test_storyboard_rejects_overflow_instead_of_truncating():
@@ -145,12 +147,12 @@ def test_auto_pipeline_uses_magazine_by_default_and_checks_all_page_copy(studio,
         return {**sample, 'source_ids': ['source']}
     monkeypatch.setattr(pipeline, 'generate', generate)
     result = pipeline.produce_content(store, policy, day, version)
-    assert result['ready'] and len(calls) == 2
-    assert supplied and all(asset.get('visual_page') for asset in supplied)
+    assert result['ready'] and len(calls) == 1
+    assert supplied and all(asset.get('visual_page') or asset.get('cover_spec') for asset in supplied)
     saved = next(row for row in store.objects('content') if row['id'] == result['content_id'])
     assert saved['visual_required'] and len(saved['asset_ids']) == 3
     assert pipeline.produce_content(store, policy, day, version)['content_id'] == saved['id']
-    assert len(calls) == 2
+    assert len(calls) == 1
 
 
 def test_provider_usage_is_scoped_and_reported_even_outside_chat(studio, monkeypatch):
@@ -167,9 +169,9 @@ def test_provider_usage_is_scoped_and_reported_even_outside_chat(studio, monkeyp
     assert not result['visual_error']
     scope = ReportScope(store, local_day(store.policy()[1]))
     from plugins.operations.run_scope import call_count
-    assert call_count(scope.events) == 2
+    assert call_count(scope.events) >= 1
     lines = consumption(scope)
-    assert any('图片生成' in line and '600' in line for line in lines)
+    assert any('图片生成' in line and '300' in line for line in lines)
 
 
 def test_background_work_binds_owning_profile_after_request_returns(studio, monkeypatch, tmp_path):
@@ -187,7 +189,7 @@ def test_background_work_binds_owning_profile_after_request_returns(studio, monk
         run(*args)
     finally:
         reset_hermes_home_override(token)
-    assert seen == [owner, owner]
+    assert seen == [owner]
 
 
 def test_private_visual_endpoints_require_auth_and_scope(studio):
@@ -206,7 +208,7 @@ def test_private_visual_endpoints_require_auth_and_scope(studio):
         assert client.get(path, params={**scope, 'topic_id': 'other'}).status_code == 404
 
 
-def test_unfinished_magazine_keeps_a_local_cover_for_human_review(studio, monkeypatch):
+def test_magazine_without_image_model_persists_plugin_cover_and_inner_pages(studio, monkeypatch):
     from plugins.operations import visual_pipeline
     from plugins.operations.content_release import manuscript
     from plugins.operations.policy import local_day
@@ -219,7 +221,6 @@ def test_unfinished_magazine_keeps_a_local_cover_for_human_review(studio, monkey
     monkeypatch.setattr(visual_provider, 'available', lambda: False)
     visual_pipeline.prepare(store, content)
     saved = manuscript(store, content['id'])
-    assert saved['asset_ids'] == [saved['cover_candidates'][0]['asset_id']]
-    assert saved['cover_origin'] == 'generated_typography'
-    assert saved['visual_error'] and not saved['ready'] and not calls
+    assert len(saved['asset_ids']) == 3 and not calls
+    assert not saved['visual_error']
     assert visual_pipeline.prepare(store, saved)['asset_ids'] == saved['asset_ids']

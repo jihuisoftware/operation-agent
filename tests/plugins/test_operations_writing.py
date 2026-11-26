@@ -46,7 +46,8 @@ def test_original_submit_is_idempotent_and_reuses_content_after_working_draft_sa
     assert first['content_id'] == second['content_id']
     content = store.objects('content')[0]
     assert content['editor_document'] == fields['document'] and content['source_ids'] == []
-    assert content['authorship']['declared'] and content['state'] == 'pending_review'
+    assert content['authorship']['declared'] and content['state'] == 'needs_material'
+    assert not content['asset_ids'] and '插件' in content['cover_error']
     drafts.save(store, data['id'], request(**{**fields, 'title': '修改标题'}, expected_revision=2))
     assert store.objects('content')[0] == content
     assert not store.objects('content_release')

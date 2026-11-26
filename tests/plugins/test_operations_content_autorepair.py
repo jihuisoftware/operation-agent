@@ -11,6 +11,8 @@ from tests.plugins.operations_support import prepare_materials
 
 def configured(tmp_path, monkeypatch):
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    from tests.plugins.operations_support import install_test_designer
+    install_test_designer(monkeypatch)
     store = Store(tmp_path / 'repair.db')
     policy = deepcopy(DEFAULT)
     policy.update(image_mode='basic', enabled=True, topic='工程实践', goal='准确分享')
@@ -66,7 +68,7 @@ def test_failed_review_revises_and_rechecks_without_mutating_parent_or_repeating
     assert revised['body'] != parent['body']
     assert revised['asset_ids'] != parent['asset_ids']
     cover = next(row for row in store.objects('asset') if row['id'] == revised['asset_ids'][0])
-    assert cover['cover_title'] == revised['title']
+    assert cover['cover_spec']['title'] == revised['title']
     assert len(calls) == len(checked) == 2
     assert content.produce_content(store, policy, day, 1)['content_id'] == outcome['content_id']
     assert len(calls) == len(checked) == 2
@@ -160,7 +162,7 @@ def test_passed_check_reuses_exact_inputs_but_a_new_publication_invalidates_it(t
 
 def test_low_budget_preserves_draft_without_starting_revision(tmp_path, monkeypatch):
     store, policy, day = configured(tmp_path, monkeypatch)
-    policy['model_calls'] = 1
+    policy['model_calls'] = 3
     store.configure(policy, 1)
     calls = []
     monkeypatch.setattr(content, 'generate', lambda *args: calls.append(args[-1]) or {

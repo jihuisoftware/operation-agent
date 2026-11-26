@@ -59,18 +59,13 @@ def finish(store, attempt, **result):
 def revised_cover(store, parent, proposed, *, regenerate_magazine=True):
     if regenerate_magazine and parent.get('visual_required') and any(proposed.get(key) != parent.get(key) for key in ('title', 'body')):
         return {**proposed, 'asset_ids': [], 'visual_required': True}
-    from .content_cover import ensure_cover
-    original = parent.get('asset_ids', [])
-    first = next((a for a in store.objects('asset') if original and a['id'] == original[0]), None)
-    changed_title = proposed['title'] != parent['title'] and (parent.get('cover') or {}).get('title', parent['title']) == parent['title']
-    changed_cover = 'cover' in proposed and proposed['cover'] != parent.get('cover')
-    if first and first.get('generated_typography') and (changed_title or changed_cover):
-        from .cover_design import normalized
-        spec = proposed.get('cover') or {**{key: parent.get('cover', {}).get(key) for key in ('template', 'palette')}, 'title': proposed['title']}
-        cover = ensure_cover(store, {**proposed, 'cover': normalized(spec, proposed['title']), 'asset_ids': []})
-        return {**cover, 'asset_ids': [*cover['asset_ids'], *original[1:]]}
-    retained = {key: parent[key] for key in ('cover', 'cover_candidates', 'cover_article_title') if key in parent}
-    return ensure_cover(store, {**retained, **proposed})
+    from .content_cover import with_candidate
+    original = parent.get('asset_ids') or []
+    generated = parent.get('cover_origin') in ('generated_typography', 'designer')
+    replace = bool(original and generated and proposed['title'] != parent['title'])
+    if regenerate_magazine and replace:
+        return {**proposed, 'designer_required': True}
+    return with_candidate(store, proposed, parent, replace=replace)
 
 
 def revise(store, policy, day, version, draft, sources):
@@ -90,8 +85,7 @@ def revise(store, policy, day, version, draft, sources):
     store.progress(f"正在自动修订第 {attempt['revision']}/2 轮", {'content_id': draft['id'], 'review': draft['quality']})
     try:
         generated = generate(store, policy, day,
-            '根据review中的具体问题修订draft，返回{"title":"","body":"","source_ids":[],"asset_ids":[],"cover":{}}。'
-            '如review涉及封面，cover返回修订后的title/subtitle/eyebrow/keywords/template/palette；封面不得新增无依据的断言。无需改封面时省略cover。'
+            '根据review中的具体问题修订draft，返回{"title":"","body":"","source_ids":[],"asset_ids":[]}。'
             '标题不超过20字，正文不超过900字，保留选题方向；只引用sources中的来源。'
             '无法核对的具体论断应删去或明确标为待验证，不编造新事实、测试经历、来源或引文。'
             '严格区分发布时间和采集/统计窗口；发布时间不明就使用中性表述。'
@@ -103,9 +97,6 @@ def revise(store, policy, day, version, draft, sources):
         return None, '自动修订未完成：' + str(exc)
     guard(store, policy, version, draft)
     proposed = {**inputs.fields(generated, ('title', 'body', 'source_ids')), 'asset_ids': draft.get('asset_ids', [])}
-    if isinstance(generated.get('cover'), dict) and generated['cover']:
-        from .cover_design import normalized
-        proposed['cover'] = normalized(generated['cover'], proposed['title'])
     try:
         validate_content(proposed, sources, assets)
     except (ValueError, TypeError) as exc:

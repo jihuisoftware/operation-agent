@@ -35,7 +35,9 @@ def test_design_candidates_remain_readable_without_entering_asset_library(tmp_pa
     from base64 import b64decode
     from io import BytesIO
     from PIL import Image
-    from plugins.operations.content_cover import ensure_cover
+    from tests.plugins.operations_support import install_test_designer
+    from plugins.operations.content_cover import with_candidate
+    install_test_designer(monkeypatch)
     from plugins.operations.dashboard.plugin_api import router as operations_router
 
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
@@ -43,16 +45,19 @@ def test_design_candidates_remain_readable_without_entering_asset_library(tmp_pa
     photo = BytesIO()
     Image.new('RGB', (3, 3), 'green').save(photo, format='PNG')
     photo_id = store.add_asset('生活照.png', photo.getvalue(), True)
-    draft = ensure_cover(store, {'title': '荷兰猪日常', 'asset_ids': []})
+    row = {'title': '荷兰猪日常', 'body': '宠物护理', 'asset_ids': []}
+    row['id'] = store.put('content', row)
+    draft = with_candidate(store, row, row)
     app = FastAPI()
     app.include_router(operations_router)
     with TestClient(app) as client:
         assert [item['id'] for item in client.get('/library/assets').json()['asset']] == [photo_id]
-        expected = {item['asset_id'] for item in draft['cover_candidates']}
+        expected = set(draft['asset_ids'])
+        assert expected
         covers = client.get('/library/assets', params={'filter': 'covers'})
         assert covers.status_code == 200, covers.text
         assert {item['id'] for item in covers.json()['asset']} == expected
-        for candidate in draft['cover_candidates']:
-            url = '/assets/' + candidate['asset_id']
+        for asset in expected:
+            url = '/assets/' + asset
             assert client.get(url, params={'thumbnail': True}).status_code == 200
             assert Image.open(BytesIO(b64decode(client.get(url).json()['data']))).size == (1080, 1440)

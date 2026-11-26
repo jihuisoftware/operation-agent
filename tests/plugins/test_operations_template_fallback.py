@@ -1,71 +1,48 @@
-"""Automatic production may downgrade an unstarted image job, never an uncertain one."""
+"""Cover ownership on an unconfigured or missing external provider."""
 import pytest
 
-from plugins.operations import content, content_recovery, visual_provider
-from plugins.operations.content_release import manuscript as read_content
-from plugins.operations.store import encoded
-from tests.plugins import test_operations_content_review as support
+from plugins.operations import template_fallback
+from plugins.operations.content_release import fingerprint
+from plugins.operations.designer_apply import fill_missing
+from plugins.operations.store import Store
+from tests.plugins.operations_support import install_test_designer
 
 
-_manuscript = support.manuscript
-MISSING = '尚未配置可用的生图模型，请在模型能力设置中配置；文字草稿已保留'
-
-
-@pytest.mark.parametrize('mode, legacy', [('magazine', True), ('magazine', False), ('designer', False)])
-def test_automatic_review_uses_template_on_missing_image_model(_manuscript, monkeypatch, mode, legacy):
-    store, policy, day, draft = _manuscript
-    version = store.configure({**policy, 'image_mode': mode}, 1)
-    policy = store.policy()[1]
-    draft.update(version=version, ready=False, review_pending=True, visual_required=mode == 'magazine',
-                 designer_required=mode == 'designer')
-    if legacy:
-        from plugins.operations import visual_sets
-        job = visual_sets.create(store, draft, {'kind': 'content', 'id': draft['id']})
-        job.update(state='needs_attention', detail=MISSING)
-        visual_sets.save(store, job)
-        draft.update(visual_set_id=job['id'], visual_error=MISSING)
-    else:
-        draft['asset_ids'] = []
-    with store.connection() as db:
-        db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(draft), draft['id']))
-    monkeypatch.setattr(visual_provider, 'available', lambda: False)
-    monkeypatch.setattr(visual_provider, 'generate', lambda *a, **kw: pytest.fail('意外调用生图服务'))
-    checked = []
-    def check(_store, _policy, _day, _version, candidate, _sources):
-        checked.append(candidate['asset_ids'][0])
-        return {'pass': True, 'reason': '文字检查通过'}
-    monkeypatch.setattr(content, 'check_content', check)
-    result = content_recovery.review(store, policy, day, version, draft, store.objects('source'))
-    saved = read_content(store, draft['id'])
-    assert result['ready'] and '模板封面' in result['reason']
-    assert checked == saved['asset_ids'] and saved['cover_origin'] == 'generated_typography'
-    if legacy:
-        assert saved['asset_ids'] == draft['asset_ids']
-        assert visual_sets.read(store, job['id'])['state'] == 'needs_attention'
-    assert not saved['visual_required'] and not saved.get('designer_required')
-    assert not saved.get('visual_error') and not saved.get('visual_review')
+def test_missing_plugin_can_fill_existing_draft_after_enablement(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    store = Store()
+    draft = {'title': '原创文章', 'body': '已保存的正文', 'source_ids': [], 'asset_ids': [],
+             'authorship': {'kind': 'human_original', 'declared': True, 'draft_id': 'original'}}
+    identity = store.put('content', draft)
+    body = {'version': 0, 'content_revision': fingerprint(draft), 'expected_release_revision': 0}
+    with pytest.raises(ValueError, match='插件'):
+        fill_missing(store, identity, body)
+    assert not store.objects('designer_cover_job') and not store.objects('content_release')
+    install_test_designer(monkeypatch)
+    monkeypatch.setattr(template_fallback, 'no_image_model', lambda: True)
+    assert fill_missing(store, identity, body)['id'] == identity
+    saved, = store.objects('content')
+    assert saved['body'] == draft['body'] and len(saved['asset_ids']) == 1
     assert not store.objects('content_release')
 
 
-@pytest.mark.parametrize('block', ['configured', 'uncertain', 'cancelled'])
-def test_template_does_not_mask_configured_provider_or_inflight_work(_manuscript, monkeypatch, block):
-    from plugins.operations import template_fallback, visual_sets
-    store, policy, _, draft = _manuscript
-    version = store.configure({**policy, 'image_mode': 'magazine'}, 1)
-    policy = store.policy()[1]
-    draft.update(visual_required=True, version=version)
-    with store.connection() as db:
-        db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(draft), draft['id']))
-    monkeypatch.setattr(visual_provider, 'available', lambda: False)
-    if block == 'configured':
-        monkeypatch.setattr('hermes_cli.config.load_config_readonly', lambda: {'image_gen': {'model': 'chosen'}})
-    else:
-        job = visual_sets.create(store, draft, {'kind': 'content', 'id': draft['id']})
-        job.update(state='needs_attention', detail=MISSING)
-        if block == 'uncertain':
-            job['attempts'] = [{'state': 'unknown'}]
-        else:
-            job['cancelled'] = True
-        visual_sets.save(store, job)
-    kept = template_fallback.apply_if_needed(store, draft, policy, version)
-    assert kept['visual_required'] and not read_content(store, draft['id']).get('template_fallback')
+def test_new_reviewer_accepts_nested_scores_and_sees_actual_single_image(tmp_path, monkeypatch):
+    import base64
+    from io import BytesIO
+    from PIL import Image
+    from plugins.operations import model, visual_review, review_scores
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    store = Store()
+    raw = BytesIO()
+    Image.new('RGB', (1080, 1440), 'navy').save(raw, format='PNG')
+    asset = store.add_asset('Manus.png', raw.getvalue(), True)
+
+    def evaluate(*args, image_parts, **kwargs):
+        data = image_parts[0]['image_url']['url'].split(',', 1)[1]
+        with Image.open(BytesIO(base64.b64decode(data))) as im:
+            assert im.size == (1080, 1440)
+        return {'pass': True, 'issues': [], 'scores': {key: {'score': 85, 'basis': '可读'} for key in review_scores.VISUAL}}
+
+    monkeypatch.setattr(model, 'generate', evaluate)
+    result = visual_review.inspect(store, {'pages': [{'asset_id': asset}], 'plan': {'pages': []}})
+    assert result['pass'] and review_scores.score(result, 'visual') == 85

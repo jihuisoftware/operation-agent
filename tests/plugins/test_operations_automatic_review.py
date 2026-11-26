@@ -278,7 +278,7 @@ def test_existing_magazine_visual_review_is_reused_without_extra_model_call(manu
     store, _, _, draft=manuscript
     configure(store,'score')
     draft={**draft,'visual_set_id':'visual-test'}
-    store.put('visual_set',{'state':'completed','policy_version':1,'input_signature':visual_plan.signature(draft),
+    store.put('visual_set',{'state':'completed','policy_version':1,'input_signature':visual_plan.signature(draft),'review_version':'v2',
       'pages':[{'asset_id':i} for i in draft['asset_ids']], 'review':good('visual')},'visual-test')
     monkeypatch.setattr(visual_review,'inspect',lambda *a:pytest.fail('duplicate visual check'))
     assert visual_review.for_content(store,draft)==good('visual')
