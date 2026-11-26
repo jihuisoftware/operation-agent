@@ -53,3 +53,21 @@ it('renders the requested history contribution and returns to the ordinary jobs 
     expect(screen.getByText('?tab=history')).toBeTruthy()
   } finally { dispose() }
 })
+
+it.each(['plan', 'blueprints'])('replaces legacy %s links with a scoped plan without adding a history entry', async tab => {
+  const { MemoryRouter, Routes, Route, useLocation, useNavigate } = await import('react-router')
+  const { LegacyPlan } = await import('./task-sections')
+  function Destination() {
+    const location = useLocation()
+    const navigate = useNavigate()
+    return <button onClick={() => navigate(-1)}>{location.pathname + location.search}</button>
+  }
+  const dispose = registry.register({ id: 'test:plan', area: CRON_BLUEPRINTS_AREA, data: { planPath: '/operations/workspaces?view=plan' } })
+  try {
+    render(<MemoryRouter initialEntries={['/origin', '/cron?tab=' + tab + '&business_id=b&topic_id=t']}>
+      <Routes><Route path="/cron" element={<LegacyPlan fallback={null} />} /><Route path="*" element={<Destination />} /></Routes>
+    </MemoryRouter>)
+    fireEvent.click(await screen.findByRole('button', { name: '/operations/workspaces?view=plan&business_id=b&topic_id=t' }))
+    expect(await screen.findByRole('button', { name: '/origin' })).toBeTruthy()
+  } finally { dispose() }
+})

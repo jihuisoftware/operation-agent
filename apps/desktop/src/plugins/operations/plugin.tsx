@@ -20,12 +20,14 @@ import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
 import { PauseDetailsPage } from './pause-details'
-import { PlanEditor } from './plan-editor'
+import { ExecutionPlanLink, WorkspaceManagement, TopicHistory, TopicPlanLink } from './workspace-management'
+import { workspaceLink, WORKSPACES_PATH } from './workspace-navigation'
 import { type Section, SectionPage, sections } from './section-page'
 import { TokenUsagePage } from './token-usage/page'
 import { UpcomingOperations } from './upcoming'
 import { OperationsWorker } from './worker'
 import { WorkspacePage } from './workspace-page'
+import { WorkspaceNavigationGuard } from './workspace-navigation-guard'
 import { WorkspacePicker } from './workspace-picker'
 import { changeProfile } from './writing/journal'
 import { WritingPage } from './writing/page'
@@ -54,6 +56,9 @@ export default {
       data: { path: '/overview', label: '首页', codicon: 'dashboard' } satisfies SidebarNavContribution
     })
 
+    ctx.register({ id: 'workspaces', area: ROUTES_AREA, title: '业务与主题', data: { path: WORKSPACES_PATH }, render: () => <WorkspaceManagement ctx={ctx} /> })
+    ctx.register({ id: 'workspaces-nav', area: SIDEBAR_NAV_AREA, data: { path: WORKSPACES_PATH, label: '业务与主题', codicon: 'organization' } satisfies SidebarNavContribution })
+
     for (const section of Object.keys(sections) as Section[]) {
       const { title, icon } = sections[section]
       ctx.register({
@@ -78,6 +83,7 @@ export default {
         hide: ['upcoming', 'activity', 'artifacts'],
         order: [
           'operations:overview-nav',
+          'operations:workspaces-nav',
           'cron',
           'operations:materials-nav',
           'operations:analysis-nav',
@@ -137,9 +143,11 @@ export default {
       area: CRON_BLUEPRINTS_AREA,
       title: '运营计划',
       data: {
-        render: ({ owner, view }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <PlanEditor compact={view === 'summary'} ctx={scoped} owner={owner} />}</WorkspacePage>,
-        history: { id: 'operations.failed', render: () => <WorkspacePage ctx={ctx}>{scoped => <AttentionPage ctx={scoped} kind="failed_today" />}</WorkspacePage> },
-        renderUpcoming: ({ owner }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <UpcomingOperations ctx={scoped} key={JSON.stringify(owner)} owner={owner} />}</WorkspacePage>
+        planPath: workspaceLink('plan'),
+        history: { id: 'operations.failed', render: () => <WorkspacePage ctx={ctx}>{scoped => <><TopicPlanLink /><AttentionPage ctx={scoped} kind="failed_today" /></>}</WorkspacePage> },
+        historyViews: [{ id: 'operations.ledger', label: '运营台账与临时任务', render: () => <WorkspacePage ctx={ctx}>{scoped => <TopicHistory ctx={scoped} />}</WorkspacePage> }],
+        renderExecution: props => <ExecutionPlanLink {...props} />,
+        renderUpcoming: ({ owner }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <><TopicPlanLink /><UpcomingOperations ctx={scoped} key={JSON.stringify(owner)} owner={owner} /></>}</WorkspacePage>
       } satisfies CronBlueprintContribution
     })
     ctx.register({
@@ -155,7 +163,7 @@ export default {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
-    root.render(<OperationsWorker ctx={ctx} />)
+    root.render(<><OperationsWorker ctx={ctx} /><WorkspaceNavigationGuard /></>)
     ctx.onDispose(() => {
       root.unmount()
       container.remove()

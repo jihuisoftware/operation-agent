@@ -24,4 +24,6 @@ The SDK exports `CRON_BLUEPRINTS_AREA` (`cron.blueprints`) and
 `ctx.rest` request to that owner, and reset editor state when it changes. A template
 click must not execute actions; authorization belongs to the plugin's apply flow.
 The scheduler renders contributions without importing domain code. The bundled
-operations plugin uses this seam for its versioned plan and private plugin API.
+operations plugin registers its standalone plan destination with `planPath` for
+legacy task links. It contributes upcoming steps, scoped history views and a link
+from an execution with recorded workspace ownership through `renderExecution`.

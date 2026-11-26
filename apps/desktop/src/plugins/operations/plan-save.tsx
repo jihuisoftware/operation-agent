@@ -21,7 +21,7 @@ const fields: Record<string, string> = {
   knowledge: '回复知识',
   follow_terms: '回关条件',
   model_calls: '模型额度',
-  business_theme: '业务类型',
+  business_theme: '运营场景',
   business_subtype: '业务子类',
   account_id: '目标账号',
   deadline: '截止日期',

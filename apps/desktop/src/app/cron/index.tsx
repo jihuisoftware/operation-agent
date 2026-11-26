@@ -91,7 +91,7 @@ import { reconcileCronRunVerdicts } from './open-cron-run'
 import { RunRecord } from './run-record'
 import { SchedulePicker } from './schedule-picker'
 import { TaskDetails } from './task-details'
-import { FilteredHistory, TaskSectionBody, TaskSectionTabs, useTaskSection } from './task-sections'
+import { FilteredHistory, HistoryLinks, LegacyPlan, TaskSectionBody, TaskSectionTabs, useTaskSection } from './task-sections'
 
 const DEFAULT_DELIVER = 'local'
 
@@ -677,9 +677,7 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
       <PanelHeader
         actions={
           <>
-            <Button onClick={() => setSection('blueprints')} size="sm">
-              运营计划
-            </Button>
+            {section === 'jobs' && !historyView && <HistoryLinks />}
             <Button onClick={() => setEditor({ mode: 'create' })} size="sm" variant="outline">
               {c.newCron}
             </Button>
@@ -692,6 +690,8 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
       <TaskSectionTabs onChange={setSection} value={section} />
       {historyView ? <FilteredHistory clear={() => setSection('jobs')} id={historyView} /> : ['running', 'upcoming'].includes(section) ? (
         <TaskSectionBody section={section} />
+      ) : section === 'legacy' ? (
+        <LegacyPlan fallback={<ContributedBlueprints profile={blueprintProfile} view="blueprints" />} />
       ) : section === 'blueprints' ? (
         <div className="min-h-0 flex-1 overflow-auto">
           <ContributedBlueprints profile={blueprintProfile} view="blueprints" />

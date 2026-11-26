@@ -1,11 +1,11 @@
-import { host, type PluginContext } from '@hermes/plugin-sdk'
+import { type CronBlueprintOwner, type PluginContext } from '@hermes/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
 
 import type { BlueprintCatalog, BlueprintPreview } from './blueprint-types'
 import { withTopicDefaults } from './business-config'
 import { initialPlan } from './plan-config'
 import type { Policy } from './types'
-import { $workspaceDirty, $workspaces, ownerKey, scopeKey } from './workspace-state'
+import { $workspaceDirty, $workspaces, ownerKey, scopeKey, updateTopicName } from './workspace-state'
 
 export function replacesSavedValue(change: BlueprintPreview['changes'][number]): boolean {
   if (['enabled', 'paused'].includes(change.field)) {
@@ -25,7 +25,7 @@ export function replacesSavedValue(change: BlueprintPreview['changes'][number]):
   return Boolean(change.before) && change.before !== change.after
 }
 
-export function usePlanEditor(ctx: PluginContext) {
+export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
   const [catalog, setCatalog] = useState<BlueprintCatalog | null>(null)
   const [policy, setPolicy] = useState<Policy | null>(null)
   const [preview, setPreview] = useState<BlueprintPreview | null>(null)
@@ -35,18 +35,21 @@ export function usePlanEditor(ctx: PluginContext) {
   const [confirm, setConfirm] = useState(false)
   const request = useRef({ id: crypto.randomUUID(), start: false })
 
-  const dirtyKey = useRef((() => {
-    const owner = host.state.requestOwner.get()
-    const selected = $workspaces.get()[ownerKey(owner)]?.selected
-
-    return selected ? scopeKey(owner, selected) : ''
-  })())
-
-  const markDirty = (dirty: boolean) => {
-    if (dirtyKey.current) { $workspaceDirty.set({ ...$workspaceDirty.get(), [dirtyKey.current]: dirty }) }
+  const scope = useRef($workspaces.get()[ownerKey(owner)]?.selected).current
+  const key = scope && scopeKey(owner, scope)
+  const live = useRef(true)
+  const edits = useRef({ plan: false, review: false })
+  const markDirty = (part: 'plan' | 'review', dirty: boolean) => {
+    edits.current[part] = dirty
+    if (key && live.current) $workspaceDirty.set({ ...$workspaceDirty.get(), [key]: edits.current.plan || edits.current.review })
   }
-
-  useEffect(() => () => { if (dirtyKey.current) { $workspaceDirty.set({ ...$workspaceDirty.get(), [dirtyKey.current]: false }) } }, [])
+  useEffect(() => {
+    live.current = true
+    return () => {
+      live.current = false
+      if (key) $workspaceDirty.set({ ...$workspaceDirty.get(), [key]: false })
+    }
+  }, [key])
   useEffect(() => {
     let disposed = false
     void ctx
@@ -103,7 +106,7 @@ export function usePlanEditor(ctx: PluginContext) {
   }, [ctx, policy, catalog])
 
   const change = (next: Policy) => {
-    markDirty(true)
+    markDirty('plan', true)
     setPolicy(next)
     setNotice('')
     setPreview(null)
@@ -137,9 +140,10 @@ export function usePlanEditor(ctx: PluginContext) {
       const current = await ctx.rest<BlueprintCatalog>('/blueprints')
       setCatalog(current)
       setPolicy(current.policy)
-      markDirty(false)
+      markDirty('plan', false)
+      if (scope) updateTopicName(owner, scope, current.policy.topic)
       setConfirm(false)
-      setNotice(start ? '首轮已安排，下方持续显示执行结果。' : '已保存，可继续补充详细设置。')
+      setNotice(start ? '首轮已安排，可在任务与历史查看执行结果。' : '已保存，可继续补充详细设置。')
     } catch (reason) {
       setError(String(reason))
     } finally {
@@ -171,5 +175,6 @@ export function usePlanEditor(ctx: PluginContext) {
     }
   }
 
-  return { catalog, policy, preview, busy, error, notice, confirm, change, save, control }
+  const reviewChanged = (dirty: boolean) => markDirty('review', dirty)
+  return { reviewChanged, catalog, policy, preview, busy, error, notice, confirm, change, save, control }
 }

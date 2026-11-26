@@ -41,7 +41,7 @@ export function useWorkspaceRouting(ctx: PluginContext, owner: CronBlueprintOwne
       const values = new URLSearchParams(query)
       const business = values.get('business_id'), topic = values.get('topic_id')
 
-      if (business || topic) {
+      if (values.has('business_id') || values.has('topic_id')) {
         // The server is authoritative; do not default a malformed link to another scope.
         if (!business || !topic) { throw new Error('链接缺少业务或主题归属') }
         await ctx.rest('/policy?' + new URLSearchParams({ business_id: business, topic_id: topic }), { owner })

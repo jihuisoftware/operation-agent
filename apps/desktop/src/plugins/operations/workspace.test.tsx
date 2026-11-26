@@ -5,7 +5,9 @@ import { useEffect, useState } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import { ExecutionPlanLink, WorkspaceManagement } from './workspace-management'
 import { WorkspacePage } from './workspace-page'
+import { WorkspaceNavigationGuard } from './workspace-navigation-guard'
 import { WorkspacePicker } from './workspace-picker'
 import { $workspaceDirty, $workspaces, chooseScope, ownerKey, scopedContext, scopeKey } from './workspace-state'
 
@@ -14,7 +16,7 @@ vi.mock('@hermes/plugin-sdk', async importOriginal => {
   const { atom } = await import('nanostores')
   const { useStore } = await import('@nanostores/react')
 
-  return { ...sdk, host: { state: { requestOwner: atom({ connectionId: 'local', profile: 'test' }) } }, useValue: useStore }
+  return { ...sdk, host: { navigate: vi.fn(), state: { requestOwner: atom({ connectionId: 'local', profile: 'test' }) } }, useValue: useStore }
 })
 const owner = { connectionId: 'local', profile: 'test' }
 const requestOwner = host.state.requestOwner as WritableAtom<typeof owner>
@@ -78,10 +80,10 @@ it('discards a late page response after switching and resolves an explicitly sco
 it('requires discarding unsaved configuration before changing business', async () => {
   const rest = vi.fn(async (path: string) => path === '/workspaces' ? catalog : {})
   const ctx = { rest } as unknown as PluginContext
-  render(<WorkspacePicker ctx={ctx} />)
-  await screen.findByRole('combobox', { name: '业务空间' })
+  render(<><WorkspacePicker ctx={ctx} /><WorkspaceNavigationGuard /></>)
+  await screen.findByRole('combobox', { name: '当前业务与主题' })
   act(() => $workspaceDirty.set({ [scopeKey(owner, first)]: true }))
-  fireEvent.change(screen.getByRole('combobox', { name: '业务空间' }), { target: { value: 'b' } })
+  fireEvent.change(screen.getByRole('combobox', { name: '当前业务与主题' }), { target: { value: 'two' } })
   expect($workspaces.get()[ownerKey(host.state.requestOwner.get())].selected).toEqual(first)
   fireEvent.click(screen.getByRole('button', { name: '放弃修改并切换' }))
   expect($workspaces.get()[ownerKey(owner)].selected).toEqual(second)
@@ -120,4 +122,68 @@ it('drops the previous Profile URL scope when switching Profiles', async () => {
   act(() => requestOwner.set({ connectionId: 'local', profile: 'second' }))
   await screen.findByText('second:/state?business_id=a&topic_id=one')
   expect(rest.mock.calls.some(([path, options]) => path === '/policy?business_id=b&topic_id=two' && options?.owner?.profile === 'second')).toBe(false)
+})
+
+it('browses another business without selecting it and confirms before creating a copy', async () => {
+  const rest = vi.fn(async (path: string, options?: { method?: string }) => {
+    if (path === '/workspaces/summary') return { items: [] }
+    if (options?.method === 'POST') return { business_id: 'b', topic_id: 'new' }
+    return catalog
+  })
+  const ctx = { rest } as unknown as PluginContext
+  render(<MemoryRouter><WorkspaceManagement ctx={ctx} /><WorkspaceNavigationGuard /></MemoryRouter>)
+  fireEvent.change(await screen.findByLabelText('搜索业务或主题'), { target: { value: '乙' } })
+  expect(screen.queryByRole('heading', { name: '甲业务' })).toBeNull()
+  expect($workspaces.get()[ownerKey(owner)].selected).toEqual(first)
+  fireEvent.click(screen.getByText('主题管理'))
+  fireEvent.click(screen.getByRole('button', { name: '复制配置为新主题' }))
+  fireEvent.change(screen.getByLabelText('复制配置为新主题名称'), { target: { value: '新方向' } })
+  act(() => $workspaceDirty.set({ [scopeKey(owner, first)]: true }))
+  fireEvent.click(screen.getByRole('button', { name: '确认复制配置为新主题' }))
+  fireEvent.click(screen.getByRole('button', { name: '继续编辑' }))
+  expect(rest.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(0)
+  expect($workspaces.get()[ownerKey(owner)].selected).toEqual(first)
+  fireEvent.click(screen.getByRole('button', { name: '确认复制配置为新主题' }))
+  fireEvent.click(screen.getByRole('button', { name: '放弃修改并切换' }))
+  await waitFor(() => expect(host.navigate).toHaveBeenCalledWith('/operations/workspaces?view=plan&business_id=b&topic_id=new'))
+  expect(rest).toHaveBeenCalledWith('/workspaces', { owner, method: 'POST', body: { action: 'create', name: '新方向', business_id: 'b', copy_topic: 'two' } })
+})
+
+it('opens archived topics as read-only and links their history with explicit ownership', async () => {
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/workspaces') return { ...catalog, businesses: catalog.businesses.map(b => ({ ...b, archived: Number(b.id === 'b') })) }
+    if (path.startsWith('/blueprints?')) return { templates: [], policy: { goal: '归档前的目标', modules: {}, times: {} } }
+    return {}
+  })
+  const ctx = { rest } as unknown as PluginContext
+  render(<MemoryRouter initialEntries={['/operations/workspaces?view=plan&business_id=b&topic_id=two']}>
+    <WorkspaceManagement ctx={ctx} /></MemoryRouter>)
+  expect(await screen.findByText('归档前的目标')).toBeTruthy()
+  expect($workspaces.get()[ownerKey(owner)].selected).toEqual(second)
+  expect(screen.queryByRole('button', { name: '保存设置' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '查看运营历史' }))
+  expect(host.navigate).toHaveBeenCalledWith('/cron?tab=history&historyView=operations.ledger&business_id=b&topic_id=two')
+})
+
+it.each(['business_id=a', 'business_id=&topic_id=', 'business_id=a&topic_id=two'])('rejects invalid plan ownership %s before loading an editor', async query => {
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/workspaces') return catalog
+    throw new Error('归属不匹配')
+  })
+  render(<MemoryRouter initialEntries={['/operations/workspaces?view=plan&' + query]}>
+    <WorkspaceManagement ctx={{ rest } as unknown as PluginContext} /></MemoryRouter>)
+  expect(await screen.findByRole('alert')).toBeTruthy()
+  expect(rest.mock.calls.some(([path]) => path.startsWith('/blueprints'))).toBe(false)
+  expect($workspaces.get()[ownerKey(owner)].selected).toEqual(first)
+})
+
+it('uses the ownership saved with a historical execution even when a different topic is selected', () => {
+  $workspaces.set({ [ownerKey(owner)]: { selected: first, catalog } })
+  const view = render(<ExecutionPlanLink owner={owner} context={{ ...second, topic: '历史主题' }} />)
+  fireEvent.click(screen.getByRole('button', { name: /历史主题/ }))
+  expect(host.navigate).toHaveBeenCalledWith('/operations/workspaces?view=plan&business_id=b&topic_id=two')
+  view.rerender(<ExecutionPlanLink owner={owner} context={{ topic: '只有名称' }} />)
+  expect(screen.queryByRole('button')).toBeNull()
+  view.rerender(<ExecutionPlanLink owner={{ ...owner, profile: 'other' }} context={second} />)
+  expect(screen.queryByRole('button')).toBeNull()
 })

@@ -2,6 +2,7 @@ import { Button, host, type PluginContext } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 
+import { currentWorkspaceLink } from './workspace-navigation'
 import { moduleLabels } from './blueprint-types'
 
 export interface PauseOrigin {
@@ -50,6 +51,7 @@ export function PauseDetailsPage({ ctx }: { ctx: PluginContext }) {
       <p className="whitespace-pre-wrap">{record.detail}</p>
       {record.pause && <p>{record.pause.error}</p>}
       <p>此页仅查看原始记录；账号检查通过不会自动恢复暂停任务。</p></> : !error && <p>正在加载…</p>}
-    <Button onClick={() => host.navigate('/cron?tab=history')}>返回任务记录</Button>
+    <Button onClick={() => host.navigate(currentWorkspaceLink('plan'))} variant="link">查看所属运营计划</Button>
+    <Button onClick={() => host.navigate(currentWorkspaceLink('history'))}>返回运营台账</Button>
   </section>
 }

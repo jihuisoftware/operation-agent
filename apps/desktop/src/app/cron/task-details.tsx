@@ -7,6 +7,8 @@ import { CopyButton } from '@/components/ui/copy-button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useI18n } from '@/i18n'
 
+import { ExecutionLinks } from './contributed-blueprints'
+
 interface TaskPlan {
   name?: string
   prompt?: string
@@ -154,6 +156,7 @@ function OwnedTaskDetails({ jobId, owner: initialOwner, initiallyOpen }: { jobId
                     <span>{c.updated}：{data.updated ? new Date(data.updated).toLocaleString() : '—'}</span>
                     <CopyButton showLabel text={JSON.stringify(data, null, 2)} />
                   </div>
+                  <ExecutionLinks owner={owner} context={data.context} />
                   {execution.error && <p className="select-text whitespace-pre-wrap text-destructive">{execution.error}</p>}
                   <details>
                     <summary className="cursor-pointer font-medium">{c.snapshot}</summary>

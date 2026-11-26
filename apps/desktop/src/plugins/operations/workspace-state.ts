@@ -22,6 +22,14 @@ export function ownerKey(owner: CronBlueprintOwner) { return JSON.stringify([own
 
 export function scopeKey(owner: CronBlueprintOwner, scope: OperationScope) { return JSON.stringify([ownerKey(owner), scope.business_id, scope.topic_id]) }
 
+export function updateTopicName(owner: CronBlueprintOwner, scope: OperationScope, name: string) {
+  const key = ownerKey(owner)
+  const state = $workspaces.get()[key]
+  if (!state?.catalog) return
+  const topics = state.catalog.topics.map(t => t.id === scope.topic_id && t.business_id === scope.business_id ? { ...t, name } : t)
+  $workspaces.set({ ...$workspaces.get(), [key]: { ...state, catalog: { ...state.catalog, topics } } })
+}
+
 export function scopePath(path: string, scope: OperationScope) {
   const [pathname, query = ''] = path.split('?')
   const params = new URLSearchParams(query)

@@ -28,6 +28,7 @@ interface LibraryPageProps {
   ctx: PluginContext
   section: string
   filter?: string
+  readOnly?: boolean
   record?: string
 }
 
@@ -52,7 +53,7 @@ export function LibraryPage(props: LibraryPageProps) {
   )
 }
 
-function LibraryResults({ ctx, section, filter = '', record = '' }: LibraryPageProps) {
+function LibraryResults({ ctx, section, filter = '', record = '', readOnly }: LibraryPageProps) {
   const [data, setData] = useState<Library | null>(null)
   const [error, setError] = useState('')
   const [cursor, setCursor] = useState('')
@@ -102,7 +103,7 @@ function LibraryResults({ ctx, section, filter = '', record = '' }: LibraryPageP
       clearInterval(timer)
     }
   }, [ctx, section, cursor, filter, record])
-  const props = { ctx, refresh, onError: setError }
+  const props = { ctx, readOnly, refresh, onError: setError }
 
   return (
     <div className="space-y-4 p-4 text-sm">
@@ -128,6 +129,7 @@ function LibraryResults({ ctx, section, filter = '', record = '' }: LibraryPageP
 }
 
 interface ContentProps {
+  readOnly?: boolean
   ctx: PluginContext
   data: Library
   section: string
@@ -179,21 +181,25 @@ function LibraryContents({ data, section, filter, ...props }: ContentProps) {
           </details>
         </>
       )}
-      {section === 'history' && (
-        <>
-          <PausedRuns ctx={ctx} />
-          <NewRecord ctx={ctx} kind="task" onError={props.onError} onSaved={props.refresh} />
-          <Records rows={data.task || []} />
-          <CopyButton label="复制执行记录" text={JSON.stringify(data.runs, null, 2)} />
-          <Records rows={data.runs || []} />
-        </>
-      )}
+      {section === 'history' && <HistoryContents {...props} data={data} />}
       {section === 'reports' && (data.report || []).map(row => <ReportCard ctx={ctx} key={row.id} row={row} />)}
       {!actions.length && ['interactions', 'content'].includes(section) && (
         <p className="text-muted-foreground">暂无外部执行记录；未提交的内容不会标记为已发布。</p>
       )}
     </>
   )
+}
+
+function HistoryContents({ ctx, data, readOnly, onError, refresh }: Omit<ContentProps, 'section' | 'filter'>) {
+  return <>
+    {!readOnly && <>
+      <PausedRuns ctx={ctx} />
+      <NewRecord ctx={ctx} kind="task" onError={onError} onSaved={refresh} />
+    </>}
+    <Records rows={data.task || []} />
+    <CopyButton label="复制执行记录" text={JSON.stringify(data.runs, null, 2)} />
+    <Records rows={data.runs || []} />
+  </>
 }
 
 function matchesContent(row: RecordRow, filter: string) {

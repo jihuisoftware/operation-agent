@@ -5,7 +5,7 @@ import { $apiRequestScope } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { ContribBoundary, ContribRender } from '@/contrib/react/boundary'
 import { useContributions } from '@/contrib/react/use-contributions'
-import { CRON_BLUEPRINTS_AREA, type CronBlueprintContribution } from '@/sdk/cron'
+import { CRON_BLUEPRINTS_AREA, type CronBlueprintContribution, type CronBlueprintOwner } from '@/sdk/cron'
 
 export function ContributedBlueprints({
   profile,
@@ -62,7 +62,7 @@ function ContributionEntry({
   view: 'blueprints' | 'summary' | 'upcoming'
 }) {
   const render = useCallback(
-    () => (view === 'upcoming' ? data.renderUpcoming?.({ owner }) : data.render({ owner, view })),
+    () => (view === 'upcoming' ? data.renderUpcoming?.({ owner }) : data.render?.({ owner, view })),
     [data, owner, view]
   )
 
@@ -71,4 +71,11 @@ function ContributionEntry({
       <ContribRender render={render} />
     </ContribBoundary>
   )
+}
+
+export function ExecutionLinks({ owner, context }: { owner: CronBlueprintOwner; context: Record<string, unknown> }) {
+  return useContributions(CRON_BLUEPRINTS_AREA).map(entry => {
+    const render = (entry.data as CronBlueprintContribution).renderExecution
+    return render && <ContribBoundary id={entry.id} key={entry.id}><ContribRender render={() => render({ owner, context })} /></ContribBoundary>
+  })
 }

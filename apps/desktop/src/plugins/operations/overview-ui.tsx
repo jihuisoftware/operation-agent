@@ -2,7 +2,6 @@ import { Badge, Button, Codicon, formatTimestamp, formatTimestampMinute, host } 
 import type { ReactNode } from 'react'
 
 export const overviewRoutes = {
-  rules: '/cron?tab=plan',
   content: '/content?tab=drafts',
   tasks: '/cron?tab=history',
   sources: '/materials?tab=sources',

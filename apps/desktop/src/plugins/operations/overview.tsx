@@ -16,7 +16,7 @@ import { $loginNavigation, $loginRequest, $loginWorker } from './login-state'
 import { type OverviewData, useOverview } from './overview-data'
 import { Empty, Open, Region, ReportTime, overviewRoutes as routes, RunState, Time } from './overview-ui'
 import { PauseOriginLink } from './pause-details'
-import { PlanEditor } from './plan-editor'
+import { currentWorkspaceLink, workspaceLink } from './workspace-navigation'
 import { useOwnerContext } from './use-owner-context'
 import { $workspaces, ownerKey, scopePath } from './workspace-state'
 import { WorkspaceSummary } from './workspace-summary'
@@ -80,8 +80,9 @@ export function OwnedOverview({
         ) : (
           data && (
             <>
-              {!data.topic && <PlanEditor ctx={ctx} owner={owner} />}
-              {data.topic && <OverviewContent accountId={selectedAccount} data={data} owner={owner} />}
+              {!data.topic || data.version === 0 ? (
+                <Open to={workspaceLink('plan', data.scope ?? workspace?.selected)}>快速开始 · 配置当前主题的运营计划</Open>
+              ) : <OverviewContent accountId={selectedAccount} data={data} owner={owner} />}
             </>
           )
         )}
@@ -117,7 +118,7 @@ function OverviewContent({
         <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer">目标与规则</summary>
           <p className="my-2 whitespace-pre-wrap break-words">{data.goal || '选择业务场景，设置主题与目标。'}</p>
-          <Open to={routes.rules}>编辑目标与规则</Open>
+          <Open to={data.scope ? workspaceLink('plan', data.scope) : currentWorkspaceLink('plan', owner)}>编辑目标与规则</Open>
         </details>
       </section>
       <Metrics data={data} />

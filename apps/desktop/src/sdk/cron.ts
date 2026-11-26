@@ -7,8 +7,11 @@ export interface CronBlueprintOwner {
   profile: string | null
 }
 export interface CronBlueprintContribution {
-  render: (props: { owner: CronBlueprintOwner; view: 'blueprints' | 'summary' }) => ReactNode
+  planPath?: string
+  render?: (props: { owner: CronBlueprintOwner; view: 'blueprints' | 'summary' }) => ReactNode
   /** Optional filtered business history inside the task history tab. */
   history?: { id: string; render: () => ReactNode }
+  historyViews?: { id: string; label: string; render: () => ReactNode }[]
+  renderExecution?: (props: { owner: CronBlueprintOwner; context: Record<string, unknown> }) => ReactNode
   renderUpcoming?: (props: { owner: CronBlueprintOwner }) => ReactNode
 }

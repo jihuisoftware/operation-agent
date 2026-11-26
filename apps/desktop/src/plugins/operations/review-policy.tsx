@@ -6,7 +6,7 @@ interface ReviewPolicy {
   threshold: number
   revision: number
 }
-export function ReviewPolicySettings({ ctx }: { ctx: PluginContext }) {
+export function ReviewPolicySettings({ ctx, onDirty }: { ctx: PluginContext; onDirty?: (dirty: boolean) => void }) {
   const [value, setValue] = useState<ReviewPolicy | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -48,6 +48,7 @@ export function ReviewPolicySettings({ ctx }: { ctx: PluginContext }) {
       })
       if (epoch === generation.current) {
         setValue(result)
+        onDirty?.(false)
       }
     } catch (e) {
       if (epoch === generation.current) {
@@ -74,7 +75,7 @@ export function ReviewPolicySettings({ ctx }: { ctx: PluginContext }) {
               className="rounded border bg-background p-2"
               value={value.mode}
               disabled={busy}
-              onChange={e => setValue({ ...value, mode: e.target.value as ReviewPolicy['mode'] })}
+              onChange={e => { onDirty?.(true); setValue({ ...value, mode: e.target.value as ReviewPolicy['mode'] }) }}
             >
               <option value="manual">始终人工审核</option>
               <option value="automatic">自动检查通过后放行</option>
@@ -90,7 +91,8 @@ export function ReviewPolicySettings({ ctx }: { ctx: PluginContext }) {
                 min={0}
                 max={100}
                 value={value.threshold}
-                onChange={e => setValue({ ...value, threshold: Number(e.target.value) })}
+                disabled={busy}
+                onChange={e => { onDirty?.(true); setValue({ ...value, threshold: Number(e.target.value) }) }}
               />
             </label>
           )}

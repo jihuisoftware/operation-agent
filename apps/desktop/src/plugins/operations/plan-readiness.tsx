@@ -55,9 +55,9 @@ export function PlanReadiness({ rows }: { rows: Record<string, Readiness> }) {
               <span>
                 {moduleLabels[key]}：{row.reasons.join('、')}
               </span>
-              <Button onClick={() => host.navigate(row.action)} size="inline" variant="link">
+              {!['/cron?tab=plan', '/operations/workspaces?view=plan'].includes(row.action) && <Button onClick={() => host.navigate(row.action)} size="inline" variant="link">
                 去完善
-              </Button>
+              </Button>}
             </div>
           ))}
         <p className="text-xs text-muted-foreground">补齐后按下次排期执行，也可手动执行；补资料本身不会发布或发送。</p>

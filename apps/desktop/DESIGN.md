@@ -47,14 +47,14 @@ one-off at the call site.
 
 - **Operations home is the fresh-start surface.** A plugin contributes the landing route;
   existing users retain their remembered page. Background completion never changes navigation.
-- **Six primary destinations:** 首页, 任务, 资料, 分析, 内容, 互动. Each groups existing
+- **Seven primary destinations:** 首页, 业务与主题, 任务, 资料, 分析, 内容, 互动. Each groups existing
   pages into scoped tabs; the sidebar footer holds 账号, AI 助手, 设置, 扩展工具 and development-only 调试.
   Chat, terminal, artifacts and plugin recovery remain reachable. Core navigation consumes generic
   contribution preferences, never operations business imports.
-- **Tasks group plan, running, upcoming and history.** Upcoming steps keep their independent cancellation;
+- **Tasks group running, upcoming and history, including the scoped operations ledger.** Upcoming steps keep their independent cancellation;
   cancelling a pending occurrence does not undo a started step. Ordinary Cron tasks remain manageable.
-- **One configuration editor.** Home offers business type, topic and work mode, defaulting to automatic;
-  common and advanced controls progressively disclose detail. All later adjustments open the task plan.
+- **One configuration editor.** Home links to the current topic plan in 业务与主题. Browsing the directory preserves selection. Opening a plan selects its topic.
+  Common and advanced controls progressively disclose detail. Shared model budgets and profile-wide pause belong to the directory settings.
   Missing account/assets/knowledge block their modules, not saving the whole plan. Preserve saved settings.
 - **Separate selection, readiness and execution.** Never present “selected” as “ready” or a submitted
   external action as verified success. Web takeover is distinct from global pause.

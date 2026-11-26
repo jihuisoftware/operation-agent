@@ -155,3 +155,13 @@ it('opens each attention filter with the scope and operating day of its count', 
     expect(navigate).toHaveBeenLastCalledWith(target + '&business_id=business&topic_id=topic')
   }
 })
+
+it('opens the existing empty topic from quick start without creating another workspace', async () => {
+  const scope = { business_id: 'first-business', topic_id: 'first-topic' }
+  const rest = vi.fn(async (path: string) => path === '/workspaces/summary' ? { items: [] } : { ...data, topic: '', scope })
+  const navigate = vi.spyOn(host, 'navigate').mockImplementation(() => {})
+  render(<OwnedOverview ctx={{ rest } as unknown as PluginContext} owner={owner} />)
+  fireEvent.click(await screen.findByRole('button', { name: /快速开始/ }))
+  expect(navigate).toHaveBeenCalledWith('/operations/workspaces?view=plan&business_id=first-business&topic_id=first-topic')
+  expect(rest.mock.calls.some(([path]) => path === '/workspaces' || path === '/quick-start')).toBe(false)
+})

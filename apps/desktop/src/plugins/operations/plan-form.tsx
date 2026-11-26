@@ -31,21 +31,21 @@ export function PlanForm({ catalog, policy, change }: Props) {
       )}
       <div className="grid gap-4 @[36rem]:grid-cols-2">
         <ChoiceField
-          label="业务类型"
+          label="运营场景"
           onChange={value => change(selectBusiness(policy, catalog, value))}
           options={businesses.map(t => ({ value: t.id, label: t.title }))}
           value={policy.business_theme === 'custom' ? policy.business_subtype || '' : policy.business_theme || ''}
         />
         <ChoiceField
           clearPresetOnCustom
-          label="具体主题"
+          label="主题名称"
           onChange={topic => change({ ...policy, topic })}
           options={selected ? choices(selected.content_directions || []) : themeChoices}
           placeholder="填写你想运营的具体方向，例如：小户型收纳、机械零件加工"
           value={policy.topic}
         />
       </div>
-      <p className="text-xs text-muted-foreground">修改名称会保留当前主题的资料与历史；独立运营新方向请在左侧新增主题。</p>
+      <p className="text-xs text-muted-foreground">修改名称会保留当前主题的资料与历史；独立运营新方向请到「业务与主题」新建主题。</p>
       <ChoiceField
         allowCustom={false}
         allowEmpty={false}

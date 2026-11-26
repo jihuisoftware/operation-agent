@@ -121,4 +121,4 @@ def setup_action(stage, reasons):
         return '/accounts'
     if stage == 'publish' and any('图片' in reason for reason in reasons):
         return '/materials?tab=assets'
-    return '/cron?tab=plan'
+    return '/operations/workspaces?view=plan'

@@ -1,6 +1,7 @@
 import { type CronBlueprintOwner, host } from '@hermes/plugin-sdk'
 
-import { chooseScope, type OperationScope, ownerKey, scopePath } from './workspace-state'
+import { guardWorkspaceChange } from './workspace-navigation'
+import { type OperationScope, ownerKey, scopePath } from './workspace-state'
 
 export function recordAction(owner: CronBlueprintOwner, scope: OperationScope | undefined, path: string) {
   if (!scope) { return undefined }
@@ -14,8 +15,7 @@ export function recordAction(owner: CronBlueprintOwner, scope: OperationScope | 
         return
       }
 
-      chooseScope(owner, scope, false)
-      host.navigate(scopePath(path, scope))
+      guardWorkspaceChange(owner, () => host.navigate(scopePath(path, scope)))
     }
   }
 }

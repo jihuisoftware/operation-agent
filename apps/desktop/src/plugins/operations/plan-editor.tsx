@@ -1,33 +1,29 @@
 import { Button, Codicon, type CronBlueprintOwner, host, type PluginContext } from '@hermes/plugin-sdk'
-import { lazy, Suspense, useState } from 'react'
+import { useState } from 'react'
 
 import { PlanForm } from './plan-form'
 import { PlanReadiness } from './plan-readiness'
 import { PlanSave } from './plan-save'
 import { ReviewPolicySettings } from './review-policy'
-import { SharedModelBudget } from './shared-model-budget'
+import { currentWorkspaceLink, guardWorkspaceChange, WORKSPACES_PATH } from './workspace-navigation'
 import { useOwnerContext } from './use-owner-context'
 import { usePlanEditor } from './use-plan-editor'
-
-const LibraryPage = lazy(() => import('./library-page').then(m => ({ default: m.LibraryPage })))
 
 interface Props {
   ctx: PluginContext
   owner: CronBlueprintOwner
-  compact?: boolean
 }
 
-export function PlanEditor({ ctx, owner, compact }: Props) {
+export function PlanEditor({ ctx, owner }: Props) {
   const bound = useOwnerContext(ctx, owner)
 
-  return <OwnedEditor compact={compact} ctx={bound} key={JSON.stringify(owner)} />
+  return <OwnedEditor owner={owner} ctx={bound} key={JSON.stringify(owner)} />
 }
 
-function OwnedEditor({ ctx, compact }: { ctx: PluginContext; compact?: boolean }) {
-  const editor = usePlanEditor(ctx)
-  const [history, setHistory] = useState(false)
-  const [expanded, setExpanded] = useState(!compact)
-  const { catalog, policy, preview, busy, error, notice, change } = editor
+function OwnedEditor({ ctx, owner }: Props) {
+  const editor = usePlanEditor(ctx, owner)
+  const [expanded, setExpanded] = useState(true)
+  const { catalog, policy, preview, error, notice, change } = editor
 
   if (!catalog || !policy) {
     return (
@@ -52,15 +48,15 @@ function OwnedEditor({ ctx, compact }: { ctx: PluginContext; compact?: boolean }
       <header className="flex items-center gap-2">
         <Codicon name="rocket" />
         <h2 className="text-lg font-semibold">{first ? '开始你的日常运营' : '运营计划'}</h2>
-        <Button onClick={() => setExpanded(!expanded)} size="sm" variant="ghost">
+        {!first && <Button onClick={() => setExpanded(!expanded)} size="sm" variant="ghost">
           {expanded ? '收起设置' : '调整设置'}
-        </Button>
+        </Button>}
       </header>
       {!first && <PlanControls editor={editor} />}
       {(first || expanded) && (
         <>
           <PlanForm catalog={catalog} change={change} policy={policy} />
-          <SharedModelBudget ctx={ctx} />
+          <Button onClick={() => guardWorkspaceChange(owner, () => host.navigate(WORKSPACES_PATH + '?view=settings'))} variant="link">管理全部业务的共享模型预算</Button>
           {catalog.draft?.version === catalog.version && (
             <Button onClick={() => change(catalog.draft!.policy)} variant="outline">
               恢复之前保存的配置草稿
@@ -81,17 +77,8 @@ function OwnedEditor({ ctx, compact }: { ctx: PluginContext; compact?: boolean }
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      <ReviewPolicySettings ctx={ctx} />
-      {!first && (
-        <details onToggle={event => setHistory(event.currentTarget.open)}>
-          <summary className="cursor-pointer">运营台账与临时任务</summary>
-          {history && (
-            <Suspense fallback={<p>正在加载…</p>}>
-              <LibraryPage ctx={ctx} section="history" />
-            </Suspense>
-          )}
-        </details>
-      )}
+      <ReviewPolicySettings ctx={ctx} onDirty={editor.reviewChanged} />
+      <Button onClick={() => guardWorkspaceChange(owner, () => host.navigate(currentWorkspaceLink('history', owner)))} variant="link">查看运营台账与临时任务</Button>
     </section>
   )
 }
@@ -103,9 +90,9 @@ function PlanControls({ editor }: { editor: ReturnType<typeof usePlanEditor> }) 
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span>{policy.paused ? '全局暂停' : policy.enabled ? '计划已启用' : '计划已保存'}</span>
+      <span>{policy.paused ? '本主题已暂停' : policy.enabled ? '计划已启用' : '计划已保存'}</span>
       <Button disabled={busy} onClick={() => void control(paused ? 'resume' : 'pause')} variant="outline">
-        {paused ? '启用／恢复计划' : '全局暂停'}
+        {paused ? '启用／恢复本主题' : '暂停本主题'}
       </Button>
       <Button disabled={busy || paused} onClick={() => void control('run')} variant="outline">
         立即执行

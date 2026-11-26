@@ -48,17 +48,17 @@ it('leaves custom topics empty with guidance and preserves manually entered topi
   }
 
   render(<Harness />)
-  await choose('业务类型', business.title)
-  expect(screen.getByRole('combobox', { name: '具体主题' }).textContent).toBe('请选择')
-  await choose('具体主题', '生产流程')
-  await choose('具体主题', '自定义／手动添加')
-  const input = screen.getByLabelText('自定义具体主题') as HTMLInputElement
+  await choose('运营场景', business.title)
+  expect(screen.getByRole('combobox', { name: '主题名称' }).textContent).toBe('请选择')
+  await choose('主题名称', '生产流程')
+  await choose('主题名称', '自定义／手动添加')
+  const input = screen.getByLabelText('自定义主题名称') as HTMLInputElement
   expect(input.value).toBe('')
   expect(input.placeholder).toBe('填写你想运营的具体方向，例如：小户型收纳、机械零件加工')
   fireEvent.change(input, { target: { value: '精密零件加工' } })
-  await choose('业务类型', '请选择')
-  await choose('业务类型', business.title)
-  expect((screen.getByLabelText('自定义具体主题') as HTMLInputElement).value).toBe('精密零件加工')
+  await choose('运营场景', '请选择')
+  await choose('运营场景', business.title)
+  expect((screen.getByLabelText('自定义主题名称') as HTMLInputElement).value).toBe('精密零件加工')
 })
 
 it('starts from one page without account prerequisites and double click shares the request', async () => {
@@ -138,8 +138,8 @@ it('simple and detailed edits preserve saved values, and Profile switching drops
 
   const ctx = { rest } as unknown as PluginContext
   const view = render(<PlanEditor ctx={ctx} owner={owner} />)
-  await screen.findByLabelText('自定义具体主题')
-  fireEvent.change(screen.getByLabelText('自定义具体主题'), { target: { value: '修改主题' } })
+  await screen.findByLabelText('自定义主题名称')
+  fireEvent.change(screen.getByLabelText('自定义主题名称'), { target: { value: '修改主题' } })
   const save = screen.getByRole('button', { name: '保存设置' })
   await waitFor(() => expect(save.hasAttribute('disabled')).toBe(false))
   fireEvent.click(save)
@@ -155,7 +155,7 @@ it('simple and detailed edits preserve saved values, and Profile switching drops
     allowed: initial.policy.allowed
   })
   view.rerender(<PlanEditor ctx={ctx} owner={{ ...owner, profile: 'two' }} />)
-  await waitFor(() => expect((screen.getByLabelText('自定义具体主题') as HTMLInputElement).value).toBe('另一份主题'))
+  await waitFor(() => expect((screen.getByLabelText('自定义主题名称') as HTMLInputElement).value).toBe('另一份主题'))
   expect(screen.queryByText(/将更新以下已保存配置/)).toBeNull()
 })
 
