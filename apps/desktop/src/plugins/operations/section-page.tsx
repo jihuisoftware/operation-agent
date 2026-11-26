@@ -5,7 +5,6 @@ import { Navigate, useLocation, useSearchParams } from 'react-router'
 import { useOwnerContext } from './use-owner-context'
 
 const MessagePage = lazy(() => import('./message-page').then(m => ({ default: m.MessagePage })))
-const AttentionPage = lazy(() => import('./attention-page').then(m => ({ default: m.AttentionPage })))
 const WritingList = lazy(() => import('./writing/list').then(m => ({ default: m.WritingList })))
 const SourceLibrary = lazy(() => import('./source-library').then(m => ({ default: m.SourceLibrary })))
 const OrganizedLibrary = lazy(() => import('./organized-library').then(m => ({ default: m.OrganizedLibrary })))
@@ -50,9 +49,7 @@ export const sections = {
     icon: 'comment-discussion',
     tabs: [
       ['messages', '消息处理'],
-      ['unverified', '结果待核对'],
-      ['comment', '主动评论'],
-      ['follow', '回关']
+      ['comment', '主动评论']
     ]
   }
 }
@@ -64,11 +61,20 @@ export function SectionPage(props: SectionProps) {
   const [params] = useSearchParams()
   const location = useLocation()
   const old = params.get('tab') || ''
-  if (props.section === 'interactions' && ['reply', 'dm', 'inbox'].includes(old)) {
+  if (props.section === 'interactions' && ['reply', 'dm', 'inbox', 'follow'].includes(old)) {
     const next = new URLSearchParams(params)
     next.set('tab', 'messages')
+    const record = params.get('record') || params.get('action') || params.get('selected')
+    if (record) next.set('record', record)
     next.set(old === 'inbox' ? 'state' : 'source', old === 'inbox' ? 'attention' : old)
     return <Navigate replace to={location.pathname + '?' + next} />
+  }
+  if (props.section === 'interactions' && old === 'unverified') {
+    const next = new URLSearchParams(params)
+    next.set('tab', 'history')
+    next.set('historyView', 'operations.unverified')
+    if (!next.has('record') && next.has('action')) next.set('record', next.get('action')!)
+    return <Navigate replace to={'/cron?' + next} />
   }
   return <SectionContent {...props} />
 }
@@ -130,9 +136,7 @@ function SectionContent({ ctx, section }: SectionProps) {
               key={params.toString()}
               stage={tab as 'analytics' | 'industry'}
             />
-          ) : tab === 'messages' ? <MessagePage ctx={bound} /> : tab === 'unverified' ? (
-            <AttentionPage ctx={bound} kind={tab} />
-          ) : tab === 'sources' ? (
+          ) : tab === 'messages' ? <MessagePage ctx={bound} /> : tab === 'sources' ? (
             <SourceLibrary
               ctx={bound}
               initialQuery={params.get('q') || ''}

@@ -5,13 +5,14 @@ import json
 from .message_storage import initialize, message_id, owner, table
 from .policy import now_iso
 
-KINDS = ("reply", "dm")
+KINDS = ("reply", "dm", "follow")
 STATE = """CASE WHEN m.status!='action' THEN m.status
+ WHEN a.state='confirmed' AND m.kind='follow' THEN 'followed'
  WHEN a.state='confirmed' THEN 'replied'
  WHEN a.state IN ('queued','executing') THEN 'sending'
  WHEN a.state IN ('unknown','submitted') OR a.id IS NULL THEN 'verify'
  ELSE 'manual' END"""
-STATES = ("auto", "manual", "working", "sending", "verify", "replied", "handled", "archived")
+STATES = ("auto", "manual", "working", "sending", "verify", "replied", "handled", "archived", "followed", "ignored")
 
 
 class Conflict(ValueError):
@@ -44,6 +45,7 @@ def read_items(store, kind, account, items, *, auto, day):
                 not isinstance(target, str)
                 or not target.strip()
                 or (kind == "dm" and item.get("inbound") is not True)
+                or (kind == "follow" and item.get("follows_me") is not True)
             ):
                 continue
             ident = message_id(slot, account, kind, target)
@@ -79,7 +81,9 @@ def read_items(store, kind, account, items, *, auto, day):
                     "INSERT OR IGNORE INTO directory.account_claims VALUES(?,?,?,?,'')",
                     (slot, kind, target, owner(store)),
                 )
-            if row["status"] == "auto":
+            if kind == "follow" and item.get("already_following") and row["status"] in ("auto","manual","working"):
+                db.execute(f"UPDATE {table(store)} SET status='followed',reason='平台已显示关注关系',revision=revision+1,updated=? WHERE id=?", (stamp, ident))
+            elif row["status"] == "auto":
                 if not auto:
                     divert(store, db, ident, "仅接收消息，等待人工处理")
                 else:
@@ -138,7 +142,7 @@ def record_decision(store, account, kind, target, *, reason="", reply="", human=
             divert(store, db, ident, reason)
 
 
-def reserve(store, db, action, identity):
+def reserve(store, db, action, identity, *, operator=False):
     if action["kind"] not in KINDS:
         return True
     ident = message_id(slot_for(store, db), action["account_id"], action["kind"], action["target"])
@@ -164,8 +168,8 @@ def reserve(store, db, action, identity):
     return bool(
         db.execute(
             f"UPDATE {table(store)} SET status='action',action_id=?,reply=?,reason=?,updated=?,revision=revision+1 "
-            "WHERE id=? AND topic=? AND status='auto'",
-            (identity, action.get("text", ""), action.get("reason", ""), now_iso(), ident, owner(store)),
+            "WHERE id=? AND topic=? AND (status='auto' OR (? AND status IN ('manual','working')))",
+            (identity, action.get("text", ""), action.get("reason", ""), now_iso(), ident, owner(store), operator),
         ).rowcount
     )
 
@@ -242,6 +246,8 @@ def present(row, detailed=False):
         url=item.get("url", ""),
         revision=f"{row['revision']}:{row['delivery'] or ''}",
     )
+    if row["kind"] == "follow":
+        result.update(follows_me=item.get("follows_me"), already_following=item.get("already_following"))
     if detailed:
         result.update(history=json.loads(row["history"]), receipt=json.loads(row["receipt"] or "{}"))
     return result
@@ -270,6 +276,9 @@ def detail(store, ident):
                 raise
             row = lookup(store, db, alias)
         result = present(row, True)
+        if row['kind'] == 'follow':
+            from .follower_messages import eligibility
+            result['matching_terms'], result['follow_disabled_reason'] = eligibility(store, db, row, store.policy()[1])
         if row["action_id"]:
             action = db.execute(
                 "SELECT id,kind,version,day,state,result FROM actions WHERE id=?", (row["action_id"],)
@@ -294,9 +303,9 @@ def legacy_id(store, ident):
     initialize(store)
     with store.connection() as db:
         row = db.execute(
-            f"SELECT id FROM {table(store)} WHERE topic=? AND (id=? OR EXISTS (SELECT 1 FROM "
+            f"SELECT id FROM {table(store)} WHERE topic=? AND (id=? OR action_id=? OR EXISTS (SELECT 1 FROM "
             "json_each(history) WHERE json_extract(value,'$.event')='legacy' AND json_extract(value,'$.id')=?))",
-            (owner(store), ident, ident),
+            (owner(store), ident, ident, ident),
         ).fetchone()
     return row[0] if row else None
 
@@ -313,7 +322,7 @@ def inbox_records(store, day=None, limit=None):
             (*args, day, day, -1 if limit is None else limit),
         ).fetchall()
         others = db.execute(
-            "SELECT * FROM objects WHERE kind='inbox' AND json_extract(data,'$.kind') IN ('comment','follow') "
+            "SELECT * FROM objects WHERE kind='inbox' AND json_extract(data,'$.kind') ='comment' "
             "AND (? IS NULL OR json_extract(data,'$.day')=?) ORDER BY rowid DESC LIMIT ?",
             (day, day, -1 if limit is None else limit),
         ).fetchall()

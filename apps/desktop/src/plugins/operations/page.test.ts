@@ -71,3 +71,17 @@ it('requires a new visible reply instead of accepting identical old text', () =>
   document.body.insertAdjacentHTML('beforeend', '<div class="comment-content">谢谢</div>')
   expect(xhsPage({ operation: 'interaction-result', payload })).toMatchObject({ state: 'confirmed' })
 })
+
+it('checks the current profile text and mutual relationship before a follow click', () => {
+  document.body.innerHTML = '<div data-user-id="u"><span>已关注你</span><span id="bio">摄影</span><button>回关</button></div>'
+  const payload = {kind:'follow', target:'u', follow_terms:['摄影']}
+  const button = document.querySelector('button')!
+  const click = vi.fn()
+  button.addEventListener('click', click)
+  xhsPage({operation:'prepare-interaction', payload})
+  document.getElementById('bio')!.textContent = '其他'
+  expect(() => xhsPage({operation:'commit-interaction',payload})).toThrow('匹配回关条件')
+  button.textContent = '互相关注'
+  expect(xhsPage({operation:'commit-interaction', payload})).toMatchObject({state:'confirmed'})
+  expect(click).not.toHaveBeenCalled()
+})

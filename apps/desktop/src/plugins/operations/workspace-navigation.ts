@@ -3,6 +3,8 @@ import { atom } from 'nanostores'
 
 import { $workspaceDirty, $workspaces, type OperationScope, ownerKey, scopeKey, scopePath } from './workspace-state'
 
+export const UNVERIFIED_HISTORY_PATH = '/cron?tab=history&historyView=operations.unverified'
+
 export const WORKSPACES_PATH = '/operations/workspaces'
 
 export function workspaceLink(view: 'plan' | 'history', scope?: OperationScope) {

@@ -75,7 +75,7 @@ export function PlanForm({ catalog, policy, change }: Props) {
         {Object.entries(actionLabels)
           .filter(
             ([action]) =>
-              !['source','publish','reply','dm'].includes(action) && policy.modules[action === 'comment' ? 'comments' : action]
+              !['source','publish','reply','dm','follow'].includes(action) && policy.modules[action === 'comment' ? 'comments' : action]
           )
           .map(([action, label]) => (
             <label className="flex items-center gap-2" key={action}>
@@ -119,10 +119,10 @@ export function PlanForm({ catalog, policy, change }: Props) {
 }
 
 function ReceivePermissions({ policy, change }: Pick<Props, 'policy' | 'change'>) {
-  const sources = policy.receive || { reply: policy.allowed.reply, dm: policy.allowed.dm }
+  const sources = { reply: policy.allowed.reply, dm: policy.allowed.dm, follow: policy.allowed.follow, ...policy.receive }
   return <div className="space-y-2">
-    {(['reply', 'dm'] as const).filter(kind => policy.modules[kind === 'reply' ? 'comments' : 'dm']).map(kind => {
-      const label = kind === 'reply' ? '评论' : '私信'
+    {(['reply', 'dm', 'follow'] as const).filter(kind => policy.modules[kind === 'reply' ? 'comments' : kind]).map(kind => {
+      const label = {reply: '评论', dm: '私信', follow: '关注'}[kind]
       return <div key={kind} className="flex flex-wrap gap-4">
         <label className="flex items-center gap-2"><Checkbox checked={sources[kind]} onCheckedChange={checked =>
           change({ ...policy, receive: { ...sources, [kind]: checked === true },
@@ -130,7 +130,7 @@ function ReceivePermissions({ policy, change }: Pick<Props, 'policy' | 'change'>
         }/>接收{label}</label>
         <label className="flex items-center gap-2"><Checkbox disabled={!sources[kind]} checked={sources[kind] && policy.allowed[kind]} onCheckedChange={checked =>
           change({ ...policy, receive: sources, allowed: { ...policy.allowed, [kind]: checked === true } })
-        }/>自动回复{label}</label>
+        }/>{kind === 'follow' ? '允许自动回关' : '自动回复' + label}</label>
       </div>
     })}
   </div>

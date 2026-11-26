@@ -9,11 +9,14 @@ from .policy import now_iso
 
 def change(store, ident, body):
     operation, revision = body.get("operation"), body.get("revision")
-    if operation not in ("take", "handle", "transfer") or not isinstance(revision, str):
+    if operation not in ("take", "handle", "transfer", "ignore", "follow") or not isinstance(revision, str):
         raise ValueError("请选择操作并提交当前消息版本")
     if operation == "transfer" and not isinstance(body.get("target_topic"), str):
         raise ValueError("请选择目标主题")
     initialize(store)
+    if operation == "follow":
+        from .follower_messages import request as request_follow
+        return request_follow(store, ident, revision)
     request = {
         "operation": operation,
         "revision": revision,
@@ -29,13 +32,15 @@ def change(store, ident, body):
         row = lookup(store, db, ident)
         if present(row)["revision"] != revision or row["state"] not in ("manual", "working", "auto"):
             raise Conflict("消息状态已变化，请刷新后处理")
+        if operation == "ignore" and row["kind"] != "follow":
+            raise ValueError("只有关注通知可忽略")
         next_topic = row["topic"]
-        status = {"take": "working", "handle": "handled", "transfer": "manual"}[operation]
+        status = {"take": "working", "handle": "handled", "transfer": "manual", "ignore": "ignored"}[operation]
         if operation == "transfer":
             next_topic = transfer_target(store, db, row, request["to"])
         stamp = now_iso()
         history.append({"event": operation, "actor": "operator", "at": stamp, "request": request})
-        reason = {"take": "人工已接手", "handle": "已在本地标记处理完成", "transfer": "由其他主题人工转交"}[
+        reason = {"take": "人工已接手", "handle": "已在本地标记处理完成", "transfer": "由其他主题人工转交", "ignore": "人工已忽略此次关注"}[
             operation
         ]
         if operation == "transfer":
@@ -82,7 +87,7 @@ def transfer_target(store, db, row, topic):
 
 
 def transfers(store, kind, before):
-    if kind not in ("", "dm", "reply"):
+    if kind not in ("", "dm", "reply", "follow"):
         raise ValueError("未知消息类型")
     match = " FROM events WHERE kind='message_transferred' AND (?='' OR json_extract(data,'$.kind')=?)"
     with store.connection() as db:

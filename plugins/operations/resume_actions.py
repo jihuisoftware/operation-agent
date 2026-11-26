@@ -21,10 +21,10 @@ def _kinds(store, task, original_run):
     if task != 'comments':
         return kinds
     with store.connection() as db:
-        row = db.execute("SELECT json_extract(payload,'$.kind') AS kind FROM commands "
+        row = db.execute("SELECT json_extract(payload,'$.kind') AS kind,json_extract(payload,'$.interaction_phase') AS phase FROM commands "
                          "WHERE json_extract(payload,'$.run_id')=? AND json_extract(payload,'$.kind') IN ('comment','reply') "
                          'ORDER BY rowid DESC LIMIT 1', (original_run,)).fetchone()
-    return kinds[kinds.index(row['kind']):] if row else kinds
+    return kinds[kinds.index(row['kind']):] if row and row['phase'] != 'receive' else kinds
 
 
 def _proved_unsubmitted(db, row, result):
@@ -57,6 +57,9 @@ def _continue_action(store, row, data, policy, day, version):
         current = db.execute('SELECT * FROM actions WHERE id=?', (row['id'],)).fetchone()
         if current['state'] not in {'blocked', 'confirmed_not_published'} or not _proved_unsubmitted(db, current, json.loads(current['result'])):
             raise ValueError('原动作提交证据不明确或状态已变化，请先核对，不能自动重发')
+        from .messages import can_reserve
+        if not can_reserve(store, db, data, retry_id=row['id']):
+            raise ValueError('消息已转交或由人工处理，请核对原动作')
         from .action_admission import check_replay
         check_replay(store, db, data, row['id'])
         from .publication_snapshot import capture
@@ -86,6 +89,13 @@ def continue_actions(store, task, policy, day, version):
         data = json.loads(row['data'])
         if row['kind'] not in kinds or not _belongs(store, data, original_run):
             continue
+        if not results and task in ('comments', 'comment', 'reply', 'dm', 'follow'):
+            from .interaction_intake import receive
+            from .workflow import resolve_account
+            account = resolve_account(store, policy)
+            if account != data['account_id']:
+                raise ValueError('实际账号与原动作不一致，停止恢复互动')
+            receive(store, policy, day, version, kinds, account)
         results.append(_continue_action(store, row, data, policy, day, version))
         resumed.add(row['kind'])
     if task == 'comments' and (results or kinds != KINDS[task]):

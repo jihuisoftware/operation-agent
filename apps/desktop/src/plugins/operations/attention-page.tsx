@@ -1,4 +1,4 @@
-import { Button, formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
+import { Button, formatTimestamp, host, type PluginContext } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 
@@ -15,25 +15,26 @@ export function AttentionPage({ ctx, kind }: { ctx: PluginContext; kind: Attenti
   const [params] = useSearchParams()
   const day = kind === 'failed_today' ? params.get('day') || '' : ''
 
-  return <Items ctx={ctx} day={day} key={kind + day} kind={kind} />
+  const record = kind === 'unverified' ? params.get('record') || '' : ''
+  return <Items ctx={ctx} day={day} key={kind + day + record} kind={kind} record={record} />
 }
 
-function Items({ ctx, kind, day }: { ctx: PluginContext; kind: AttentionKind; day: string }) {
+function Items({ ctx, kind, day, record }: { ctx: PluginContext; kind: AttentionKind; day: string; record: string }) {
   const [page, setPage] = useState<Page | null>(null)
   const [cursor, setCursor] = useState(0)
   const [revision, setRevision] = useState(0)
   const [error, setError] = useState('')
-  const [expanded, setExpanded] = useState('')
+  const [expanded, setExpanded] = useState(record)
   const refresh = useCallback(async () => { setRevision(n => n + 1) }, [])
   useEffect(() => {
     let active = true
     setError('')
-    void ctx.rest<Page>(`/attention/${kind}?` + new URLSearchParams({ before: String(cursor), day }))
+    void ctx.rest<Page>(`/attention/${kind}?` + new URLSearchParams({ before: String(cursor), day, ...(record ? {record} : {}) }))
       .then(result => { if (active) { setPage(result) } })
       .catch(reason => { if (active) { setError(String(reason)) } })
 
     return () => { active = false }
-  }, [ctx, cursor, day, kind, revision])
+  }, [ctx, cursor, day, kind, record, revision])
 
   const move = (next: number) => { setPage(null); setExpanded(''); setCursor(next) }
 
@@ -53,10 +54,16 @@ function Items({ ctx, kind, day }: { ctx: PluginContext; kind: AttentionKind; da
         </article>
       }
 
-      return <article className="space-y-2" key={row.id}>
-        <Button aria-expanded={expanded === row.id} onClick={() => setExpanded(expanded === row.id ? '' : row.id)} variant="outline">
-          {labels[String(row.kind)] || String(row.kind)} · {String(row.target || row.id)} · 查看回执与核对
-        </Button>
+      return <article className="space-y-2 rounded border p-3" key={row.id}>
+        <p>{labels[String(row.kind)] || String(row.kind)} · {String(row.target_name || row.id)} · {row.state === 'submitted' ? '已提交' : '结果未知'}</p>
+        <p className="text-sm">{row.submitted_at ? '提交步骤完成' : '动作创建'} · {formatTimestamp(String(row.submitted_at || row.created))}</p>
+        {Boolean(row.evidence) && <p className="text-sm">{String(row.evidence)}</p>}
+        <Button aria-expanded={expanded === row.id} onClick={() => setExpanded(expanded === row.id ? '' : row.id)} variant="outline">查看回执与核对</Button>
+        {Boolean(row.origin) && <Button variant="link" onClick={() => {
+          const params = new URLSearchParams(row.origin as Record<string,string>)
+          host.navigate((params.get('tab') === 'published' ? '/content?' : '/interactions?') + params)
+        }}>查看原记录</Button>}
+        {!row.origin && <pre className="whitespace-pre-wrap text-xs">{String(row.result || '暂无回执')}</pre>}
         {expanded === row.id && <ActionManager ctx={ctx} onError={setError} refresh={refresh} rows={[row]} />}
       </article>
     })}

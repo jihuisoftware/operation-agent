@@ -46,6 +46,8 @@ def action(store, policy, run_id, *, state='blocked', dispatch=None):
 def browser_receipts(store, kind, payload, action_id=None):
     if kind == 'account':
         return {'state': 'logged_in', 'account_id': 'me'}
+    if kind == 'inbox':
+        return {'items': [], 'evidence': '模拟空收件箱'}
     result = {'state': 'confirmed', 'evidence': '已核对原动作', 'submitted': True}
     with store.connection() as db:
         db.execute("UPDATE actions SET state='confirmed',result=? WHERE id=?", (encoded(result), action_id))
@@ -148,6 +150,8 @@ def test_scheduled_action_can_pause_twice_without_new_identity_or_lost_run_histo
     def browser(active, kind, payload, action_id=None):
         if kind == 'account':
             return {'state': 'logged_in', 'account_id': 'me'}
+        if kind == 'inbox':
+            return {'items': []}
         attempts.append(action_id)
         if len(attempts) == 1:
             failure = {'state': 'blocked', 'submitted': False, 'dispatch_state': 'read_only',

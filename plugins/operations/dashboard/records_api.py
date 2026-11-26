@@ -59,9 +59,9 @@ def report(day: str):
 
 
 @router.get('/attention/{kind}')
-def attention_items(kind: str, before: int = 0, day: str = ''):
+def attention_items(kind: str, before: int = 0, day: str = '', record: str = ''):
     from ..attention import listing
-    return checked(lambda: listing(Store(), kind, before, day))
+    return checked(lambda: listing(Store(), kind, before, day, record))
 
 
 @router.post('/attention/inbox/handled')

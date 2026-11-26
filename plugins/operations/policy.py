@@ -33,7 +33,7 @@ def public_url(value):
 
 def receiving(policy, kind):
     selected = policy.get('receive')
-    return (selected[kind] if selected is not None else policy['allowed'][kind]) and policy['modules'][ACTION_MODULE[kind]]
+    return (selected.get(kind, policy['allowed'][kind]) if selected is not None else policy['allowed'][kind]) and policy['modules'][ACTION_MODULE[kind]]
 
 
 def validate_policy(value):
@@ -44,9 +44,9 @@ def validate_policy(value):
         raise ValueError('不支持旧运营规则，请重新配置')
     result.update(value)
     receive = result['receive']
-    if receive is not None and (not isinstance(receive, dict) or set(receive) != {'reply', 'dm'} or
+    if receive is not None and (not isinstance(receive, dict) or set(receive) not in ({'reply', 'dm'}, {'reply', 'dm', 'follow'}) or
                                 any(type(v) is not bool for v in receive.values())):
-        raise ValueError('接收评论和私信必须分别设置开关')
+        raise ValueError('消息接收开关无效')
     for key in ("enabled", "paused"):
         if not isinstance(result[key], bool):
             raise ValueError(f"{key} 必须是布尔值")
@@ -113,7 +113,7 @@ def permitted(policy, action):
         return "尚未识别实际登录账号"
     if policy["account_id"] and action.get("account_id") != policy["account_id"]:
         return "目标账号不匹配"
-    if action['kind'] in ('reply','dm') and policy.get('receive') is not None and not receiving(policy, action['kind']):
+    if action['kind'] in ('reply','dm','follow') and policy.get('receive') is not None and not receiving(policy, action['kind']):
         return '该来源已关闭接收'
     handlers = {"dm": _permit_dm, "follow": _permit_follow}
     check = handlers.get(action["kind"])
@@ -131,11 +131,15 @@ def _permit_dm(policy, action):
     return ""
 
 
+def matching_follow_terms(policy, item):
+    text = item.get('text', '').casefold()
+    return [term.strip() for term in policy['follow_terms'] if term.strip() and term.strip().casefold() in text]
+
+
 def _permit_follow(policy, action):
     item = action.get("item", {})
     if not policy["follow_terms"]:
         return "尚未配置回关条件"
-    if item.get("already_following") or not item.get("follows_me") or not any(
-            term.casefold() in item.get("text", "").casefold() for term in policy["follow_terms"]):
+    if item.get("already_following") or not item.get("follows_me") or not matching_follow_terms(policy, item):
         return "不满足当前回关条件"
     return ""

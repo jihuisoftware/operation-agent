@@ -21,7 +21,7 @@ export interface Policy {
   keywords: string[]
   knowledge: string[]
   follow_terms: string[]
-  receive?: { reply: boolean; dm: boolean } | null
+  receive?: { reply: boolean; dm: boolean; follow?: boolean } | null
   allowed: Record<string, boolean>
   limits: Record<string, number>
   times: Record<string, string[]>

@@ -27,7 +27,7 @@ export function useTaskSection() {
       next.set('tab', ({ blueprints: 'templates', jobs: 'history' } as Record<string, string>)[value] || value)
 
       if (next.has('historyView')) {
-        for (const key of ['historyView', 'day', 'business_id', 'topic_id']) { next.delete(key) }
+        for (const key of ['historyView', 'day', 'business_id', 'topic_id', 'record', 'action']) { next.delete(key) }
       }
 
       return next

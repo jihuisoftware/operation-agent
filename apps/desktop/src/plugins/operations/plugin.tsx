@@ -145,7 +145,8 @@ export default {
       data: {
         planPath: workspaceLink('plan'),
         history: { id: 'operations.failed', render: () => <WorkspacePage ctx={ctx}>{scoped => <><TopicPlanLink /><AttentionPage ctx={scoped} kind="failed_today" /></>}</WorkspacePage> },
-        historyViews: [{ id: 'operations.ledger', label: '运营台账与临时任务', render: () => <WorkspacePage ctx={ctx}>{scoped => <TopicHistory ctx={scoped} />}</WorkspacePage> }],
+        historyViews: [{ id: 'operations.unverified', label: '结果待核对', render: () => <WorkspacePage ctx={ctx}>{scoped => <AttentionPage ctx={scoped} kind="unverified" />}</WorkspacePage> },
+          { id: 'operations.ledger', label: '运营台账与临时任务', render: () => <WorkspacePage ctx={ctx}>{scoped => <TopicHistory ctx={scoped} />}</WorkspacePage> }],
         renderExecution: props => <ExecutionPlanLink {...props} />,
         renderUpcoming: ({ owner }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <><TopicPlanLink /><UpcomingOperations ctx={scoped} key={JSON.stringify(owner)} owner={owner} /></>}</WorkspacePage>
       } satisfies CronBlueprintContribution

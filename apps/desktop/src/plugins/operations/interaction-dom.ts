@@ -73,7 +73,13 @@ export function xhsInteractionDom(kind: string) {
 
   const unavailable = /登录状态异常|你访问的页面不见了|笔记不存在|内容无法展示|内容已删除/.test(body)
   const matchesNote = (target: string) => target.startsWith('note:') && location.pathname.split('/').filter(Boolean).at(-1) === target.slice(5)
-  const followsMe = (root: Element) => /关注了你|已关注你/.test(text(root)) || all('button,[role="button"],a,span', root).some(element => /^互相关注$/.test(text(element)))
+  const followsMe = (root: Element) => {
+    const controls = all('button,[role="button"],a,span,div', root)
+    if (controls.some(element => /^(关注了你|已关注你|互相关注)$/.test(text(element)))) return true
+    const panel = root.closest('[role="dialog"]')
+    return !!panel && all('h1,h2,h3,[role="heading"]', panel).some(el => text(el) === '粉丝') &&
+      controls.some(el => text(el) === '回关' && el.matches('button,[role="button"]'))
+  }
   const alreadyFollowing = (root: Element) => all('button,[role="button"],a,span', root).some(element => /^(互相关注|已关注)$/.test(text(element)))
 
   return { rows: [...unique.values()], unidentified: rows.filter(row => !identifier(row)).length, identifier, noteLink, followsMe, alreadyFollowing, matchesNote, unavailable,

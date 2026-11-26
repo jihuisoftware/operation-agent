@@ -10,7 +10,7 @@ export const guides: Record<string, TaskGuide> = {
   comment: { purpose: '检查相关笔记并执行本次授权的主动评论。', stages: ['读取候选笔记', '生成评论', '定位输入框并提交', '核对结果'], checks: ['检查候选笔记上下文和评论内容。', '输入框匹配失败时先人工查看网页，不要反复提交。'], path: '/interactions?tab=comment', destination: '检查主动评论' },
   reply: { purpose: '处理收到的评论并核实回复。', stages: ['读取收到的评论', '生成回复', '提交回复', '核对结果'], checks: ['核对回复对象、原评论和重复处理记录。', '已经提交或结果未知时使用只读核对。'], path: '/interactions?tab=messages&source=reply', destination: '检查评论回复' },
   dm: { purpose: '根据已确认知识处理收到的私信。', stages: ['读取收到的私信', '匹配知识与处理条件', '提交可执行回复', '保存需人工处理项'], checks: ['检查知识依据是否足够，确认消息来自对方。', '争议、敏感信息和不确定事项应保留人工处理。'], path: '/interactions?tab=messages&source=dm', destination: '检查私信处理' },
-  follow: { purpose: '仅对满足已配置条件的账号回关。', stages: ['读取关注关系', '检查回关条件', '执行回关', '核对关系'], checks: ['核对已关注本账号以及个人资料匹配条件。', '已回关对象不应重复提交。'], path: '/interactions?tab=follow', destination: '检查回关记录' },
+  follow: { purpose: '仅对满足已配置条件的账号回关。', stages: ['读取关注关系', '检查回关条件', '执行回关', '核对关系'], checks: ['核对已关注本账号以及个人资料匹配条件。', '已回关对象不应重复提交。'], path: '/interactions?tab=messages&source=follow', destination: '检查回关记录' },
   report: { purpose: '根据执行台账生成摘要和完整依据。', stages: ['汇总执行记录', '统计提交与模型消耗', '保存摘要和详情'], checks: ['核对成功数量是否有平台回执。', '查看未知 Token 回执，不把未知用量算成零。'], path: '/reports', destination: '查看运营日报' }
 }
 

@@ -61,6 +61,16 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
   }
 
   const inventory = () => interactionDom(payload.kind)
+  const checkFollow = (root: Element) => {
+    const relation = inventory()
+    if (!relation.followsMe(root)) throw new Error('对方关注状态发生变化')
+    if (relation.alreadyFollowing(root)) return true
+    const terms: unknown = payload.follow_terms
+    if (!Array.isArray(terms) || !terms.some(t => typeof t === 'string' && t.trim() && text(root).toLowerCase().includes(t.trim().toLowerCase()))) {
+      throw new Error('当前目标资料不再匹配回关条件')
+    }
+    return false
+  }
   const items = () => inventory().rows
   const identifier = (element: HTMLElement) => inventory().identifier(element)
   const noteLink = (element: HTMLElement) => inventory().noteLink(element)
@@ -257,11 +267,7 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
       const root = payload.kind === 'comment' ? document.body : findItem()
 
       if (payload.kind === 'follow') {
-        if (!inventory().followsMe(root)) {
-          throw new Error('无法确认对方关注了当前账号')
-        }
-
-        return { ready: true }
+        return { ready: true, already_following: checkFollow(root) }
       }
 
       if (payload.kind === 'reply') {
@@ -286,10 +292,7 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
       const root = payload.kind === 'comment' ? document.body : findItem()
 
       if (payload.kind === 'follow') {
-        if (!inventory().followsMe(root)) {
-          throw new Error('对方关注状态发生变化')
-        }
-
+        if (checkFollow(root)) return { state: 'confirmed', evidence: '已在目标用户处确认关注关系' }
         button('回关', root).click()
       } else {
         const editor = unique(

@@ -32,7 +32,7 @@ def transfer(store, body):
         if not row:
             raise ValueError('待处理事项不存在')
         data = json.loads(row['data'])
-        if data.get('kind') in ('dm', 'reply'):
+        if data.get('kind') in ('dm', 'reply', 'follow'):
             raise ValueError('请在消息处理页面刷新后操作')
         if data.get('state') != 'needs_review':
             raise ValueError('只能转交待人工处理的事项')

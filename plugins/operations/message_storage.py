@@ -27,15 +27,21 @@ def message_id(slot, account, kind, target):
 def initialize(store):
     directory = store.workspace
     with directory.connection() if directory else store.connection() as db:
-        if exists(db, "inbound_messages"):
+        if exists(db, "inbound_follow_import"):
             return
         db.execute("BEGIN IMMEDIATE")
-        if exists(db, "inbound_messages"):
+        if exists(db, "inbound_follow_import"):
             return
-        db.execute(TABLE)
-        db.execute("CREATE INDEX inbound_topic ON inbound_messages(topic,status,kind)")
+        follow_only = bool(exists(db, "inbound_messages"))
+        if not follow_only:
+            db.execute(TABLE)
+            db.execute("CREATE INDEX inbound_topic ON inbound_messages(topic,status,kind)")
+        # The marker and backfill commit together, including on pre-existing message databases.
+        db.execute("CREATE TABLE inbound_follow_import(version INTEGER PRIMARY KEY)")
+        db.execute("INSERT INTO inbound_follow_import VALUES(1)")
+        db.execute("CREATE INDEX IF NOT EXISTS inbound_action ON inbound_messages(topic,action_id)")
         if not directory:
-            import_topic(db, db, "", "")
+            import_topic(db, db, "", "", follow_only)
             return
         for row in db.execute(
             "SELECT t.id,t.file,b.account FROM topics t JOIN businesses b ON b.id=t.business_id ORDER BY t.rowid"
@@ -46,25 +52,29 @@ def initialize(store):
                     sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=15)
                 ) as source:
                     source.row_factory = sqlite3.Row
-                    import_topic(db, source, row["id"], row["account"])
+                    import_topic(db, source, row["id"], row["account"], follow_only)
 
 
 def exists(db, name):
     return db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone()
 
 
-def import_topic(db, source, topic, slot):
+def import_topic(db, source, topic, slot, follow_only=False):
     if not exists(source, "objects"):
         return
     for row in source.execute("SELECT * FROM objects WHERE kind='inbox'"):
         data = json.loads(row["data"])
-        if data.get("kind") in ("comment", "follow"):
+        if data.get("kind") == "comment" or (follow_only and data.get("kind") != "follow"):
             continue
-        if data.get("kind") not in ("reply", "dm"):
+        if data.get("kind") not in ("reply", "dm", "follow"):
             data["kind"] = "legacy"
         state = data.get("state")
-        legacy(db, topic, slot, data, row, "handled" if state in ("handled", "transferred") else "manual")
-    for row in source.execute("SELECT * FROM actions WHERE kind IN ('reply','dm') ORDER BY rowid"):
+        status = "handled" if state in ("handled", "transferred") else "manual"
+        if data["kind"] == "follow" and data.get("already_following") is True:
+            status = "followed"
+        legacy(db, topic, slot, data, row, status)
+    kinds = ("follow",) if follow_only else ("reply", "dm", "follow")
+    for row in source.execute("SELECT * FROM actions WHERE kind IN (SELECT value FROM json_each(?)) ORDER BY rowid", (json.dumps(kinds),)):
         data = json.loads(row["data"])
         item = {
             **data.get("item", {}),
@@ -86,6 +96,8 @@ def legacy(db, topic, slot, data, row, state, action="", reply=""):
         else message_id(topic, "", kind, row["id"])
     )
     if not (account and target) or kind == "legacy" or (kind == "dm" and data.get("inbound") is not True):
+        state = "archived"
+    if kind == "follow" and data.get("follows_me") is not True and not action:
         state = "archived"
     entry = {
         "event": "legacy",
@@ -156,7 +168,7 @@ def legacy(db, topic, slot, data, row, state, action="", reply=""):
         owned = saved["topic"]
     if (
         action
-        or state == "handled"
+        or state in ("followed", "handled", "ignored")
         or data.get("transferred_from")
         or (state == saved["status"] == "manual" and data.get("reason"))
     ):

@@ -14,6 +14,8 @@ const states: Record<string, string> = {
   sending: '发送中',
   verify: '待核对',
   replied: '已回复',
+  followed: '已回关',
+  ignored: '已忽略',
   handled: '已处理',
   archived: '历史记录（只读）',
   transferred: '已转交'
@@ -21,6 +23,7 @@ const states: Record<string, string> = {
 interface Message {
   id: string
   kind: string
+  target: string
   account: string
   text: string
   reason: string
@@ -28,6 +31,10 @@ interface Message {
   state: string
   revision: string
   created: string
+  matching_terms?: string[]
+  follow_disabled_reason?: string
+  follows_me?: boolean
+  already_following?: boolean
   action_id: string
   action?: RecordRow
   receipt?: Record<string, unknown>
@@ -85,6 +92,7 @@ export function MessagePage({ ctx }: { ctx: PluginContext }) {
             <option value="">全部</option>
             <option value="reply">收到的评论</option>
             <option value="dm">收到的私信</option>
+            <option value="follow">关注通知</option>
           </select>
         </label>
         <label>
@@ -124,9 +132,9 @@ export function MessagePage({ ctx }: { ctx: PluginContext }) {
           onClick={() => navigate('record', selected === row.id ? '' : row.id)}
         >
           <span className="text-sm font-medium">
-            {({ dm: '私信', reply: '评论' } as Record<string, string>)[row.kind] || '历史消息'} · {states[row.state]}
+            {({ dm: '私信', reply: '评论', follow: '关注通知' } as Record<string, string>)[row.kind] || '历史消息'} · {states[row.state]}
           </span>
-          <span className="ml-3 text-xs text-muted-foreground">{formatTimestamp(row.created)}</span>
+          <span className="ml-3 text-xs text-muted-foreground">{row.kind === 'follow' && '首次发现 '}{formatTimestamp(row.created)}</span>
           <p className="line-clamp-2">{row.text || '历史记录缺少原文'}</p>
         </button>
       ))}
@@ -214,6 +222,7 @@ function MessageDetail({
             {states[row.state]} · {row.account || '历史账号未知'}
           </h3>
           <p className="whitespace-pre-wrap">{row.text || '历史记录缺少原文'}</p>
+          <FollowerFacts row={row} />
           {row.reason && <p>处理原因 · {row.reason}</p>}
           {row.reply && (
             <p>
@@ -237,7 +246,7 @@ function MessageDetail({
                   {formatTimestamp(h.at)} ·{' '}
                   {
                     (
-                      { take: '人工接手', handle: '标记已处理', transfer: '转交主题', legacy: '旧记录' } as Record<
+                      { take: '人工接手', handle: '标记已处理', transfer: '转交主题', legacy: '旧记录', ignore: '忽略关注' } as Record<
                         string,
                         string
                       >
@@ -250,10 +259,11 @@ function MessageDetail({
           )}
           {['auto', 'manual', 'working'].includes(row.state) && (
             <fieldset disabled={busy} className="flex flex-wrap gap-2">
+              <FollowActions row={row} change={change} />
               {row.state !== 'working' && <Button onClick={() => void change('take')}>人工接手</Button>}
-              <Button variant="outline" onClick={() => void change('handle')}>
+              {row.kind !== 'follow' && <Button variant="outline" onClick={() => void change('handle')}>
                 标记已处理
-              </Button>
+              </Button>}
               {!row.action_id && targets.length > 0 && (
                 <>
                   <select aria-label="转交主题" value={target} onChange={e => setTarget(e.target.value)}>
@@ -275,4 +285,23 @@ function MessageDetail({
       )}
     </article>
   )
+}
+
+
+function FollowerFacts({ row }: { row: Message }) {
+  if (row.kind !== 'follow') return null
+  return <div className="text-sm">
+    <p>首次发现 {formatTimestamp(row.created)} · 平台用户 {row.target || '未知'}</p>
+    <p>{row.state === 'followed' || row.already_following ? '已回关' : row.follows_me ? '对方已关注本账号' : '旧记录缺少关系证据'}</p>
+    <p>匹配条件 · {row.matching_terms?.join('、') || '无匹配项'}</p>
+  </div>
+}
+
+function FollowActions({ row, change }: { row: Message; change: (operation: string) => Promise<void> }) {
+  if (row.kind !== 'follow') return null
+  return <>
+    <Button disabled={Boolean(row.follow_disabled_reason)} onClick={() => void change('follow')}>按规则回关</Button>
+    <Button variant="outline" onClick={() => void change('ignore')}>忽略</Button>
+    {row.follow_disabled_reason && <span className="text-sm">{row.follow_disabled_reason}</span>}
+  </>
 }

@@ -123,6 +123,7 @@ async function executeCommand(command: BrowserCommand, guest: Guest, request: Ap
       ), `网页脚本：${operation}`, sleep)
     }
 
+    if (data.kind === 'follow') data = { ...data, follow_terms: initial.policy.follow_terms }
     return pageScript(guest, execution, () => evaluateGuest(
       guest,
       `(${xhsPage.toString()})(${JSON.stringify({ operation, payload: data })}, (${xhsPublishControl.toString()}), (${xhsInteractionDom.toString()}))`
@@ -280,6 +281,9 @@ async function executeCommand(command: BrowserCommand, guest: Guest, request: Ap
       return page('prepare-interaction')
     })
 
+    if (prepared.already_following === true) {
+      return { state: 'confirmed', evidence: '已在目标用户处确认关注关系', url: guest.getURL() }
+    }
     payload.before_count = prepared.before_count
     await trace.step('submit_interaction', async () => {
       await check()

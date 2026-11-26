@@ -232,7 +232,7 @@ class Store:
             db.execute("DELETE FROM leases WHERE id='account' AND token=?", (token,))
         self.lease_token = None
 
-    def reserve_action(self, action, version, day=None):
+    def reserve_action(self, action, version, day=None, *, follow_request=None):
         from .browser_evidence import command_context
         from . import messages
         if action['kind'] in messages.KINDS:
@@ -259,7 +259,10 @@ class Store:
             day = day or local_day(policy)
             from .analysis_publication import check
             check(db, action, policy, day)
-            if not messages.can_reserve(self, db, action):
+            if follow_request is not None:
+                from .follower_messages import check_revision
+                check_revision(self, db, action, follow_request)
+            elif not messages.can_reserve(self, db, action):
                 return None
             target = action["target"]
             if self.manual_run_id:
@@ -300,7 +303,7 @@ class Store:
             changed = db.execute("INSERT OR IGNORE INTO actions VALUES (?,?,?,?,?,'queued',?,'{}',?)",
                 (identity, day, version, action["kind"], scoped_target, encoded(action), now_iso())).rowcount
             if changed:
-                messages.reserve(self, db, action, identity)
+                messages.reserve(self, db, action, identity, operator=follow_request is not None)
                 kind = "publish" if action["kind"] == "publish" else "interact"
                 db.execute("INSERT INTO commands VALUES (?,?,?,?,'queued',NULL,?,'{}')",
                            (uuid.uuid4().hex, identity, kind, encoded({**action, "policy_version": version}), time.time() + 120))
