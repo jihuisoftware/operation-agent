@@ -140,3 +140,18 @@ it('offers platform reauthorization directly from the overview', async () => {
   expect(await screen.findByText('已登录')).toBeTruthy()
   expect(screen.queryByText('已退出或过期')).toBeNull()
 })
+
+it('opens each attention filter with the scope and operating day of its count', async () => {
+  const rest = vi.fn(async () => ({ ...data, scope: { business_id: 'business', topic_id: 'topic' } }))
+  const navigate = vi.spyOn(host, 'navigate').mockImplementation(() => {})
+  render(<OwnedOverview ctx={{ rest } as unknown as PluginContext} owner={owner} />)
+  for (const [label, target] of [
+    ['结果待核对', '/interactions?tab=unverified'],
+    ['人工咨询', '/interactions?tab=inbox'],
+    ['内容待完善', '/content?tab=needs_work'],
+    ['今日失败任务', '/cron?tab=history&historyView=operations.failed&day=2026-11-01']
+  ]) {
+    fireEvent.click(await screen.findByRole('button', { name: '处理' + label }))
+    expect(navigate).toHaveBeenLastCalledWith(target + '&business_id=business&topic_id=topic')
+  }
+})

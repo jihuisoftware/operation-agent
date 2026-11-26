@@ -1,17 +1,11 @@
 """Authenticated plugin endpoints; profile scope is bound by the existing host."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
+from .request_errors import checked
 from ..store import Store
 from .. import analysis_config, analysis_runs, analysis_views, business_store
 
 router = APIRouter(prefix='/analysis')
-
-
-def checked(fn):
-    try:
-        return fn()
-    except (ValueError, KeyError, TypeError) as exc:
-        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get('')

@@ -1,6 +1,10 @@
 import { Navigate, useLocation, useSearchParams } from 'react-router'
 
+import { Button } from '@/components/ui/button'
 import { SegmentedControl } from '@/components/ui/segmented-control'
+import { ContribBoundary, ContribRender } from '@/contrib/react/boundary'
+import { useContributions } from '@/contrib/react/use-contributions'
+import { CRON_BLUEPRINTS_AREA, type CronBlueprintContribution } from '@/sdk/cron'
 
 import { ActivityView } from '../activity'
 import { UpcomingView } from '../upcoming'
@@ -22,10 +26,14 @@ export function useTaskSection() {
       const next = new URLSearchParams(previous)
       next.set('tab', ({ blueprints: 'plan', jobs: 'history' } as Record<string, string>)[value] || value)
 
+      if (next.has('historyView')) {
+        for (const key of ['historyView', 'day', 'business_id', 'topic_id']) { next.delete(key) }
+      }
+
       return next
     })
 
-  return [section, setSection] as const
+  return [section, setSection, section === 'jobs' ? params.get('historyView') : null] as const
 }
 
 export function TaskSectionTabs({ value, onChange }: { value: string; onChange: (value: string) => void }) {
@@ -57,4 +65,16 @@ export function LegacyTaskRoute({ tab }: { tab: string }) {
   params.set('tab', tab)
 
   return <Navigate replace to={`/cron?${params}`} />
+}
+
+
+export function FilteredHistory({ id, clear }: { id: string; clear: () => void }) {
+  const contributions = useContributions(CRON_BLUEPRINTS_AREA)
+  const history = contributions.map(entry => (entry.data as CronBlueprintContribution).history).find(view => view?.id === id)
+
+  return <div className="min-h-0 flex-1 overflow-auto">
+    <Button onClick={clear} size="sm" variant="ghost">查看全部任务与历史</Button>
+    {history ? <ContribBoundary id={id}><ContribRender render={history.render} /></ContribBoundary>
+      : <p role="status">当前筛选视图不可用。</p>}
+  </div>
 }

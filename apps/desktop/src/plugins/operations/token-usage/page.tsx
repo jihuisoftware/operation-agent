@@ -1,5 +1,7 @@
 import { Button, Codicon, formatTimestamp, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+
+import { useOwnerContext } from '../use-owner-context'
 
 import { dimensions, number, periods, queryString, timestamp, useUsage } from './data'
 import { UsageTasks } from './tasks'
@@ -8,7 +10,7 @@ import { purposeLabel, TokenMetrics, UsageTrend } from './visuals'
 
 export function TokenUsagePage({ ctx }: { ctx: PluginContext }) {
   const owner = useValue(host.state.requestOwner)
-  const bound = useMemo<PluginContext>(() => ({ ...ctx, rest: (path, options) => ctx.rest(path, { ...options, owner }) }), [ctx, owner])
+  const bound = useOwnerContext(ctx, owner)
 
   return <OwnedUsage ctx={bound} key={JSON.stringify(owner)} />
 }

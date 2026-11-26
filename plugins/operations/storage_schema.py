@@ -14,6 +14,27 @@ def ready(db, schema, namespace='main'):
     return expected <= names(db, namespace)
 
 
+def _missing_url_metadata(db):
+    present = {row[1] for row in db.execute('PRAGMA table_info(collection_urls)')}
+    return [name for name in ('title', 'author', 'published_at') if name not in present]
+
+
+def _upgrade_url_metadata(db):
+    if not _missing_url_metadata(db):
+        return
+    # A second process may have completed the upgrade while we waited for the lock.
+    db.execute('BEGIN IMMEDIATE')
+    missing = _missing_url_metadata(db)
+    if not missing:
+        return
+    for name in missing:
+        db.execute(f'ALTER TABLE collection_urls ADD COLUMN {name} TEXT')
+    columns = ', '.join(missing)
+    fields = ', '.join(f"json_extract(data, '$.{name}')" for name in missing)
+    db.execute(f"UPDATE collection_urls SET ({columns})=(SELECT {fields} FROM objects "
+               "WHERE kind='source' AND id=collection_urls.source_id)")
+
+
 def initialize_topic(store):
     from .store import SCHEMA, DEFAULT, encoded
     from .business_store import SCHEMA as BUSINESS_SCHEMA
@@ -23,6 +44,7 @@ def initialize_topic(store):
         owned = not store.scope or ownership_ready(db, store.scope)
         if not complete:
             db.executescript(SCHEMA + BUSINESS_SCHEMA)
+        _upgrade_url_metadata(db)
         row = db.execute('SELECT data FROM settings WHERE id=1').fetchone()
         if not row:
             db.execute('INSERT OR IGNORE INTO settings VALUES (1,0,?)', (encoded(DEFAULT),))

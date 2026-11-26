@@ -1,12 +1,12 @@
 import { Button, Codicon, type CronBlueprintOwner, host, type PluginContext } from '@hermes/plugin-sdk'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 
-import { FirstRunProgress } from './first-run'
-import { ReviewPolicySettings } from './review-policy'
 import { PlanForm } from './plan-form'
 import { PlanReadiness } from './plan-readiness'
 import { PlanSave } from './plan-save'
+import { ReviewPolicySettings } from './review-policy'
 import { SharedModelBudget } from './shared-model-budget'
+import { useOwnerContext } from './use-owner-context'
 import { usePlanEditor } from './use-plan-editor'
 
 const LibraryPage = lazy(() => import('./library-page').then(m => ({ default: m.LibraryPage })))
@@ -18,10 +18,7 @@ interface Props {
 }
 
 export function PlanEditor({ ctx, owner, compact }: Props) {
-  const bound = useMemo<PluginContext>(
-    () => ({ ...ctx, rest: (path, options) => ctx.rest(path, { ...options, owner }) }),
-    [ctx, owner]
-  )
+  const bound = useOwnerContext(ctx, owner)
 
   return <OwnedEditor compact={compact} ctx={bound} key={JSON.stringify(owner)} />
 }
@@ -85,7 +82,6 @@ function OwnedEditor({ ctx, compact }: { ctx: PluginContext; compact?: boolean }
       )}
       {notice && <p role="status">{notice}</p>}
       <ReviewPolicySettings ctx={ctx} />
-      {/* <FirstRunProgress ctx={ctx} /> */}
       {!first && (
         <details onToggle={event => setHistory(event.currentTarget.open)}>
           <summary className="cursor-pointer">运营台账与临时任务</summary>

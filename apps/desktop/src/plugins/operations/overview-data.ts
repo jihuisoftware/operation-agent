@@ -6,6 +6,7 @@ import { $loginStatusRevision, type PlatformLogin } from './login-state'
 import type { PauseOrigin } from './pause-details'
 
 export interface OverviewData {
+  scope?: { business_id: string; topic_id: string } | null
   day: string
   timezone: string
   updated_at: string

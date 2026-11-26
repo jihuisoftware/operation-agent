@@ -39,6 +39,8 @@ def content_data(db, rows):
 @router.get('/library/{section}')
 def library(section: str, before: int = 0, filter: str = '', record: str = '', compact: bool = False, status: str = 'all'):
     filters = {'', 'covers'} if section == 'assets' else {'', 'published', 'pending', 'drafts', 'comment', 'reply', 'dm', 'follow'}
+    if section == 'content':
+        filters.add('needs_work')
     if section not in PRIMARY or before < 0 or filter not in filters:
         raise HTTPException(400, '资料筛选条件无效')
     store = Store()

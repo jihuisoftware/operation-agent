@@ -1,7 +1,7 @@
 import { Badge, Button, Codicon, CopyButton, formatTimestamp, Input, type PluginContext } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 
-import { ReferencePreview } from './source-library'
+import { ReferencePreview } from './source-image-preview'
 
 interface Material {
   id: string

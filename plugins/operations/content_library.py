@@ -2,6 +2,7 @@
 import json
 import time
 
+from .attention import CONTENT as NEEDS_WORK
 from .content_release import fingerprint, load
 from .content_edits import action_match, latest_action
 from .publication_status import PLATFORM_PUBLISHED_SQL
@@ -31,7 +32,7 @@ def summaries(rows):
 
 
 def listing(store, before=0, filter='', record='', status='all', compact=False):
-    if filter not in {'', 'drafts', 'pending', 'published'} or status not in STATES:
+    if filter not in {'', 'drafts', 'pending', 'published', 'needs_work'} or status not in STATES:
         raise ValueError('内容筛选条件无效')
     size = 24 if compact else 100
     with store.connection() as db:
@@ -39,7 +40,9 @@ def listing(store, before=0, filter='', record='', status='all', compact=False):
         counts['published'] = db.execute("SELECT count(*) FROM actions WHERE kind='publish'").fetchone()[0]
         if filter == 'published':
             return publications(db, before, record, status, size, compact, counts)
-        condition = '1=1' if record else FILTERS[filter]
+        condition = NEEDS_WORK if filter == 'needs_work' else ('1=1' if record else FILTERS[filter])
+        if filter == 'needs_work':
+            counts['needs_work'] = db.execute("SELECT count(*) FROM objects c WHERE c.kind='content' AND " + NEEDS_WORK).fetchone()[0]
         fields = ("c.rowid AS cursor,c.id,c.created,json_extract(c.data,'$.title') AS title,"
                   "substr(json_extract(c.data,'$.body'),1,140) AS excerpt,json_extract(c.data,'$.asset_ids') AS assets,"
                   "json_extract(c.data,'$.day') AS basis_day,json_extract(c.data,'$.parent_content_id') AS parent_content_id,"

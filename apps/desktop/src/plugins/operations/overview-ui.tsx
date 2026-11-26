@@ -42,7 +42,7 @@ export function Region({
 }: {
   title: string
   icon: string
-  to: string
+  to?: string
   children: ReactNode
 }) {
   return (
@@ -52,10 +52,10 @@ export function Region({
           <Codicon className="text-primary" name={icon} />
           {title}
         </h2>
-        <Open label={`查看${title}详情`} to={to}>
+        {to && <Open label={`查看${title}详情`} to={to}>
           查看
           <Codicon name="chevron-right" />
-        </Open>
+        </Open>}
       </header>
       {children}
     </section>

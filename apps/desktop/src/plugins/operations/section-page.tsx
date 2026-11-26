@@ -1,7 +1,10 @@
 import { Button, Codicon, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
-import { lazy, Suspense, useMemo } from 'react'
+import { lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router'
 
+import { useOwnerContext } from './use-owner-context'
+
+const AttentionPage = lazy(() => import('./attention-page').then(m => ({ default: m.AttentionPage })))
 const WritingList = lazy(() => import('./writing/list').then(m => ({ default: m.WritingList })))
 const SourceLibrary = lazy(() => import('./source-library').then(m => ({ default: m.SourceLibrary })))
 const OrganizedLibrary = lazy(() => import('./organized-library').then(m => ({ default: m.OrganizedLibrary })))
@@ -33,7 +36,8 @@ export const sections = {
     title: '内容',
     icon: 'file-media',
     tabs: [
-      ['drafts', '待审核'],      
+      ['drafts', '待审核'],
+      ['needs_work', '待完善'],
       ['pending', '已排期'],
       ['published', '发布记录'],
       ['topics', '选题'],
@@ -45,6 +49,8 @@ export const sections = {
     icon: 'comment-discussion',
     tabs: [
       ['reply', '评论回复'],
+      ['unverified', '结果待核对'],
+      ['inbox', '人工咨询'],
       ['comment', '主动评论'],
       ['dm', '收到私信'],
       ['follow', '回关']
@@ -56,10 +62,7 @@ export type Section = keyof typeof sections
 export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Section }) {
   const owner = useValue(host.state.requestOwner)
 
-  const bound = useMemo<PluginContext>(
-    () => ({ ...ctx, rest: (path, options) => ctx.rest(path, { ...options, owner }) }),
-    [ctx, owner]
-  )
+  const bound = useOwnerContext(ctx, owner)
 
   const [params, setParams] = useSearchParams()
   const config = sections[section]
@@ -70,9 +73,6 @@ export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Sec
       <header className="flex flex-wrap items-center gap-2 p-4">
         <Codicon name={config.icon} />
         <h1 className="mr-auto text-xl font-semibold">{config.title}</h1>
-        {/* <Button onClick={() => host.navigate('/cron?tab=plan')} variant="ghost">
-          调整运营设置
-        </Button> */}
         {section === 'content' && (
           <Button onClick={() => host.navigate('/artifacts')} variant="ghost">
             成果文件
@@ -116,6 +116,8 @@ export function SectionPage({ ctx, section }: { ctx: PluginContext; section: Sec
               key={params.toString()}
               stage={tab as 'analytics' | 'industry'}
             />
+          ) : tab === 'unverified' || tab === 'inbox' ? (
+            <AttentionPage ctx={bound} kind={tab} />
           ) : tab === 'sources' ? (
             <SourceLibrary
               ctx={bound}

@@ -91,7 +91,7 @@ import { reconcileCronRunVerdicts } from './open-cron-run'
 import { RunRecord } from './run-record'
 import { SchedulePicker } from './schedule-picker'
 import { TaskDetails } from './task-details'
-import { TaskSectionBody, TaskSectionTabs, useTaskSection } from './task-sections'
+import { FilteredHistory, TaskSectionBody, TaskSectionTabs, useTaskSection } from './task-sections'
 
 const DEFAULT_DELIVER = 'local'
 
@@ -319,7 +319,7 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
   const jobs = useStore($cronJobs)
   const [loading, setLoading] = useState(jobs.length === 0)
   const [query, setQuery] = useState('')
-  const [section, setSection] = useTaskSection()
+  const [section, setSection, historyView] = useTaskSection()
   const [busyJobTokens, setBusyJobTokens] = useState<ReadonlyMap<string, symbol>>(() => new Map())
   const [triggeringJobKeys, setTriggeringJobKeys] = useState<ReadonlySet<string>>(() => new Set())
   const triggerControllerRef = useRef<CronTriggerController | null>(null)
@@ -690,7 +690,7 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
       />
 
       <TaskSectionTabs onChange={setSection} value={section} />
-      {['running', 'upcoming'].includes(section) ? (
+      {historyView ? <FilteredHistory clear={() => setSection('jobs')} id={historyView} /> : ['running', 'upcoming'].includes(section) ? (
         <TaskSectionBody section={section} />
       ) : section === 'blueprints' ? (
         <div className="min-h-0 flex-1 overflow-auto">

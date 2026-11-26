@@ -15,6 +15,7 @@ import { createRoot } from 'react-dom/client'
 
 import { AccountsPage } from './accounts'
 import { CollectionSettings } from './collection-settings'
+import { AttentionPage } from './attention-page'
 import { LiveViewButton } from './live-view-button'
 import { $loginActivity } from './login-activity'
 import { OverviewPage } from './overview'
@@ -137,6 +138,7 @@ export default {
       title: '运营计划',
       data: {
         render: ({ owner, view }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <PlanEditor compact={view === 'summary'} ctx={scoped} owner={owner} />}</WorkspacePage>,
+        history: { id: 'operations.failed', render: () => <WorkspacePage ctx={ctx}>{scoped => <AttentionPage ctx={scoped} kind="failed_today" />}</WorkspacePage> },
         renderUpcoming: ({ owner }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <UpcomingOperations ctx={scoped} key={JSON.stringify(owner)} owner={owner} />}</WorkspacePage>
       } satisfies CronBlueprintContribution
     })

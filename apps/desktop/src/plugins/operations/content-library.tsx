@@ -27,14 +27,14 @@ interface Catalog {
   actions: Summary[]
   next?: string
   has_active: boolean
-  counts: { drafts: number; pending: number; published: number }
+  counts: { needs_work?: number; drafts: number; pending: number; published: number }
 }
 
 const states: Record<string, string> = { queued: '等待发布', executing: '正在发布', submitted: '已提交待核对', unknown: '结果待核对',
   published: '已发布', confirmed: '已核对成功', failed: '发布失败', cancelled: '已取消', blocked: '需要处理', confirmed_not_published: '已确认未发布' }
 
 const filters = [['all', '全部'], ['in_progress', '进行中'], ['needs_attention', '待核对 / 待处理'], ['published', '已发布'], ['failed', '失败 / 取消']]
-const emptyMessages: Record<string, string> = { pending: '暂无已排期稿件，审核通过后会显示在这里。', published: '当前筛选下暂无发布记录。', drafts: '暂无待审核稿件，可以生成图文或选择其他分类。' }
+const emptyMessages: Record<string, string> = { needs_work: '当前没有待完善的稿件。', pending: '暂无已排期稿件，审核通过后会显示在这里。', published: '当前筛选下暂无发布记录。', drafts: '暂无待审核稿件，可以生成图文或选择其他分类。' }
 
 function label(row: Summary) {
   const status = row.publication as { platform?: string } | null
@@ -60,7 +60,7 @@ function actionLabel(row: Summary, tab: string) {
 
 function ContentToolbar({ counts, restricted, refresh, showAll, children }: { children?: ReactNode; counts?: Catalog['counts']; restricted: boolean; refresh: () => Promise<unknown>; showAll: () => void }) {
   return <div className="flex flex-wrap items-center gap-3 text-sm">
-    {counts && <p className="mr-auto text-muted-foreground">待审核 {counts.drafts} · 已排期 {counts.pending} · 发布记录 {counts.published}</p>}
+    {counts && <p className="mr-auto text-muted-foreground">{counts.needs_work !== undefined && `待完善 ${counts.needs_work} · `}待审核 {counts.drafts} · 已排期 {counts.pending} · 发布记录 {counts.published}</p>}
     {restricted && <Button onClick={showAll} variant="outline">查看全部记录</Button>}
     {children}
     <Button onClick={() => void refresh()} variant="outline">刷新内容</Button>
@@ -151,7 +151,7 @@ export function ContentLibrary({ ctx, tab, record = '' }: { ctx: PluginContext; 
 
 
 function canEdit(tab: string, row: Summary) {
-  return tab === 'drafts' && !row.publication_state
+  return (tab === 'drafts' || tab === 'needs_work') && !row.publication_state
 }
 
 function editableSelection(rows: Summary[], tab: string, selected: string | null) {

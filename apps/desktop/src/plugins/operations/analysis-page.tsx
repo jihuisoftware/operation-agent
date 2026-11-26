@@ -15,7 +15,8 @@ import { AnalysisResults } from './analysis-results'
 import { AnalysisSettings } from './analysis-settings'
 import type { AnalysisApi, AnalysisCatalog, AnalysisReport } from './analysis-types'
 import { BusinessDatasets } from './business-datasets'
-import { SourceDetail } from './source-library'
+import { SourceDetail } from './source-detail'
+import { useOwnerContext } from './use-owner-context'
 
 export function AnalysisPage({
   ctx,
@@ -55,10 +56,7 @@ export function OwnedAnalysisPage({
   const [selected, setSelected] = useState(initialReport)
   const [sourceId, setSourceId] = useState<string | null>(null)
 
-  const boundCtx = useMemo<PluginContext>(
-    () => ({ ...ctx, rest: (path, options) => ctx.rest(path, { ...options, owner }) }),
-    [ctx, owner]
-  )
+  const boundCtx = useOwnerContext(ctx, owner)
 
   const [report, setReport] = useState<AnalysisReport | null>(null)
   const [error, setError] = useState('')
@@ -69,8 +67,8 @@ export function OwnedAnalysisPage({
 
   const api = useMemo<AnalysisApi>(
     () => (path, body) =>
-      ctx.rest(`/analysis${path}`, { owner, method: body ? 'POST' : 'GET', body, timeoutMs: body ? 1_800_000 : 15000 }),
-    [ctx, owner]
+      boundCtx.rest(`/analysis${path}`, { method: body ? 'POST' : 'GET', body, timeoutMs: body ? 1_800_000 : 15000 }),
+    [boundCtx]
   )
 
   const refresh = () => setRevision(v => v + 1)

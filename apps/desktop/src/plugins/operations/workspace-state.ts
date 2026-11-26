@@ -31,8 +31,8 @@ export function scopePath(path: string, scope: OperationScope) {
   return `${pathname}?${params}`
 }
 
-export function scopedContext(ctx: PluginContext, owner: CronBlueprintOwner, scope: OperationScope): PluginContext {
-  return { ...ctx, rest: (path, options) => ctx.rest(scopePath(path, scope), { ...options, owner }) }
+export function scopedContext(ctx: PluginContext, owner: CronBlueprintOwner, scope?: OperationScope): PluginContext {
+  return { ...ctx, rest: (path, options) => ctx.rest(scope ? scopePath(path, scope) : path, { ...options, owner }) }
 }
 
 const routeWriters = new Map<string, (scope: OperationScope) => void>()

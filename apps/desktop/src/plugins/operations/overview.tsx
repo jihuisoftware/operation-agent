@@ -8,19 +8,17 @@ import {
   RowButton,
   useValue
 } from '@hermes/plugin-sdk'
-import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 
 import { moduleLabels } from './blueprint-types'
-import { FirstRunProgress } from './first-run'
 import { LibraryPage } from './library-page'
 import { $loginNavigation, $loginRequest, $loginWorker } from './login-state'
 import { type OverviewData, useOverview } from './overview-data'
 import { Empty, Open, Region, ReportTime, overviewRoutes as routes, RunState, Time } from './overview-ui'
 import { PauseOriginLink } from './pause-details'
 import { PlanEditor } from './plan-editor'
-import { TokenUsageCard } from './token-usage/card'
-import { $workspaces, ownerKey } from './workspace-state'
+import { useOwnerContext } from './use-owner-context'
+import { $workspaces, ownerKey, scopePath } from './workspace-state'
 import { WorkspaceSummary } from './workspace-summary'
 
 export function OverviewPage({ ctx }: { ctx: PluginContext }) {
@@ -47,10 +45,7 @@ export function OwnedOverview({
     business => business.id === workspace.selected?.business_id
   )?.account
 
-  const bound = useMemo<PluginContext>(
-    () => ({ ...ctx, rest: (path, options) => ctx.rest(path, { ...options, owner }) }),
-    [ctx, owner]
-  )
+  const bound = useOwnerContext(ctx, owner)
 
   return (
     <main aria-label="运营总览" className="@container h-full overflow-auto p-5 text-sm">
@@ -64,10 +59,6 @@ export function OwnedOverview({
             </Badge>
           </div>
           <div className="flex items-center gap-1">
-            {/* <Open to="/cron">
-              <Codicon name="calendar" />
-              定时任务
-            </Open> */}
             <Button aria-label="刷新" onClick={retry} size="icon-sm" variant="ghost">
               <Codicon name="refresh" />
             </Button>
@@ -91,11 +82,9 @@ export function OwnedOverview({
             <>
               {!data.topic && <PlanEditor ctx={ctx} owner={owner} />}
               {data.topic && <OverviewContent accountId={selectedAccount} data={data} owner={owner} />}
-              {/* {data.topic && <FirstRunProgress ctx={bound} />} */}
             </>
           )
         )}
-        {/* <TokenUsageCard ctx={bound} topic={workspaces[ownerKey(owner)]?.selected?.topic_id} /> */}
       </div>
     </main>
   )
@@ -232,21 +221,21 @@ function Metrics({ data }: { data: OverviewData }) {
 
 function Attention({ data }: { data: OverviewData }) {
   const rows = [
-    { label: '结果待核对', count: data.pending.unverified, icon: 'inspect', to: routes.tasks },
-    { label: '人工咨询', count: data.pending.inbox, icon: 'comment', to: routes.tasks },
-    { label: '内容待完善', count: data.pending.content, icon: 'edit', to: routes.content },
-    { label: '今日失败任务', count: data.pending.failed_today, icon: 'error', to: routes.tasks }
+    { label: '结果待核对', count: data.pending.unverified, icon: 'inspect', to: '/interactions?tab=unverified' },
+    { label: '人工咨询', count: data.pending.inbox, icon: 'comment', to: '/interactions?tab=inbox' },
+    { label: '内容待完善', count: data.pending.content, icon: 'edit', to: '/content?tab=needs_work' },
+    { label: '今日失败任务', count: data.pending.failed_today, icon: 'error', to: `/cron?tab=history&historyView=operations.failed&day=${encodeURIComponent(data.day)}` }
   ]
 
   return (
-    <Region icon="checklist" title="待处理事项" to={routes.tasks}>
+    <Region icon="checklist" title="待处理事项">
       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
         {rows.map(row => (
           <RowButton
             aria-label={`处理${row.label}`}
             className="flex min-w-0 items-center gap-2 rounded py-3 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
             key={row.label}
-            onClick={() => host.navigate(row.to)}
+            onClick={() => host.navigate(data.scope ? scopePath(row.to, data.scope) : row.to)}
           >
             <Codicon className="text-muted-foreground" name={row.icon} />
             <span className="flex-1 text-xs">{row.label}</span>

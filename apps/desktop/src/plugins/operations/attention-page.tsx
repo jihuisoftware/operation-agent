@@ -1,0 +1,92 @@
+import { Button, formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
+
+import { moduleLabels } from './blueprint-types'
+import { ActionManager } from './management'
+import type { RecordRow } from './types'
+import { InboxTransfer } from './workspace-inbox'
+
+type AttentionKind = 'unverified' | 'inbox' | 'failed_today'
+interface Page { items: RecordRow[]; total: number; next: number | null; day: string }
+const titles = { unverified: '结果待核对', inbox: '人工咨询', failed_today: '失败任务' }
+const labels: Record<string, string> = { publish: '图文发布', comment: '主动评论', reply: '评论回复', dm: '收到私信', follow: '回关' }
+
+export function AttentionPage({ ctx, kind }: { ctx: PluginContext; kind: AttentionKind }) {
+  const [params] = useSearchParams()
+  const day = kind === 'failed_today' ? params.get('day') || '' : ''
+
+  return <Items ctx={ctx} day={day} key={kind + day} kind={kind} />
+}
+
+function Items({ ctx, kind, day }: { ctx: PluginContext; kind: AttentionKind; day: string }) {
+  const [page, setPage] = useState<Page | null>(null)
+  const [cursor, setCursor] = useState(0)
+  const [revision, setRevision] = useState(0)
+  const [error, setError] = useState('')
+  const [expanded, setExpanded] = useState('')
+  const refresh = useCallback(async () => { setRevision(n => n + 1) }, [])
+  useEffect(() => {
+    let active = true
+    setError('')
+    void ctx.rest<Page>(`/attention/${kind}?` + new URLSearchParams({ before: String(cursor), day }))
+      .then(result => { if (active) { setPage(result) } })
+      .catch(reason => { if (active) { setError(String(reason)) } })
+
+    return () => { active = false }
+  }, [ctx, cursor, day, kind, revision])
+
+  const move = (next: number) => { setPage(null); setExpanded(''); setCursor(next) }
+
+  return <section aria-label={titles[kind]} className="space-y-3 p-4">
+    <header className="flex items-center gap-2">
+      <h2 className="mr-auto font-semibold">{kind === 'failed_today' && (day || page?.day)} {titles[kind]} {page && `（${page.total}）`}</h2>
+      <Button onClick={refresh} size="sm" variant="ghost">刷新</Button>
+    </header>
+    {error && <p role="alert">{error}</p>}
+    {!page && !error && <p role="status">正在加载…</p>}
+    {page?.items.length === 0 && <p>当前没有符合条件的记录。</p>}
+    {page?.items.map(row => {
+      if (kind === 'inbox') {
+        return <Consultation ctx={ctx} key={row.id} onError={setError} refresh={refresh} row={row} />
+      }
+
+      if (kind === 'failed_today') {
+        return <article className="space-y-1 rounded border p-3" key={row.id}>
+          <strong>{moduleLabels[String(row.stage)] || String(row.stage)}</strong> · {formatTimestamp(String(row.started))}
+          <p className="whitespace-pre-wrap">{String(row.detail || '未记录失败原因')}</p>
+        </article>
+      }
+
+      return <article className="space-y-2" key={row.id}>
+        <Button aria-expanded={expanded === row.id} onClick={() => setExpanded(expanded === row.id ? '' : row.id)} variant="outline">
+          {labels[String(row.kind)] || String(row.kind)} · {String(row.target || row.id)} · 查看回执与核对
+        </Button>
+        {expanded === row.id && <ActionManager ctx={ctx} onError={setError} refresh={refresh} rows={[row]} />}
+      </article>
+    })}
+    {page?.next && <Button onClick={() => move(page.next!)} variant="outline">更早记录</Button>}
+    {cursor > 0 && <Button onClick={() => move(0)} variant="ghost">返回最新</Button>}
+  </section>
+}
+
+function Consultation({ ctx, row, refresh, onError }: { ctx: PluginContext; row: RecordRow; refresh: () => Promise<void>; onError: (e: string) => void }) {
+  const [busy, setBusy] = useState(false)
+
+  const handle = async () => {
+    setBusy(true)
+
+    try {
+      await ctx.rest('/attention/inbox/handled', { method: 'POST', body: { id: row.id } })
+      await refresh()
+    } catch (reason) { onError(String(reason)) } finally { setBusy(false) }
+  }
+
+  return <article className="space-y-2 rounded border p-3">
+    <strong>{labels[String(row.kind)] || '人工咨询'}</strong> · {formatTimestamp(String(row.created))}
+    <p className="whitespace-pre-wrap">{String(row.text || row.id)}</p>
+    {Boolean(row.reason) && <p>{String(row.reason)}</p>}
+    <Button disabled={busy} onClick={handle} size="sm" variant="outline">标记已处理</Button>
+    <InboxTransfer ctx={ctx} failed={onError} row={row} saved={refresh} />
+  </article>
+}

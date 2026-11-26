@@ -1,6 +1,8 @@
 import { Button, CopyButton, type CronBlueprintOwner, formatTimestamp, type PluginContext } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { useOwnerContext } from '../use-owner-context'
+
 import { hasExternalActions } from './quick-selection'
 import { type Run, states } from './records'
 import { type TaskDetail, TaskEvidence } from './task-evidence'
@@ -19,10 +21,11 @@ export function DebugTaskPage({ ctx, owner, task, runId, selectRun, back }: Prop
   const [note, setNote] = useState('')
   const [notePending, setNotePending] = useState(false)
 
-  const api = useMemo(() => <T,>(path: string, body?: unknown) => ctx.rest<T>(path, { owner,
-    method: body === undefined ? 'GET' : 'POST', body, timeoutMs: body === undefined ? 20000 : 1_800_000 }), [ctx, owner])
+  const scoped = useOwnerContext(ctx, owner)
 
-  const scoped = useMemo(() => ({ ...ctx, rest: <T,>(path: string, options?: Parameters<PluginContext['rest']>[1]) => ctx.rest<T>(path, { ...options, owner }) }), [ctx, owner])
+  const api = useMemo(() => <T,>(path: string, body?: unknown) => scoped.rest<T>(path, {
+    method: body === undefined ? 'GET' : 'POST', body, timeoutMs: body === undefined ? 20000 : 1_800_000 }), [scoped])
+
   const base = runId ? `/debug/${encodeURIComponent(runId)}/tasks/${task}` : ''
   const loadingSession = useMemo(() => ({ api, base, cursor: 0, generation: 0 }), [api, base])
   const busy = pending || Boolean(catalog?.execution)

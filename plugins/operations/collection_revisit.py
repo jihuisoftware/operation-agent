@@ -30,7 +30,9 @@ def _bootstrap(db, topic):
         digest = r.get('fingerprint') or fingerprint(r['text'])
         next_day = (date.fromisoformat(r['day']) + timedelta(days=1)).isoformat()
         db.execute('INSERT OR IGNORE INTO collection_fingerprints VALUES (?,?,?)', (topic, digest, row['id']))
-        db.execute('INSERT OR IGNORE INTO collection_urls VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        db.execute('INSERT OR IGNORE INTO collection_urls '
+                   '(topic,url,last_day,next_day,digest,unchanged,source_id,feed_updated,origins,title,author,published_at) '
+                   'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                    (topic, url, r['day'], next_day, digest, 0, row['id'], r.get('feed_updated'), encoded(r.get('origins', [])),
                     r.get('title'), r.get('author'), r.get('published_at')))
 
@@ -63,7 +65,9 @@ def save_observation(db, record, identity, unchanged):
     next_day = (day + timedelta(days=INTERVALS[unchanged])).isoformat()
     db.execute('INSERT OR IGNORE INTO collection_fingerprints VALUES (?,?,?)',
                (record['scope_topic'], record['fingerprint'], identity))
-    db.execute('INSERT OR REPLACE INTO collection_urls VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+    db.execute('INSERT OR REPLACE INTO collection_urls '
+                   '(topic,url,last_day,next_day,digest,unchanged,source_id,feed_updated,origins,title,author,published_at) '
+                   'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                (record['scope_topic'], record['url'], record['day'], next_day, record['fingerprint'], unchanged,
                 identity, record.get('feed_updated'), encoded(record['origins']),
                 record['title'], record.get('author'), record.get('published_at')))

@@ -1,6 +1,7 @@
 """Small read model for the Profile overview; never load collected source bodies."""
 import time
 
+from .attention import counts as pending_counts
 from .blueprints import timeline
 from .login_status import catalog as login_catalog
 from .policy import local_day, now_iso
@@ -14,7 +15,7 @@ def overview(store):
     with store.connection() as db:
         db.execute("BEGIN")
         counts = _counts(db, day)
-        pending = _pending(db, day)
+        pending = pending_counts(db, day)
         runs = [dict(row) for row in db.execute(
             "SELECT id,stage,state,substr(detail,1,600) AS detail,started,ended FROM runs "
             "WHERE day=? ORDER BY started DESC,rowid DESC LIMIT 6", (day,))]
@@ -34,6 +35,7 @@ def overview(store):
     login = login_catalog(store)
     return {
         "day": day, "timezone": policy["timezone"], "updated_at": now_iso(), "version": version,
+        "scope": {"business_id": store.scope["business_id"], "topic_id": store.scope["id"]} if store.scope else None,
         "topic": policy["topic"], "goal": policy["goal"], "enabled": policy["enabled"],
         "paused": paused, "online": online, "counts": counts, "pending": pending,
         "runs": runs, "publications": publications, "report": dict(report) if report else None,
@@ -69,16 +71,6 @@ def _counts(db, day):
     counts["model_calls"] = db.execute(
         "SELECT count(*) FROM events WHERE kind='model_call' AND json_extract(data,'$.day')=?", (day,)).fetchone()[0]
     return counts
-
-
-def _pending(db, day):
-    # Categories can refer to the same business item; never sum them into a fake unique total.
-    return {
-        "unverified": db.execute("SELECT count(*) FROM actions WHERE state IN ('submitted','unknown')").fetchone()[0],
-        "failed_today": db.execute("SELECT count(*) FROM runs WHERE day=? AND state='failed'", (day,)).fetchone()[0],
-        "inbox": db.execute("SELECT count(*) FROM objects WHERE kind='inbox' AND json_extract(data,'$.state')='needs_review'").fetchone()[0],
-        "content": db.execute("SELECT count(*) FROM objects WHERE kind='content' AND json_extract(data,'$.state') IN ('needs_material','needs_review')").fetchone()[0],
-    }
 
 
 def _analysis(store, policy):
