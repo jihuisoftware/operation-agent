@@ -18,6 +18,8 @@ vi.mock('@/store/session', () => ({
 }))
 vi.mock('../chat', () => ({ ChatView: () => <div data-testid="chat-view" /> }))
 vi.mock('../capabilities', () => ({ CapabilitiesView: () => null }))
+vi.mock('../activity', () => ({ ActivityView: () => null }))
+vi.mock('../upcoming', () => ({ UpcomingView: () => null }))
 vi.mock('../artifacts', () => ({ ArtifactsView: () => null }))
 vi.mock('../cron', () => ({
   CronView: ({ onOpenSession }: { onOpenSession: (id: string) => void }) => (

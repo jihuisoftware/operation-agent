@@ -52,10 +52,14 @@ def manage_action(identity: str, operation: str, body: dict):
 
 @router.get("/reports/{day}")
 def report(day: str):
-    record = next((r for r in Store().objects("report") if r["day"] == day), None)
+    store = Store()
+    reports = store.objects("report", day)
+    record = next((r for r in reports if r['id']=='report:'+day),reports[0] if reports else None)
     if not record:
         raise HTTPException(404, "日报尚未生成")
-    return PlainTextResponse(record["markdown"], media_type="text/markdown")
+    from ..daily_receipts import markdown
+    with store.connection() as db:
+        return PlainTextResponse(markdown(db,record,record["markdown"]), media_type="text/markdown")
 
 
 @router.get('/attention/{kind}')

@@ -20,12 +20,19 @@ def control(store, body):
         if not policy['enabled'] or policy['paused']:
             raise ValueError('请先启用计划或解除全局暂停')
         from .runtime import ensure_schedule
-        from cron.jobs import trigger_job
-        if store.workspace:
-            import uuid
-            from .workspace_runtime import request_run
-            request_run(store, body.get('request_id') or uuid.uuid4().hex)
-        return {'job_id': trigger_job(ensure_schedule(store))['id']}
+        from datetime import datetime, UTC
+        from .daily_tasks import period
+        from .collection_ledger import save
+        import uuid
+        local, within = period(policy,datetime.now(UTC))
+        if not within:
+            raise ValueError('当前在运营时段外，进入时段后自动继续')
+        request = str(uuid.UUID(body.get('request_id') or str(uuid.uuid4())))
+        job_id = ensure_schedule(store)
+        day = local.date().isoformat()
+        save(store,'daily_continue','daily-continue:'+day,{'day':day,'request':request,'version':version})
+        return {'job_id':job_id,'detail':'已安排继续，后台将在下一轮检查当天未完成的步骤'}
+
     raise ValueError('未知计划操作')
 
 

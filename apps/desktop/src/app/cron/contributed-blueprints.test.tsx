@@ -71,3 +71,22 @@ it.each(['plan', 'blueprints'])('replaces legacy %s links with a scoped plan wit
     expect(await screen.findByRole('button', { name: '/origin' })).toBeTruthy()
   } finally { dispose() }
 })
+
+it('opens today by default when contributed and keeps direct history links working', async () => {
+  const { MemoryRouter } = await import('react-router')
+  const { TaskSectionBody, useTaskSection } = await import('./task-sections')
+  function Page() {
+    const [section] = useTaskSection()
+    return section === 'today' ? <TaskSectionBody section={section} /> : <p>{section}</p>
+  }
+  const dispose = registry.register({ area: CRON_BLUEPRINTS_AREA, id: 'daily', data: {
+    renderToday: () => <p>当天任务</p>
+  } satisfies CronBlueprintContribution })
+  try {
+    const view = render(<MemoryRouter initialEntries={['/cron']}><Page /></MemoryRouter>)
+    expect(screen.getByText('当天任务')).toBeTruthy()
+    view.unmount()
+    render(<MemoryRouter initialEntries={['/cron?tab=history']}><Page /></MemoryRouter>)
+    expect(screen.getByText('jobs')).toBeTruthy()
+  } finally { dispose() }
+})

@@ -14,8 +14,8 @@ STATES = {
 JOIN = ("FROM objects c LEFT JOIN objects r ON r.id='content-release:'||c.id AND r.kind='content_release' "
         "LEFT JOIN actions a ON a.rowid=(SELECT max(x.rowid) FROM actions x WHERE x.kind='publish' "
         "AND json_extract(x.data,'$.content.id')=c.id AND " + action_match("x") + ") WHERE c.kind='content'")
-FILTERS = {'drafts': "a.id IS NULL AND COALESCE(json_extract(r.data,'$.state'),'')!='scheduled'",
-           'pending': "a.id IS NULL AND json_extract(r.data,'$.state')='scheduled'", '': '1=1'}
+FILTERS = {'drafts': "a.id IS NULL AND COALESCE(json_extract(r.data,'$.state'),'') NOT IN ('scheduled','waiting_slot')",
+           'pending': "a.id IS NULL AND json_extract(r.data,'$.state') IN ('scheduled','waiting_slot')", '': '1=1'}
 
 
 def summaries(rows):

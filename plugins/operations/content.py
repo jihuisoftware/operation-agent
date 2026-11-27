@@ -143,6 +143,11 @@ def produce_content(store, policy, day, version):
              "quality": {"pass": False, "reason": "草稿已保存，等待自动质量检查"},
              **({'debug_id': store.debug_id} if getattr(store, 'debug_id', None) else {})}
     draft['review_policy_revision'] = review_revision
+    if getattr(store, 'daily_writing', False):
+        from .daily_tasks import manuscripts
+        completed, _ = manuscripts(store, day)
+        if len(completed) >= policy['draft_goal']:
+            raise StageSkipped('今日新稿目标已完成')
     draft['id'] = store.put('content', draft)
     return {**finish_production(store, policy, day, version, draft, sources), 'writing_state': writing_state, 'draft_mode': mode}
 

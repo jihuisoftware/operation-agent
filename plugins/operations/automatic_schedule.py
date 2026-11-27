@@ -1,5 +1,5 @@
 """Automatic reviews use the existing publication ledger; scheduling never submits a post."""
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, UTC
 from zoneinfo import ZoneInfo
 import json
 
@@ -21,27 +21,6 @@ def capacity(store, policy, day, db, *, at=None):
     return remaining
 
 
-def next_slot(store, policy, now, *, exclude=None):
-    if not policy['times'].get('publish') or policy['limits']['publish'] <= 0:
-        return None
-    zone = ZoneInfo(policy['timezone'])
-    local = now.astimezone(zone)
-    with store.connection() as db:
-        booked = [json.loads(row[0]) for row in db.execute("SELECT data FROM objects WHERE kind='content_release' AND json_extract(data,'$.state')='scheduled'")]
-        booked = [r for r in booked if r['content_id'] != exclude and not db.execute("SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=?", (r['content_id'],)).fetchone()]
-        for offset in range(366):
-            date = local.date() + timedelta(days=offset)
-            stamps = [datetime.fromisoformat(r['publish_at']).astimezone(zone) for r in booked]
-            for clock in sorted(policy['times'].get('publish', [])):
-                hour, minute = map(int, clock.split(':'))
-                stamp = datetime(date.year, date.month, date.day, hour, minute, tzinfo=zone)
-                if stamp.astimezone(UTC).astimezone(zone).replace(tzinfo=None) != stamp.replace(tzinfo=None):
-                    continue
-                if stamp > now and stamp not in stamps and capacity(store, policy, date.isoformat(), db, at=stamp) > sum(s.date() == date for s in stamps):
-                    return stamp.astimezone(UTC).isoformat()
-    return None
-
-
 def schedule_one(store, identity, now=None):
     if getattr(store, 'debug_id', None):
         return None
@@ -59,18 +38,17 @@ def schedule_one(store, identity, now=None):
             return None
         if db.execute("SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=?", (identity,)).fetchone():
             return None
-    slot = next_slot(store, policy, now)
-    if slot is None:
-        return None
     try:
         return review(store, identity, {'expected_revision': (previous or {}).get('revision', 0),
-                      'version': version, 'content_revision': decision['content_revision'], 'publish_at': slot}, automatic=decision)
+                      'version': version, 'content_revision': decision['content_revision']}, automatic=decision)
     except ValueError as exc:
         store.event('automatic_schedule_waiting', {'content_id': identity, 'reason': str(exc)})
         return None
 
 
 def schedule_pending(store, now):
+    from .account_calendar import drain
+    drain(store, now)
     from .review_policy import get
     settings = get(store)
     if settings['mode'] == 'manual':
@@ -87,19 +65,17 @@ def schedule_pending(store, now):
 
 
 def defer_for_capacity(store, release, policy, now):
-    if release.get('reviewer') != 'automatic':
-        return False
     from .policy import local_day
-    with store.connection() as db:
-        if capacity(store, policy, local_day(policy, now), db, at=now) > 0:
-            return False
-    slot = next_slot(store, policy, now, exclude=release['content_id'])
+    from .account_calendar import assign, quota_available
     from .store import encoded
     with store.connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        if db.execute("SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=?", (release['content_id'],)).fetchone():
+            return False
+        if capacity(store, policy, local_day(policy,now), db, at=now)>0 and quota_available(store,db,policy,now):
+            return False
         current = load(db, release['content_id'])
         if current and current['revision'] == release['revision'] and current['state'] == 'scheduled':
-            current.update(detail='额度不足，等待后续可用发布时段')
-            if slot:
-                current.update(publish_at=slot)
+            assign(store, db, policy, now, current)
             db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(current), 'content-release:' + release['content_id']))
     return True

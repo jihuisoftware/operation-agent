@@ -1,10 +1,9 @@
 """Inspectable occurrences; cancellation wins the same UNIQUE claim used by execution."""
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, UTC
 import json
 import uuid
 from zoneinfo import ZoneInfo
 
-from .occurrences import visible_occurrences
 from .policy import now_iso
 from .progress import STEPS
 
@@ -16,18 +15,18 @@ def upcoming(store, now=None):
     now = (now or datetime.now(UTC)).astimezone(ZoneInfo(policy['timezone']))
     from .readiness import refresh
     readiness = refresh(store, now)
-    with store.connection() as db:
-        existing = {(r['day'], r['stage'], r['slot']): dict(r) for r in db.execute('SELECT * FROM runs WHERE day>=?', ((now.date() - timedelta(days=1)).isoformat(),))}
-    steps = []
+    from .daily_tasks import available
+    steps = [{**item(day,stage,slot,now.isoformat()), 'readiness':readiness[stage]}
+             for day,stage,slot in available(store,policy,now)] if policy['enabled'] else []
     if policy['enabled']:
-        for stage, due in visible_occurrences(store, policy, now):
-            day, slot = due.date().isoformat(), due.strftime('%H:%M')
-            row = existing.get((day, stage, slot))
-            if row and row['state'] != 'cancelled':
-                continue
-            if stage == 'report' and day < now.date().isoformat() and store.objects('report', day):
-                continue
-            steps.append({**item(day, stage, slot, due.isoformat(), row['state'] if row else 'pending'), 'readiness': readiness[stage]})
+        day = now.date().isoformat()
+        if policy['modules']['report'] and now.strftime('%H:%M') < policy['work_end']:
+            steps.append(item(day,'report','daily:close',datetime.fromisoformat(day+'T'+policy['work_end']).replace(tzinfo=now.tzinfo).isoformat()))
+        with store.connection() as db:
+            cancelled = list(db.execute("SELECT stage,slot FROM runs WHERE day=? AND state='cancelled' AND (slot LIKE 'daily:%' OR slot LIKE 'poll:%')", (day,)))
+        for stage,slot in cancelled:
+            steps = [s for s in steps if (s['day'],s['stage'],s['slot']) != (day,stage,slot)]
+            steps.append(item(day,stage,slot,now.isoformat(),'cancelled'))
     manual = pending_manual(store)
     return {'version': version, 'topic': policy['topic'], 'paused': policy['paused'] or bool(store.workspace and store.workspace.blocked(store.scope)),
             'timezone': policy['timezone'], 'steps': sorted(steps, key=lambda s: s['due']), 'manual': manual}

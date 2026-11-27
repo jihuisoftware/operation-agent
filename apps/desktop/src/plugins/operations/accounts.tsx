@@ -1,3 +1,4 @@
+import { AccountCalendar } from './account-calendar'
 import { host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 
 import { PlatformLoginsPanel } from './platform-logins'
@@ -17,6 +18,7 @@ export function AccountsPage({ ctx }: { ctx: PluginContext }) {
           在任务运行前检查常用平台的登录情况。检查或登录只接管网页，采集和分析仍可继续；完成后在运营画面点击结束接管。
         </p>
       </header>
+      <AccountCalendar ctx={ctx} key={'calendar:'+JSON.stringify(loginOwner)} />
       <PlatformLoginsPanel ctx={ctx} key={JSON.stringify(loginOwner)} owner={loginOwner} />
     </section>
   )

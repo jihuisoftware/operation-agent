@@ -131,7 +131,7 @@ export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
       return
     }
 
-    const payload = { version: catalog.version, policy: withTopicDefaults(policy), start }
+    const payload = { version: catalog.version, policy: withTopicDefaults(policy), start, start_mode: 'daily' }
     const signature = JSON.stringify(payload)
     if (retry.current?.signature !== signature) {
       retry.current = { signature, id: crypto.randomUUID() }
@@ -154,7 +154,7 @@ export function usePlanEditor(ctx: PluginContext, owner: CronBlueprintOwner) {
       markDirty('plan', false)
       if (scope) updateTopicName(owner, scope, current.policy.topic)
       setConfirm(false)
-      setNotice(start ? '首轮已安排，可在任务与历史查看执行结果。' : '已保存，可继续补充详细设置。')
+      setNotice(start ? '每日运营已启用，可在今日任务查看进度。' : '已保存，可继续补充详细设置。')
     } catch (reason) {
       setError(String(reason))
     } finally {

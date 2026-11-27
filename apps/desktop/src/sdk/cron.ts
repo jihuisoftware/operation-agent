@@ -13,5 +13,6 @@ export interface CronBlueprintContribution {
   history?: { id: string; render: () => ReactNode }
   historyViews?: { id: string; label: string; render: () => ReactNode }[]
   renderExecution?: (props: { owner: CronBlueprintOwner; context: Record<string, unknown> }) => ReactNode
+  renderToday?: () => ReactNode
   renderUpcoming?: (props: { owner: CronBlueprintOwner }) => ReactNode
 }

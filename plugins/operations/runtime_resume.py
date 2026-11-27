@@ -70,7 +70,14 @@ def _continue(store, key, body, data):
         run = store.start_run(data['day'], stage, f"{data['slot']}:resume:{data['attempt']}", data['version'])
         if not run:
             continue
-        _execute(store, policy, data['day'], data['version'], stage, run)
+        slot = data['slot'].split(':resume:',1)[0]
+        store.daily_slot = slot if slot.startswith(('daily:', 'poll:')) else None
+        store.daily_writing = bool(store.daily_slot and stage=='content')
+        try:
+            _execute(store, policy, data['day'], data['version'], stage, run)
+        finally:
+            store.daily_slot = None
+            store.daily_writing = False
         with store.connection() as db:
             attempted.append(dict(db.execute('SELECT id,stage,state,detail FROM runs WHERE id=?', (run,)).fetchone()))
         if load(store, key)['state'] == 'paused':
@@ -102,6 +109,17 @@ def _finish_quick(store, key, result):
         db.execute("UPDATE objects SET data=? WHERE id=? AND kind='quick_run'", (encoded(quick), batch))
 
 
+def check_daily_window(store, key):
+    record = load(store,key) or {}
+    if record.get('stage')=='report' or not str(record.get('slot','')).startswith(('daily:', 'poll:')):
+        return
+    from datetime import datetime, UTC
+    from .daily_tasks import period
+    local, opened = period(store.policy()[1],datetime.now(UTC))
+    if record.get('day')!=local.date().isoformat() or not opened:
+        raise ValueError('本次每日步骤已超出当天运营时段，请查看今日任务；已有外部动作仍可核对')
+
+
 def resume(key, body, store=None):
     store = store or Store()
     previous = execution_resume.replay(store, key, body)
@@ -122,6 +140,7 @@ def resume(key, body, store=None):
     if batch:
         store.manual_run_id = batch
     try:
+        check_daily_window(store,key)
         store.run_options = _options(store, batch)
         data, repeated = execution_resume.prepare(store, key, body)
         if repeated:

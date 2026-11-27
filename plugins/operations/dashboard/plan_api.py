@@ -8,6 +8,29 @@ from .request_errors import checked
 router = APIRouter()
 
 
+@router.get('/account/publication-calendar')
+def account_calendar():
+    from ..account_calendar import account_key, settings, queue
+    store = Store()
+    _, policy = store.policy()
+    with store.connection() as db:
+        import json
+        shared = json.loads(db.execute("SELECT data FROM directory.preferences WHERE id='limits'").fetchone()[0])['publish'] if store.workspace else None
+        return {**settings(store,db,policy), 'account': account_key(store,db), 'queue':queue(store,db), 'shared_limit':shared}
+
+
+@router.put('/account/publication-calendar')
+def save_account_calendar(body: dict):
+    from ..account_calendar import configure
+    return checked(lambda: configure(Store(),body))
+
+
+@router.get('/today')
+def today_tasks():
+    from ..daily_tasks import today
+    return today(Store())
+
+
 @router.get('/upcoming')
 def upcoming_steps():
     from plugins.operations.upcoming import upcoming

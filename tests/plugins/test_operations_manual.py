@@ -123,21 +123,15 @@ def test_actual_cron_script_distinguishes_manual_from_scheduled_parent(store):
         try:
             success, output = _run_job_script(job["script"])
             assert success, output
-            assert ("手动运营" in output) == (instant is None)
-            if instant is None:
-                assert any(r["slot"] == "manual:" + execution["id"] for r in Store().snapshot()["runs"])
-                current = detail(job)
-                assert current['execution']['status'] == 'running'
-                report_step = next(s for s in current['steps'] if s['id'].startswith(store.scope['id'] + ':report:'))
-                assert report_step['state'] == 'completed'
-                report_event = next(e for e in current['events'] if e['data'].get('kind') == 'report')
-                assert report_event['data']['result']['markdown']
+            assert "手动运营" not in output
+            assert not any(r['slot'] == 'manual:' + execution['id'] for r in Store().snapshot()['runs'])
+            assert detail(job)['execution']['status'] == 'running'
         finally:
             finish_execution(execution["id"], success=True)
     execution_id = detail(job)['attempts'][-1]['id']
     historical = detail(job, execution_id)
     assert historical['execution']['id'] == execution_id
-    assert historical['context']['manual'] is True
+    assert historical['context']['manual'] is False
 
 
 def test_saved_incomplete_draft_is_not_reported_as_ready_or_published(store, monkeypatch):

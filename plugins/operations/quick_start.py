@@ -31,7 +31,7 @@ def apply(store, body):
         existing = status(store)['run']
         if existing and existing['version'] == body['version'] and policy == store.policy()[1]:
             return {'version': body['version'], 'run': existing, 'reused': True}
-        options = {'read_limit': 20, 'query_limit': 3} if body['start'] else None
+        options = {'read_limit': 20, 'query_limit': 3} if body['start'] and body.get('start_mode') != 'daily' else None
         version = store.configure(policy, body['version'], request_id=request_id, request_hash=digest,
                                   first_run=options, activation=True)
     from .readiness import refresh
@@ -88,6 +88,12 @@ def drain(store, now):
             detail = run(store, now, row['id'])
             with store.connection() as db:
                 states = [r[0] for r in db.execute('SELECT state FROM runs WHERE slot=?', ('manual:' + row['id'],))]
+            from .daily_tasks import internal_slots
+            from .policy import local_day
+            day = local_day(policy,now)
+            with store.connection() as db:
+                completed = {r[0] for r in db.execute("SELECT stage FROM runs WHERE slot=? AND day=? AND state='completed'", ('manual:'+row['id'], day))}
+            save(store, 'daily_seed','daily-seed:'+day,{'steps':{stage:slot for stage,slot in internal_slots(store,policy,day) if stage in completed and stage!='content'}})
             data.update(state='completed' if states and all(s == 'completed' for s in states) else 'partial', detail=detail)
         except Exception as exc:
             import logging

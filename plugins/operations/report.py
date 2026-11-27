@@ -6,6 +6,21 @@ from .policy import now_iso
 from .publication_status import complete, display, platform_published
 
 
+def append_daily_progress(store, day, lines):
+    from .collection_ledger import load
+    from .daily_tasks import manuscripts
+    plan = load(store, 'daily-plan:'+day)
+    if plan and not store.manual_run_id:
+        completed = len(manuscripts(store,day)[0])
+        lines.append(f"当日新稿 {completed}/{plan['goal']} 篇")
+        if completed < plan['goal']:
+            with store.connection() as db:
+                reason = db.execute("SELECT detail FROM runs WHERE day=? AND stage IN ('content','topics','organize') AND state!='completed' ORDER BY rowid DESC LIMIT 1",(day,)).fetchone()
+            lines.append(reason[0] if reason else '当日未产出足够的合格选题或稿件')
+        return {'draft_goal':plan['goal'], 'completed_drafts':completed}
+    return {}
+
+
 def daily_report(store, day, delayed=False):
     identity = f"report:{day}" + (f":manual:{store.manual_run_id}" if store.manual_run_id else "")
     attempt = getattr(store, 'resume_attempt', 0)
@@ -100,6 +115,7 @@ def daily_report(store, day, delayed=False):
     lines.append(f"- {feedback['reason']}")
     lines.extend(f"- {s['text']}；依据：{', '.join(s['metric_ids'])}。{s['caveat']}。" for s in feedback["suggestions"])
     lines.append("- 优先处理未完成任务，结合已收集来源继续验证选题；不自动扩大权限或额度。")
+    daily_numbers = append_daily_progress(store, day, lines)
     lines.extend(observation_lines(execution))
     full_markdown = "\n".join(lines) + "\n"
     details_id = 'report-detail:' + identity
@@ -114,6 +130,7 @@ def daily_report(store, day, delayed=False):
             "coverage": {"quick": quick_coverage, "read_limit": coverage.get("read_limit"),
                          "query_limit": coverage.get("query_limit"),
                          "external_actions": external_mode}}
+    data.update(daily_numbers)
     identity = store.put("report", data, identity)
     return {"id": identity, **data}
 

@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 import { type CommandCenterSection } from '@/app/command-center'
-import { appViewForPath, COMMAND_CENTER_ROUTE, isOverlayView, NEW_CHAT_ROUTE } from '@/app/routes'
+import {
+  appViewForPath,
+  COMMAND_CENTER_ROUTE,
+  isOverlayView,
+  NEW_CHAT_ROUTE,
+  ROUTES_AREA,
+  syncWorkspaceRoute
+} from '@/app/routes'
+import { useContributions } from '@/contrib/react/use-contributions'
 
 const SECTIONS = ['sessions', 'system', 'usage'] as const
 
@@ -10,7 +18,14 @@ export function useOverlayRouting() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const currentView = appViewForPath(location.pathname)
+  const routes = useContributions(ROUTES_AREA)
+  const currentView = appViewForPath(location.pathname, routes)
+
+  // A plugin can turn the current URL into a page without another navigation.
+  useLayoutEffect(() => {
+    syncWorkspaceRoute(location.pathname, currentView)
+  }, [currentView, location.pathname])
+
   const settingsOpen = currentView === 'settings'
   const commandCenterOpen = currentView === 'command-center'
   const profilesOpen = currentView === 'profiles'

@@ -94,7 +94,7 @@ def test_blueprint_preview_apply_and_drafts_follow_host_profile_scope(tmp_path, 
         publishing = next(t for t in catalog["templates"] if t["id"] == "xiaohongshu-daily")
         assert publishing["kind"] == "scenario"
         assert "publish" in publishing["modules"]
-        assert publishing["times"]["publish"] == ["10:00"]
+        assert publishing["times"]["publish"] == ["账号自动排期"]
         assert catalog["policy"]["allowed"]["publish"] is True
         assert not catalog["policy"]["enabled"]
         assert not any(catalog["policy"]["modules"].values())

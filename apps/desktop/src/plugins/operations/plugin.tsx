@@ -1,3 +1,4 @@
+import { TodayTasks } from './today-tasks'
 import {
   CRON_BLUEPRINTS_AREA,
   type CronBlueprintContribution,
@@ -151,6 +152,7 @@ export default {
         historyViews: [{ id: 'operations.unverified', label: '结果待核对', render: () => <WorkspacePage ctx={ctx}>{scoped => <AttentionPage ctx={scoped} kind="unverified" />}</WorkspacePage> },
           { id: 'operations.ledger', label: '运营台账与临时任务', render: () => <WorkspacePage ctx={ctx}>{scoped => <TopicHistory ctx={scoped} />}</WorkspacePage> }],
         renderExecution: props => <ExecutionPlanLink {...props} />,
+        renderToday: () => <WorkspacePage ctx={ctx}>{scoped => <TodayTasks ctx={scoped} />}</WorkspacePage>,
         renderUpcoming: ({ owner }) => <WorkspacePage ctx={ctx} owner={owner}>{scoped => <><TopicPlanLink /><UpcomingOperations ctx={scoped} key={JSON.stringify(owner)} owner={owner} /></>}</WorkspacePage>
       } satisfies CronBlueprintContribution
     })

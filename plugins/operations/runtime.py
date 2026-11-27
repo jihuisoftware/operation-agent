@@ -89,6 +89,11 @@ def _tick(store, now, *, one_stage=False):
     from .readiness import refresh
     readiness = refresh(store, now)
     day = local_day(policy, now)
+    from .daily_tasks import remember_day
+    remember_day(store,day,policy)
+    from .collection_ledger import load
+    intent = load(store,'daily-continue:'+day) or {}
+    store.daily_continue = intent.get('request') if intent.get('version')==version else None
     if not policy["paused"] and store.online():
         from .recovery import reconcile_pending
         reconcile_pending(store, policy, day)
@@ -97,21 +102,19 @@ def _tick(store, now, *, one_stage=False):
     from .publication_plan import publish_due
     if publish_due(store, now) and one_stage:
         return '本轮已处理审核排期'
-    from .workspace_upcoming import queue_due
-    for stage, due in queue_due(store, policy, now).items():
-        if not readiness[stage]["ready"]:
-            continue
-        if stage in EXTERNAL and not store.online():
-            continue
-        scheduled_day, slot = due.date().isoformat(), due.strftime('%H:%M')
-        if stage == 'report' and scheduled_day < day and store.objects('report', scheduled_day):
+    from .daily_tasks import available
+    for scheduled_day, stage, slot in available(store, policy, now):
+        if not readiness[stage]['ready'] or (stage in EXTERNAL and not store.online()):
             continue
         identity = store.start_run(scheduled_day, stage, slot, version)
         if identity:
-            # Quotas and new work belong to the actual execution day; a delayed
-            # report alone summarizes its original day. The claim retains the due day.
-            work_day = scheduled_day if stage == 'report' else day
-            _execute(store, policy, work_day, version, stage, identity, delayed=scheduled_day < day)
+            store.daily_slot = slot
+            store.daily_writing = stage == 'content'
+            try:
+                _execute(store, policy, scheduled_day, version, stage, identity, delayed=scheduled_day < day)
+            finally:
+                store.daily_writing = False
+                store.daily_slot = None
             if one_stage:
                 break
     from .publication_waiting import pending_detail
@@ -142,6 +145,9 @@ def _execute(store, policy, day, version, stage, identity, *, delayed=False):
         handlers = {"research": workflow.research, "organize": workflow.organize, "analytics": workflow.analytics, "industry": workflow.industry, "topics": workflow.topics, "content": workflow.produce, "publish": workflow.publish,
                     "comments": partial(workflow.interact, kinds=("comment", "reply")),
                     "dm": partial(workflow.interact, kinds=("dm",)), "follow": partial(workflow.interact, kinds=("follow",))}
+        if stage == 'comments' and getattr(store, 'daily_slot', None):
+            kinds = ('comment',) if store.daily_slot == 'daily:outreach' else ('reply',)
+            handlers[stage] = partial(workflow.interact, kinds=kinds)
         from .resume_actions import continue_actions
         continued = continue_actions(store, stage, policy, day, version)
         if continued is not None:

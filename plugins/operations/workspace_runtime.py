@@ -8,20 +8,8 @@ def dispatch(now=None):
     from .workspaces import Workspaces, bind_scope
     from .runtime import tick
     directory = Workspaces()
-    now = now or datetime.now(UTC)
     catalog = directory.catalog()
-    from .manual import cron_request_id
     topics = [t for t in catalog['topics'] if not t['archived']]
-    first = directory.store(topics[0]['business_id'], topics[0]['id']) if topics else None
-    fire = cron_request_id(first) if first else None
-    if fire:
-        with directory.connection() as db:
-            pending = db.execute("SELECT 1 FROM requests WHERE state IN ('pending','running')").fetchone()
-        if not pending:
-            for topic in topics:
-                store = directory.store(topic['business_id'], topic['id'])
-                if store.policy()[1]['enabled']:
-                    request_run(store, fire)
     with directory.connection() as db:
         row = db.execute("SELECT data FROM preferences WHERE id='cursor'").fetchone()
         cursor = int(row[0]) if row else 0
@@ -40,7 +28,7 @@ def dispatch(now=None):
                 if request:
                     db.execute("UPDATE requests SET state='running' WHERE id=? AND topic_id=?", (request['id'], topic['id']))
             try:
-                detail = tick(store, now, request_id=request['id'] if request else None, scheduled=True)
+                detail = tick(store, now or datetime.now(UTC), request_id=request['id'] if request else None, scheduled=True)
                 state = 'pending' if detail in {'已有运营任务执行中', '手动批次执行中'} else 'completed'
             except Exception as exc:
                 logging.getLogger(__name__).exception('Topic dispatcher failed: %s', topic['id'])

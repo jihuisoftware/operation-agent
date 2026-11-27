@@ -98,7 +98,7 @@ it('starts from one page without account prerequisites and double click shares t
   expect(screen.getByText(/上传获授权图片/)).toBeTruthy()
   fireEvent.click(start)
   fireEvent.click(start)
-  await screen.findByText(/首轮已安排/)
+  await screen.findByText(/每日运营已启用/)
   const calls = rest.mock.calls.filter(([path, options]) => path === '/quick-start' && options?.method === 'POST')
   expect(calls).toHaveLength(1)
   const request = calls[0][1]

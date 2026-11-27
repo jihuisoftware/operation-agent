@@ -97,7 +97,7 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
         assert len(store.objects("content")) == 1
         assert len(store.objects("report")) == 2
     else:
-        for hour, minute in ((1, 5), (1, 45), (2, 5), (3, 5), (13, 5)):
+        for hour, minute in ((1, 5), (1, 45), (2, 5), (3, 5), (13, 5), (14, 5)):
             store.claim("simulated-desktop", busy=True)
             tick(store, datetime(2026, 10, 31, hour, minute, tzinfo=UTC))
             tick(store, datetime(2026, 10, 31, hour, minute + 1, tzinfo=UTC))

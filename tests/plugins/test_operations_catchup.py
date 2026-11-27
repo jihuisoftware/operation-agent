@@ -30,29 +30,31 @@ def test_only_latest_due_is_visible_claimed_and_recorded(store, monkeypatch, can
     monkeypatch.setattr(workflow, 'research', lambda *args: calls.append(args[2]) or '资料已保存')
     view = upcoming(store, now)
     overdue = [s for s in view['steps'] if s['stage'] == 'research' and s['day'] <= '2026-11-01']
-    assert [s['slot'] for s in overdue] == ['15:00']
+    assert len(overdue) == 1
+    slot = overdue[0]['slot']
     steps = planned_steps(store, store.policy()[1], now, None)
-    assert [s['id'] for s in steps if s['id'].startswith('research:')] == ['research:15:00']
+    assert [s['id'] for s in steps if s['id'].startswith('research:')] == ['research:'+slot]
     if cancel_latest:
         cancel(store, {**overdue[0], 'version': view['version']}, now)
     tick(store, now)
     tick(Store(store.path), now)
     assert calls == ([] if cancel_latest else ['2026-11-01'])
     rows = [r for r in store.snapshot()['runs'] if r['stage'] == 'research']
-    assert [(r['day'], r['slot']) for r in rows] == [('2026-11-01', '15:00')]
+    assert [(r['day'], r['slot']) for r in rows] == [('2026-11-01', slot)]
     assert rows[0]['state'] == ('cancelled' if cancel_latest else 'completed')
     assert not any(r['state'] == 'missed' for r in store.snapshot()['runs'])
 
 
 def test_long_outage_only_recovers_latest_day_and_uses_actual_day_for_work(store, monkeypatch):
     now = datetime(2026, 11, 1, 0, tzinfo=UTC)  # Before today's first slot
+    from plugins.operations.daily_tasks import remember_day
+    remember_day(store,'2026-10-31',store.policy()[1])
     calls = []
     monkeypatch.setattr(workflow, 'research', lambda *args: calls.append(args[2]) or '资料已保存')
     tick(store, now)
     tick(Store(store.path), now)
     assert calls == ['2026-11-01']
-    assert {(r['day'], r['stage'], r['slot']) for r in store.snapshot()['runs']} == {
-        ('2026-10-31', 'research', '15:00'), ('2026-10-31', 'report', '21:00')}
+    assert {(r['day'], r['stage']) for r in store.snapshot()['runs']} == {('2026-11-01', 'research'), ('2026-10-31', 'report')}
     reports = store.objects('report')
     assert [r['day'] for r in reports] == ['2026-10-31']
     assert '延迟补生成：是' in reports[0]['markdown']
@@ -74,5 +76,5 @@ def test_offline_slot_is_superseded_without_history_when_desktop_returns(store, 
     store.claim('simulated-desktop', busy=True)
     tick(store, datetime(2026, 11, 1, 12, tzinfo=UTC))  # 20:00, 19:00 supersedes 15:00
     tick(store, datetime(2026, 11, 1, 12, 1, tzinfo=UTC))
-    assert calls == ['2026-11-01']
-    assert [(r['stage'], r['slot']) for r in store.snapshot()['runs']] == [('comments', '19:00')]
+    assert calls == ['2026-11-01'] * 2
+    assert {r['slot'] for r in store.snapshot()['runs']} == {'poll:20:00','daily:outreach'}

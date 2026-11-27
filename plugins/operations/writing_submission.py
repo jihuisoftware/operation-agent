@@ -130,6 +130,8 @@ def submit(store, identity, body):
         else:
             content_id = uuid.uuid4().hex
             db.execute("INSERT INTO objects VALUES (?,'content',?,?)", (content_id, encoded(content), now_iso()))
+            from .daily_tasks import record_draft
+            record_draft(store, db, {**content,'id':content_id})
         result = {'id': identity, 'revision': current['revision'], 'content_id': content_id, 'signature': signature,
                   'content_revision': fingerprint(content), 'revision_root_id': content.get('revision_root_id') or content_id,
                   'updated_in_place': updated, 'detail': '已保存到原内容；请重新审核后安排发布' if updated else '已创建待审核内容；尚未授权发布', 'at': now_iso()}

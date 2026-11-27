@@ -68,8 +68,7 @@ function OwnedEditor({ ctx, owner }: Props) {
           {preview?.blocking?.length ? <p role="alert">{preview.blocking.join('；')}</p> : null}
           <PlanSave {...editor} first={first} />
           <p className="text-xs text-muted-foreground">
-            快速首轮最多读取 20 条、检索 3 个查询；每日上限仍为 {policy.limits.source.toLocaleString()}{' '}
-            条。缺少运行条件不会阻止保存。
+            启用后在运营时段内自动推进，当前主题每日采集上限为 {policy.limits.source.toLocaleString()} 次。
           </p>
         </>
       )}
@@ -97,7 +96,7 @@ function PlanControls({ editor }: { editor: ReturnType<typeof usePlanEditor> }) 
         {paused ? '启用／恢复本主题' : '暂停本主题'}
       </Button>
       <Button disabled={busy || paused} onClick={() => void control('run')} variant="outline">
-        立即执行
+        继续今日任务
       </Button>
     </div>
   )

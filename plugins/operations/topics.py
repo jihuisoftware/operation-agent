@@ -126,6 +126,12 @@ def production_topic(store, policy, day):
     context = brief.get('result', {}).get('analysis_context') if brief else None
     if context and not (data["selected"] and data["selected"].get("origin") == "manual") and not valid(store, context, policy, day):
         raise StageSkipped('选题依据的分析权限或范围已变更，请重新生成选题或手动指定题目')
+    if getattr(store, 'daily_writing', False):
+        from .daily_tasks import choose_topic
+        chosen = choose_topic(store, policy, day)
+        if chosen or not policy['modules']['topics']:
+            return chosen
+        raise StageSkipped('等待新选题或来源资料')
     if data["selected"]:
         return data["selected"]
     if data["candidates"]:

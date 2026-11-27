@@ -15,7 +15,7 @@ vi.mock('@hermes/plugin-sdk', async importOriginal => {
 afterEach(cleanup)
 
 it('shows account status independently and rebinds requests when the Profile changes', async () => {
-  const rest = vi.fn(async (_path: string) => ({ worker_online: false, platforms: [] }))
+  const rest = vi.fn(async (path: string) => path.endsWith('publication-calendar') ? { slots: ['10:00'], timezone:'Asia/Shanghai', limit:1, revision:0 } : { worker_online: false, platforms: [] })
   render(<AccountsPage ctx={{ rest } as unknown as PluginContext} />)
   expect(screen.getByRole('heading', { name: '账号登录' })).toBeTruthy()
   await waitFor(() =>
@@ -31,5 +31,5 @@ it('shows account status independently and rebinds requests when the Profile cha
       owner: { connectionId: 'remote', profile: 'two' }
     })
   )
-  expect(rest.mock.calls.every(([path]) => path === '/platforms')).toBe(true)
+  expect(rest.mock.calls.every(([path]) => ['/platforms','/account/publication-calendar'].includes(path))).toBe(true)
 })

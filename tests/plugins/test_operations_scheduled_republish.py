@@ -31,17 +31,17 @@ def test_identical_new_version_can_run_after_old_attempt_and_retry_were_cancelle
         old_row = dict(db.execute('SELECT * FROM actions WHERE id=?', (old,)).fetchone())
     child = create(store, original['id'], {'request_id': 'new-copy', 'version': 1, 'content_revision': content_release.fingerprint(original)})
     new_content = content_release.manuscript(store, child['id'])
-    new_due = datetime.now(UTC) + timedelta(minutes=5)
     with store.connection() as db:
         release_revision = content_release.load(db, original['id'])['revision']
-    content_release.review(store, new_content['id'], {'version': 1, 'content_revision': content_release.fingerprint(new_content),
-        'expected_revision': release_revision, 'publish_at': new_due.isoformat()})
-    store.execution_now = new_due + timedelta(seconds=1)
+    scheduled = content_release.review(store, new_content['id'], {'version': 1, 'content_revision': content_release.fingerprint(new_content),
+        'expected_revision': release_revision})
+    store.execution_now = datetime.fromisoformat(scheduled['publish_at']) + timedelta(seconds=1)
     seen = support.desktop(store, monkeypatch)
     assert publication_plan.publish_due(store, store.execution_now)
     assert len(seen) == 1 and seen[0]['payload']['content']['id'] == child['id']
     with store.connection() as db:
         assert dict(db.execute('SELECT * FROM actions WHERE id=?', (old,)).fetchone()) == old_row
         assert content_release.load(db, child['id'])['state'] == 'published'
-        assert db.execute("SELECT sum(amount) FROM directory.charges WHERE kind='publish'").fetchone()[0] == 1
+        # Each distinct publication day has its own quota reservation.
+        assert all(r[0] == 1 for r in db.execute("SELECT sum(amount) FROM directory.charges WHERE kind='publish' GROUP BY day"))
     assert publication_plan.publish_due(store, store.execution_now) is False

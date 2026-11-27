@@ -43,9 +43,9 @@ def manuscript(tmp_path, monkeypatch):
 
 
 def approve(store, draft):
-    due = datetime.now(UTC) + timedelta(minutes=5)
-    body = {'version': 1, 'content_revision': content_release.fingerprint(draft), 'expected_revision': 0, 'publish_at': due.isoformat()}
-    return due, body, content_release.review(store, draft['id'], body)
+    body = {'version': 1, 'content_revision': content_release.fingerprint(draft), 'expected_revision': 0}
+    release = content_release.review(store, draft['id'], body)
+    return datetime.fromisoformat(release['publish_at']), body, release
 
 
 def desktop(store, monkeypatch, *, state='published'):
@@ -131,8 +131,7 @@ def test_review_http_requires_authentication_and_owning_topic(manuscript, monkey
     store, _, _, draft = manuscript
     monkeypatch.setattr(runtime, 'ensure_schedule', lambda *_: 'schedule')
     scope = {'business_id': store.scope['business_id'], 'topic_id': store.scope['id']}
-    body = {'version': 1, 'content_revision': content_release.fingerprint(draft), 'expected_revision': 0,
-            'publish_at': (datetime.now(UTC) + timedelta(hours=1)).isoformat()}
+    body = {'version': 1, 'content_revision': content_release.fingerprint(draft), 'expected_revision': 0}
     with TestClient(web_server.app) as client:
         path = f"/api/plugins/operations/content/{draft['id']}/approve"
         assert client.post(path, params=scope, json=body).status_code in (401, 403)

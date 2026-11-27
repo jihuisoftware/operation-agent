@@ -52,15 +52,15 @@ def test_scenario_choice_can_be_customized_without_scheduling_on_catalog_read(st
     policy = deepcopy(catalog["policy"])
     policy.update(scenario["defaults"], topic="城市步行", goal="跟进无障碍路线的新信息")
     policy["modules"] = {key: key in scenario["modules"] for key in policy["modules"]}
-    policy["times"]["research"] = ["08:30"]
-    policy["times"]["report"] = ["20:30"]
+    policy["work_start"] = "08:30"
+    policy["work_end"] = "20:30"
     policy["limits"]["source"] = 2
     body = {"version": catalog["version"], "policy": policy, "request_id": "scenario", "mode": "enable"}
     preview = blueprints.preview(store, body)
     assert preview["missing"] == {}
     schedule = {r["module"]: r["time"] for r in preview["timeline"]}
-    assert schedule["research"] == "08:30" and schedule["report"] == "20:30"
-    assert schedule["organize"] < schedule["analytics"] < schedule["industry"] < schedule["topics"]
+    assert schedule["research"] == "08:30–20:30" and schedule["report"] == "20:30"
+    assert schedule["organize"] == schedule["analytics"] == schedule["industry"] == schedule["topics"]
     blueprints.apply(store, body)
     blueprints.apply(store, body)
     saved = store.policy()[1]

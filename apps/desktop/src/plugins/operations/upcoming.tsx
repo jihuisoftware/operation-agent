@@ -87,7 +87,7 @@ export function UpcomingOperations({ ctx, owner }: { ctx: PluginContext; owner: 
     <section aria-label="运营待执行步骤" className="space-y-4">
       <h2 className="font-medium">每日运营 · {data?.topic || '当前运营计划'}</h2>
       <p className="text-xs text-muted-foreground">
-        显示今天剩余时段、明天的排期，以及当前手动批次尚未开始的步骤。取消记录保存在数据库中。
+        显示当前运营窗口可执行的步骤，以及手动批次尚未开始的步骤。取消记录保存在数据库中。
       </p>
       {(error || actionError) && (
         <p className="select-text text-destructive" role="alert">

@@ -291,6 +291,9 @@ class Store:
             if action['kind'] == 'publish':
                 from .publication_attempts import quota
                 count, reused = quota(db, action, day, identity)
+                from .account_calendar import enforce_limit
+                if not reused:
+                    enforce_limit(self, db, policy)
             if count >= policy["limits"][action["kind"]] and not (reused and 0 < count <= policy["limits"][action["kind"]]):
                 raise ValueError("达到每日动作额度")
             from .publication_snapshot import capture
@@ -463,6 +466,8 @@ class Store:
                     action = db.execute('SELECT * FROM actions WHERE id=?', (row['action_id'],)).fetchone()
                     version = db.execute('SELECT version FROM settings WHERE id=1').fetchone()[0]
                     queue(db, action, version)
+            from .daily_receipts import record
+            record(db,row)
             from .workspace_execution import sync_actions
             sync_actions(self, db)
 

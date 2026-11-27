@@ -13,7 +13,7 @@ const fields: Record<string, string> = {
   publish_method: '发布方式',
   allowed: '动作开关',
   limits: '每日额度',
-  times: '执行时间',
+  work_start: '运营开始时间', work_end: '运营结束时间', draft_goal: '每日新稿目标', inbox_interval: '收件间隔',
   timezone: '时区',
   sources: '网页来源',
   rss_sources: 'RSS',
@@ -58,7 +58,7 @@ export function PlanSave({ canSaveSettings, confirm, preview, busy, notice, firs
       )}
       <div className="flex flex-wrap gap-2">
         <Button disabled={disabled || Boolean(notice)} onClick={() => void save(true)}>
-          {busy ? '正在保存…' : first ? '开始运营' : '保存并运行快速首轮'}
+          {busy ? '正在保存…' : first ? '开始运营' : '保存并启用每日运营'}
         </Button>
         <Button disabled={disabled || !canSaveSettings} onClick={() => void save(false)} variant="outline">
           {first ? '保存，稍后开始' : '保存设置'}

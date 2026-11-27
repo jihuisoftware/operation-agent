@@ -284,7 +284,7 @@ function RecentRuns({ data }: { data: OverviewData }) {
 
 function Schedule({ data }: { data: OverviewData }) {
   return (
-    <Region icon="calendar" title="后续计划时段" to="/cron?tab=upcoming">
+    <Region icon="calendar" title="每日运营安排" to="/cron?tab=today">
       {!data.schedule.length && <Empty icon="calendar">暂无启用中的排期</Empty>}
       <ol className="space-y-3">
         {data.schedule.slice(0, 3).map((item, index) => (
@@ -295,7 +295,7 @@ function Schedule({ data }: { data: OverviewData }) {
             <div>
               <p>{item.label}</p>
               <p className="text-xs text-muted-foreground">
-                <Time value={item.next_at} />
+                {item.time}
               </p>
             </div>
           </li>

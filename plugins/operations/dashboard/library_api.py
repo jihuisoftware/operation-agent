@@ -68,6 +68,10 @@ def library(section: str, before: int = 0, filter: str = '', record: str = '', c
         elif table == 'objects':
             kind = 'asset' if section == 'assets' else 'report'
             data[kind] = [{**json.loads(r['data']), 'id': r['id'], 'created': r['created']} for r in rows]
+            if kind=='report':
+                from ..daily_receipts import markdown
+                for report in data[kind]:
+                    report['markdown'] = markdown(db, report, report['markdown'])
         else:
             data['runs'] = [dict(r) for r in rows]
             data['task'] = objects(db, 'task')
@@ -86,4 +90,5 @@ def report_details(identity: str):
             raise HTTPException(404, '日报不存在')
         record = json.loads(row['data'])
         details = db.execute("SELECT data FROM objects WHERE kind='report_detail' AND id=?", (record.get('details_id', ''),)).fetchone()
-    return {'id': identity, 'markdown': json.loads(details['data'])['markdown'] if details else record['markdown']}
+        from ..daily_receipts import markdown
+        return {'id': identity, 'markdown': markdown(db,record,json.loads(details['data'])['markdown'] if details else record['markdown'])}

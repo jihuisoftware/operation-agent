@@ -16,6 +16,8 @@ def pending(store, day, signature):
         protected = {row[0] for row in db.execute("SELECT json_extract(data,'$.content_id') FROM objects WHERE kind='content_release' AND json_extract(data,'$.state')!='cancelled'")}
         protected.update(row[0] for row in db.execute("SELECT json_extract(data,'$.content.id') FROM actions WHERE kind='publish'"))
     candidates = [row for row in store.objects('content', day) if row.get('production_input') == signature and row['id'] not in protected]
+    if getattr(store,'daily_writing',False):
+        candidates = [row for row in candidates if not row.get('debug_id') and row.get('draft_mode')!='new_variant']
     return max(candidates, key=lambda row: (row.get('created', ''), row.get('revision_index', 0)), default=None)
 
 
@@ -71,6 +73,8 @@ def save_review(store, version, draft, quality):
         stored = json.loads(db.execute("SELECT data FROM objects WHERE kind='content' AND id=?", (draft['id'],)).fetchone()[0])
         updated = {**stored, **updated}
         db.execute("UPDATE objects SET data=? WHERE kind='content' AND id=?", (encoded(updated), draft['id']))
+        from .daily_tasks import record_draft
+        record_draft(store, db, updated)
     store.event('content_review_completed', {'content_id': draft['id'], 'ready': ready, 'state': 'completed' if ready else 'needs_attention',
                                            'reason': quality.get('reason'), 'issues': quality.get('issues', [])})
     return updated

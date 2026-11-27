@@ -15,6 +15,10 @@ export interface Policy {
   style: string
   brand: string
   account_id: string
+  work_start?: string
+  work_end?: string
+  draft_goal?: number
+  inbox_interval?: number
   timezone: string
   sources: string[]
   rss_sources: string[]

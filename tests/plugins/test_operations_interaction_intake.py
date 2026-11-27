@@ -121,23 +121,15 @@ def test_scheduled_tick_reads_both_sources_then_dispatches_only_one_stage(engage
     monkeypatch.setattr(store, "online", lambda: True)
     monkeypatch.setattr(readiness, "refresh", lambda *args: {s: {"ready": True} for s in policy["modules"]})
     runtime.tick(store, now, scheduled=True)
-    assert calls == [
-        ("inbox", "reply"),
-        ("inbox", "dm"),
-        ("inbox", "comment"),
-        ("model", "comment"),
-        ("interact", "comment"),
-        ("model", "reply"),
-        ("interact", "reply"),
-    ]
+    assert calls == [('inbox','reply'), ('inbox','dm'), ('model','reply'), ('interact','reply')]
     runtime.tick(store, now, scheduled=True)
-    assert calls[-2:] == [("model", "dm"), ("interact", "dm")]
-    assert calls.count(("inbox", "dm")) == 1
+    runtime.tick(store, now, scheduled=True)
+    assert calls.count(('inbox','dm')) == 1
+    assert calls.count(('interact','dm')) == calls.count(('interact','comment')) == 1
     with store.connection() as db:
-        assert [tuple(r) for r in db.execute("SELECT stage,slot,state FROM runs ORDER BY rowid")] == [
-            ("comments", "15:00", "completed"),
-            ("dm", "15:00", "completed"),
-        ]
+        assert {tuple(r) for r in db.execute('SELECT stage,slot,state FROM runs')} == {
+            ('comments','poll:15:00','completed'), ('dm','poll:15:00','completed'), ('comments','daily:outreach','completed')
+        }
 
 
 @pytest.mark.parametrize(

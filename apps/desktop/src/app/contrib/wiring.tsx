@@ -125,8 +125,7 @@ import {
   navigateToWorkspacePage,
   routeSessionId,
   sessionRoute,
-  SETTINGS_ROUTE,
-  syncWorkspaceRoute
+  SETTINGS_ROUTE
 } from '../routes'
 import { SessionPickerOverlay } from '../session-picker-overlay'
 import { SessionSwitcher } from '../session-switcher'
@@ -343,14 +342,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   const clearRoutedSessionIntent = useCallback(() => {
     routedSessionIdRef.current = null
   }, [])
-
-  // Point the workspace at the route: the pane contribution re-registers
-  // headerVeto from $workspaceIsPage (so the main zone's tab bar stands down
-  // on pages), and a page route fronts the pane so it can't stay stuck behind
-  // a focused session tile.
-  useEffect(() => {
-    syncWorkspaceRoute(location.pathname)
-  }, [location.pathname])
 
   const {
     chatOpen,

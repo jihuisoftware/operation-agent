@@ -5,14 +5,16 @@
  * `WorkspacePageHeaderControl` lands in that header — and renders inline
  * wherever the host context is absent.
  */
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { type ReactNode, useEffect } from 'react'
+import { Link, MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { TreeGroup } from '@/components/pane-shell/tree/renderer/tree-group'
 import { stubResizeObserver } from '@/test/jsdom'
 
-import { $workspaceIsPage, WORKSPACE_PAGE_HEADER_AREA } from '../routes'
+import { $workspaceIsPage, ROUTES_AREA, WORKSPACE_PAGE_HEADER_AREA } from '../routes'
+import { useOverlayRouting } from '../shell/hooks/use-overlay-routing'
 
 import { ContribWiringContext, WiredPane } from './context'
 import type { WiringApi } from './types'
@@ -50,6 +52,41 @@ afterEach(() => {
 })
 
 describe('workspace page header host', () => {
+  it('drops the chat tab when the page at the current URL registers after startup', () => {
+    vi.stubGlobal('CSS', { escape: (value: string) => value })
+    stubResizeObserver()
+
+    function Shell() {
+      useOverlayRouting()
+      return workspaceZone(<Link to="/">返回聊天</Link>)
+    }
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/late-overview']}>
+        <Shell />
+      </MemoryRouter>
+    )
+    const tabStrip = () => container.querySelector('[data-zone-tabstrip]')
+    expect(tabStrip()).not.toBeNull()
+
+    let dispose!: () => void
+    act(() => {
+      dispose = registry.register({
+        area: ROUTES_AREA,
+        id: 'test:late-overview',
+        data: { path: '/late-overview' },
+        render: () => null
+      })
+    })
+    try {
+      expect(tabStrip()).toBeNull()
+      fireEvent.click(screen.getByRole('link', { name: '返回聊天' }))
+      expect(tabStrip()).not.toBeNull()
+    } finally {
+      act(() => dispose())
+    }
+  })
+
   it('projects a hosted control into the painted page header, not the pane body', () => {
     vi.stubGlobal('CSS', { escape: (value: string) => value })
     stubResizeObserver()

@@ -1,5 +1,5 @@
 """Human review binds one immutable manuscript and one scheduled publication."""
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, UTC
 import hashlib
 import json
 
@@ -54,18 +54,14 @@ def account(store, policy):
 
 
 def review(store, identity, body, *, automatic=None):
+    if 'publish_at' in body:
+        raise ValueError('稿件改为按账号自动排期，请刷新后重新审核')
     if type(body.get('expected_revision')) is not int or body['expected_revision'] < 0:
         raise ValueError('审核版本无效，请刷新')
     content = manuscript(store, identity)
     version, policy = store.policy()
     if body.get('version') != version or body.get('content_revision') != fingerprint(content):
         raise ValueError('规则或稿件已变化，请刷新后重新审核')
-    stamp = datetime.fromisoformat(body['publish_at'])
-    now = datetime.now(UTC)
-    if stamp.tzinfo is None or not now < stamp <= now + timedelta(days=366):
-        raise ValueError('请选择未来一年内的发布时间')
-    if not policy['enabled'] or policy['paused'] or not policy['modules']['publish']:
-        raise ValueError('请先启用运营计划和图文发布模块')
     source_signatures = validate(store, content)
     who, scope = account(store, policy)
     with store.connection() as db:
@@ -86,18 +82,23 @@ def review(store, identity, body, *, automatic=None):
         guard(db, action)
         from .publication_shared import history
         history(store, db, action)
+        now = getattr(store, 'execution_now', None) or datetime.now(UTC)
         value = {'content_id': identity, 'content_revision': fingerprint(content), 'revision': body['expected_revision'] + 1,
                  'version': version, 'account_id': who, 'account_scope': scope, 'state': 'scheduled',
-                 'publish_at': stamp.astimezone(UTC).isoformat(), 'reviewed_at': now_iso(), 'reviewer': 'human'}
+                 'publish_at': None, 'reviewed_at': now.isoformat(), 'reviewer': 'human'}
         if automatic is not None:
             from .automatic_review import authorize_decision
             authorize_decision(db, current, automatic)
             if (automatic.get('account_id'), automatic.get('account_scope')) != (who, scope):
                 raise ValueError('账号已变化，自动审核已失效')
-            occupied = db.execute("SELECT 1 FROM objects WHERE kind='content_release' AND json_extract(data,'$.state')='scheduled' AND json_extract(data,'$.publish_at')=? AND id!=?", (stamp.astimezone(UTC).isoformat(), 'content-release:' + identity)).fetchone()
-            if occupied:
-                raise ValueError('该发布时段已被占用，等待下一次排期')
             value.update(reviewer='automatic', automatic_review=automatic)
+        from .account_calendar import assign, approval_policy
+        value.update(approval_policy=approval_policy(policy), reviewed_version=version)
+        if store.workspace:
+            from .account_calendar import account_key
+            if scope != account_key(store,db):
+                raise ValueError('关联账号已变化，请重新审核')
+        assign(store, db, policy, now, value)
         value['source_signatures'] = source_signatures
         if not sources_unchanged(db, value, policy):
             raise ValueError('审核期间来源已变化，请刷新后重新核对')

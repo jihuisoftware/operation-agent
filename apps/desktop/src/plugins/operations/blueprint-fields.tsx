@@ -2,7 +2,7 @@ import { Checkbox, Input, Textarea } from '@hermes/plugin-sdk'
 
 import { AccountSelection } from './account-selection'
 import { actionLabels, actionModules, moduleLabels } from './blueprint-types'
-import { ChoiceField, choices, KeywordChoices, TimeSlots } from './configuration-choices'
+import { ChoiceField, choices, KeywordChoices } from './configuration-choices'
 import { audienceChoices, priorityChoices, styleChoices, timezoneChoices } from './configuration-presets'
 import { ModelBudgetFields } from './model-budget-fields'
 import { SourceLimitField } from './source-limit-field'
@@ -94,16 +94,7 @@ export function ScheduleFields({
           <p className="text-xs text-muted-foreground">
             执行时间使用：{timezoneChoices.find(choice => choice.value === policy.timezone)?.label || policy.timezone}
           </p>
-          {Object.entries(moduleLabels)
-            .filter(([m]) => policy.modules[m])
-            .map(([m, label]) => (
-              <TimeSlots
-                key={m}
-                label={label}
-                onChange={times => update('times', { ...policy.times, [m]: times })}
-                values={policy.times[m] || []}
-              />
-            ))}
+          <DailyWindowFields policy={policy} onChange={onChange} />
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2">
               截止日期（可选）
@@ -196,4 +187,14 @@ export function ScheduleFields({
       )}
     </div>
   )
+}
+
+function DailyWindowFields({ policy, onChange }: PolicyFieldsProps) {
+  const update = (key: keyof Policy, value: number | string) => onChange({...policy,[key]:value})
+  return <div className="grid gap-3 sm:grid-cols-2">
+            <label>运营开始时间<Input type="time" value={policy.work_start ?? '08:00'} onChange={e => update('work_start', e.target.value)} /></label>
+            <label>运营结束时间<Input type="time" value={policy.work_end ?? '22:00'} onChange={e => update('work_end', e.target.value)} /></label>
+            <label>每日新稿目标（篇）<Input type="number" min={1} max={100} value={policy.draft_goal ?? 1} onChange={e => update('draft_goal', Number(e.target.value))} /></label>
+            <label>收件间隔（分钟）<Input type="number" min={1} max={1440} value={policy.inbox_interval ?? 30} onChange={e => update('inbox_interval', Number(e.target.value))} /></label>
+          </div>
 }

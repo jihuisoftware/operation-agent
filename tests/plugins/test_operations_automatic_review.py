@@ -86,11 +86,10 @@ def test_policy_change_revokes_automatic_not_human_and_keeps_legacy_authorizatio
     with store.connection() as db:
         assert content_release.load(db,draft['id'])['state']=='cancelled'
         assert not content_release.authorization(store,db,action,1,policy)
-    due=datetime.now(UTC)+timedelta(minutes=10)
     human=content_release.review(store,draft['id'],{'expected_revision':release['revision']+1,'version':1,
-      'content_revision':content_release.fingerprint(draft),'publish_at':due.isoformat()})
+      'content_revision':content_release.fingerprint(draft)})
     configure(store,'score',90)
-    action.pop('release_revision');action['human_review']=human['revision'];store.execution_now=due+timedelta(seconds=1)
+    action.pop('release_revision');action['human_review']=human['revision'];store.execution_now=datetime.fromisoformat(human['publish_at'])+timedelta(seconds=1)
     with store.connection() as db:
         assert content_release.authorization(store,db,action,1,policy)
 
@@ -146,19 +145,33 @@ def test_manual_intervention_wins_over_late_model_result(manuscript, monkeypatch
         assert content_release.load(db,draft['id']) is None
 
 
+def calendar_slot(store,policy,now):
+    from plugins.operations import account_calendar
+    with store.connection() as db:
+        return account_calendar.allocation(store,db,policy,now,{'content_id':'new','reviewed_at':now.isoformat()})[0]
+
+
+def calendar_settings(store,slots,zone):
+    from plugins.operations import account_calendar
+    with store.connection() as db:
+        current=account_calendar.settings(store,db,store.policy()[1])
+        account=account_calendar.account_key(store,db)
+    account_calendar.configure(store,{**current,'account':account,'timezone':zone,'slots':slots})
+
+
 def test_next_slot_respects_timezone_existing_booking_and_capacity(manuscript):
     store, policy, _, draft = manuscript
     policy = deepcopy(policy)
     policy['timezone']='Asia/Shanghai'
-    policy['times']['publish']=['09:00','18:00']
+    calendar_settings(store,['09:00','18:00'],'Asia/Shanghai')
     now=datetime(2026,1,1,0,30,tzinfo=UTC)
-    assert automatic_schedule.next_slot(store,policy,now)=='2026-01-01T01:00:00+00:00'
+    assert calendar_slot(store,policy,now)=='2026-01-01T01:00:00+00:00'
     with store.connection() as db:
         booked={'content_id':draft['id'],'state':'scheduled','publish_at':'2026-01-01T01:00:00+00:00'}
         db.execute("INSERT INTO objects VALUES (?,'content_release',?,?)",('content-release:'+draft['id'],encoded(booked),now.isoformat()))
-    assert automatic_schedule.next_slot(store,policy,now)=='2026-01-02T01:00:00+00:00'
-    policy['times']['publish']=[]
-    assert automatic_schedule.next_slot(store,policy,now) is None
+    assert calendar_slot(store,policy,now)=='2026-01-02T01:00:00+00:00'
+    calendar_settings(store,[],'Asia/Shanghai')
+    assert calendar_slot(store,policy,now) is None
 
 
 def test_production_failure_retains_a_manual_review_decision(manuscript, monkeypatch):
@@ -254,8 +267,8 @@ def test_nonexistent_dst_slot_is_skipped(manuscript):
     store, policy, _, _draft=manuscript
     policy=deepcopy(policy)
     policy.update(timezone='America/New_York')
-    policy['times']['publish']=['02:30']
-    slot=automatic_schedule.next_slot(store,policy,datetime(2026,3,8,6,0,tzinfo=UTC))
+    calendar_settings(store,['02:30'],'America/New_York')
+    slot=calendar_slot(store,policy,datetime(2026,3,8,6,0,tzinfo=UTC))
     assert slot=='2026-03-09T06:30:00+00:00'
 
 

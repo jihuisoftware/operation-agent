@@ -125,7 +125,7 @@ function ArchivedPlan({ ctx, owner }: { ctx: PluginContext; owner: CronBlueprint
               .filter(key => plan.policy.modules[key])
               .map(key => (
                 <li key={key}>
-                  {moduleLabels[key] || key} · {plan.policy.times[key]?.join('、') || '未设置时间'}
+                  {moduleLabels[key] || key}
                 </li>
               ))}
           </ul>

@@ -53,13 +53,12 @@ def timeline(policy, now=None):
     now = (now or datetime.now(UTC)).astimezone(ZoneInfo(policy["timezone"]))
     rows = []
     for module in TIMES:
-        if not policy["modules"][module]:
-            continue
-        for slot in sorted(set(policy["times"][module])):
-            due = datetime.fromisoformat(f"{now.date()}T{slot}").replace(tzinfo=now.tzinfo)
-            next_due = due if due > now else due + timedelta(days=1)
-            rows.append({"module": module, "label": LABELS[module], "time": slot, "next_at": next_due.isoformat()})
-    return sorted(rows, key=lambda row: (row["time"], list(TIMES).index(row["module"])))
+        if policy['modules'][module]:
+            clock = policy['work_end'] if module == 'report' else policy['work_start']
+            window = '账号自动排期' if module == 'publish' else clock if module == 'report' else policy['work_start']+'–'+policy['work_end']
+            due = datetime.fromisoformat(f'{now.date()}T{clock}').replace(tzinfo=now.tzinfo)
+            rows.append({'module':module,'label':LABELS[module],'time':window,'next_at':due.isoformat()})
+    return rows
 
 
 def catalog(store):
@@ -76,7 +75,7 @@ def catalog(store):
             selected = policy["business_theme"] == template["id"]
         missing = list(dict.fromkeys(item for m in modules for item in requirements(policy, m, assets)))
         status = "未加入" if not selected else "待完善" if missing else "已暂停" if not policy["enabled"] or policy["paused"] else "已加入"
-        templates.append({**template, "status": status, "missing": missing, "times": {m: policy["times"][m] for m in template["modules"]}})
+        templates.append({**template, "status": status, "missing": missing, "times": {m: ['账号自动排期' if m=='publish' else policy['work_start']+'–'+policy['work_end']] for m in template['modules']}})
     from .runtime import schedule_state
     schedule = schedule_state(store)
     rows = timeline(policy)

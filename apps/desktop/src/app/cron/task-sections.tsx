@@ -11,11 +11,13 @@ import { UpcomingView } from '../upcoming'
 
 export function useTaskSection() {
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') || 'history'
+  const entries = useContributions(CRON_BLUEPRINTS_AREA)
+  const today = entries.some(e => (e.data as CronBlueprintContribution).renderToday)
+  const tab = params.get('tab') || (today && !params.has('historyView') ? 'today' : 'history')
 
   const section =
     (
-      { plan: 'legacy', blueprints: 'legacy', templates: 'blueprints', running: 'running', upcoming: 'upcoming' } as Record<
+      { today: today ? 'today' : 'jobs', plan: 'legacy', blueprints: 'legacy', templates: 'blueprints', running: 'running', upcoming: 'upcoming' } as Record<
         string,
         string
       >
@@ -44,6 +46,7 @@ export function TaskSectionTabs({ value, onChange }: { value: string; onChange: 
       <SegmentedControl
         onChange={onChange}
         options={[
+          ...(contributions.some(e => (e.data as CronBlueprintContribution).renderToday) ? [{id:'today', label:'今日任务'}] : []),
           ...(templates ? [{ id: 'blueprints', label: '任务模板' }] : []),
           { id: 'running', label: '正在运行' },
           { id: 'upcoming', label: '待执行' },
@@ -56,6 +59,11 @@ export function TaskSectionTabs({ value, onChange }: { value: string; onChange: 
 }
 
 export function TaskSectionBody({ section }: { section: string }) {
+  const entries = useContributions(CRON_BLUEPRINTS_AREA)
+  if (section === 'today') return <div className="min-h-0 flex-1 overflow-auto">{entries.map(entry => {
+    const render = (entry.data as CronBlueprintContribution).renderToday
+    return render && <ContribBoundary id={entry.id} key={entry.id}><ContribRender render={render} /></ContribBoundary>
+  })}</div>
   return (
     <div className="min-h-0 flex-1 overflow-auto">{section === 'running' ? <ActivityView /> : <UpcomingView />}</div>
   )

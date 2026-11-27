@@ -45,6 +45,11 @@ def _slots(store, policy, kinds, account, version):
     if not run or run["stage"] not in STAGES.values():
         return selected
     slot = run["slot"].split(":resume:", 1)[0]
+    if slot.startswith('poll:'):
+        return {kind: (run['day'], slot) for kind, stage in STAGES.items()
+                if policy['modules'][stage] and scan_enabled(store, policy, kind)}
+    if slot == 'daily:outreach':
+        return {}
     if slot.startswith("manual:"):
         due = {stage: (run["day"], slot) for stage in STAGES.values() if policy["modules"][stage]}
     else:

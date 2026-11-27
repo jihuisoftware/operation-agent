@@ -12,6 +12,7 @@ DEFAULT = {"schema_version": 5, "modules": {k: False for k in TIMES}, "enabled":
            "style": "真实、清楚、具体", "brand": "", "image_mode": "magazine", "designer_style": "清爽编辑风", "designer_daily_limit": 1, "publish_method": "normal", "account_id": "", "timezone": "Asia/Shanghai",
            "sources": [], "rss_sources": [], "keywords": [], "knowledge": [], "follow_terms": [],
            "receive": None, "allowed": {k: k != "follow" for k in LIMITS if k != "source"}, "limits": LIMITS,
+           "work_start": "08:00", "work_end": "22:00", "draft_goal": 1, "inbox_interval": 30,
            "times": TIMES, "deadline": "", "priority": 1, "model_calls": DEFAULT_CALLS, **POLICY_DEFAULTS,
            "business_theme": "", "business_subtype": ""}
 
@@ -65,6 +66,8 @@ def validate_policy(value):
     if type(result["priority"]) is not int or not 1 <= result["priority"] <= 5:
         raise ValueError("优先级必须是 1 到 5 的整数")
     ZoneInfo(result["timezone"])
+    from .daily_tasks import validate
+    validate(result)
     _validate_collections(result)
     validate_model_budget(topic_config(result))
     if result["schema_version"] != 5 or set(result["modules"]) != set(TIMES) or any(type(v) is not bool for v in result["modules"].values()):

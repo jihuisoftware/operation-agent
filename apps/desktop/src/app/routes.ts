@@ -105,8 +105,8 @@ export function contributedRoutes(
     .filter(route => Boolean(route.path.startsWith('/') && route.render) && !RESERVED_PATHS.has(route.path))
 }
 
-function isContributedPath(pathname: string): boolean {
-  return contributedRoutes().some(route => route.path === pathname)
+function isContributedPath(pathname: string, contributions?: readonly Contribution[]): boolean {
+  return contributedRoutes(contributions).some(route => route.path === pathname)
 }
 
 // ── Contributed sidebar nav — the `sidebar.nav` registry area ────────────────
@@ -217,26 +217,16 @@ export function sessionRoute(sessionId: string): string {
   return `${SESSION_ROUTE_PREFIX}${encodeURIComponent(sessionId)}`
 }
 
-export function appViewForPath(pathname: string): AppView {
+export function appViewForPath(pathname: string, contributions?: readonly Contribution[]): AppView {
   const path = routePathname(pathname)
 
-  if (isNewChatRoute(path) || routeSessionId(path)) {
-    return 'chat'
-  }
-
-  if (isContributedPath(path)) {
-    return 'extension'
-  }
-
-  return APP_VIEW_BY_PATH.get(path) ?? 'chat'
+  return APP_VIEW_BY_PATH.get(path) ?? (isContributedPath(path, contributions) ? 'extension' : 'chat')
 }
 
 /** Does `to` land on a full page rendered INSIDE the workspace pane
  *  (skills/cron/artifacts/contributed routes)? Overlays don't count —
  *  they float over whatever the workspace is already showing. */
-export function isWorkspacePageRoute(to: string): boolean {
-  const view = appViewForPath(to)
-
+export function isWorkspacePageRoute(to: string, view = appViewForPath(to)): boolean {
   return view !== 'chat' && !isOverlayView(view)
 }
 
@@ -271,8 +261,8 @@ function revealWorkspacePane(): void {
  * in: sidebar, keybinds, command palette, Command Center, contributed
  * statusbar/titlebar `to` targets, back/forward, and cold-start restore.
  */
-export function syncWorkspaceRoute(pathname: string): void {
-  const isPage = isWorkspacePageRoute(pathname)
+export function syncWorkspaceRoute(pathname: string, view = appViewForPath(pathname)): void {
+  const isPage = isWorkspacePageRoute(pathname, view)
 
   if (isPage !== $workspaceIsPage.get()) {
     $workspaceIsPage.set(isPage)

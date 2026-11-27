@@ -683,12 +683,12 @@ export function CronView({ onOpenSession, setStatusbarItemGroup: _setStatusbarIt
             </Button>
           </>
         }
-        subtitle={`${c.count(totalCount)} · 按计划自动运行，也可选择任务立即执行`}
+        subtitle={`${c.count(totalCount)} · 查看今日进度与任务记录`}
         title={c.title}
       />
 
       <TaskSectionTabs onChange={setSection} value={section} />
-      {historyView ? <FilteredHistory clear={() => setSection('jobs')} id={historyView} /> : ['running', 'upcoming'].includes(section) ? (
+      {historyView ? <FilteredHistory clear={() => setSection('jobs')} id={historyView} /> : ['today', 'running', 'upcoming'].includes(section) ? (
         <TaskSectionBody section={section} />
       ) : section === 'legacy' ? (
         <LegacyPlan fallback={<ContributedBlueprints profile={blueprintProfile} view="blueprints" />} />

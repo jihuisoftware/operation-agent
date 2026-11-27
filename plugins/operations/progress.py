@@ -1,7 +1,6 @@
 """Operations step plans and progress projected into the shared Cron task journal."""
 from .modules import TIMES
 from .policy import local_day
-from .occurrences import latest_due
 
 STEPS = {
     'research': ('信息采集', '检索网页与 RSS，读取正文并保存去重来源'),
@@ -24,7 +23,7 @@ def definition(store):
             'enabled': policy['enabled'], 'paused': policy['paused'], 'timezone': policy['timezone'],
             'limits': policy['limits'], 'allowed': policy['allowed'],
             'steps': [{'title': STEPS[stage][0], 'intent': STEPS[stage][1],
-                       'enabled': policy['modules'][stage], 'times': policy['times'][stage]} for stage in TIMES]}
+                       'enabled': policy['modules'][stage], 'times': [policy['work_start'],policy['work_end']]} for stage in TIMES]}
 
 
 def sync_plan(store, job_id=None):
@@ -51,7 +50,7 @@ def bind(store, now, manual_id):
     owner = {'business_id': store.scope['business_id'], 'topic_id': store.scope['id'], 'account_slot': store.scope['account']} if store.scope else {}
     declare(execution['id'], steps, {'topic': policy['topic'], 'goal': policy['goal'],
             'day': local_day(policy, now), 'policy_version': version, 'manual': bool(manual_id),
-            'limits': policy['limits'], 'allowed': policy['allowed'], 'times': policy['times'], **owner})
+            'limits': policy['limits'], 'allowed': policy['allowed'], 'window': [policy['work_start'],policy['work_end']], **owner})
 
 
 def planned_steps(store, policy, now, manual_id):
@@ -80,18 +79,9 @@ def planned_steps(store, policy, now, manual_id):
 def scheduled_steps(store, policy, now):
     if not policy['enabled']:
         return []
-    steps = []
-    for stage, due in latest_due(store, policy, now).items():
-        day, slot = due.date().isoformat(), due.strftime('%H:%M')
-        with store.connection() as db:
-            previous = db.execute('SELECT 1 FROM runs WHERE day=? AND stage=? AND slot=?', (day, stage, slot)).fetchone()
-        if previous or policy['paused']:
-            continue
-        if stage == 'report' and day < local_day(policy, now) and store.objects('report', day):
-            continue
-        steps.append({'id': f'{stage}:{slot}', 'title': STEPS[stage][0] + ' · ' + slot,
-                      'intent': STEPS[stage][1], 'state': 'pending', 'detail': '', 'due': due.isoformat()})
-    return steps
+    from .daily_tasks import available
+    return [{'id': f'{stage}:{slot}', 'title': STEPS[stage][0], 'intent': STEPS[stage][1],
+             'state': 'pending', 'detail': '', 'due': now.isoformat()} for _,stage,slot in available(store,policy,now)]
 
 
 def update(store, identity, state, detail, data=None):

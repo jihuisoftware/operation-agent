@@ -150,7 +150,7 @@ def require_manual(store, identity, body):
         if db.execute("SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=? AND state IN ('queued','executing','submitted','unknown','published','confirmed')", (identity,)).fetchone():
             raise ValueError('已有发布动作，请在执行记录中核对或取消，不能撤销提交事实')
         release = load(db, identity)
-    if release and release['state'] == 'scheduled':
+    if release and release['state'] in ('scheduled','waiting_slot'):
         cancel(store, identity, body.get('expected_revision'))
     with store.connection() as db:
         db.execute('BEGIN IMMEDIATE')

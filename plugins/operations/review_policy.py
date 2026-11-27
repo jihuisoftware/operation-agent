@@ -37,7 +37,7 @@ def update(store, body):
         for row in rows:
             release = json.loads(row['data'])
             active = db.execute("SELECT 1 FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=? AND state NOT IN ('queued','cancelled','confirmed_not_published','failed','blocked')", (release['content_id'],)).fetchone()
-            if release['state'] == 'scheduled' and not active:
+            if release['state'] in ('scheduled','waiting_slot') and not active:
                 db.execute("UPDATE commands SET state='cancelled' WHERE state='queued' AND action_id IN (SELECT id FROM actions WHERE kind='publish' AND json_extract(data,'$.content.id')=? AND state='queued')", (release['content_id'],))
                 db.execute("UPDATE actions SET state='cancelled' WHERE kind='publish' AND json_extract(data,'$.content.id')=? AND state='queued'", (release['content_id'],))
                 release.update(state='cancelled', revision=release['revision'] + 1, detail='审核策略已变化，等待重新审核')
