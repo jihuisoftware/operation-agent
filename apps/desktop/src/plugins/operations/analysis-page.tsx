@@ -53,6 +53,7 @@ export function OwnedAnalysisPage({
 }) {
   const [data, setData] = useState<AnalysisCatalog | null>(null)
   const [tab, setTab] = useState(stage === 'analytics' ? 'overview' : 'content')
+  const isHistory = tab === 'history'
   const [selected, setSelected] = useState(initialReport)
   const [sourceId, setSourceId] = useState<string | null>(null)
 
@@ -132,7 +133,7 @@ export function OwnedAnalysisPage({
   }, [api, reportId, revision])
 
   useEffect(() => {
-    if (!logId) {
+    if (!isHistory || !logId) {
       return
     }
 
@@ -168,7 +169,7 @@ export function OwnedAnalysisPage({
       disposed = true
       clearInterval(timer)
     }
-  }, [api, logId])
+  }, [api, isHistory, logId])
 
   const act = async (fn: () => Promise<void>) => {
     setPending(true)
@@ -257,7 +258,7 @@ export function OwnedAnalysisPage({
               <BusinessDatasets api={api} data={data} saved={refresh} />
             ) : (
               <>
-                {tab === 'history' && (
+                {isHistory && (
                   <section className="space-y-3">
                     <h2>报告版本</h2>
                     {reports.map(row => (
@@ -287,65 +288,67 @@ export function OwnedAnalysisPage({
                 )}
               </>
             )}
-            <section className="space-y-3 border-t pt-4">
-              <h2 className="font-medium">执行过程与记录</h2>
-              {data.runs
-                .filter(r => r.stage === stage)
-                .map(run => (
-                  <details className="space-y-2" key={run.id}>
-                    <summary className="cursor-pointer">
-                      {formatTimestamp(run.started)} ·{' '}
-                      {{
-                        running: '正在执行',
-                        completed: '完成',
-                        needs_attention: '待完善',
-                        cancelled: '取消',
-                        failed: '失败',
-                        skipped: '跳过',
-                        interrupted: '中断'
-                      }[run.state] || run.state}{' '}
-                      · {run.detail}
-                    </summary>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => {
-                          setLog(null)
-                          setLogId(run.id)
-                        }}
-                        variant="outline"
-                      >
-                        读取完整过程
-                      </Button>
-                      {run.state === 'running' && (
+            {isHistory && (
+              <section className="space-y-3 border-t pt-4">
+                <h2 className="font-medium">执行过程与记录</h2>
+                {data.runs
+                  .filter(r => r.stage === stage)
+                  .map(run => (
+                    <details className="space-y-2" key={run.id}>
+                      <summary className="cursor-pointer">
+                        {formatTimestamp(run.started)} ·{' '}
+                        {{
+                          running: '正在执行',
+                          completed: '完成',
+                          needs_attention: '待完善',
+                          cancelled: '取消',
+                          failed: '失败',
+                          skipped: '跳过',
+                          interrupted: '中断'
+                        }[run.state] || run.state}{' '}
+                        · {run.detail}
+                      </summary>
+                      <div className="flex gap-2">
                         <Button
-                          onClick={() =>
-                            void act(async () => {
-                              await api(`/cancel/${run.id}`, {})
-                            })
-                          }
+                          onClick={() => {
+                            setLog(null)
+                            setLogId(run.id)
+                          }}
                           variant="outline"
                         >
-                          取消本次分析
+                          读取完整过程
                         </Button>
-                      )}
+                        {run.state === 'running' && (
+                          <Button
+                            onClick={() =>
+                              void act(async () => {
+                                await api(`/cancel/${run.id}`, {})
+                              })
+                            }
+                            variant="outline"
+                          >
+                            取消本次分析
+                          </Button>
+                        )}
+                      </div>
+                    </details>
+                  ))}
+                {log && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <CopyButton label="复制完整过程" text={JSON.stringify(log, null, 2)} />
+                      <span>复制完整过程</span>
+                      <CopyButton label="只复制错误" text={JSON.stringify(log.errors, null, 2)} />
+                      <span>只复制错误</span>
+                      <Badge>{log.events.length} 条记录</Badge>
                     </div>
-                  </details>
-                ))}
-              {log && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <CopyButton label="复制完整过程" text={JSON.stringify(log, null, 2)} />
-                    <span>复制完整过程</span>
-                    <CopyButton label="只复制错误" text={JSON.stringify(log.errors, null, 2)} />
-                    <span>只复制错误</span>
-                    <Badge>{log.events.length} 条记录</Badge>
+                    <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs select-text">
+                      {JSON.stringify(log, null, 2)}
+                    </pre>
                   </div>
-                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs select-text">
-                    {JSON.stringify(log, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </section>
+                )}
+              </section>
+            )}
           </>
         )}
         {sourceId && (

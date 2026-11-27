@@ -13,6 +13,25 @@ const report = { id: 'report-1', kind: 'analytics_report', created: '2026-11-01T
 
 afterEach(cleanup)
 
+it.each([
+  ['analytics', '分析概览', '业务数据', '历史结果'],
+  ['industry', '内容运营', '市场经营', '证据与历史']
+] as const)('shows %s execution records only in its history tab', async (stage, first, second, history) => {
+  const run = { id: 'run-1', stage, state: 'failed', started: '2026-11-01T00:00:00Z', detail: '执行失败详情' }
+  const rest = vi.fn(async () => ({ ...catalog, runs: [run] }))
+  const owner = { connectionId: 'connection-a', profile: 'profile-a' }
+  render(<OwnedAnalysisPage ctx={{ rest } as unknown as PluginContext} owner={owner} stage={stage} />)
+
+  fireEvent.click(await screen.findByRole('button', { name: history }))
+  expect(screen.getByRole('heading', { name: '执行过程与记录' })).toBeTruthy()
+  expect(screen.getByText(/执行失败详情/)).toBeTruthy()
+  for (const name of [first, second]) {
+    fireEvent.click(screen.getByRole('button', { name }))
+    expect(screen.queryByRole('heading', { name: '执行过程与记录' })).toBeNull()
+    expect(screen.queryByText(/执行失败详情/)).toBeNull()
+  }
+})
+
 it('keeps missing metrics distinct from zero and does not imply market coverage', () => {
   render(<AnalysisResults api={vi.fn()} onSource={vi.fn()} report={report} view="content" />)
   expect(screen.getByText('缺失')).toBeTruthy()
