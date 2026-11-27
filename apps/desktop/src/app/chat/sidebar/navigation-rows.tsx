@@ -1,4 +1,5 @@
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { KbdGroup } from '@/components/ui/kbd'
 import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { TipKeybindLabel } from '@/components/ui/tooltip'
@@ -15,7 +16,8 @@ import { isSidebarNavActive } from './navigation'
 import { NavigationTaskActivity } from './navigation-task-activity'
 import { CONTEXT_SPLIT_KIT, SplitSubmenu } from './split-submenu'
 
-interface Props {
+export interface SidebarNavigationProps {
+  layout?: 'compact' | 'menu'
   items: SidebarNavItem[]
   labels: Record<string, string>
   openInSplit: string
@@ -29,6 +31,7 @@ interface Props {
 
 export function SidebarNavigation({
   items,
+  layout,
   labels,
   openInSplit,
   currentView,
@@ -37,11 +40,12 @@ export function SidebarNavigation({
   onNewSessionSplit,
   newSessionKbd,
   newSessionKbdFlash
-}: Props) {
+}: SidebarNavigationProps) {
   return (
     <>
       {' '}
       {items.map(item => {
+        const label = item.label || labels[item.id] || item.id
         const isInteractive = Boolean(item.action) || Boolean(item.route)
 
         const active = isSidebarNavActive(item, currentView, pathname)
@@ -60,6 +64,7 @@ export function SidebarNavigation({
               // top rows. Same carve-out as USER_BUBBLE_BASE_CLASS in
               // thread.tsx.
               'flex h-7 w-full justify-start gap-2 rounded-md border border-transparent px-2 text-left text-[0.8125rem] font-medium text-(--ui-text-secondary) transition-colors duration-100 ease-out [-webkit-app-region:no-drag] hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
+              layout === 'compact' && 'justify-center gap-1 px-1 text-xs',
               active &&
                 'border-(--ui-stroke-tertiary) bg-(--ui-control-active-background) text-foreground shadow-none hover:border-(--ui-stroke-tertiary)!',
               !isInteractive && 'cursor-default hover:border-transparent hover:bg-transparent hover:text-inherit'
@@ -107,15 +112,15 @@ export function SidebarNavigation({
                     children: (
                       <TipKeybindLabel
                         actionId={item.keybindActionId}
-                        text={item.label || labels[item.id] || item.id}
+                        text={label}
                       />
                     )
                   }
-                : item.label || labels[item.id] || item.id
+                : label
             }
             type="button"
           >
-            <item.icon className="size-4 shrink-0 text-[color-mix(in_srgb,currentColor_72%,transparent)]" />
+            <item.icon className={cn('size-4 shrink-0 text-[color-mix(in_srgb,currentColor_72%,transparent)]', layout === 'compact' && '@max-[200px]/footer:hidden')} />
             {/* Shrink-to-fit, not flex-1: the label carries the row's
                         `data-tour` handle, and anything anchored to it should
                         land at the end of the WORD, not out at the sidebar's
@@ -126,10 +131,10 @@ export function SidebarNavigation({
                         Its own `sidebar-nav-` namespace: the overlay nav owns
                         `nav-<id>`, and both are on screen with Settings open. */}
             <span className="min-w-0 truncate" data-tip-arrow-only="" data-tour={`sidebar-nav-${item.id}`}>
-              {item.label || labels[item.id] || item.id}
+              {label}
             </span>
-            <NavigationTaskActivity item={item} label={item.label || labels[item.id] || item.id} />
-            {isNewSession && (
+            <NavigationTaskActivity item={item} label={label} />
+            {isNewSession && layout !== 'compact' && (
               <KbdGroup
                 className={cn('ml-auto opacity-55', newSessionKbdFlash && 'opacity-100!')}
                 keys={newSessionKbd}
@@ -139,14 +144,16 @@ export function SidebarNavigation({
           </SidebarMenuButton>
         )
 
+        const row = layout === 'menu' ? <DropdownMenuItem asChild>{button}</DropdownMenuItem> : button
+
         // New session + route-backed pages can open in a split —
         // right-click for the directional "Open in split" submenu.
         return (
-          <SidebarMenuItem key={item.id}>
+          <SidebarMenuItem className={layout === 'compact' ? 'min-w-0 flex-auto' : undefined} key={item.id}>
             {isNewSession || item.route ? (
               <ContextMenu>
-                <ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
-                <ContextMenuContent aria-label={item.label || labels[item.id] || item.id}>
+                <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+                <ContextMenuContent aria-label={label}>
                   <SplitSubmenu
                     kit={CONTEXT_SPLIT_KIT}
                     label={openInSplit}
@@ -161,7 +168,7 @@ export function SidebarNavigation({
                 </ContextMenuContent>
               </ContextMenu>
             ) : (
-              button
+              row
             )}
           </SidebarMenuItem>
         )

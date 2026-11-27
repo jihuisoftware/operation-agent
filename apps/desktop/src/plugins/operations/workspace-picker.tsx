@@ -1,54 +1,42 @@
-import { Button, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
+import { Button, Codicon, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+  DropdownMenuTrigger, host, type PluginContext, useValue } from '@hermes/plugin-sdk'
 import { useEffect } from 'react'
 
+import { useSidebarLoginStatus } from './login-activity'
 import { guardWorkspaceChange, WORKSPACES_PATH } from './workspace-navigation'
 import { $workspaces, chooseScope, loadWorkspaces, ownerKey } from './workspace-state'
 
 export function WorkspacePicker({ ctx }: { ctx: PluginContext }) {
   const owner = useValue(host.state.requestOwner)
+  useSidebarLoginStatus(ctx, owner)
   const state = useValue($workspaces)[ownerKey(owner)]
   useEffect(() => {
     void loadWorkspaces(ctx, owner)
   }, [ctx, owner])
-  const { catalog, selected } = state || {}
-  if (!catalog || !selected) return <p className="p-2 text-xs">{state?.error || '读取业务空间…'}</p>
 
-  return (
-    <section aria-label="业务与主题" className="space-y-1 p-2 text-xs">
-      <Button
-        onClick={() => {
-        }}
-        size="sm"
-        variant="link"
-      >
-        当前业务与主题
+  const { catalog, selected } = state || {}
+  const choices = catalog?.businesses.flatMap(business => catalog.topics
+    .filter(topic => topic.business_id === business.id && (topic.id === selected?.topic_id || (!topic.archived && !business.archived)))
+    .map(topic => ({ topic, label: business.name + ' / ' + topic.name + (business.archived || topic.archived ? '（已归档）' : '') }))) ?? []
+  const current = choices.find(choice => choice.topic.id === selected?.topic_id)
+  const title = current?.label ?? state?.error ?? (catalog ? '选择业务与主题' : '读取业务空间…')
+
+  return <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button aria-label={'当前业务与主题，' + title} className="mb-1 w-full justify-between [-webkit-app-region:no-drag]" size="sm" title={title} variant="ghost">
+        <span className="truncate">{title}</span><Codicon className="size-3 shrink-0" name="chevron-down" />
       </Button>
-      <select
-        aria-label="当前业务与主题"
-        className="w-full rounded border bg-background p-2"
-        value={selected.topic_id}
-        onChange={event => {
-          const topic = catalog.topics.find(t => t.id === event.target.value)
-          if (topic)
-            guardWorkspaceChange(owner, () =>
-              chooseScope(owner, { business_id: topic.business_id, topic_id: topic.id })
-            )
-        }}
-      >
-        {catalog.businesses.map(b => (
-          <optgroup key={b.id} label={b.name}>
-            {catalog.topics
-              .filter(t => t.business_id === b.id && (t.id === selected.topic_id || (!t.archived && !b.archived)))
-              .map(t => (
-                <option key={t.id} value={t.id}>
-                  {b.name} / {t.name}
-                  {t.archived || b.archived ? '（已归档）' : ''}
-                </option>
-              ))}
-          </optgroup>
-        ))}
-      </select>
-      
-    </section>
-  )
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="start" aria-label="业务与主题">
+      {choices.map(({ topic, label }) => <DropdownMenuItem aria-current={topic.id === selected?.topic_id || undefined}
+        key={topic.id} onSelect={() => {
+          if (topic.id !== selected?.topic_id) guardWorkspaceChange(owner, () => chooseScope(owner, { business_id: topic.business_id, topic_id: topic.id }))
+        }}>
+        <span className="min-w-0 truncate" title={label}>{label}</span>
+        {topic.id === selected?.topic_id && <Codicon className="ml-auto size-3 shrink-0" name="check" />}
+      </DropdownMenuItem>)}
+      {choices.length > 0 && <DropdownMenuSeparator />}
+      <DropdownMenuItem onSelect={() => guardWorkspaceChange(owner, () => host.navigate(WORKSPACES_PATH))}>管理业务与主题</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
 }

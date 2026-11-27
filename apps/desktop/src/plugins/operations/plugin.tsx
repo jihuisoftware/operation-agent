@@ -57,7 +57,6 @@ export default {
     })
 
     ctx.register({ id: 'workspaces', area: ROUTES_AREA, title: '业务与主题', data: { path: WORKSPACES_PATH }, render: () => <WorkspaceManagement ctx={ctx} /> })
-    ctx.register({ id: 'workspaces-nav', area: SIDEBAR_NAV_AREA, data: { path: WORKSPACES_PATH, label: '业务与主题', codicon: 'organization' } satisfies SidebarNavContribution })
 
     for (const section of Object.keys(sections) as Section[]) {
       const { title, icon } = sections[section]
@@ -83,18 +82,22 @@ export default {
         hide: ['upcoming', 'activity', 'artifacts'],
         order: [
           'operations:overview-nav',
-          'operations:workspaces-nav',
           'cron',
           'operations:materials-nav',
           'operations:analysis-nav',
           'operations:content-nav',
-          'operations:interactions-nav'
-        ],
-        footer: [
-          'operations:accounts-nav',
-          'operations:token-usage-nav',
+          'operations:interactions-nav',
           'new-session',
+          'operations:accounts-nav',
           'operations:settings-nav',
+          'operations:token-usage-nav',
+          'capabilities',
+          'operations:debug-nav'
+        ],
+        footer: ['new-session', 'operations:accounts-nav'],
+        more: [
+          'operations:settings-nav',
+          'operations:token-usage-nav',
           'capabilities',
           'operations:debug-nav'
         ],

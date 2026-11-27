@@ -11,10 +11,9 @@ import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { SearchField } from '@/components/ui/search-field'
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu } from '@/components/ui/sidebar'
+import { Sidebar, SidebarContent } from '@/components/ui/sidebar'
 import { Tip } from '@/components/ui/tooltip'
 import { Slot } from '@/contrib/react/slot'
-import { useContributions } from '@/contrib/react/use-contributions'
 import { type SessionInfo, type SessionSearchResult } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { comboTokens } from '@/lib/keybinds/combo'
@@ -24,7 +23,7 @@ import { cn } from '@/lib/utils'
 import { $connectionsRegistry } from '@/store/connection-registry-state'
 import { $activeConnectionId } from '@/store/connections'
 import { $cronJobs } from '@/store/cron'
-import { $interfaceMode, $showsAdvancedChrome, shownInMode } from '@/store/interface-mode'
+import { $showsAdvancedChrome } from '@/store/interface-mode'
 import { $bindings } from '@/store/keybinds'
 import {
   $dismissedAutoProjectIds,
@@ -124,10 +123,9 @@ import { $workingSessionIds } from '@/store/session-states'
 import { ackAllSessionsRead } from '@/store/session-unread'
 import { markSessionUnread } from '@/store/session-unread-remote'
 import { $archivedSessions, loadArchivedSessions } from '@/store/sidebar-archive'
-import { applySidebarNavPrefs, SIDEBAR_NAV_PREFS_AREA } from '@/store/sidebar-nav'
 import { $sidebarSessionRankIds } from '@/store/sidebar-sort'
 
-import { type AppView, SIDEBAR_NAV_AREA } from '../../routes'
+import type { AppView } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 import { type NewSessionSplitHandler } from '../new-session-drag'
 
@@ -136,8 +134,7 @@ import { SidebarCronJobsSection } from './cron-jobs-section'
 import { SidebarFilterMenu } from './filter-menu'
 import { buildGatewaySessionGroups, scopeGatewaySessionGroups, useGatewaySessionGroups } from './gateway-group-model'
 import { SidebarLoadMoreRow } from './load-more-row'
-import { contributedSidebarNavItem, SIDEBAR_NAV } from './navigation'
-import { SidebarNavigation } from './navigation-rows'
+import { SidebarMainNavigation, SidebarFooterNavigation, useSidebarNavigationItems } from './navigation-sections'
 import { orderByIds, reconcileOrderIds, resolveManualSessionOrderIds, sameIds } from './order'
 import { filterSessionsByProfileScope } from './profile-scope'
 import { ProfileRail } from './profile-switcher'
@@ -349,28 +346,8 @@ export function ChatSidebar({
   const { t } = useI18n()
   const s = t.sidebar
   const { pathname } = useLocation()
-  // Contributed nav rows (plugins pairing a page with a sidebar entry) render
-  // below the built-ins with the same chrome; active = at their route.
-  const navContributions = useContributions(SIDEBAR_NAV_AREA)
-
-  const contributedNav = useMemo<SidebarNavItem[]>(
-    () => navContributions.flatMap(contributedSidebarNavItem),
-    [navContributions]
-  )
-
-  const interfaceMode = useStore($interfaceMode)
+  const navItems = useSidebarNavigationItems()
   const showsAdvancedChrome = useStore($showsAdvancedChrome)
-
-  // Nav preferences (`sidebarNav.prefs` contributions): a plugin may hide rows
-  // or re-order them. Merged here, at render, from the registry — so the
-  // preference never mutates the default list, and a plugin's disable/reload
-  // disposes its contribution and the rows come straight back.
-  const navPrefs = useContributions(SIDEBAR_NAV_PREFS_AREA)
-
-  const navItems = useMemo(
-    () => applySidebarNavPrefs([...SIDEBAR_NAV, ...contributedNav].filter(shownInMode(interfaceMode)), navPrefs),
-    [contributedNav, interfaceMode, navPrefs]
-  )
 
   const panesFlipped = useStore($panesFlipped)
   const grouping = useStore($sidebarGrouping)
@@ -1478,31 +1455,8 @@ export function ChatSidebar({
       })
     )
 
-  const renderNavigation = (footer: boolean) => {
-    const menu = (
-      <SidebarMenu className={footer ? 'shrink-0 gap-px pb-2' : 'gap-px'}>
-        <SidebarNavigation
-          currentView={currentView}
-          items={navItems.filter(item => (item.placement === 'footer') === footer)}
-          labels={s.nav}
-          newSessionKbd={newSessionKbd}
-          newSessionKbdFlash={newSessionKbdFlash}
-          onNavigate={onNavigate}
-          onNewSessionSplit={onNewSessionSplit}
-          openInSplit={s.row.openInSplit}
-          pathname={pathname}
-        />
-      </SidebarMenu>
-    )
-
-    return footer ? (
-      menu
-    ) : (
-      <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">
-        <SidebarGroupContent>{menu}</SidebarGroupContent>
-      </SidebarGroup>
-    )
-  }
+  const navigation = { currentView, pathname, items: navItems, labels: s.nav, openInSplit: s.row.openInSplit,
+    newSessionKbd, newSessionKbdFlash, onNavigate, onNewSessionSplit }
 
   return (
     <Sidebar
@@ -1519,8 +1473,8 @@ export function ChatSidebar({
       data-tour="sessions-sidebar"
     >
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2.5">
-        <div className="shrink-0"><Slot area={SIDEBAR_TOP_AREA} /></div>
-        {renderNavigation(false)}
+        <div className="shrink-0 pt-[calc(var(--titlebar-height)+0.375rem)]"><Slot area={SIDEBAR_TOP_AREA} /></div>
+        <SidebarMainNavigation {...navigation} />
 
         <SidebarStorageCorruptNotice />
 
@@ -1874,7 +1828,7 @@ export function ChatSidebar({
 
         {/* Off, the statusbar's profile dropdown (beside the gateway switcher)
             takes over — the rail is a duplicate door for bot-only setups. */}
-        {renderNavigation(true)}
+        <SidebarFooterNavigation {...navigation} />
         {profileRailVisible && (
           <div className="shrink-0 px-0.5 pb-1 pt-0.5">
             <ProfileRail />

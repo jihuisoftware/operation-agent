@@ -3,6 +3,7 @@ import { atom, onMount, type ReadableAtom } from 'nanostores'
 export interface TaskActivity {
   running: number
   unavailable?: boolean
+  attention?: string
 }
 
 export interface TaskActivityOwner {

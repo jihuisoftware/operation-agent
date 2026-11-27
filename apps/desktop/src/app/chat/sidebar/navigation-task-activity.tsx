@@ -41,11 +41,15 @@ export function TaskActivityBadge({ activity, label, summary = false }: {
   label: string
   summary?: boolean
 }) {
-  const { running, unavailable } = useStore(activity)
+  const { running, unavailable, attention } = useStore(activity)
 
   const message = running > 0
     ? `${label}：${summary ? '有任务' : `${running} 项任务`}正在执行${unavailable ? '，部分状态暂不可用' : ''}`
     : `${label}：执行状态暂不可用，重新聚焦窗口后重试`
+
+  if (attention) return <span aria-label={attention} className="ml-auto inline-flex shrink-0" role="img" title={attention}>
+    <Codicon aria-hidden="true" className="size-3 text-destructive" name="warning" />
+  </span>
 
   if (!running && !unavailable) { return null }
 

@@ -41,7 +41,7 @@ const sessionRows = [
   makeSessionInfo({ id: 'tile-two', last_active: 2, profile: 'default', started_at: 1, title: 'Tile two' })
 ]
 
-const renderSidebar = (pathname: string, currentView: AppView, onRetrySessions: () => Promise<void> = noopAsync) =>
+const renderSidebar = (pathname: string, currentView: AppView, onRetrySessions: () => Promise<void> = noopAsync, onNavigate = noop) =>
   render(
     <MemoryRouter initialEntries={[pathname]}>
       <SidebarProvider>
@@ -52,7 +52,7 @@ const renderSidebar = (pathname: string, currentView: AppView, onRetrySessions: 
           onDeleteSession={noop}
           onLoadMoreSessions={noop}
           onManageCronJob={noop}
-          onNavigate={noop}
+          onNavigate={onNavigate}
           onNewSessionInWorkspace={noop}
           onNewSessionSplit={noop}
           onResumeSession={noop}
@@ -116,6 +116,25 @@ describe('ChatSidebar navigation activity', () => {
     $removedSessionIds.set(new Set())
     $layoutTree.set(null)
     noteActiveTreeGroup(null)
+  })
+
+  it('keeps shortcuts visible while overflow routes open from More and follow registration', async () => {
+    const navigate = vi.fn()
+    const dispose = registry.register({
+      area: SIDEBAR_NAV_PREFS_AREA, id: 'compact-footer',
+      data: { footer: ['new-session'], more: ['reports-nav', 'absent-debug'], labels: { 'new-session': 'AI 助手' } }
+    })
+    try {
+      renderSidebar('/', 'chat', noopAsync, navigate)
+      expect(screen.getByRole('button', { name: /AI 助手/ })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'Reports' })).toBeNull()
+      fireEvent.keyDown(screen.getByRole('button', { name: '更多' }), { key: 'ArrowDown' })
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Reports' }))
+      expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ route: '/reports' }))
+      expect(screen.queryByRole('menu')).toBeNull()
+    } finally {
+      act(() => dispose())
+    }
   })
 
   it('keeps navigation and session activity coherent with the focused pane', () => {

@@ -8,6 +8,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { ExecutionPlanLink, WorkspaceManagement } from './workspace-management'
 import { WorkspacePage } from './workspace-page'
 import { WorkspaceNavigationGuard } from './workspace-navigation-guard'
+import { $loginActivity } from './login-activity'
 import { WorkspacePicker } from './workspace-picker'
 import { $workspaceDirty, $workspaces, chooseScope, ownerKey, scopedContext, scopeKey } from './workspace-state'
 
@@ -81,12 +82,37 @@ it('requires discarding unsaved configuration before changing business', async (
   const rest = vi.fn(async (path: string) => path === '/workspaces' ? catalog : {})
   const ctx = { rest } as unknown as PluginContext
   render(<><WorkspacePicker ctx={ctx} /><WorkspaceNavigationGuard /></>)
-  await screen.findByRole('combobox', { name: '当前业务与主题' })
+  const picker = await screen.findByRole('button', { name: /当前业务与主题，甲业务/ })
   act(() => $workspaceDirty.set({ [scopeKey(owner, first)]: true }))
-  fireEvent.change(screen.getByRole('combobox', { name: '当前业务与主题' }), { target: { value: 'two' } })
+  fireEvent.keyDown(picker, { key: 'ArrowDown' })
+  fireEvent.click(await screen.findByRole('menuitem', { name: '乙业务 / 同名主题' }))
   expect($workspaces.get()[ownerKey(host.state.requestOwner.get())].selected).toEqual(first)
   fireEvent.click(screen.getByRole('button', { name: '放弃修改并切换' }))
   expect($workspaces.get()[ownerKey(owner)].selected).toEqual(second)
+})
+
+it('opens the directory from the scope picker without changing the current topic', async () => {
+  const ctx = { rest: vi.fn(async () => catalog) } as unknown as PluginContext
+  render(<WorkspacePicker ctx={ctx} />)
+  fireEvent.keyDown(await screen.findByRole('button', { name: /当前业务与主题，甲业务/ }), { key: 'ArrowDown' })
+  fireEvent.click(await screen.findByRole('menuitem', { name: '管理业务与主题' }))
+  expect(host.navigate).toHaveBeenCalledWith('/operations/workspaces')
+  expect($workspaces.get()[ownerKey(owner)].selected).toEqual(first)
+})
+
+it('only shows confirmed login warnings for the selected business', async () => {
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/workspaces') return catalog
+    if (path.startsWith('/platforms?')) return { platforms: [{ name: '小红书',
+      state: path.includes('business_id=a') ? 'logged_out' : 'unchecked' }] }
+    return {}
+  })
+  render(<WorkspacePicker ctx={{ rest } as unknown as PluginContext} />)
+  await waitFor(() => expect($loginActivity.get().attention).toBe('小红书：需要登录'))
+  fireEvent.keyDown(screen.getByRole('button', { name: /当前业务与主题，甲业务/ }), { key: 'ArrowDown' })
+  fireEvent.click(await screen.findByRole('menuitem', { name: '乙业务 / 同名主题' }))
+  await waitFor(() => expect(rest.mock.calls.some(([path]) => path.startsWith('/platforms?business_id=b&topic_id=two'))).toBe(true))
+  expect($loginActivity.get().attention).toBeFalsy()
 })
 
 it('lets a reset workspace recover from a stale record URL without loading old data', async () => {

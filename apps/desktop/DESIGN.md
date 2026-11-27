@@ -47,10 +47,10 @@ one-off at the call site.
 
 - **Operations home is the fresh-start surface.** A plugin contributes the landing route;
   existing users retain their remembered page. Background completion never changes navigation.
-- **Seven primary destinations:** 首页, 业务与主题, 任务, 资料, 分析, 内容, 互动. Each groups existing
-  pages into scoped tabs; the sidebar footer holds 账号, AI 助手, 设置, 扩展工具 and development-only 调试.
-  Chat, terminal, artifacts and plugin recovery remain reachable. Core navigation consumes generic
-  contribution preferences, never operations business imports.
+- **Six primary destinations:** 首页, 任务, 资料, 分析, 内容, 互动. The single-line workspace
+  picker above them opens the business/topic directory. The footer keeps AI 助手 and 账号
+  alongside 更多, which contains 设置, Token 用量, 扩展工具 and development-only 任务调试.
+  Core navigation consumes contribution preferences and the registered activity indicators.
 - **Tasks group running, upcoming and history, including the scoped operations ledger.** Upcoming steps keep their independent cancellation;
   cancelling a pending occurrence does not undo a started step. Ordinary Cron tasks remain manageable.
 - **One configuration editor.** Home links to the current topic plan in 业务与主题. Browsing the directory preserves selection. Opening a plan selects its topic.

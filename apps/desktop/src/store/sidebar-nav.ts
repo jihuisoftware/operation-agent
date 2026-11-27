@@ -27,6 +27,8 @@ export interface SidebarNavPrefsContribution {
   hide?: string[]
   /** Secondary entries rendered below the primary workspace navigation. */
   footer?: string[]
+  /** Secondary destinations inside the footer’s More menu. */
+  more?: string[]
   labels?: Record<string, string>
   /** Cold-start destination when no previous page or session exists. */
   home?: string
@@ -50,7 +52,7 @@ const cleanIds = (ids: unknown): string[] =>
  *  `order` = first contribution first, later contributions place only ids not
  *  yet placed; rows no order names keep their default relative order after
  *  the named ones; unknown ids are inert. */
-export function applySidebarNavPrefs<T extends { id: string; label?: string; placement?: 'main' | 'footer' }>(
+export function applySidebarNavPrefs<T extends { id: string; label?: string; placement?: 'main' | 'footer' | 'more' }>(
   items: readonly T[],
   contributions: readonly Contribution[]
 ): T[] {
@@ -89,17 +91,20 @@ export function applySidebarNavPrefs<T extends { id: string; label?: string; pla
 
   const footer = new Set(contributions.flatMap(c => cleanIds((c.data as SidebarNavPrefsContribution)?.footer)))
 
+  const more = new Set(contributions.flatMap(c => cleanIds((c.data as SidebarNavPrefsContribution)?.more)))
+
   const labels = Object.assign(
     {},
     ...contributions.map(c => (c.data as SidebarNavPrefsContribution)?.labels || {})
   ) as Record<string, string>
 
   return ordered.map(item =>
-    !labels[item.id] && !footer.has(item.id)
+    !labels[item.id] && !footer.has(item.id) && !more.has(item.id)
       ? item
       : {
           ...item,
           ...(labels[item.id] ? { label: labels[item.id] } : {}),
+          ...(more.has(item.id) ? { placement: 'more' as const } : {}),
           ...(footer.has(item.id) ? { placement: 'footer' as const } : {})
         }
   )
