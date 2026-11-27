@@ -15,6 +15,7 @@ import { AnalysisResults } from './analysis-results'
 import { AnalysisSettings } from './analysis-settings'
 import type { AnalysisApi, AnalysisCatalog, AnalysisReport } from './analysis-types'
 import { BusinessDatasets } from './business-datasets'
+import { ReportVersionPicker } from './report-version-picker'
 import { SourceDetail } from './source-detail'
 import { useOwnerContext } from './use-owner-context'
 
@@ -261,19 +262,7 @@ export function OwnedAnalysisPage({
             ) : (
               <>
                 {isHistory && (
-                  <section className="space-y-3">
-                    <h2>报告版本</h2>
-                    {reports.map(row => (
-                      <Button
-                        className="w-full justify-start"
-                        key={row.id}
-                        onClick={() => setSelected(row.id)}
-                        variant={reportId === row.id ? 'secondary' : 'ghost'}
-                      >
-                        {formatTimestamp(row.created)} · {row.detail}
-                      </Button>
-                    ))}
-                  </section>
+                  <ReportVersionPicker reports={reports} selectedId={reportId} loadedReport={report} onSelect={setSelected} />
                 )}
                 {report ? (
                   <AnalysisResults
@@ -281,6 +270,7 @@ export function OwnedAnalysisPage({
                     key={`${report.id}:${tab}:${revision}`}
                     onSource={setSourceId}
                     report={report}
+                    heading={isHistory ? `${title}报告` : undefined}
                     view={tab === 'market' ? 'market' : 'content'}
                   />
                 ) : (
