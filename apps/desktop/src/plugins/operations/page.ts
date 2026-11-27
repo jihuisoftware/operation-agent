@@ -141,17 +141,29 @@ export function xhsPage(command: { operation: string; payload: Record<string, an
       return { opened: payload.target }
     },
     'open-messages': () => {
-      const entries = all('a,button,[role="button"]').filter(element => {
-        const label = element.getAttribute('aria-label') || element.getAttribute('title') || text(element)
-        const href = element.getAttribute('href')
+      const controls = 'a,button,[role="button"],[role="link"],[role="menuitem"]'
+      const navRows = ':is(nav,[role="navigation"],.side-bar,.channel-list) li'
+
+      const candidates = all(`${controls},${navRows}`).filter(element => {
+        // A navigation wrapper must not give an excluded child link a second chance.
+        if (element.querySelector(controls)) { return false }
+        const href = element.closest('a[href]')?.getAttribute('href')
         const url = href ? new URL(href, location.href) : null
 
-        if (url && (url.origin !== location.origin || url.pathname === '/notification')) { return false }
+        if (url && (url.origin !== location.origin || /^\/notification(?:\/|$)/.test(url.pathname))) { return false }
 
-        return /^(私信|消息|聊天)$/.test(label) || url?.pathname === '/im'
-      }).filter(element => !all('a,button,[role="button"]', element).some(child => /^(私信|消息|聊天)$/.test(text(child))))
+        if (url?.pathname === '/im') { return true }
+        const label = element.getAttribute('aria-label') || element.getAttribute('title') || text(element)
 
-      if (entries.length !== 1) { return { opened: false, reason: '当前网页没有唯一可确认的私信入口，请在网页检查消息功能' } }
+        return /^(?:\d+\+?\s*)?(?:私信|消息|聊天)(?:\s*\d+\+?)?$/.test(label.trim())
+      })
+
+      const entries = candidates.filter(element => !candidates.some(other => other !== element && element.contains(other)))
+
+      if (entries.length !== 1) {
+        return { opened: false, reason: `当前网页匹配到 ${entries.length} 个私信入口，请在网页检查消息功能` }
+      }
+
       entries[0].click()
 
       return { opened: true }

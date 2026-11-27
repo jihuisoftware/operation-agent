@@ -11,7 +11,7 @@ import { createExecutionClock } from './execution-clock'
 import { $loginNavigation, $loginNavigationOwner, type LoginObservation, sameLoginOwner } from './login-state'
 import { PlatformLoginPage, PlatformPageFrame, PlatformPageTabs, usePlatformPages } from './platform-pages'
 import { $showOperationsBrowser, beginBrowserActivity } from './state'
-import type { Api, BrowserCommand } from './types'
+import type { Api, BrowserCommand, Guest } from './types'
 import { useLoginObservation } from './use-login-observation'
 import { useOperationsGuest } from './use-operations-guest'
 import { usePlatformLogin } from './use-platform-login'
@@ -63,6 +63,7 @@ function Worker({
   const { guest, loading, error, reopen, replace, back } = useOperationsGuest(scope, container)
 
   const pages = usePlatformPages(guest)
+  const { forNotifications, replaceZhihu } = pages
 
   useEffect(() => {
     const active = document.activeElement
@@ -111,6 +112,32 @@ function Worker({
     const power = createBrowserPower({ ...scope, account_id: scope.account_id || 'local' }, powerApi, execution, setStatus, replace)
     powerControl.current = power
 
+    const executeClaim = async (command: BrowserCommand & { scope?: OperationScope; topic_name?: string }) => {
+      setTaskLabel(command.topic_name || '')
+
+      const commandApi: Api = (path, body, method) => {
+        const selected = command.scope || (scope.business_id && scope.topic_id ? { business_id: scope.business_id, topic_id: scope.topic_id } : null)
+
+        return ctx.rest(selected ? scopePath(path, selected) : path, { owner: scope, method: method || (body ? 'POST' : 'GET'), body,
+          timeoutMs: workerRequestTimeout(path) })
+      }
+
+      const zhihu = command.kind === 'account' && command.payload.readonly_inventory === 'zhihu_notifications'
+      let target: Guest
+      try {
+        target = zhihu ? await forNotifications() : guest
+        if (disposed || manual.current) { throw new Error('执行窗口已切换或已人工接管') }
+      } catch (reason) {
+        await commandApi('/worker/ack', { id: command.id, worker, result: { state: 'blocked', submitted: false, error: String(reason) } })
+        return
+      }
+      const answer = await runBrowserCommand(command, target, commandApi, worker, execution, clock.sleep, zhihu ? replaceZhihu : replace, () => !disposed, power)
+
+      if (!disposed && !manual.current) {
+        setStatus(answer.error || '本次网页任务完成')
+      }
+    }
+
     const poll = async () => {
       if (disposed || polling || !guest.isConnected) {
         return
@@ -157,21 +184,7 @@ function Worker({
         setStatus('正在执行网页任务；慢网络加载最多等待 2 分钟，可人工接管中断')
 
         try {
-          const command = result.command
-          setTaskLabel(command.topic_name || '')
-
-          const commandApi: Api = (path, body, method) => {
-            const selected = command.scope || (scope.business_id && scope.topic_id ? { business_id: scope.business_id, topic_id: scope.topic_id } : null)
-
-            return ctx.rest(selected ? scopePath(path, selected) : path, { owner: scope, method: method || (body ? 'POST' : 'GET'), body,
-              timeoutMs: workerRequestTimeout(path) })
-          }
-
-          const answer = await runBrowserCommand(command, guest, commandApi, worker, execution, clock.sleep, replace, () => !disposed, power)
-
-          if (!disposed && !manual.current) {
-            setStatus(answer.error || '本次网页任务完成')
-          }
+          await executeClaim(result.command)
         } finally {
           endActivity()
           running = false
@@ -198,10 +211,10 @@ function Worker({
       power.dispose()
       clock.dispose()
     }
-  }, [scope, api, ctx, guest, worker, manual, controlRevision, reconcile, replace])
+  }, [scope, api, ctx, guest, worker, manual, controlRevision, reconcile, replace, forNotifications, replaceZhihu])
 
   usePlatformLogin({ openPage: pages.openPage, owner: scope, worker, takeOver, onStatus: setStatus })
-  const observed = useCallback((observation: LoginObservation) => { execution.current.context?.observe(observation.state, observation.account_id) }, [])
+  const observed = useCallback((observation: LoginObservation) => { const context = execution.current.context; if (context?.command.payload.readonly_inventory !== 'zhihu_notifications') { context?.observe(observation.state, observation.account_id) } }, [])
   useLoginObservation({ api: loginApi, guest, worker, platform: 'xiaohongshu', onStatus: setStatus, onObservation: observed })
 
 
@@ -240,7 +253,7 @@ function Worker({
       </PlatformPageFrame>
       {pages.opened.filter(platform => platform !== 'xiaohongshu').map(platform => <PlatformLoginPage
         api={loginApi}
-        key={platform}
+        key={platform === 'zhihu' ? platform + pages.zhihuGeneration : platform}
         owner={scope}
         platform={platform}
         register={pages.register}

@@ -6,11 +6,11 @@ from .message_storage import initialize, message_id, owner, table
 from .policy import now_iso
 
 KINDS = ("reply", "dm", "follow")
-STATE = """CASE WHEN m.status!='action' THEN m.status
- WHEN a.state='confirmed' AND m.kind='follow' THEN 'followed'
- WHEN a.state='confirmed' THEN 'replied'
- WHEN a.state IN ('queued','executing') THEN 'sending'
- WHEN a.state IN ('unknown','submitted') OR a.id IS NULL THEN 'verify'
+STATE = """CASE WHEN status!='action' THEN status
+ WHEN delivery='confirmed' AND kind='follow' THEN 'followed'
+ WHEN delivery='confirmed' THEN 'replied'
+ WHEN delivery IN ('queued','executing') THEN 'sending'
+ WHEN delivery IN ('unknown','submitted') OR delivery IS NULL THEN 'verify'
  ELSE 'manual' END"""
 STATES = ("auto", "manual", "working", "sending", "verify", "replied", "handled", "archived", "followed", "ignored")
 
@@ -27,7 +27,9 @@ def slot_for(store, db):
     return ""
 
 
-def read_items(store, kind, account, items, *, auto, day):
+def read_items(store, kind, account, items, *, auto, day, platform="xiaohongshu"):
+    if platform == "zhihu":
+        kind = "zhihu:" + kind
     initialize(store)
     from .run_scope import annotate
 
@@ -37,8 +39,11 @@ def read_items(store, kind, account, items, *, auto, day):
         slot = slot_for(store, db)
         if store.workspace:
             registered = db.execute("SELECT identity FROM directory.accounts WHERE id=?", (slot,)).fetchone()
-            if slot != store.scope["account"] or (registered and registered[0] and registered[0] != account):
+            if slot != store.scope["account"] or (platform == "xiaohongshu" and registered and registered[0] and registered[0] != account):
                 raise ValueError("业务关联账号或实际登录账号已变化，请刷新")
+            if platform == "zhihu":
+                db.execute("INSERT OR REPLACE INTO directory.preferences VALUES (?,?)",
+                           ("notification-identity:zhihu:" + slot, account))
         for item in items:
             target = item.get("id")
             if (
@@ -176,18 +181,46 @@ def reserve(store, db, action, identity, *, operator=False):
 
 def projection(store):
     return (
-        f"(SELECT m.*,m.rowid AS cursor,{STATE} AS state,a.state AS delivery,a.result AS receipt "
-        f"FROM {table(store)} m LEFT JOIN main.actions a ON a.id=m.action_id AND m.topic=?)"
+        f"(SELECT records.*, {STATE} AS state FROM (SELECT m.*,m.rowid AS cursor,"
+        f"a.state AS delivery,a.result AS receipt FROM {table(store)} m "
+        "LEFT JOIN main.actions a ON a.id=m.action_id AND m.topic=?) records)"
     )
 
 
-def filters(kind, state):
-    if kind not in ("", *KINDS) or state not in ("", "attention", *STATES):
+def account_query(store, kind="", state="", platform=""):
+    if not store.workspace:
+        return query(store, kind, state, platform)
+    condition, args = filters(kind, state, platform)
+    # The action and its receipt belong to the handling topic. For peers, use the
+    # account-wide action ledger so a confirmed reply isn't shown as unverified.
+    source = (
+        f" FROM (SELECT records.*, {STATE} AS state FROM ("
+        "SELECT m.*,m.rowid AS cursor,t.name AS owner_topic,m.topic!=? AS read_only,"
+        "CASE WHEN m.topic=? THEN a.state ELSE shared.state END AS delivery,a.result AS receipt "
+        "FROM directory.inbound_messages m JOIN directory.businesses b ON b.account=m.slot "
+        "JOIN directory.accounts acct ON acct.id=b.account JOIN directory.topics t ON t.id=m.topic "
+        "LEFT JOIN main.actions a ON a.id=m.action_id AND m.topic=? "
+        "LEFT JOIN directory.account_actions shared ON shared.topic_id=m.topic "
+        "AND shared.action_id=m.action_id AND shared.account_id=m.slot "
+        "LEFT JOIN directory.preferences zh ON zh.id='notification-identity:zhihu:'||m.slot "
+        "WHERE b.id=? AND ((m.kind LIKE 'zhihu:%' AND m.account=zh.data) OR (m.kind NOT LIKE 'zhihu:%' AND ((acct.identity!='' AND acct.identity=m.account) "
+        "OR (m.topic=? AND (acct.identity='' OR m.account='')))))) records) WHERE 1=1"
+    )
+    topic = owner(store)
+    return source + condition, [topic, topic, topic, store.scope["business_id"], topic, *args]
+
+
+def filters(kind, state, platform=""):
+    if kind not in ("", *KINDS, "reaction") or state not in ("", "attention", *STATES):
         raise ValueError("消息筛选无效")
+    if platform not in ("", "xiaohongshu", "zhihu"):
+        raise ValueError("消息平台无效")
     where, args = [], []
+    if platform:
+        where.append("kind LIKE 'zhihu:%'" if platform == "zhihu" else "kind NOT LIKE 'zhihu:%'")
     if kind:
-        where.append("kind=?")
-        args.append(kind)
+        where.append("kind IN (?,?)")
+        args.extend((kind, "zhihu:" + kind))
     if state == "attention":
         where.append("state IN ('manual','working')")
     elif state:
@@ -196,31 +229,27 @@ def filters(kind, state):
     return "".join(" AND " + f for f in where), args
 
 
-def query(store, kind="", state=""):
-    condition, args = filters(kind, state)
+def query(store, kind="", state="", platform=""):
+    condition, args = filters(kind, state, platform)
     return " FROM " + projection(store) + " WHERE topic=?" + condition, [owner(store), owner(store), *args]
 
 
-def listing(store, kind="", state="", before=0):
-    if before < 0:
-        raise ValueError("消息游标无效")
+def listing(store, kind="", state="", before=0, *, account_view=False, platform=""):
+    from .message_time import ordered_page
     initialize(store)
     if state == "transferred":
         from .message_actions import transfers
 
-        return transfers(store, kind, before)
-    source, args = query(store, kind, state)
+        return transfers(store, kind, before, platform)
+    source, args = (account_query if account_view else query)(store, kind, state, platform)
     with store.connection() as db:
         db.execute("BEGIN")
         total = db.execute("SELECT count(*)" + source, args).fetchone()[0]
-        rows = db.execute(
-            "SELECT *" + source + " AND (?=0 OR cursor<?) ORDER BY cursor DESC LIMIT 26",
-            (*args, before, before),
-        ).fetchall()
+        rows, cursor = ordered_page(db, source, args, before)
     return {
         "total": total,
-        "items": [present(r) for r in rows[:25]],
-        "next": rows[24]["cursor"] if len(rows) > 25 else None,
+        "items": [present(r) for r in rows],
+        "next": cursor,
     }
 
 
@@ -241,11 +270,18 @@ def present(row, detailed=False):
             "updated",
         )
     }
+    platform, _, source = row["kind"].partition(":")
     result.update(
+        platform="zhihu" if source and platform == "zhihu" else "xiaohongshu",
+        kind=source or row["kind"],
+        platform_time=item.get("platform_time", ""),
+        platform_time_sort=item.get("platform_time_sort"),
         text=item.get("text", ""),
         url=item.get("url", ""),
         revision=f"{row['revision']}:{row['delivery'] or ''}",
     )
+    if "read_only" in row.keys():
+        result.update(read_only=bool(row["read_only"]), owner_topic=row["owner_topic"])
     if row["kind"] == "follow":
         result.update(follows_me=item.get("follows_me"), already_following=item.get("already_following"))
     if detailed:
@@ -253,15 +289,15 @@ def present(row, detailed=False):
     return result
 
 
-def lookup(store, db, ident):
-    source, args = query(store)
+def lookup(store, db, ident, *, account_view=False):
+    source, args = account_query(store) if account_view else query(store)
     row = db.execute("SELECT *" + source + " AND id=?", (*args, ident)).fetchone()
     if not row:
         raise KeyError("当前主题没有这条消息")
     return row
 
 
-def detail(store, ident):
+def detail(store, ident, *, account_view=False):
     initialize(store)
     with store.connection() as db:
         if ident.startswith("transfer-"):
@@ -269,13 +305,15 @@ def detail(store, ident):
 
             return transfer_detail(db, ident)
         try:
-            row = lookup(store, db, ident)
+            row = lookup(store, db, ident, account_view=account_view)
         except KeyError:
             alias = legacy_id(store, ident)
             if not alias:
                 raise
-            row = lookup(store, db, alias)
+            row = lookup(store, db, alias, account_view=account_view)
         result = present(row, True)
+        if result.get("read_only"):
+            return result
         if row['kind'] == 'follow':
             from .follower_messages import eligibility
             result['matching_terms'], result['follow_disabled_reason'] = eligibility(store, db, row, store.policy()[1])

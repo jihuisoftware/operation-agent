@@ -416,6 +416,9 @@ it('loads other platform pages only on demand and recovers the failed platform w
   const guests = [...container.querySelectorAll('webview')]
   expect(guests).toHaveLength(5)
   const douyin = guests[4] as Guest
+  act(() => douyin.dispatchEvent(new Event('did-stop-loading')))
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '打开抖音／登录' })) })
+  expect(douyin.loadURL).not.toHaveBeenCalled()
   act(() => douyin.dispatchEvent(Object.assign(new Event('did-fail-load'), {
     isMainFrame: true, errorCode: -105, errorDescription: '连接失败'
   })))

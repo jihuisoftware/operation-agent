@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 
 import { ActionManager } from './management'
+import { PlatformAppIcon } from './platform-app-icon'
 import type { RecordRow } from './types'
 import { $workspaces, ownerKey } from './workspace-state'
 
@@ -18,9 +19,17 @@ const states: Record<string, string> = {
   ignored: '已忽略',
   handled: '已处理',
   archived: '历史记录（只读）',
-  transferred: '已转交'
+  transferred: '本主题已转交'
 }
+const sources: Record<string, string> = { reply: '评论和 @', reaction: '赞和收藏', follow: '新增关注' }
+const platforms = { xiaohongshu: '小红书', zhihu: '知乎' } as const
+type Platform = keyof typeof platforms
+const platformIds = Object.keys(platforms) as Platform[]
+
 interface Message {
+  platform?: Platform
+  read_only?: boolean
+  owner_topic?: string
   id: string
   kind: string
   target: string
@@ -30,7 +39,7 @@ interface Message {
   reply: string
   state: string
   revision: string
-  created: string
+  platform_time?: string
   matching_terms?: string[]
   follow_disabled_reason?: string
   follows_me?: boolean
@@ -43,11 +52,12 @@ interface Message {
 interface Page {
   items: Message[]
   total: number
-  next: number | null
+  next: string | null
 }
 
 export function MessagePage({ ctx }: { ctx: PluginContext }) {
   const [params, setParams] = useSearchParams()
+  const platform = params.get('platform') || ''
   const source = params.get('source') || '',
     state = params.get('state') || '',
     selected = params.get('record') || ''
@@ -55,7 +65,31 @@ export function MessagePage({ ctx }: { ctx: PluginContext }) {
   const [page, setPage] = useState<Page>()
   const [error, setError] = useState('')
   const [revision, setRevision] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+  const [pullPlatforms, setPullPlatforms] = useState<Platform[]>(['xiaohongshu'])
+  const [notice, setNotice] = useState('')
   const refresh = () => setRevision(n => n + 1)
+  const receive = async () => {
+    setSyncing(true)
+    setNotice('')
+    try {
+      const results: string[] = []
+      for (const id of pullPlatforms) {
+        try {
+          const counts = await ctx.rest<Record<string, number>>('/messages/sync-notifications', {
+            method: 'POST', body: { platform: id }, timeoutMs: 420000
+          })
+          results.push(platforms[id] + ' · ' + Object.entries(sources).map(([key, label]) => label + ' ' + counts[key] + ' 条').join(' · '))
+        } catch (reason) {
+          results.push(platforms[id] + '接收失败 · ' + String(reason))
+        }
+        setNotice(results.join('；'))
+      }
+    } finally {
+      setSyncing(false)
+      refresh()
+    }
+  }
   const navigate = (key: string, value: string) =>
     setParams(previous => {
       const next = new URLSearchParams(previous)
@@ -69,7 +103,7 @@ export function MessagePage({ ctx }: { ctx: PluginContext }) {
     let live = true
     setPage(undefined)
     setError('')
-    void ctx.rest<Page>('/messages?' + new URLSearchParams({ source, state, before })).then(
+    void ctx.rest<Page>('/messages?' + new URLSearchParams({ platform, source, state, before })).then(
       value => {
         if (live) setPage(value)
       },
@@ -80,19 +114,25 @@ export function MessagePage({ ctx }: { ctx: PluginContext }) {
     return () => {
       live = false
     }
-  }, [ctx, source, state, before, revision])
+  }, [ctx, platform, source, state, before, revision])
 
   return (
     <section aria-label="消息处理" className="space-y-3 p-4">
       <header className="flex flex-wrap items-center gap-3">
         <h2 className="mr-auto font-semibold">消息处理 {page && `（${page.total}）`}</h2>
         <label>
+          平台{' '}
+          <select value={platform} onChange={e => navigate('platform', e.target.value)}>
+            <option value="">全部</option>
+            {platformIds.map(id => <option key={id} value={id}>{platforms[id]}</option>)}
+          </select>
+        </label>
+        <label>
           来源{' '}
           <select value={source} onChange={e => navigate('source', e.target.value)}>
             <option value="">全部</option>
-            <option value="reply">收到的评论</option>
-            <option value="dm">收到的私信</option>
-            <option value="follow">关注通知</option>
+            {Object.entries(sources).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            {source === 'dm' && <option value="dm">私信</option>}
           </select>
         </label>
         <label>
@@ -106,10 +146,24 @@ export function MessagePage({ ctx }: { ctx: PluginContext }) {
             ))}
           </select>
         </label>
+        <Button disabled={syncing || !pullPlatforms.length} size="sm" onClick={() => void receive()}>{syncing ? '正在接收…' : '接收平台通知'}</Button>
+        <details className="relative">
+          <summary className="cursor-pointer rounded border px-3 py-1">拉取平台</summary>
+          <fieldset aria-label="拉取平台" disabled={syncing} className="absolute right-0 z-10 min-w-max space-y-2 rounded border bg-background p-3 shadow">
+            {platformIds.map(id => <label key={id} className="flex items-center gap-2">
+              <input type="checkbox" checked={pullPlatforms.includes(id)} onChange={event => {
+                const checked = event.target.checked
+                setPullPlatforms(previous => checked ? [...previous, id] : previous.filter(value => value !== id))
+              }} />
+              {platforms[id]}
+            </label>)}
+          </fieldset>
+        </details>
         <Button size="sm" variant="outline" onClick={refresh}>
           刷新
         </Button>
       </header>
+      {notice && <p role="status">{notice}</p>}
       {error && <p role="alert">{error}</p>}
       {!page && !error && <p role="status">正在读取消息…</p>}
       {selected && (
@@ -131,10 +185,13 @@ export function MessagePage({ ctx }: { ctx: PluginContext }) {
           key={row.id}
           onClick={() => navigate('record', selected === row.id ? '' : row.id)}
         >
-          <span className="text-sm font-medium">
-            {({ dm: '私信', reply: '评论', follow: '关注通知' } as Record<string, string>)[row.kind] || '历史消息'} · {states[row.state]}
+          <span className="inline-flex items-center gap-1.5 align-middle text-sm font-medium">
+            <PlatformAppIcon compact platform={row.platform || 'xiaohongshu'} />
+            <span className="sr-only">{platforms[row.platform || 'xiaohongshu']}</span>
+            {sources[row.kind] || (row.kind === 'dm' ? '私信' : '历史消息')} · {states[row.state]}
           </span>
-          <span className="ml-3 text-xs text-muted-foreground">{row.kind === 'follow' && '首次发现 '}{formatTimestamp(row.created)}</span>
+          {row.platform_time && <span className="ml-3 text-xs text-muted-foreground">{row.platform_time}</span>}
+          {row.read_only && <span className="ml-3 text-xs text-muted-foreground">由「{row.owner_topic}」处理</span>}
           <p className="line-clamp-2">{row.text || '历史记录缺少原文'}</p>
         </button>
       ))}
@@ -218,10 +275,14 @@ function MessageDetail({
       {error && <p role="alert">{error}</p>}
       {row && (
         <>
-          <h3 className="font-medium">
+          <h3 className="flex items-center gap-1.5 font-medium">
+            <PlatformAppIcon compact platform={row.platform || 'xiaohongshu'} />
+            <span className="sr-only">{platforms[row.platform || 'xiaohongshu']}</span>
             {states[row.state]} · {row.account || '历史账号未知'}
           </h3>
+          {row.platform_time && <p className="text-xs text-muted-foreground">{row.platform_time}</p>}
           <p className="whitespace-pre-wrap">{row.text || '历史记录缺少原文'}</p>
+          {row.read_only && <p className="text-muted-foreground">此消息由「{row.owner_topic}」处理，可切换到该主题办理。</p>}
           <FollowerFacts row={row} />
           {row.reason && <p>处理原因 · {row.reason}</p>}
           {row.reply && (
@@ -229,15 +290,7 @@ function MessageDetail({
               {row.state === 'replied' ? '已回复' : '拟回复'} · {row.reply}
             </p>
           )}
-          {row.action_id && (
-            <details>
-              <summary>平台回执</summary>
-              <pre className="whitespace-pre-wrap">{JSON.stringify(row.receipt, null, 2)}</pre>
-            </details>
-          )}
-          {row.state === 'verify' && row.action && (
-            <ActionManager ctx={ctx} rows={[row.action]} refresh={async () => saved()} onError={setError} />
-          )}
+          <MessageReceipt ctx={ctx} row={row} saved={saved} onError={setError} />
           {!!row.history?.length && (
             <details>
               <summary>处理记录</summary>
@@ -257,11 +310,11 @@ function MessageDetail({
               ))}
             </details>
           )}
-          {['auto', 'manual', 'working'].includes(row.state) && (
+          {!row.read_only && ['auto', 'manual', 'working'].includes(row.state) && (
             <fieldset disabled={busy} className="flex flex-wrap gap-2">
               <FollowActions row={row} change={change} />
               {row.state !== 'working' && <Button onClick={() => void change('take')}>人工接手</Button>}
-              {row.kind !== 'follow' && <Button variant="outline" onClick={() => void change('handle')}>
+              {(row.kind !== 'follow' || row.platform === 'zhihu') && <Button variant="outline" onClick={() => void change('handle')}>
                 标记已处理
               </Button>}
               {!row.action_id && targets.length > 0 && (
@@ -288,17 +341,37 @@ function MessageDetail({
 }
 
 
+interface ReceiptProps {
+  ctx: PluginContext
+  row: Message
+  saved: () => void
+  onError: (error: string) => void
+}
+
+function MessageReceipt({ ctx, row, saved, onError }: ReceiptProps) {
+  if (row.read_only || !row.action_id) return null
+  return <>
+    <details>
+      <summary>平台回执</summary>
+      <pre className="whitespace-pre-wrap">{JSON.stringify(row.receipt, null, 2)}</pre>
+    </details>
+    {row.state === 'verify' && row.action && (
+      <ActionManager ctx={ctx} rows={[row.action]} refresh={async () => saved()} onError={onError} />
+    )}
+  </>
+}
+
 function FollowerFacts({ row }: { row: Message }) {
-  if (row.kind !== 'follow') return null
+  if (row.kind !== 'follow' || row.platform === 'zhihu') return null
   return <div className="text-sm">
-    <p>首次发现 {formatTimestamp(row.created)} · 平台用户 {row.target || '未知'}</p>
+    <p>平台用户 {row.target || '未知'}</p>
     <p>{row.state === 'followed' || row.already_following ? '已回关' : row.follows_me ? '对方已关注本账号' : '旧记录缺少关系证据'}</p>
-    <p>匹配条件 · {row.matching_terms?.join('、') || '无匹配项'}</p>
+    {!row.read_only && <p>匹配条件 · {row.matching_terms?.join('、') || '无匹配项'}</p>}
   </div>
 }
 
 function FollowActions({ row, change }: { row: Message; change: (operation: string) => Promise<void> }) {
-  if (row.kind !== 'follow') return null
+  if (row.kind !== 'follow' || row.platform === 'zhihu') return null
   return <>
     <Button disabled={Boolean(row.follow_disabled_reason)} onClick={() => void change('follow')}>按规则回关</Button>
     <Button variant="outline" onClick={() => void change('ignore')}>忽略</Button>
