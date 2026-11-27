@@ -63,7 +63,8 @@ export function OwnedAnalysisPage({
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [revision, setRevision] = useState(0)
-  const [logId, setLogId] = useState('')
+  const [logRequest, setLogRequest] = useState<{ runId: string } | null>(null)
+  const [logError, setLogError] = useState('')
   const [log, setLog] = useState<{ run: unknown; events: unknown[]; errors: unknown[] } | null>(null)
 
   const api = useMemo<AnalysisApi>(
@@ -133,7 +134,7 @@ export function OwnedAnalysisPage({
   }, [api, reportId, revision])
 
   useEffect(() => {
-    if (!isHistory || !logId) {
+    if (!isHistory || !logRequest) {
       return
     }
 
@@ -148,14 +149,15 @@ export function OwnedAnalysisPage({
       busy = true
 
       try {
-        const next = await api<{ run: unknown; events: unknown[]; errors: unknown[] }>(`/logs/${logId}`)
+        const next = await api<{ run: unknown; events: unknown[]; errors: unknown[] }>(`/logs/${logRequest.runId}`)
 
         if (!disposed) {
+          setLogError('')
           setLog(next)
         }
       } catch (reason) {
         if (!disposed) {
-          setError(String(reason))
+          setLogError(String(reason))
         }
       } finally {
         busy = false
@@ -169,7 +171,7 @@ export function OwnedAnalysisPage({
       disposed = true
       clearInterval(timer)
     }
-  }, [api, isHistory, logId])
+  }, [api, isHistory, logRequest])
 
   const act = async (fn: () => Promise<void>) => {
     setPending(true)
@@ -311,8 +313,9 @@ export function OwnedAnalysisPage({
                       <div className="flex gap-2">
                         <Button
                           onClick={() => {
-                            setLog(null)
-                            setLogId(run.id)
+                            if (logRequest?.runId !== run.id) setLog(null)
+                            setLogError('')
+                            setLogRequest({ runId: run.id })
                           }}
                           variant="outline"
                         >
@@ -331,22 +334,28 @@ export function OwnedAnalysisPage({
                           </Button>
                         )}
                       </div>
+                      {logRequest?.runId === run.id && (
+                        <>
+                          {logError && <p role="alert">读取执行过程失败：{logError}</p>}
+                          {!log && !logError && <p role="status">正在读取执行过程…</p>}
+                          {log && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <CopyButton label="复制完整过程" text={JSON.stringify(log, null, 2)} />
+                                <span>复制完整过程</span>
+                                <CopyButton label="只复制错误" text={JSON.stringify(log.errors, null, 2)} />
+                                <span>只复制错误</span>
+                                <Badge>{log.events.length} 条记录</Badge>
+                              </div>
+                              <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs select-text">
+                                {JSON.stringify(log, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </details>
                   ))}
-                {log && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <CopyButton label="复制完整过程" text={JSON.stringify(log, null, 2)} />
-                      <span>复制完整过程</span>
-                      <CopyButton label="只复制错误" text={JSON.stringify(log.errors, null, 2)} />
-                      <span>只复制错误</span>
-                      <Badge>{log.events.length} 条记录</Badge>
-                    </div>
-                    <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs select-text">
-                      {JSON.stringify(log, null, 2)}
-                    </pre>
-                  </div>
-                )}
               </section>
             )}
           </>

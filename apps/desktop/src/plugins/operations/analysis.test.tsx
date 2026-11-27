@@ -1,5 +1,5 @@
 import type { PluginContext } from '@hermes/plugin-sdk'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { OwnedAnalysisPage } from './analysis-page'
@@ -30,6 +30,28 @@ it.each([
     expect(screen.queryByRole('heading', { name: '执行过程与记录' })).toBeNull()
     expect(screen.queryByText(/执行失败详情/)).toBeNull()
   }
+})
+
+it('reads, refreshes and switches full logs inside the selected run', async () => {
+  const runs = ['first', 'second'].map(id => ({
+    id, detail: id, stage: 'analytics', state: 'completed', started: '2026-11-01T00:00:00Z'
+  }))
+  let reads = 0
+  const rest = vi.fn(async (path: string) => path === '/analysis'
+    ? { ...catalog, runs }
+    : { run: {}, events: [`日志 ${++reads} ${path}`], errors: [] })
+  const owner = { connectionId: 'a', profile: 'a' }
+  render(<OwnedAnalysisPage ctx={{ rest } as unknown as PluginContext} owner={owner} stage="analytics" />)
+  fireEvent.click(await screen.findByRole('button', { name: '历史结果' }))
+
+  for (const [index, id] of ['first', 'first', 'second'].entries()) {
+    const summary = screen.getByText(new RegExp(`· ${id}$`))
+    const row = summary.closest('details')!
+    if (!row.open) fireEvent.click(summary)
+    fireEvent.click(within(row).getByRole('button', { name: '读取完整过程' }))
+    expect(await within(row).findByText(new RegExp(`日志 ${index + 1} /analysis/logs/${id}`))).toBeTruthy()
+  }
+  expect(screen.queryByText(/日志 .*first/)).toBeNull()
 })
 
 it('keeps missing metrics distinct from zero and does not imply market coverage', () => {
