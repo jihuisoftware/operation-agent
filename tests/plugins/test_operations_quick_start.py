@@ -149,6 +149,8 @@ def test_quick_start_complete_pipeline_reuses_analysis_and_records_receipts(tmp_
     from plugins.operations.login_status import observe
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     monkeypatch.setattr(auxiliary_client, 'call_llm', fake_model)
+    from tests.plugins.operations_support import mock_writer_transport
+    mock_writer_transport(monkeypatch, fake_model)
     monkeypatch.setattr(web_tools, 'web_search_tool', lambda *a, **k: '{"data":{"web":[]}}')
     async def extract(urls, **kwargs):
         return json.dumps({'results': [{'content': '路线开放时间为九点。', 'title': '公开路线信息'}]})

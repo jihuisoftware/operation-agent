@@ -47,3 +47,27 @@ export function QuickSelection({ tasks, busy, available, onRun }: Props) {
     <Button disabled={disabled || ordered.length === 0} onClick={() => onRun(ordered, mode)} variant="outline">执行所选项目（真实执行）</Button>
   </fieldset>
 }
+
+
+export function canChooseDraftMode(available: boolean | undefined, tasks: string[]) {
+  return Boolean(available && tasks.includes('content'))
+}
+
+export function draftModeRequest(available: boolean | undefined, variant: boolean, tasks: string[]) {
+  return variant && canChooseDraftMode(available, tasks) ? { draft_mode: 'new_variant' } : {}
+}
+
+interface DraftModeProps {
+  available?: boolean
+  value: boolean
+  change: (value: boolean) => void
+  disabled: boolean
+}
+
+export function DraftModeOption({ available, value, change, disabled }: DraftModeProps) {
+  if (!available) return null
+  return <label className="flex items-center gap-2 text-sm">
+    <Checkbox checked={value} disabled={disabled} onCheckedChange={v => change(v === true)} />
+    内容生产：同题另写一篇（保留原稿）
+  </label>
+}

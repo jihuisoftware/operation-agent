@@ -1,4 +1,5 @@
 """Human approval authorizes exactly one version; debug can review and publish once."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 from datetime import datetime, UTC, timedelta
 from io import BytesIO
@@ -32,7 +33,7 @@ def manuscript(tmp_path, monkeypatch):
     prepare_materials(store, policy, day, monkeypatch)
     from plugins.operations import topics
     monkeypatch.setattr(topics, 'generate', lambda *_: {'topics': [{'title': '步行路线', 'source_ids': ['source']}]})
-    monkeypatch.setattr(content, 'generate', lambda *_: {'title': '步行路线', 'body': '路线开放时间为九点。', 'source_ids': ['source'], 'asset_ids': []})
+    mock_content_model(monkeypatch, lambda *_: {'title': '步行路线', 'body': '路线开放时间为九点。', 'source_ids': ['source'], 'asset_ids': []})
     monkeypatch.setattr(content, 'check_content', lambda *_a, **_kw: {'pass': True, 'reason': '来源可核对'})
     request = {'version': 1, 'request_id': 'complete'}
     result = generate(store, request)
@@ -148,7 +149,7 @@ def test_generated_cover_does_not_invalidate_pending_draft_reuse(manuscript, mon
     draft.update(review_pending=True, ready=False)
     with store.connection() as db:
         db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(draft), draft['id']))
-    monkeypatch.setattr(content, 'generate', lambda *_: pytest.fail('已保存的草稿不应因新封面重新生成正文'))
+    mock_content_model(monkeypatch, lambda *_: pytest.fail('已保存的草稿不应因新封面重新生成正文'))
     result = content.produce_content(store, policy, day, 1)
     assert result['content_id'] == draft['id']
     assert len(store.objects('content')) == 1

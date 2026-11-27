@@ -49,6 +49,8 @@ def test_full_day_is_traceable_idempotent_and_reports_actual_outcomes(store, mon
     from agent import auxiliary_client
     from tools import web_tools
     monkeypatch.setattr(auxiliary_client, "call_llm", fake_model)
+    from tests.plugins.operations_support import mock_writer_transport
+    mock_writer_transport(monkeypatch, fake_model)
     monkeypatch.setattr(web_tools, "web_search_tool", lambda *args, **kwargs: json.dumps({"data": {"web": []}}))
     async def extract(urls, **kwargs):
         return json.dumps({"results": [{"content": "同一份真实路线资料"} if "offline" not in urls[0] else {"error": "不可访问"}]})

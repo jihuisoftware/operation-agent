@@ -4,12 +4,13 @@ import { useSearchParams } from 'react-router'
 
 import { BrowserCheck } from './browser-check'
 import { DebugHistory } from './history'
-import { hasExternalActions, QuickSelection } from './quick-selection'
+import { DraftModeOption, draftModeRequest, hasExternalActions, QuickSelection } from './quick-selection'
 import { type Detail, type Run } from './records'
 import { DebugTaskPage } from './task-page'
 import { type DebugTask, DebugTaskRow, type TaskStatus } from './task-row'
 
 interface Catalog {
+  draft_modes_available?: boolean
   cancel_all_available?: boolean
   history_clear_available?: boolean
   task_details_available?: boolean
@@ -68,6 +69,7 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
   const [clearing, setClearing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [notice, setNotice] = useState('')
+  const [variant, setVariant] = useState(false)
   const generation = useRef(0)
 
   const api = useMemo(() => <T,>(path: string, body?: unknown) => ctx.rest<T>(path, {
@@ -125,6 +127,7 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
     try {
       await api('/debug/run', { task, mode, version: catalog.version, request_id: requestId,
         ...(tasks ? { tasks } : {}),
+        ...draftModeRequest(catalog.draft_modes_available, variant, tasks ?? [task]),
         ...(mode === 'quick' && hasExternalActions(tasks || [task]) ? { external_actions: 'execute_once' } : {}) })
     } catch (reason) {
       const message = String(reason)
@@ -203,6 +206,7 @@ export function DebugPanel({ ctx, owner, onOpenTask }: { ctx: PluginContext; own
       {catalog?.browser_check_available && <BrowserCheck busy={busy} onCheck={() => api('/debug/browser-check', { version: catalog.version, request_id: crypto.randomUUID() })} />}
       {!catalog && <p>请在当前 Profile 的 config.yaml 设置 development.operations_debug: true，并使用源码 Server 和开发版 Desktop。</p>}
       <section className="space-y-3 rounded-xl bg-muted/40 p-4">
+        <DraftModeOption available={catalog?.draft_modes_available} value={variant} change={setVariant} disabled={busy} />
         {catalog && <QuickSelection available={catalog.selective_pipeline_available === true} busy={busy} onRun={(tasks, mode) => void run('pipeline', mode, tasks)} tasks={catalog.tasks} />}
       </section>
       {catalog && !catalog.task_details_available && <p className="text-sm text-muted-foreground">后台尚未加载详细调试接口，请在当前任务结束后重启后台，再进入任务子页面。</p>}

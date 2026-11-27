@@ -29,6 +29,8 @@ def environment(tmp_path, monkeypatch):
     monkeypatch.setattr(web_tools, "web_extract_tool", extract)
     from agent import auxiliary_client
     monkeypatch.setattr(auxiliary_client, "call_llm", model)
+    from tests.plugins.operations_support import mock_writer_transport
+    mock_writer_transport(monkeypatch, model)
     original = Store.command
     submitted = []
     def consume(self, identity):

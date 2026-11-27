@@ -26,6 +26,8 @@ def test_four_topic_pipelines_are_traceable_and_do_not_cross_records(tmp_path, m
             response.choices[0].message.content = json.dumps(content)
         return response
     monkeypatch.setattr(auxiliary_client, 'call_llm', model)
+    from tests.plugins.operations_support import mock_writer_transport
+    mock_writer_transport(monkeypatch, model)
     monkeypatch.setattr(web_tools, 'web_search_tool', lambda *a, **k: json.dumps({'data': {'web': []}}))
     async def extract(urls, **kwargs):
         return json.dumps({'results': [{'content': '原始资料介绍步行路线开放时间，适合整理和核对。'}]})

@@ -1,8 +1,9 @@
-import { Codicon, CopyButton, formatTimestamp, LogView } from '@hermes/plugin-sdk'
+import { Button, host, Codicon, CopyButton, formatTimestamp, LogView } from '@hermes/plugin-sdk'
 
 import { type PauseOrigin, PauseOriginLink } from '../pause-details'
 
 export interface Step {
+  result?: unknown
   id: string
   title: string
   state: string
@@ -11,7 +12,10 @@ export interface Step {
   duration_ms?: number
 }
 export interface Run {
+  business_id?: string
+  topic_id?: string
   pause_status?: PauseOrigin
+  result?: unknown
   id: string
   title: string
   state: string
@@ -66,6 +70,7 @@ export function DebugRecord({ detail }: { detail: Detail }) {
       {hasErrors && <CopyButton label="仅复制错误日志" text={() => json(errors)}>仅复制错误日志</CopyButton>}
     </div>
     <p className="whitespace-pre-wrap">{detail.run.detail}</p>
+    <ManuscriptLink run={detail.run} result={detail.run.result} />
     <PauseOriginLink pause={detail.run.pause_status} />
     {detail.run.selected_tasks && <p className="text-sm">本次所选项目（{detail.run.selected_tasks.length} 项）：{detail.run.selected_tasks.map(id => detail.run.steps?.find(step => step.id === id)?.title || id).join('、')}</p>}
     {detail.run.coverage?.external_actions === 'readiness_only' && <p className="text-sm text-muted-foreground">此历史批次仅预检查外部动作，未实际执行。</p>}
@@ -76,6 +81,7 @@ export function DebugRecord({ detail }: { detail: Detail }) {
       return <details className="space-y-2" key={step.id}>
         <summary className="cursor-pointer">{index + 1}. {step.title} · <Codicon name={icons[step.state] || 'circle-outline'} spinning={step.state === 'running'} /> {states[step.state] || step.state}{step.duration_ms !== undefined && ` · ${(step.duration_ms / 1000).toFixed(1)} 秒`}</summary>
         <p className="whitespace-pre-wrap">{step.detail}</p>
+        {step.id === 'content' && <ManuscriptLink run={detail.run} result={step.result} />}
         <CopyButton label={`复制${step.title}日志`} text={json({ run_id: detail.run.id, step, events })}>复制本步骤日志</CopyButton>
         <LogView className="max-h-80">{json({ step, events })}</LogView>
       </details>
@@ -92,4 +98,15 @@ export function DebugRecord({ detail }: { detail: Detail }) {
     </details>
     <details><summary className="cursor-pointer">外部动作及结果（{detail.actions.length}）</summary><LogView className="max-h-80">{json(detail.actions)}</LogView></details>
   </section>
+}
+
+export function ManuscriptLink({ run, result }: { run: Run; result?: unknown }) {
+  const draft = result as { content_id?: string; writing_state?: string } | undefined
+  if (!draft?.content_id || !draft.writing_state) return null
+  const query = new URLSearchParams({ tab: 'drafts', record: draft.content_id })
+  if (run.business_id && run.topic_id) {
+    query.set('business_id', run.business_id)
+    query.set('topic_id', run.topic_id)
+  }
+  return <Button onClick={() => host.navigate('/content?' + query)} size="sm" variant="link">打开本次稿件</Button>
 }

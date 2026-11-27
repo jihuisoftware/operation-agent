@@ -5,7 +5,7 @@ import { ActionManager } from '../management'
 import type { RecordRow } from '../types'
 
 import { ActionBlocker } from './action-blocker'
-import { type Detail, hasError, type Run, states, type Step } from './records'
+import { type Detail, ManuscriptLink, hasError, type Run, states, type Step } from './records'
 import { eventNames } from './task-guide'
 
 export interface Artifact { id: string; kind: string; created: string; title?: string; state?: string; error?: string }
@@ -71,6 +71,7 @@ export function TaskEvidence({ detail, api, base, ctx, refresh, error }: { detai
       <p role="status">{states[detail.step.state] || detail.step.state}{detail.step.duration_ms !== undefined && ` · ${(detail.step.duration_ms / 1000).toFixed(1)} 秒`}</p>
       <p className="break-all text-xs text-muted-foreground">批次 {detail.run.id} · 规则 v{detail.run.version ?? '未知'} · {detail.run.day}</p>
       <p className="whitespace-pre-wrap">{detail.step.detail}</p>
+      {detail.task === 'content' && <ManuscriptLink run={detail.run} result={detail.step.result} />}
       {detail.task === 'publish' && <ActionBlocker result={detail.step.result} />}
       {detail.attempts.map((item, index) => <p key={item.id}>第 {index + 1} 次 · {states[item.state] || item.state} · {formatTimestamp(item.started)} · {item.detail}</p>)}
       <details><summary>完整步骤结果</summary><LogView>{json({ current: detail.step, original: detail.original_step })}</LogView></details>

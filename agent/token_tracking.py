@@ -9,7 +9,11 @@ from agent import token_ledger as ledger
 log = logging.getLogger(__name__)
 
 
-def run_tracked_turn(call, agent, *args, **kwargs):
+def run_tracked_turn(call, agent, *args, usage_context=None, **kwargs):
+    if usage_context is not None:
+        # The caller owns the task lifetime, including turns that fail partway.
+        with ledger.bind(usage_context):
+            return call(agent, *args, **kwargs)
     context = None
     state = 'failed'
     try:

@@ -1,4 +1,5 @@
 """Failed model checks preserve drafts; abandoned budgets become reconcilable."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 import pytest
 from plugins.operations import content, model
@@ -28,7 +29,7 @@ def test_provider_failure_preserves_draft_and_retry_only_checks(tmp_path, monkey
             raise TimeoutError('质检服务超时')
         generated.append(True)
         return {'title': '已写完的草稿', 'body': '根据来源整理的正文', 'asset_ids': [], 'source_ids': ['source']}
-    monkeypatch.setattr(content, 'generate', provider)
+    mock_content_model(monkeypatch, provider)
     with pytest.raises(TimeoutError):
         content.produce_content(store, policy, day, 1)
     drafts = store.objects('content')
@@ -38,7 +39,7 @@ def test_provider_failure_preserves_draft_and_retry_only_checks(tmp_path, monkey
         store.configure(policy, 1)
     def recovered(*args):
         return {'pass': True, 'reason': '检查通过'} if 'content' in args[-1] else provider(*args)
-    monkeypatch.setattr(content, 'generate', recovered)
+    mock_content_model(monkeypatch, recovered)
     result = content.produce_content(store, policy, day, store.policy()[0])
     assert (result['content_id'] == drafts[0]['id']) is (not change_policy)
     assert len(generated) == (2 if change_policy else 1)

@@ -118,3 +118,17 @@ def test_existing_ledger_is_migrated_and_recovery_is_throttled(tmp_path):
         assert db.execute("SELECT name FROM sqlite_master WHERE name='token_usage_model'").fetchone()
         assert ledger.recover_if_due(db, now=100, interval=30)
         assert not ledger.recover_if_due(db, now=110, interval=30)
+
+
+def test_embedded_agent_turn_attributes_attempt_to_caller_owned_task(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    owner = ledger.start_task('article', stage='content', run_id='run')
+    def turn(agent):
+        with attempt(model='editor', purpose='chat') as receipt:
+            receipt.response = response(42, 8)
+        return {'completed': True}
+
+    run_tracked_turn(turn, SimpleNamespace(), usage_context=owner)
+    with ledger.connection(owner['path']) as db:
+        assert [tuple(r) for r in db.execute('SELECT task_id,total_tokens FROM token_usage_calls')] == [('article', 50)]
+        assert [tuple(r) for r in db.execute('SELECT id,state FROM token_usage_tasks')] == [('article', 'running')]

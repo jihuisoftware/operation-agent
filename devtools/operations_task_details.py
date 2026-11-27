@@ -7,7 +7,7 @@ from plugins.operations.policy import now_iso
 from plugins.operations.store import encoded
 
 ARTIFACTS = ('source', 'organized_source', 'organization', 'organization_part', 'organization_merge',
-             'analytics_report', 'industry_report', 'industry_batch', 'brief', 'content', 'content_revision_attempt', 'check', 'report', 'model_trace')
+             'analytics_report', 'industry_report', 'industry_batch', 'brief', 'content', 'content_revision_attempt', 'writing_outline', 'check', 'report', 'model_trace')
 
 
 def context(store, batch, task):

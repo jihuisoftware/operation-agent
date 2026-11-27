@@ -1,4 +1,5 @@
 """Collection and topic planning are independent; chosen topics reach saved content."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 import json
 
@@ -61,7 +62,7 @@ def test_manual_topic_is_used_in_production_without_auto_planning_or_publishing(
     def generate(*args):
         seen.append(args[-1])
         return {"title": "厨房收纳改造", "body": "依据已采集资料", "source_ids": ["source"], "asset_ids": []}
-    monkeypatch.setattr(content, "generate", generate)
+    mock_content_model(monkeypatch, generate)
     monkeypatch.setattr(content, "check_content", lambda *_: {"pass": True})
     content.produce_content(store, policy, day, 1)
     assert seen[0]["selected_topic"]["title"] == selected["title"]

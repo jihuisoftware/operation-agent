@@ -1,4 +1,5 @@
 """Magazine output preserves provenance, paid-call limits and interrupted work."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 from io import BytesIO
 
@@ -145,7 +146,7 @@ def test_auto_pipeline_uses_magazine_by_default_and_checks_all_page_copy(studio,
             supplied.extend(args[-1]['assets'])
             return {'pass': True, 'reason': '文案符合来源', 'issues': []}
         return {**sample, 'source_ids': ['source']}
-    monkeypatch.setattr(pipeline, 'generate', generate)
+    mock_content_model(monkeypatch, generate)
     result = pipeline.produce_content(store, policy, day, version)
     assert result['ready'] and len(calls) == 1
     assert supplied and all(asset.get('visual_page') or asset.get('cover_spec') for asset in supplied)

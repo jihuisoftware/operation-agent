@@ -29,6 +29,7 @@ def resume(identity, body):
         return replay
     if not store.lease(identity):
         raise HTTPException(409, '已有任务执行中，本次继续未启动')
+    store.draft_mode = data.get('draft_mode', 'reuse')
     store.manual_run_id = identity
     try:
         resumed, repeated = execution_resume.prepare(store, identity, body)

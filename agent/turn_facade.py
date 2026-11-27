@@ -30,6 +30,7 @@ class TurnFacadeMixin:
         relay_metadata: Optional[dict[str, Any]] = None,
         title_user_message: Optional[str]=None,
         prelude: Optional[Generator]=None,
+        usage_context: Optional[dict[str, Any]]=None,
     ) -> dict[str, Any]:
         """Forwarder — see ``agent.conversation_loop.run_conversation``."""
         # A review shares this session_id for cache parity: fence review startup or interrupt
@@ -148,7 +149,7 @@ class TurnFacadeMixin:
                         lease.start()
                     result = run_tracked_turn(
                         run_conversation, self, user_message, system_message, conversation_history, effective_task_id,
-                        stream_callback, persist_user_message,
+                        stream_callback, persist_user_message, usage_context=usage_context,
                         persist_user_timestamp=persist_user_timestamp,
                         persist_user_display_kind=persist_user_display_kind,
                         persist_user_display_metadata=persist_user_display_metadata,

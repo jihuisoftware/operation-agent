@@ -100,3 +100,20 @@ it('does not mix a late response from the previously selected batch into the new
   deliver(trace('旧批次迟到结果'))
   await waitFor(() => expect(screen.queryByText('旧批次迟到结果')).toBeNull())
 })
+
+it('requests a separate manuscript only after choosing the variant option', async () => {
+  const rest = vi.fn(async (path: string) => {
+    if (path === '/debug') return { ...catalog, draft_modes_available: true,
+      tasks: [{ id: 'content', title: '图文内容生产', module: 'content' }], policy: { modules: { content: true } } }
+    if (path.endsWith('/runs')) return { runs: [], next: null }
+    return { ...trace(), id: 'debug:variant' }
+  })
+  render(<DebugTaskPage {...props(rest)} runId={null} task="content" />)
+  const option = await screen.findByRole('checkbox', { name: /同题另写/ })
+  expect(option.getAttribute('aria-checked')).toBe('false')
+  fireEvent.click(option)
+  fireEvent.click(screen.getByRole('button', { name: '快速实测本任务' }))
+  await waitFor(() => expect(rest).toHaveBeenCalledWith('/debug/run', expect.objectContaining({
+    body: expect.objectContaining({ task: 'content', draft_mode: 'new_variant' })
+  })))
+})

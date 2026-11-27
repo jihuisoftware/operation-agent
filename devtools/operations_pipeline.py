@@ -98,7 +98,7 @@ def run_pipeline(store, identity, task, version, *, mode="normal", external_acti
         raise HTTPException(409, "规则已变更，请刷新调试页")
     day = local_day(policy)
     data = new_record(identity, task, "整链路测试", version, day)
-    data.update(mode=mode, action_mode=external_actions, policy=policy, steps=[
+    data.update(mode=mode, action_mode=external_actions, policy=policy, draft_mode=getattr(store, 'draft_mode', 'reuse'), steps=[
         {"id": key, "title": title, "module": module, "state": "pending", "detail": "等待执行"}
         for key, (title, module) in TASKS.items() if selected_tasks is None or key in selected_tasks])
     if selected_tasks is not None:

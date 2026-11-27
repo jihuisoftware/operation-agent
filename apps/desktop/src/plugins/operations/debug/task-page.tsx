@@ -3,13 +3,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useOwnerContext } from '../use-owner-context'
 
-import { hasExternalActions } from './quick-selection'
+import { canChooseDraftMode, DraftModeOption, draftModeRequest, hasExternalActions } from './quick-selection'
 import { type Run, states } from './records'
 import { type TaskDetail, TaskEvidence } from './task-evidence'
 import { TaskHelp, TaskPlan } from './task-help'
 
 interface Props { ctx: PluginContext; owner: CronBlueprintOwner; task: string; runId: string | null; selectRun: (id: string) => void; back: () => void }
-interface Catalog { version: number; policy: { modules: Record<string, boolean> }; tasks: { id: string; title: string; module: string }[]; execution?: { message: string }; browser_check_available?: boolean; task_details_available?: boolean }
+interface Catalog { draft_modes_available?: boolean; version: number; policy: { modules: Record<string, boolean> }; tasks: { id: string; title: string; module: string }[]; execution?: { message: string }; browser_check_available?: boolean; task_details_available?: boolean }
 
 export function DebugTaskPage({ ctx, owner, task, runId, selectRun, back }: Props) {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
@@ -18,6 +18,7 @@ export function DebugTaskPage({ ctx, owner, task, runId, selectRun, back }: Prop
   const [detail, setDetail] = useState<TaskDetail | null>(null)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+  const [variant, setVariant] = useState(false)
   const [note, setNote] = useState('')
   const [notePending, setNotePending] = useState(false)
 
@@ -105,6 +106,7 @@ export function DebugTaskPage({ ctx, owner, task, runId, selectRun, back }: Prop
 
     try {
       await api('/debug/run', { task, mode, version: catalog.version, request_id: request,
+        ...draftModeRequest(catalog.draft_modes_available, variant, [task]),
         ...(mode === 'quick' && hasExternalActions([task]) ? { external_actions: 'execute_once' } : {}) })
     } catch (reason) { setError(String(reason)) } finally { setPending(false) }
   }
@@ -138,6 +140,7 @@ export function DebugTaskPage({ ctx, owner, task, runId, selectRun, back }: Prop
     <Button onClick={back} variant="ghost">返回任务调试</Button>
     <h1 className="text-xl font-semibold">{description?.title || task} · 详细调试</h1>
     <TaskPlan task={task} />
+    <DraftModeOption available={canChooseDraftMode(catalog?.draft_modes_available, [task])} value={variant} change={setVariant} disabled={busy} />
     <div className="flex flex-wrap gap-2">
       <Button disabled={executeDisabled} onClick={() => void execute('normal')}>详细执行本任务</Button>
       <Button disabled={executeDisabled} onClick={() => void execute('quick')} variant="outline">快速实测本任务</Button>

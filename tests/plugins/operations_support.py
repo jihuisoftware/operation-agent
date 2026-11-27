@@ -46,3 +46,37 @@ def install_test_designer(monkeypatch):
             yield folder, result
     monkeypatch.setattr(designer_render, 'check_plugin', lambda: None)
     monkeypatch.setattr(designer_render, 'exchange', exchange)
+
+
+def editorial_outline(data):
+    return {'question': '读者应如何选择？', 'angle': '比较来源中的条件', 'points': [
+        {'claim': '来源记录的做法', 'use': '按条件试用', 'limit': '仅限当前样本',
+         'source_ids': [row['id'] for row in data['sources']]}]}
+
+
+def mock_content_model(monkeypatch, respond):
+    from plugins.operations import content, content_writer
+
+    def editorial(store, policy, day, instruction, data, **kwargs):
+        if instruction == content_writer.PLAN:
+            return editorial_outline(data)
+        return respond(store, policy, day, instruction, data)
+
+    monkeypatch.setattr(content_writer, 'generate', editorial)
+    monkeypatch.setattr(content, 'generate', respond)
+
+
+def mock_writer_transport(monkeypatch, provider):
+    import json
+    from types import SimpleNamespace
+    from plugins.operations import content_writer
+
+    def respond(**kwargs):
+        messages = kwargs['messages']
+        if content_writer.PLAN not in messages[0]['content']:
+            return provider(**kwargs)
+        outline = editorial_outline(json.loads(messages[1]['content']))
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(outline)))],
+                               usage={'total_tokens': 20})
+
+    monkeypatch.setattr(content_writer, 'complete', respond)

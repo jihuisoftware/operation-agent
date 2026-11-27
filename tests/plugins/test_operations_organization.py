@@ -1,4 +1,5 @@
 """Preparation is durable, bounded and required by topic/content generation."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 
 import pytest
@@ -51,7 +52,7 @@ def test_incremental_batches_resume_and_downstream_only_receives_organized_evide
         rows = args[-1]['sources']
         assert len(rows) == 10 and rows[0]['uncertainties'] == ['尚未独立核实']
         return {'title': '收纳方法', 'body': '有出处的方法', 'source_ids': [rows[0]['id']], 'asset_ids': []}
-    monkeypatch.setattr(content, 'generate', produce)
+    mock_content_model(monkeypatch, produce)
     monkeypatch.setattr(content, 'check_content', lambda *args: {'pass': True})
     content.produce_content(store, policy, day, 2)
     saved = store.objects('content')[0]

@@ -101,12 +101,12 @@ def recover_interrupted(store, data):
     update_record(store, data)
 
 
-def previous(store, identity, task, version, mode='normal', external_actions='standing_policy', selected_tasks=None):
+def previous(store, identity, task, version, mode='normal', external_actions='standing_policy', selected_tasks=None, draft_mode='reuse'):
     existing = record(store, identity)
     if existing and (existing["task"] != task or existing["version"] != version
                      or existing.get('mode', 'normal') != mode
                      or existing.get('action_mode', 'standing_policy') != external_actions
-                     or existing.get('selected_tasks') != selected_tasks):
+                     or existing.get('selected_tasks') != selected_tasks or existing.get('draft_mode', 'reuse') != draft_mode):
         raise HTTPException(409, "同一请求标识不能用于不同任务、规则或执行方式")
     return existing
 
@@ -129,10 +129,15 @@ def execute(body, path=None):
     from .operations_authorization import request_mode
     from .operations_selection import parse
     selected_tasks = parse(body, task, mode)
+    draft_mode = body.get('draft_mode', 'reuse')
+    if draft_mode not in ('reuse', 'new_variant') or (draft_mode == 'new_variant' and
+            task != 'content' and not (task == 'pipeline' and 'content' in (selected_tasks or []))):
+        raise HTTPException(400, '同题另写只适用于已选择的内容生产任务')
     external_actions = request_mode(body, task, mode, selected_tasks)
     identity = "debug:" + request_id
     store = DebugStore(identity, path)
-    existing = previous(store, identity, task, body.get("version"), mode, external_actions, selected_tasks)
+    store.draft_mode = draft_mode
+    existing = previous(store, identity, task, body.get("version"), mode, external_actions, selected_tasks, draft_mode)
     if existing:
         return existing
     from .operations_selection import require_selected
@@ -148,10 +153,11 @@ def execute(body, path=None):
         from .operations_pipeline import run_pipeline
         handler = run_pipeline if task == "pipeline" else run_task
         options = {'selected_tasks': selected_tasks} if task == 'pipeline' else {}
-        return previous(store, identity, task, body.get("version"), mode, external_actions, selected_tasks) or handler(
+        return previous(store, identity, task, body.get("version"), mode, external_actions, selected_tasks, draft_mode) or handler(
             store, identity, task, body.get("version"), mode=mode, external_actions=external_actions, **options)
     except BatchCancelled:
         data = record(store, identity) or new_record(identity, task, TASKS.get(task, ('整链路测试',))[0], body.get('version'), local_day(store.policy()[1]))
+        data.setdefault('draft_mode', draft_mode)
         data.setdefault('mode', mode)
         data.setdefault('action_mode', external_actions)
         if selected_tasks is not None:
@@ -176,7 +182,7 @@ def run_task(store, identity, task, version, *, mode="normal", external_actions=
     if task in EXTERNAL and mode != 'quick' and external_actions != 'publish_once' and not policy["allowed"][task]:
         raise HTTPException(400, "该动作尚未授权")
     data = new_record(identity, task, TASKS[task][0], version, day)
-    data.update(mode=mode, action_mode=external_actions, policy=policy)
+    data.update(mode=mode, action_mode=external_actions, policy=policy, draft_mode=getattr(store, 'draft_mode', 'reuse'))
     store.put("debug_run", data, identity)
     store.manual_run_id = identity
     from .operations_authorization import create
@@ -282,7 +288,7 @@ def catalog():
             "runs": [{key: value for key, value in run.items() if key in fields} for run in runs],
             "task_status": task_status(store, runs), "execution": active_execution(store), 'web_block_reason': web_block,
             "pipeline_available": True, 'selective_quick_available': True, 'selective_pipeline_available': True,
-            'browser_check_available': True, 'task_details_available': True, 'history_clear_available': True, 'cancel_all_available': True}
+            'browser_check_available': True, 'task_details_available': True, 'history_clear_available': True, 'draft_modes_available': True, 'cancel_all_available': True}
 
 
 @router.post("/run")

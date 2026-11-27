@@ -94,7 +94,8 @@ def produce_content(store, policy, day, version):
     from .industry import production_context, preferred_sources
     analysis = production_context(store, policy, day)
     topic = production_topic(store, policy, day)
-    sources, evidence = production_evidence(store, policy, day, topic.get('source_ids', []) if topic else preferred_sources(analysis))
+    preferred = topic.get('source_ids', []) if topic else preferred_sources(analysis)
+    sources, evidence = production_evidence(store, policy, day, preferred)
     if topic and topic.get("source_ids"):
         sources = [source for source in sources if source["id"] in topic["source_ids"]]
         evidence = [row for row in evidence if row['id'] in topic['source_ids']]
@@ -109,30 +110,28 @@ def produce_content(store, policy, day, version):
     data = inputs.checked(store, 'content', {"analysis": inputs.analysis(analysis, evidence), "policy": inputs.policy(policy), "sources": evidence,
          "assets": inputs.assets([asset for asset in assets if not any(asset.get(key) for key in ('generated_typography', 'generated_magazine', 'generated_visual_art', 'designer_background', 'designer_cover'))]), "tasks": inputs.tasks(store.objects("task", day)),
          "image_mode": policy.get("image_mode", "magazine"), "selected_topic": inputs.selected_topic(topic), "recent_content": inputs.history(public_history(store, policy, day)), "performance_review": []})
-    signature = fingerprint(data, version, analysis)
+    from . import content_writer
+    from .automatic_review import finish_production
+    base = fingerprint(data, version, analysis)
+    signature = content_writer.variant_key(store, base)
     draft = pending(store, day, signature)
+    mode = getattr(store, 'draft_mode', 'reuse')
     if draft:
         validate_content(draft, sources, assets)
         store.event('content_reused', {'content_id': draft['id'], 'source_ids': draft['source_ids'], 'revision_index': draft.get('revision_index', 0)})
         store.progress('复用已保存图文，继续尚未完成的检查或修订', {'content_id': draft['id']})
-        from .automatic_review import finish_production
-        return finish_production(store, policy, day, version, draft, sources)
-    content = generate(store, policy, day,
-        '生成小红书图文草稿，返回 {"title":"","body":"","asset_ids":[],"source_ids":[],"reason":""}。'
-        '标题不超过20字，正文不超过900字。只能使用提供的来源和素材，缺少图片时保留文本草稿。'
-        'selected_topic 不为空时必须围绕指定选题写作，不得另换题目；标题可精炼但保持原主题。'
-        'analysis 非空时优先参考其可公开结论与指标，保留适用范围；不使用内部经营数据。'
-        'analysis_origin=historical 的结论属于 origin_window 的历史证据分析，不得改称今日趋势。'
-        '主要参考 sources 中已整理的摘要、分类和事实陈述；观点明确归属，待核实信息不得写成确定事实。'
-        '采集日期、统计窗口不是文章发布时间；无法确认发布时间时使用“根据已采集的公开资料整理”，不要编造“本周发布”等时间结论。'
-        '不适合生产时返回空标题和原因。不要执行发布。coverage 标明本轮提供的分析范围，不外推未提供的资料。',
-        data)
-    if not content.get("title"):
-        raise StageSkipped(content.get("reason", "无合适选题"))
-    content = inputs.fields(content, ('title', 'body', 'source_ids', 'asset_ids', 'reason', 'visual_plan'))
+        return {**finish_production(store, policy, day, version, draft, sources), 'writing_state': 'reused', 'draft_mode': mode}
+    prior = pending(store, day, base) if signature != base else None
+    content, writing_state, outline_id = content_writer.write(store, policy, day, version, analysis, data, sources, signature, prior)
     content["analysis_context"] = analysis
     content["selected_topic"] = topic
-    validate_content(content, sources, assets)
+    if production_topic(store, policy, day) != topic:
+        raise StageSkipped('写稿期间选题已变化，请按当前选题重新生成')
+    current_sources, current_evidence = production_evidence(store, policy, day, preferred)
+    current_ids = {row['id']: row['organization_id'] for row in current_evidence}
+    if any(current_ids.get(row['id']) != row['organization_id'] for row in evidence if row['id'] in content['source_ids']):
+        raise StageSkipped('写稿期间引用资料已变化，请按最新资料重新生成')
+    validate_content(content, current_sources, [a for a in store.objects('asset') if a.get('authorized') and not a.get('revoked')])
     content['visual_required'] = policy.get('image_mode', 'magazine') == 'magazine'
     content['designer_required'] = not content['visual_required']
     content['asset_ids'] = []
@@ -140,13 +139,12 @@ def produce_content(store, policy, day, version):
     content['organization_ids'] = [row['organization_id'] for row in cited]
     content['organized_evidence'] = cited
     draft = {**content, "day": day, "version": version, "ready": False, "review_pending": True,
-             "production_input": signature, "state": "needs_review", "created": now_iso(),
+             "production_input": signature, "writing_outline_id": outline_id, "draft_mode":mode, "state": "needs_review", "created": now_iso(),
              "quality": {"pass": False, "reason": "草稿已保存，等待自动质量检查"},
              **({'debug_id': store.debug_id} if getattr(store, 'debug_id', None) else {})}
     draft['review_policy_revision'] = review_revision
     draft['id'] = store.put('content', draft)
-    from .automatic_review import finish_production
-    return finish_production(store, policy, day, version, draft, sources)
+    return {**finish_production(store, policy, day, version, draft, sources), 'writing_state': writing_state, 'draft_mode': mode}
 
 
 def public_history(store, policy, day):

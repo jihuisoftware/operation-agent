@@ -1,4 +1,5 @@
 """Model requests use bounded evidence without resending nested stored snapshots."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 import json
 
@@ -45,7 +46,7 @@ def test_generation_and_review_bound_inputs_but_keep_full_saved_lineage(tmp_path
         return {'topics': [{'title': '新选题', 'source_ids': ['0'], 'reason': '有来源'}]}
 
     monkeypatch.setattr(topics, 'generate', generate)
-    monkeypatch.setattr(content, 'generate', generate)
+    mock_content_model(monkeypatch, generate)
     topics.generate_topics(store, policy, day, 1)
     produced = content.produce_content(store, policy, day, 1)
     assert len(captured) == 3

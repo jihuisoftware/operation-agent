@@ -1,4 +1,5 @@
 """A provider failure can retain verified candidates without accepting stale evidence."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 
 import pytest
@@ -53,7 +54,7 @@ def test_partial_candidates_feed_content_with_current_batch_lineage(tmp_path, mo
     def write(*args):
         seen.append(args[-1]['selected_topic'])
         return {'title': '步行路线', 'body': '来源支持的路线', 'source_ids': ['one'], 'asset_ids': []}
-    monkeypatch.setattr(content, 'generate', write)
+    mock_content_model(monkeypatch, write)
     monkeypatch.setattr(content, 'check_content', lambda *_: {'pass': True})
     result = debug.execute({'task': 'pipeline', 'tasks': ['topics', 'content'], 'version': 1, 'request_id': 'partial'})
     stages = {step['id']: step for step in result['steps']}
@@ -89,7 +90,7 @@ def test_no_valid_candidates_keeps_failure_and_blocks_content(tmp_path, monkeypa
             db.execute('UPDATE objects SET data=? WHERE id=?', (encoded(original), original['id']))
     # A changed task input prevents the exact-input reuse fast path.
     store.put('task', {'day': day, 'title': '新增要求'})
-    monkeypatch.setattr(content, 'generate', lambda *_: pytest.fail('没有有效选题不能生产'))
+    mock_content_model(monkeypatch, lambda *_: pytest.fail('没有有效选题不能生产'))
     result = debug.execute({'task': 'pipeline', 'tasks': ['topics', 'content'], 'version': 1, 'request_id': 'invalid'})
     assert [step['state'] for step in result['steps']] == ['failed', 'skipped']
     assert not store.objects('content')

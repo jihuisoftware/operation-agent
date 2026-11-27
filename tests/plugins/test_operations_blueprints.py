@@ -1,4 +1,5 @@
 """Blueprint composition uses the real policy store, occurrence ledger and cron jobs."""
+from tests.plugins.operations_support import mock_content_model
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, UTC
@@ -132,7 +133,7 @@ def test_production_adds_cover_and_publishing_waits_for_human_review(store, monk
     def generate(*args):
         calls.append(args[-1])
         return {"title": "路线", "body": "真实资料", "asset_ids": [], "source_ids": ["source"]} if "content" not in args[-1] else {"pass": True}
-    monkeypatch.setattr(content, "generate", generate)
+    mock_content_model(monkeypatch, generate)
     result = workflow.produce(store, policy, "2026-10-31", version)
     assert result["ready"]
     assert store.objects("content")[0]["state"] == "pending_review"
@@ -156,7 +157,7 @@ def test_publication_uses_selected_version_and_rechecks_revoked_material(store, 
     saved = {"day": "2026-10-31", "title": "已选标题", "body": "已选正文", "asset_ids": ["image"], "source_ids": ["source"], "ready": True}
     store.put("content", saved, "revision")
     seen = []
-    monkeypatch.setattr(content, "generate", lambda *args: {"pass": True})
+    mock_content_model(monkeypatch, lambda *args: {"pass": True})
     monkeypatch.setattr(workflow, "browser", lambda store, kind, payload, identity: seen.append(payload))
     version, policy = store.policy()
     workflow.publish(store, policy, "2026-10-31", version)

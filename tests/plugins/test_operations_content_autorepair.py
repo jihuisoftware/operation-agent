@@ -1,4 +1,5 @@
 """Review sees attributable evidence; bounded revisions preserve drafts and approval boundaries."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 
 import pytest
@@ -39,7 +40,7 @@ def test_review_reads_middle_evidence_and_does_not_treat_unpublished_drafts_as_r
         assert not data['history']
         assert data['assets'][0]['generated_typography'] is True
         return {'pass': True, 'reason': '可核对'}
-    monkeypatch.setattr(content, 'generate', check)
+    mock_content_model(monkeypatch, check)
     assert content.check_content(store, policy, day, 1, draft, [source, *other])['pass'] is True
 
 
@@ -57,7 +58,7 @@ def test_failed_review_revises_and_rechecks_without_mutating_parent_or_repeating
     def check(_store, _policy, _day, _version, draft, _sources):
         checked.append(draft['body'])
         return {'pass': '今天发布' not in draft['body'], 'reason': '修正日期，区分发布时间和采集时间'}
-    monkeypatch.setattr(content, 'generate', generate)
+    mock_content_model(monkeypatch, generate)
     monkeypatch.setattr(content, 'check_content', check)
     outcome = content.produce_content(store, policy, day, 1)
     assert outcome['ready'] is True and outcome['revision_count'] == 1
@@ -81,7 +82,7 @@ def test_revision_cap_survives_new_calls_and_never_forces_review_to_pass(tmp_pat
     def generate(*args):
         calls.append(args[-1])
         return {'title': '工程核对', 'body': f'仍待核实的说法{len(calls)}', 'source_ids': ['source'], 'asset_ids': []}
-    monkeypatch.setattr(content, 'generate', generate)
+    mock_content_model(monkeypatch, generate)
     monkeypatch.setattr(content, 'check_content', lambda *_: {'pass': False, 'reason': '证据不足'})
     result = content.produce_content(store, policy, day, 1)
     assert not result['ready'] and result['revision_count'] == 2
@@ -114,7 +115,7 @@ def test_interrupted_recheck_resumes_saved_revision_without_generating_it_again(
         if draft.get('revision_index'):
             raise ModelServiceUnavailable('临时超时')
         return {'pass': False, 'reason': '修正日期'}
-    monkeypatch.setattr(content, 'generate', generate)
+    mock_content_model(monkeypatch, generate)
     monkeypatch.setattr(content, 'check_content', check)
     with pytest.raises(ModelServiceUnavailable):
         content.produce_content(store, policy, day, 1)
@@ -132,7 +133,7 @@ def test_rule_change_during_revision_does_not_save_new_content(tmp_path, monkeyp
         if args[-1].get('task') == 'revise_content':
             store.configure({**policy, 'paused': True}, 1)
         return {'title': '工程核对', 'body': '待核对正文', 'source_ids': ['source'], 'asset_ids': []}
-    monkeypatch.setattr(content, 'generate', generate)
+    mock_content_model(monkeypatch, generate)
     monkeypatch.setattr(content, 'check_content', lambda *_: {'pass': False, 'reason': '证据不足'})
     with pytest.raises(ValueError, match='规则'):
         content.produce_content(store, policy, day, 1)
@@ -148,7 +149,7 @@ def test_passed_check_reuses_exact_inputs_but_a_new_publication_invalidates_it(t
     def check(*args):
         calls.append(args[-1])
         return {'pass': not args[-1]['history'], 'reason': '已发布内容比较'}
-    monkeypatch.setattr(content, 'generate', check)
+    mock_content_model(monkeypatch, check)
     sources = store.objects('source')
     assert content.check_content(store, policy, day, 1, draft, sources)['pass']
     assert content.check_content(store, policy, day, 1, draft, sources)['pass']
@@ -165,7 +166,7 @@ def test_low_budget_preserves_draft_without_starting_revision(tmp_path, monkeypa
     policy['model_calls'] = 3
     store.configure(policy, 1)
     calls = []
-    monkeypatch.setattr(content, 'generate', lambda *args: calls.append(args[-1]) or {
+    mock_content_model(monkeypatch, lambda *args: calls.append(args[-1]) or {
         'title': '工程核对', 'body': '待核实内容', 'source_ids': ['source'], 'asset_ids': []})
     monkeypatch.setattr(content, 'check_content', lambda *_: {'pass': False, 'reason': '证据不足'})
     result = content.produce_content(store, policy, day, 2)

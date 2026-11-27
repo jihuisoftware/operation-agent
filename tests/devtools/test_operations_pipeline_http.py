@@ -44,6 +44,8 @@ def providers(monkeypatch):
         return json.dumps({'results': [{'title': '步行开放资料', 'content': '步行路线开放时间为九点。', 'author': '模拟资料作者'}]})
     monkeypatch.setattr(web_tools, 'web_extract_tool', extract)
     monkeypatch.setattr(auxiliary_client, 'call_llm', model)
+    from tests.plugins.operations_support import mock_writer_transport
+    mock_writer_transport(monkeypatch, model)
 
 
 @pytest.mark.parametrize('mode', ('normal', 'quick'))

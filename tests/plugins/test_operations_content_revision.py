@@ -1,4 +1,5 @@
 """Publishing a revised draft compares against releases, not its own working copies."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 
 from plugins.operations import content, workflow
@@ -34,7 +35,7 @@ def test_publish_checks_releases_and_supplies_asset_metadata(tmp_path, monkeypat
         assert data["assets"][0]["name"] == "原创文字封面.png"
         return {"pass": True, "reason": "检查通过"}
 
-    monkeypatch.setattr(content, "generate", review)
+    mock_content_model(monkeypatch, review)
     monkeypatch.setattr(workflow, "browser", lambda *_args: {"state": "published", "evidence": "模拟发布回执"})
     assert workflow.publish(store, policy, day, version)["state"] == "published"
     check = store.objects("check")[0]["result"]

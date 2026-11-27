@@ -1,4 +1,5 @@
 """Collected picture/text snapshots are reusable evidence, never automatic publishing assets."""
+from tests.plugins.operations_support import mock_content_model
 from copy import deepcopy
 from io import BytesIO
 import json
@@ -70,7 +71,7 @@ def test_collection_persists_images_text_and_provenance_and_can_reuse_across_day
         assert all(image['authorized'] is False for image in images)
         assert not args[-1]["assets"]
         return {"title": "收纳步骤", "body": "有依据的整理", "source_ids": [source["id"]], "asset_ids": []}
-    monkeypatch.setattr(content, "generate", produce)
+    mock_content_model(monkeypatch, produce)
     monkeypatch.setattr(content, "check_content", lambda *args: {"pass": True})
     result = content.produce_content(store, policy, "2026-11-01", 1)
     assert result["ready"]

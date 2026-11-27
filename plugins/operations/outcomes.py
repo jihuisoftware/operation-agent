@@ -28,7 +28,10 @@ def describe(stage, result):
                 return 'needs_attention', '；'.join(summary(receipt) for receipt in pending)
             return "needs_attention", "已提交待核对或结果未知，尚不能计为成功：" + str(pending)
     if stage == "content" and isinstance(result, dict) and result.get("content_id"):
-        detail = '草稿生成完成；' + ('已通过检查，可供发布' if result.get('ready') else '发布前仍需完善')
+        writing = {'reused':'复用原稿','resumed_outline':'从提纲续写','generated':'生成新稿'}.get(result.get('writing_state'), '草稿生成完成')
+        if result.get('draft_mode') == 'new_variant':
+            writing = '同题另写 · ' + writing
+        detail = writing + '；' + ('已通过检查，可供发布' if result.get('ready') else '发布前仍需完善')
         if result.get("missing"):
             detail += "；" + "；".join(result["missing"])
         if result.get("reason"):
