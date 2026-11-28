@@ -5,7 +5,7 @@ import { type ReferenceImage, ReferencePreview } from './source-image-preview'
 
 export interface Source {
   document_language?: string
-  origins?: { type: string; query?: string; language?: string; feed?: string; keyword?: string; seen: string }[]
+  origins?: { type: string; query?: string; language?: string; feed?: string; keyword?: string; seen?: string }[]
   id: string
   title: string
   url: string
@@ -24,6 +24,49 @@ export interface Source {
   images?: ReferenceImage[]
   selected: boolean
   content_versions?: { id: string; title: string; day: string }[]
+}
+
+const languages: Record<string, string> = { en: '英文', zh: '中文' }
+
+function describeOrigin(origin: NonNullable<Source['origins']>[number]) {
+  let label: string
+  switch (origin.type) {
+    case 'search': {
+      const terms = [origin.keyword?.trim(), origin.query?.trim()].filter(Boolean).join(' → ')
+      label = [`${languages[origin.language || ''] || ''}检索`, terms].filter(Boolean).join(' · ')
+      break
+    }
+    case 'rss':
+      label = ['订阅', origin.feed?.trim()].filter(Boolean).join('：')
+      break
+    case 'configured':
+      label = '指定网址'
+      break
+    default:
+      return ''
+  }
+  return [label, origin.seen?.trim()].filter(Boolean).join(' · ')
+}
+
+function SourceMetadata({ source }: { source: Source }) {
+  const author = source.author?.trim()
+  const published = source.published_at?.trim()
+  const collected = source.collected_at?.trim()
+  const byline = [
+    author && `作者：${author}`,
+    published && `发布时间：${published}`,
+    collected && `采集时间：${formatTimestamp(collected)}`
+  ].filter(Boolean).join(' · ')
+  const language = languages[source.document_language || '']
+  const origins = source.origins?.map(describeOrigin).filter(Boolean) || []
+
+  return <>
+    {byline && <p className="text-xs text-muted-foreground">{byline}</p>}
+    {(language || origins.length > 0) && <div className="text-xs text-muted-foreground">
+      {language && <p>正文语言：{language}</p>}
+      {origins.map((origin, index) => <p key={index}>{origin}</p>)}
+    </div>}
+  </>
 }
 
 export function SourceDetail({
@@ -80,16 +123,7 @@ export function SourceDetail({
                 复制来源链接
               </CopyButton>
             </div>
-            <p className="text-xs text-muted-foreground">
-              作者：{source.author || '未提供'} · 发布时间：{source.published_at || '未提供'} · 采集时间：
-              {source.collected_at ? formatTimestamp(source.collected_at) : '未记录'}
-            </p>
-            <div className="text-xs text-muted-foreground">
-              <p>正文语言：{source.document_language === 'en' ? '英文' : source.document_language === 'zh' ? '中文' : source.document_language ? '未知' : '未记录'}</p>
-              {source.origins?.length ? source.origins.map(o => <p key={JSON.stringify(o)}>
-                {o.type === 'search' ? `${o.language === 'en' ? '英文检索' : '中文检索'} · ${o.keyword} → ${o.query}` : o.type === 'rss' ? `订阅：${o.feed}` : '指定网址'} · {o.seen}
-              </p>) : <p>发现依据：未记录</p>}
-            </div>
+            <SourceMetadata source={source} />
             {source.truncated && (
               <p className="text-sm text-muted-foreground">
                 正文已截取，原提取结果约 {source.original_chars} 字符；分析仅依据当前保存的片段。

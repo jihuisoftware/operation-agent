@@ -47,11 +47,19 @@ it('allows an explicitly authorized re-upload to show a deleted image again', as
   )
   fireEvent.click(screen.getByRole('button', { name: '删除图片：可用.png' }))
   await waitFor(() => expect(refresh).toHaveBeenCalledOnce())
+  const picker = screen.getByRole('button', { name: '选择文件' })
+  expect(picker.hasAttribute('disabled')).toBe(true)
+  expect(screen.queryByText('未选择任何文件')).toBeNull()
   fireEvent.click(screen.getByRole('checkbox'))
-  fireEvent.change(screen.getByLabelText('上传图片素材'), {
+  const input = screen.getByLabelText('上传图片素材')
+  const openPicker = vi.spyOn(input, 'click')
+  fireEvent.click(picker)
+  expect(openPicker).toHaveBeenCalledOnce()
+  fireEvent.change(input, {
     target: { files: [new File(['image'], '可用.png', { type: 'image/png' })] }
   })
   await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2))
+  expect(screen.queryByText('未选择任何文件')).toBeNull()
   expect(rest).toHaveBeenCalledWith('/assets', {
     method: 'POST',
     body: { name: '可用.png', data: 'aW1hZ2U=', authorized: true }

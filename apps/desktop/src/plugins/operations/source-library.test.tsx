@@ -3,8 +3,26 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { SourceLibrary } from './source-library'
+import { SourceDetail } from './source-detail'
 
 afterEach(cleanup)
+
+it('shows recorded source metadata without placeholders or stray separators', async () => {
+  const rest = vi.fn(async () => ({
+    title: '来源详情', text: '正文片段', url: 'https://example.org/a',
+    author: '  ', published_at: null, collected_at: '2026-11-23T01:19:47Z',
+    document_language: 'zh', origins: [{ type: 'search', query: '小户型收纳' }],
+    truncated: true, original_chars: 5000, images: [{ state: 'link_only', url: 'https://example.org/image' }]
+  }))
+  render(<SourceDetail ctx={{ rest } as unknown as PluginContext} identity="s1" onClose={vi.fn()} />)
+  await screen.findByText('正文片段')
+  expect(screen.getByText(/^采集时间：[^·]+$/)).toBeTruthy()
+  expect(screen.queryByText(/作者：|发布时间：/)).toBeNull()
+  expect(screen.getByText('正文语言：中文')).toBeTruthy()
+  expect(screen.getByText('检索 · 小户型收纳')).toBeTruthy()
+  expect(screen.getByText(/正文已截取/)).toBeTruthy()
+  expect(screen.getByText(/仅保留原图链接/)).toBeTruthy()
+})
 
 it('jumps directly to the last, first and entered page and resets search to page one', async () => {
   const rest = vi.fn(async (path: string) => {
@@ -59,6 +77,7 @@ it('shows saved picture/text material and pins historical evidence without publi
   expect(rest).toHaveBeenCalledWith('/sources/s1/reuse', { method: 'POST', body: { version: 9, enabled: true } })
   fireEvent.click(screen.getByRole('button', { name: '查看图文' }))
   expect(await screen.findByText('完整原始正文')).toBeTruthy()
+  expect(screen.queryByText(/作者：|发布时间：|采集时间：|正文语言：|发现依据：/)).toBeNull()
   expect(screen.getByText('参考图片 · 尚未授权公开发布')).toBeTruthy()
   expect(screen.getByText('内容版本一 · 2026-11-01')).toBeTruthy()
   expect(rest.mock.calls.every(([path]) => path.startsWith('/sources'))).toBe(true)

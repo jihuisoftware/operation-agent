@@ -1,5 +1,5 @@
 import { Button, Codicon, type PluginContext } from '@hermes/plugin-sdk'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { AssetImage } from './asset-image'
 import type { RecordRow } from './types'
@@ -86,6 +86,7 @@ export function Assets({
   onError: (error: string) => void
 }) {
   const [authorized, setAuthorized] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
   const [removed, setRemoved] = useState<string[]>([])
 
   async function removeAsset(id: string) {
@@ -114,11 +115,16 @@ export function Assets({
           <input checked={authorized} onChange={e => setAuthorized(e.target.checked)} type="checkbox" />{' '}
           我确认所选素材可用于当前账号公开发布
         </label>
+        <Button className="justify-self-start" disabled={!authorized} onClick={() => fileInput.current?.click()} type="button" variant="outline">
+          选择文件
+        </Button>
         <input
           accept="image/png,image/jpeg,image/webp"
           aria-label="上传图片素材"
           disabled={!authorized}
+          hidden
           multiple
+          ref={fileInput}
           onChange={async e => {
             const input = e.currentTarget
             const files = Array.from(input.files || [])
