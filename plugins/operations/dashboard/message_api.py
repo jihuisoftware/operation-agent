@@ -1,4 +1,4 @@
-"""Shared account inbox, with operations scoped to the handling topic."""
+"""Private, topic-bound received-message workbench."""
 
 from fastapi import APIRouter, HTTPException
 
@@ -11,24 +11,13 @@ router = APIRouter(prefix="/messages")
 
 
 @router.get("")
-def listing(source: str = "", state: str = "", before: str = "0", platform: str = ""):
-    return checked_resource(lambda: messages.listing(Store(), source, state, before, account_view=True, platform=platform))
+def listing(source: str = "", state: str = "", before: int = 0):
+    return checked_resource(lambda: messages.listing(Store(), source, state, before))
 
 
 @router.get("/{identity:path}")
 def detail(identity: str):
-    return checked_resource(lambda: messages.detail(Store(), identity, account_view=True))
-
-
-@router.post("/sync-notifications")
-def sync_notifications(body: dict | None = None):
-    from ..notification_intake import sync
-    from ..execution_pause import ExecutionPaused
-    from ..outcomes import StageSkipped
-    try:
-        return checked_resource(lambda: sync(Store(), platform=(body or {}).get("platform", "xiaohongshu")))
-    except (ExecutionPaused, StageSkipped) as exc:
-        raise HTTPException(409, str(exc)) from exc
+    return checked_resource(lambda: messages.detail(Store(), identity))
 
 
 @router.post("/{identity}")

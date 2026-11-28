@@ -12,20 +12,10 @@ import {
   type PlatformLogins,
   sameLoginOwner
 } from './login-state'
-import { PlatformAppIcon } from './platform-app-icon'
 
 interface PlatformLoginsProps {
   ctx: PluginContext
   owner: CronBlueprintOwner
-}
-
-function PlatformName({ id, name }: { id: string; name: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 font-medium">
-      <PlatformAppIcon platform={id} />
-      {name}
-    </span>
-  )
 }
 
 export function PlatformLoginsPanel({ ctx, owner }: PlatformLoginsProps) {
@@ -91,8 +81,8 @@ export function PlatformLoginsPanel({ ctx, owner }: PlatformLoginsProps) {
       {!data && !error && <p>正在读取登录状态…</p>}
       {data?.platforms.map(platform => (
         <div className="flex flex-wrap items-center gap-2 py-1" key={platform.id}>
-          <PlatformName id={platform.id} name={platform.name} />
-          <Badge variant={platform.state === 'logged_in' ? 'success' : 'muted'}>{loginLabels[platform.state]}</Badge>
+          <span className="font-medium">{platform.name}</span>
+          <Badge variant="muted">{loginLabels[platform.state]}</Badge>
           {platform.account_mismatch && <Badge variant="muted">账号与运营规则不匹配</Badge>}
           {platform.observed_state && platform.state !== platform.observed_state && (
             <span className="text-xs text-muted-foreground">最近检查结果：{loginLabels[platform.observed_state]}</span>

@@ -8,7 +8,6 @@ import { BrowserReadinessError, waitForRead } from './browser-wait'
 import { xhsInteractionDom } from './interaction-dom'
 import { confirmLogin } from './login-evidence'
 import { inspectLoginPage } from './login-page'
-import { notificationPage, readNotificationRow } from './notification-page'
 import { xhsPage } from './page'
 import { xhsReady } from './page-ready'
 import { publicationBaseline, resolvePublication, submissionReceipt } from './publication'
@@ -200,7 +199,15 @@ async function executeCommand(command: BrowserCommand, guest: Guest, request: Ap
       throw new BrowserExecutionError('登录状态仍未确认，请等待页面加载完成后手动继续', 'BROWSER_UNAVAILABLE')
     }
 
-    if (accountMismatch(command.kind, identity.account_id, payload.account_id)) {
+    if (command.kind === 'account' && !payload.readonly_inventory) {
+      return identity
+    }
+
+    if (command.kind === 'account' && payload.readonly_inventory !== 'comment') {
+      throw new Error('未知的只读网页检查类型')
+    }
+
+    if (command.kind !== 'account' && identity.account_id !== payload.account_id) {
       throw new BrowserExecutionError('当前登录账号不匹配，已停止执行', 'ACCOUNT_CHANGED')
     }
 
@@ -210,15 +217,7 @@ async function executeCommand(command: BrowserCommand, guest: Guest, request: Ap
       follow: `${HOME}/user/profile/${encodeURIComponent(payload.account_id)}`
     }
 
-    if (command.kind === 'account') {
-      if (!payload.readonly_inventory) { return identity }
-      if (payload.readonly_inventory === 'notifications') {
-        return trace.step('inventory', async () => ({
-          ...identity, ...await readNotifications(payload.notification_source, identity.account_id, guest, execution, navigate, locations.reply, sleep)
-        }))
-      }
-      if (payload.readonly_inventory !== 'comment') { throw new Error('未知的只读网页检查类型') }
-
+    if (command.kind === 'account' && payload.readonly_inventory === 'comment') {
       return trace.step('inventory', async () => {
         const readOnly = { ...payload, kind: 'comment', account_id: identity.account_id }
         await openInventory(readOnly, { navigate, page: operation => page(operation, readOnly),
@@ -251,10 +250,6 @@ async function executeCommand(command: BrowserCommand, guest: Guest, request: Ap
 
     if (command.kind === 'inbox') {
       return await trace.step('inventory', async () => {
-        if (payload.notification_source) {
-          return readNotifications(payload.notification_source, identity.account_id, guest, execution, navigate, locations.reply, sleep)
-        }
-
         await openInventory(payload, { navigate, page, ready, clickLabel, locations })
 
         return page('inventory')
@@ -317,19 +312,4 @@ function failureReceipt(execution: BrowserExecution, error: unknown, receipt: Re
   if (result.submitted && receipt.state && receipt.state !== 'unknown') { result.state = 'submitted' }
 
   return { ...receipt, baseline, ...result, error_code: error instanceof BrowserReadinessError ? error.code : result.error_code }
-}
-
-function accountMismatch(kind: BrowserCommand['kind'], actual: string, expected?: string) {
-  return kind !== 'account' && actual !== expected
-}
-
-async function readNotifications(source: string, account: string, guest: Guest, execution: BrowserExecution,
-  navigate: (url: string) => Promise<void>, url: string, sleep?: (ms: number) => Promise<unknown>) {
-  await navigate(url)
-  const read = (select: boolean) => pageScript(guest, execution, () => evaluateGuest(guest,
-    `(${notificationPage.toString()})(${JSON.stringify(source)},${select},(${readNotificationRow.toString()}))`), '读取通知页签', sleep)
-  await waitForRead(() => read(true), result => result.ready, READINESS_MS, false, sleep, execution)
-  const result = await waitForRead(() => read(false), value => value.ready, READINESS_MS, false, sleep, execution)
-
-  return { items: result.items, notification_source: source, account_id: account }
 }

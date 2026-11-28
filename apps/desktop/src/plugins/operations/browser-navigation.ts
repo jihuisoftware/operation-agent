@@ -30,9 +30,9 @@ function matchesDocument(actual: string, target: URL) {
 }
 
 /** A visible DOM can still be loading: Electron queues executeJavaScript until the main frame finishes. */
-export async function navigateGuest(guest: Guest, url: string, sleep?: (ms: number) => Promise<unknown>, execution?: BrowserExecution, reload = false) {
+export async function navigateGuest(guest: Guest, url: string, sleep?: (ms: number) => Promise<unknown>, execution?: BrowserExecution) {
   const target = new URL(url)
-  const samePage = !reload && guest.getURL() === target.href
+  const samePage = guest.getURL() === target.href
 
   if (samePage && !guest.isLoadingMainFrame?.()) { return }
   let loaded = false

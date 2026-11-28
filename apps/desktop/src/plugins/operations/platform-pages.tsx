@@ -23,18 +23,6 @@ export function usePlatformPages(primary: Guest) {
   const [active, setActive] = useState('xiaohongshu')
   const guests = useRef(new Map<string, Guest>())
 
-  const [zhihuGeneration, setZhihuGeneration] = useState(0)
-  const replaceZhihu = useCallback(() => setZhihuGeneration(previous => previous + 1), [])
-  const forNotifications = useCallback(async () => {
-    setOpened(previous => previous.includes('zhihu') ? previous : [...previous, 'zhihu'])
-    for (let attempt = 0; attempt < 200; attempt++) {
-      const guest = guests.current.get('zhihu')
-      if (guest?.isConnected) { return guest }
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-    throw new Error('知乎网页尚未就绪，请在账号页检查登录后重试')
-  }, [])
-
   const register = useCallback((platform: string, guest: Guest) => {
     guests.current.set(platform, guest)
 
@@ -55,7 +43,7 @@ export function usePlatformPages(primary: Guest) {
     }
   }, [primary])
 
-  return { opened, active, select: setActive, openPage, register, forNotifications, zhihuGeneration, replaceZhihu }
+  return { opened, active, select: setActive, openPage, register }
 }
 
 interface PlatformPageTabsProps {
@@ -127,9 +115,7 @@ export function PlatformLoginPage({ owner, platform, visible, worker, api, takeO
   const container = useRef<HTMLDivElement>(null)
   const { guest, loading, error, reopen, back } = useOperationsGuest(owner, container, page.url)
   const [status, setStatus] = useState('登录状态会自动检查；切换平台后仍保留此页面')
-  useEffect(() => {
-    if (!loading) { return register(platform, guest) }
-  }, [register, platform, guest, loading])
+  useEffect(() => register(platform, guest), [register, platform, guest])
   useLoginObservation({ api, guest, worker, platform, onStatus: setStatus })
 
   const run = (action: () => Promise<void>) => { void action().catch(reason => setStatus(String(reason))) }
@@ -140,18 +126,7 @@ export function PlatformLoginPage({ owner, platform, visible, worker, api, takeO
       error={error}
       hide={() => $showOperationsBrowser.set(false)}
       loading={loading}
-      login={() => run(async () => {
-        await takeOver()
-        if (loading && !error) { return }
-
-        if (error || loginPlatform(guest.getURL()) !== platform) {
-          await reopen()
-          return
-        }
-
-        guest.focus()
-        setStatus(`已接管${page.name}页面，请在网页内完成登录`)
-      })}
+      login={() => run(async () => { await takeOver(); await reopen() })}
       platformName={page.name}
       release={() => run(async () => { await release(); setStatus('已结束接管，网页动作按后续排期执行') })}
       reopen={() => run(async () => { await takeOver(); await reopen() })}

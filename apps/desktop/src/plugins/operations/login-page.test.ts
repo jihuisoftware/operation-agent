@@ -16,17 +16,6 @@ function page(hostname: string, html: string) {
   document.body.innerHTML = html
 }
 
-it('recognizes the collapsed Zhihu account menu only with a visible private inbox control', () => {
-  const menu = '<div class="AppHeader-profileMenu"><button class="AppHeader-profileEntry" aria-haspopup="true"><img class="AppHeader-profileAvatar"></button></div>'
-  const inbox = '<button aria-label="7条私信"></button>'
-  page('www.zhihu.com', `<header>${menu}</header><article>${inbox}</article>`)
-  expect(inspectLoginPage('zhihu').state).toBe('unknown')
-  document.querySelector('header')!.insertAdjacentHTML('beforeend', inbox)
-  expect(inspectLoginPage('zhihu')).toEqual({ state: 'logged_in', account_id: '' })
-  document.querySelector('header')!.insertAdjacentHTML('beforeend', '<button>登录</button>')
-  expect(inspectLoginPage('zhihu').state).toBe('logged_out')
-})
-
 it('requires an account entry in navigation, never a public note author or text mentioning login', () => {
   page(
     'www.xiaohongshu.com',

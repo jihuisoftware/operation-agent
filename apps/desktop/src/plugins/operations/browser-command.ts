@@ -7,8 +7,6 @@ import { BACKEND_MS } from './browser-timeouts'
 import { createBrowserTrace } from './browser-trace'
 import type { Api, BrowserCommand, Guest } from './types'
 
-import { receiveZhihu } from './zhihu-notifications'
-
 export interface ActiveBrowserExecution { pending: Promise<unknown> | null; worker?: string; context?: BrowserExecution | null }
 
 export async function runBrowserCommand(command: BrowserCommand, guest: Guest, api: Api, worker: string,
@@ -30,10 +28,6 @@ export async function runBrowserCommand(command: BrowserCommand, guest: Guest, a
     }
 
     context.assert()
-
-    if (command.kind === 'account' && command.payload.readonly_inventory === 'zhihu_notifications') {
-      return receiveZhihu(command, guest, api, context, sleep)
-    }
 
     return trace.step('execution', () => executeBrowser(command, guest, api, sleep, trace, worker, context))
   }, Math.max(1, command.expires * 1000 - Date.now()))

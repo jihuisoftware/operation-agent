@@ -86,25 +86,21 @@ def transfer_target(store, db, row, topic):
     return topic
 
 
-def transfers(store, kind, before, platform=""):
-    from .message_time import ordered_page
-    if kind not in ("", "dm", "reply", "follow", "reaction"):
+def transfers(store, kind, before):
+    if kind not in ("", "dm", "reply", "follow"):
         raise ValueError("未知消息类型")
-    if platform not in ("", "zhihu", "xiaohongshu"):
-        raise ValueError("消息平台无效")
     match = " FROM events WHERE kind='message_transferred' AND (?='' OR json_extract(data,'$.kind')=?)"
-    params = [kind, kind]
-    if platform:
-        match += " AND COALESCE(json_extract(data,'$.platform'),'xiaohongshu')=?"
-        params.append(platform)
     with store.connection() as db:
         db.execute("BEGIN")
-        total = db.execute("SELECT count(*)" + match, params).fetchone()[0]
-        rows, cursor = ordered_page(db, match, params, before, payload="data", tie="id")
+        total = db.execute("SELECT count(*)" + match, (kind, kind)).fetchone()[0]
+        rows = db.execute(
+            "SELECT id,data" + match + " AND (?=0 OR id<?) ORDER BY id DESC LIMIT 26",
+            (kind, kind, before, before),
+        ).fetchall()
     return {
-        "items": [{**json.loads(r["data"]), "id": "transfer-" + str(r["id"])} for r in rows],
+        "items": [{**json.loads(r["data"]), "id": "transfer-" + str(r["id"])} for r in rows[:25]],
         "total": total,
-        "next": cursor,
+        "next": rows[24]["id"] if len(rows) > 25 else None,
     }
 
 

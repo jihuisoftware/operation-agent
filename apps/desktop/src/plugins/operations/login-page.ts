@@ -126,18 +126,6 @@ export function inspectLoginPage(platform: string) {
     return result('unknown')
   }
 
-  const zhihuAccountMenuVisible = () => {
-    // The closed account menu has an avatar button but no /people/ link.
-    const avatars = all('header .AppHeader-profileMenu button.AppHeader-profileEntry[aria-haspopup="true"] img.AppHeader-profileAvatar')
-    const header = avatars.length === 1 ? avatars[0].closest('header') : null
-
-    return Boolean(header && all('header button[aria-label]').some(button =>
-      header.contains(button) && /^(?:\d+\+?条)?私信$/.test((button.getAttribute('aria-label') || '').replace(/\s+/g, ''))
-    ))
-  }
-
-  if (platform === 'zhihu' && zhihuAccountMenuVisible()) { return result('logged_in') }
-
   // The public article reader is not the official-account console. Never inspect query tokens.
   if (platform === 'wechat') {
     const account = all('.weui-desktop-account__nickname,.account_nickname')

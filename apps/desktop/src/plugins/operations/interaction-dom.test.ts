@@ -35,19 +35,3 @@ it('keeps blank notifications unconfirmed and rejects a different note before wr
   expect(xhsReady({ phase: 'interaction', payload: { kind: 'comment', target: 'note:wanted' } }).ready).toBe(false)
   expect(() => xhsPage({ operation: 'prepare-interaction', payload: { kind: 'comment', target: 'note:wanted', text: '内容' } })).toThrow('目标不一致')
 })
-
-it('opens the messages navigation row with an unread badge, without clicking notifications', () => {
-  document.body.innerHTML = '<nav><a href="/notification">6 通知</a><ul><li role="button"><span>2</span><span>消息</span></li></ul></nav>'
-  const click = vi.fn()
-  document.querySelector('li')!.addEventListener('click', click)
-  expect(xhsPage({ operation: 'open-messages', payload: { kind: 'dm' } })).toEqual({ opened: true })
-  expect(click).toHaveBeenCalledOnce()
-})
-
-it('refuses ambiguous DM entries and excludes an external or notification link wrapped in a navigation item', () => {
-  document.body.innerHTML = '<nav><ul><li><a href="/notification">2 消息</a></li><li><a href="https://example.org/">消息</a></li><li>3 私信</li><li>消息 99+</li></ul></nav>'
-  const click = vi.fn()
-  document.querySelector('nav')!.addEventListener('click', click)
-  expect(xhsPage({ operation: 'open-messages', payload: { kind: 'dm' } })).toMatchObject({ opened: false, reason: expect.stringContaining('2 个') })
-  expect(click).not.toHaveBeenCalled()
-})

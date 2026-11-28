@@ -271,35 +271,3 @@ def test_pending_message_retried_after_leaving_viewport_without_blind_send(tmp_p
     scan(store, "reply", policy, version)
     (row,) = messages.listing(store, state="attention")["items"]
     assert seen == ["m"] and "重新定位" in row["reason"] and not store.snapshot()["actions"]
-
-
-def test_message_api_shares_reads_by_bound_account_but_keeps_handling_with_owner(tmp_path, monkeypatch):
-    from fastapi.testclient import TestClient
-    from hermes_cli import web_server
-
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    source = Store()
-    directory = source.workspace
-    origin = {"business_id": source.scope["business_id"], "topic_id": source.scope["id"]}
-    peer = directory.create("第二个主题", business=origin["business_id"])
-    other = directory.create("独立业务")
-    with directory.connection() as db:
-        db.execute("UPDATE accounts SET identity='acct' WHERE id=?", (source.scope["account"],))
-    messages.read_items(source, "dm", "acct", [{"id": "m", "text": "几点开门", "inbound": True}], auto=False, day="2026-11-27")
-    url = "/api/plugins/operations/messages"
-    with TestClient(web_server.app) as client:
-        client.headers[web_server._SESSION_HEADER_NAME] = web_server._SESSION_TOKEN
-        page = client.get(url, params={**peer, "source": "dm", "state": "attention"}).json()
-        assert page["total"] == 1
-        row, = page["items"]
-        path = url + "/" + row["id"]
-        detail = client.get(path, params=peer).json()
-        assert detail["text"] == "几点开门" and detail["owner_topic"] == source.scope["name"]
-        assert detail["read_only"] and not client.get(path, params=origin).json()["read_only"]
-        assert client.post(path, params=peer, json={"revision": row["revision"], "operation": "take"}).status_code == 404
-        assert client.get(url, params=other).json()["total"] == 0
-        assert client.get(path, params=other).status_code == 404
-        with directory.connection() as db:
-            db.execute("UPDATE accounts SET identity='replacement' WHERE id=?", (source.scope["account"],))
-        assert client.get(path, params=peer).status_code == 404
-        assert client.get(url, params=peer).json()["total"] == 0
